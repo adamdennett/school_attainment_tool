@@ -1,0 +1,52 @@
+/* Custom styles for School Attainment Policy Simulator */
+
+/* Outcome selector styling */
+.shiny-input-radiogroup label.radio-inline {
+  margin-right: 1rem;
+  font-weight: 500;
+}
+
+/* Card improvements */
+.card {
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.card-header {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Sidebar school card */
+.sidebar .card {
+  background-color: #f8f9fa;
+}
+
+/* Slider improvements */
+.irs--shiny .irs-bar {
+  background: #0d6efd;
+  border-top: 1px solid #0d6efd;
+  border-bottom: 1px solid #0d6efd;
+}
+
+.irs--shiny .irs-handle {
+  border: 2px solid #0d6efd;
+}
+
+/* Table styling */
+.dataTables_wrapper {
+  font-size: 0.85rem;
+}
+
+/* Map popup styling */
+.leaflet-popup-content {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100% !important;
+  }
+}
