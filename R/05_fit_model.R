@@ -1,19 +1,28 @@
 # 05_fit_model.R - Fit multilevel models (x3 outcomes) and run diagnostics
 # -------------------------------------------------------------------------
-# This script:
-#   1. Prepares the modelling dataset (complete cases for model variables)
-#   2. Fits three multilevel models: all pupils, disadvantaged, non-disadvantaged
-#   3. Runs diagnostics (ICC, R-squared, residual checks)
-#   4. Saves model objects and diagnostics
+# This script runs TWO analyses:
 #
-# Model specification (extending lme11 from week8_practical.qmd):
-#   log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-#     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-#     log(remained_in_the_same_school) +
-#     teachers_on_leadership_pay_range_percent +
-#     log(average_number_of_days_taken) +
-#     year_numeric +
-#     (1 | OFSTEDRATING) + (1 | gor_name/LANAME)
+#   A. PANEL MODELS (all 4 years pooled)
+#      - year_label enters as an additional RANDOM effect
+#      - Captures between-year variation as a variance component
+#      - Formula:
+#        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+#          PTPRIORLO + ADMPOL_PT + gorard_segregation +
+#          log(remained_in_the_same_school) +
+#          teachers_on_leadership_pay_range_percent +
+#          log(average_number_of_days_taken) +
+#          (1 | year_label) + (1 | OFSTEDRATING) + (1 | gor_name/LANAME)
+#
+#   B. PER-YEAR MODELS (separate model for each academic year)
+#      - Same fixed effects but no year term
+#      - Allows coefficients to vary freely across years
+#      - Formula:
+#        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+#          PTPRIORLO + ADMPOL_PT + gorard_segregation +
+#          log(remained_in_the_same_school) +
+#          teachers_on_leadership_pay_range_percent +
+#          log(average_number_of_days_taken) +
+#          (1 | OFSTEDRATING) + (1 | gor_name/LANAME)
 #
 # Depends on: R/04_compute_derived.R (produces panel_data.rds)
 # Run from project root: source("R/05_fit_model.R")
@@ -34,19 +43,32 @@ OUTCOMES <- list(
   non_disadvantaged = "ATT8SCR_NFSM6CLA1A"
 )
 
-# Predictor variables used in the model
-# (on original scale - log transforms applied in the formula)
-MODEL_PREDICTORS <- c(
+# Common fixed-effect predictors (log transforms applied in the formula)
+FIXED_PREDICTORS <- c(
   "PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
   "PTPRIORLO", "ADMPOL_PT", "gorard_segregation",
   "remained_in_the_same_school",
   "teachers_on_leadership_pay_range_percent",
-  "average_number_of_days_taken",
-  "year_numeric"
+  "average_number_of_days_taken"
 )
 
-# Grouping variables for random effects
+# Grouping variables for random effects (shared across both analyses)
 MODEL_GROUPING <- c("OFSTEDRATING", "gor_name", "LANAME")
+
+# Fixed-effects portion of the formula (shared by panel and per-year models)
+FIXED_FORMULA_RHS <- paste0(
+  "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
+  "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+  "log(remained_in_the_same_school) + ",
+  "teachers_on_leadership_pay_range_percent + ",
+  "log(average_number_of_days_taken)"
+)
+
+# Panel model: year as random effect
+PANEL_RANDOM <- "(1 | year_label) + (1 | OFSTEDRATING) + (1 | gor_name/LANAME)"
+
+# Per-year model: no year term
+PERYEAR_RANDOM <- "(1 | OFSTEDRATING) + (1 | gor_name/LANAME)"
 
 
 #' Prepare the modelling dataset
@@ -60,9 +82,9 @@ prepare_model_data <- function(panel) {
   # All variables needed
   all_vars <- c(
     unlist(OUTCOMES),
-    MODEL_PREDICTORS,
+    FIXED_PREDICTORS,
     MODEL_GROUPING,
-    "URN", "SCHNAME", "academic_year", "year_label"
+    "URN", "SCHNAME", "academic_year", "year_label", "year_numeric"
   )
 
   # Check which variables are present
@@ -113,7 +135,8 @@ prepare_model_data <- function(panel) {
     mutate(
       OFSTEDRATING = factor(OFSTEDRATING),
       gor_name = factor(gor_name),
-      LANAME = factor(LANAME)
+      LANAME = factor(LANAME),
+      year_label = factor(year_label)
     ) %>%
     # Drop unused factor levels
     droplevels()
@@ -121,7 +144,7 @@ prepare_model_data <- function(panel) {
   message("  Ofsted levels: ", paste(levels(model_data_full$OFSTEDRATING), collapse = ", "))
   message("  Regions: ", n_distinct(model_data_full$gor_name))
   message("  LAs: ", n_distinct(model_data_full$LANAME))
-  message("  Years: ", paste(sort(unique(model_data_full$year_label)), collapse = ", "))
+  message("  Years: ", paste(sort(unique(as.character(model_data_full$year_label))), collapse = ", "))
 
   model_data_full
 }
@@ -131,9 +154,10 @@ prepare_model_data <- function(panel) {
 #'
 #' @param outcome_var Character name of the outcome variable
 #' @param data Prepared modelling dataframe
+#' @param random_effects Character string for the random effects portion of the formula
 #' @param label Human-readable label for messages
 #' @return A fitted lmerMod object
-fit_attainment_model <- function(outcome_var, data, label = outcome_var) {
+fit_attainment_model <- function(outcome_var, data, random_effects, label = outcome_var) {
 
   message("\nFitting model for: ", label, " (", outcome_var, ")")
 
@@ -149,30 +173,23 @@ fit_attainment_model <- function(outcome_var, data, label = outcome_var) {
   # Build formula
   formula_str <- paste0(
     "log(", outcome_var, ") ~ ",
-    "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
-    "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
-    "log(remained_in_the_same_school) + ",
-    "teachers_on_leadership_pay_range_percent + ",
-    "log(average_number_of_days_taken) + ",
-    "year_numeric + ",
-    "(1 | OFSTEDRATING) + (1 | gor_name/LANAME)"
+    FIXED_FORMULA_RHS, " + ",
+    random_effects
   )
 
   formula <- as.formula(formula_str)
   message("  Formula: ", formula_str)
 
   # Also show human-readable version
-  formula_readable <- paste0(
+  fixed_readable <- paste0(
     "log(", var_label(outcome_var), ") ~ ",
     "log(", var_label("PTFSM6CLA1A"), ") + log(", var_label("PERCTOT"), ") + log(", var_label("PNUMEAL"), ") + ",
     var_label("PTPRIORLO"), " + ", var_label("ADMPOL_PT"), " + ", var_label("gorard_segregation"), " + ",
     "log(", var_label("remained_in_the_same_school"), ") + ",
     var_label("teachers_on_leadership_pay_range_percent"), " + ",
-    "log(", var_label("average_number_of_days_taken"), ") + ",
-    var_label("year_numeric"), " + ",
-    "(1 | ", var_label("OFSTEDRATING"), ") + (1 | ", var_label("gor_name"), "/", var_label("LANAME"), ")"
+    "log(", var_label("average_number_of_days_taken"), ")"
   )
-  message("  Readable: ", formula_readable)
+  message("  Readable (fixed): ", fixed_readable)
 
   # Set contrasts (need at least 2 levels)
   n_ofsted_levels <- nlevels(model_data$OFSTEDRATING)
@@ -297,37 +314,133 @@ if (sys.nframe() == 0) {
   panel <- readRDS(panel_path)
   message("Loaded panel: ", nrow(panel), " rows, ", ncol(panel), " cols\n")
 
-  # Prepare modelling dataset
+  # Prepare modelling dataset (shared by both analyses)
   model_data <- prepare_model_data(panel)
 
   # Save modelling data for reproducibility
   saveRDS(model_data, here::here("data", "model_data.rds"))
 
-  # Fit all three models
-  models <- list()
-  diagnostics <- list()
+
+  # =====================================================================
+  # ANALYSIS A: FULL PANEL — year_label as random effect
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("ANALYSIS A: FULL PANEL MODELS (all years, year as random effect)")
+  message(strrep("=", 70))
+
+  panel_models <- list()
+  panel_diagnostics <- list()
 
   for (model_name in names(OUTCOMES)) {
     outcome_var <- OUTCOMES[[model_name]]
-    label <- switch(model_name,
-                    all = "All Pupils",
-                    disadvantaged = "Disadvantaged Pupils",
-                    non_disadvantaged = "Non-Disadvantaged Pupils")
+    label <- paste0(
+      switch(model_name,
+             all = "All Pupils",
+             disadvantaged = "Disadvantaged Pupils",
+             non_disadvantaged = "Non-Disadvantaged Pupils"),
+      " [Panel]"
+    )
 
-    models[[model_name]] <- fit_attainment_model(outcome_var, model_data, label)
-    diagnostics[[model_name]] <- run_diagnostics(models[[model_name]], label)
+    panel_models[[model_name]] <- fit_attainment_model(
+      outcome_var, model_data,
+      random_effects = PANEL_RANDOM,
+      label = label
+    )
+    panel_diagnostics[[model_name]] <- run_diagnostics(
+      panel_models[[model_name]], label
+    )
   }
 
-  # Save models and diagnostics
-  saveRDS(models, here::here("data", "models.rds"))
-  saveRDS(diagnostics, here::here("data", "model_diagnostics.rds"))
+  # Save panel models
+  saveRDS(panel_models, here::here("data", "models.rds"))
+  saveRDS(panel_diagnostics, here::here("data", "model_diagnostics.rds"))
+  message("\nPanel models saved to: data/models.rds")
 
-  # Pre-compute predictions for the full panel (for the Shiny app)
-  message("\n=== Pre-computing predictions ===")
 
-  for (model_name in names(models)) {
+  # =====================================================================
+  # ANALYSIS B: PER-YEAR MODELS — separate model for each academic year
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("ANALYSIS B: PER-YEAR MODELS (separate model for each year)")
+  message(strrep("=", 70))
+
+  year_levels <- sort(unique(as.character(model_data$year_label)))
+  message("Years to fit: ", paste(year_levels, collapse = ", "))
+
+  yearly_models <- list()
+  yearly_diagnostics <- list()
+
+  for (yr in year_levels) {
+
+    message("\n", strrep("-", 60))
+    message("  YEAR: ", yr)
+    message(strrep("-", 60))
+
+    # Subset to this year and drop unused factor levels
+    yr_data <- model_data %>%
+      filter(year_label == yr) %>%
+      droplevels()
+
+    message("  Rows for ", yr, ": ", nrow(yr_data))
+
+    yearly_models[[yr]] <- list()
+    yearly_diagnostics[[yr]] <- list()
+
+    for (model_name in names(OUTCOMES)) {
+      outcome_var <- OUTCOMES[[model_name]]
+      label <- paste0(
+        switch(model_name,
+               all = "All Pupils",
+               disadvantaged = "Disadvantaged Pupils",
+               non_disadvantaged = "Non-Disadvantaged Pupils"),
+        " [", yr, "]"
+      )
+
+      # Attempt to fit; some year/outcome combos may have too few observations
+      yearly_models[[yr]][[model_name]] <- tryCatch({
+        fit_attainment_model(
+          outcome_var, yr_data,
+          random_effects = PERYEAR_RANDOM,
+          label = label
+        )
+      }, error = function(e) {
+        warning("  Failed to fit ", label, ": ", e$message)
+        NULL
+      })
+
+      if (!is.null(yearly_models[[yr]][[model_name]])) {
+        yearly_diagnostics[[yr]][[model_name]] <- run_diagnostics(
+          yearly_models[[yr]][[model_name]], label
+        )
+      } else {
+        yearly_diagnostics[[yr]][[model_name]] <- list(
+          r2_marginal = NA, r2_conditional = NA,
+          n_obs = 0, sigma = NA,
+          note = paste("Model fitting failed for", yr, model_name)
+        )
+      }
+    }
+  }
+
+  # Save per-year models
+  saveRDS(yearly_models, here::here("data", "models_yearly.rds"))
+  saveRDS(yearly_diagnostics, here::here("data", "model_diagnostics_yearly.rds"))
+  message("\nPer-year models saved to: data/models_yearly.rds")
+
+
+  # =====================================================================
+  # PRE-COMPUTE PREDICTIONS (from panel models, for the Shiny app)
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("PRE-COMPUTING PREDICTIONS (from panel models)")
+  message(strrep("=", 70))
+
+  for (model_name in names(panel_models)) {
     outcome_var <- OUTCOMES[[model_name]]
-    model <- models[[model_name]]
+    model <- panel_models[[model_name]]
 
     pred_col <- paste0("predicted_", outcome_var)
     resid_col <- paste0("residual_", outcome_var)
@@ -358,18 +471,40 @@ if (sys.nframe() == 0) {
   saveRDS(panel, here::here("data", "panel_data.rds"))
   message("\nUpdated panel_data.rds with predictions")
 
-  # ---- Summary ----
-  message("\n=== MODEL FITTING COMPLETE ===")
-  message("Models saved to: data/models.rds")
-  message("Diagnostics saved to: data/model_diagnostics.rds")
-  message("Panel with predictions saved to: data/panel_data.rds")
 
-  for (mn in names(diagnostics)) {
-    d <- diagnostics[[mn]]
-    message("\n", toupper(mn), ":")
-    message("  R2 marginal: ", round(d$r2_marginal, 4))
-    message("  R2 conditional: ", round(d$r2_conditional, 4))
-    message("  N obs: ", d$n_obs)
-    message("  Sigma: ", round(d$sigma, 4))
+  # =====================================================================
+  # SUMMARY
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("MODEL FITTING COMPLETE")
+  message(strrep("=", 70))
+
+  message("\n--- Analysis A: Panel Models (year as random effect) ---")
+  message("Saved to: data/models.rds, data/model_diagnostics.rds")
+  for (mn in names(panel_diagnostics)) {
+    d <- panel_diagnostics[[mn]]
+    message("\n  ", toupper(mn), ":")
+    message("    R2 marginal: ", round(d$r2_marginal, 4))
+    message("    R2 conditional: ", round(d$r2_conditional, 4))
+    message("    N obs: ", d$n_obs)
+    message("    Sigma: ", round(d$sigma, 4))
   }
+
+  message("\n--- Analysis B: Per-Year Models ---")
+  message("Saved to: data/models_yearly.rds, data/model_diagnostics_yearly.rds")
+  for (yr in names(yearly_diagnostics)) {
+    message("\n  Year: ", yr)
+    for (mn in names(yearly_diagnostics[[yr]])) {
+      d <- yearly_diagnostics[[yr]][[mn]]
+      if (is.na(d$r2_marginal)) {
+        message("    ", mn, ": FAILED (insufficient data)")
+      } else {
+        message(sprintf("    %-22s  R2m=%.4f  R2c=%.4f  N=%d  sigma=%.4f",
+                        mn, d$r2_marginal, d$r2_conditional, d$n_obs, d$sigma))
+      }
+    }
+  }
+
+  message("\nPredictions (from panel models) saved to: data/panel_data.rds")
 }
