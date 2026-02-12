@@ -130,7 +130,7 @@ key_vars <- c(
   "remained_in_the_same_school",
   "teachers_on_leadership_pay_range_percent",
   "average_number_of_days_taken",
-  "OFSTEDRATING", "gor_name", "LANAME"
+  "OFSTEDRATING", "OFSTEDRATING_1", "gor_name", "LANAME"
 )
 key_vars <- intersect(key_vars, names(panel))
 
@@ -312,17 +312,17 @@ message("Year boxplots saved")
 p_box_ofsted <- map(outcome_vars, function(v) {
   d <- panel %>%
     mutate(across(all_of(v), ~ suppressWarnings(as.numeric(as.character(.))))) %>%
-    filter(!is.na(!!sym(v)), !is.na(OFSTEDRATING))
+    filter(!is.na(!!sym(v)), !is.na(OFSTEDRATING_1))
 
-  ggplot(d, aes(x = OFSTEDRATING, y = !!sym(v), fill = OFSTEDRATING)) +
+  ggplot(d, aes(x = OFSTEDRATING_1, y = !!sym(v), fill = OFSTEDRATING_1)) +
     geom_boxplot(outlier.size = 0.5, outlier.alpha = 0.3) +
-    labs(title = var_label(v), x = "Ofsted Rating", y = NULL) +
+    labs(title = var_label(v), x = "Ofsted Rating (harmonised)", y = NULL) +
     theme_minimal(base_size = 10) +
     theme(legend.position = "none")
 }) %>%
   wrap_plots(ncol = 1) +
-  plot_annotation(title = "Attainment by Ofsted Rating",
-                  subtitle = "Ratings: 1 = Outstanding, 2 = Good, 3 = Requires Improvement, 4 = Inadequate")
+  plot_annotation(title = "Attainment by Ofsted Rating (harmonised)",
+                  subtitle = "Outstanding > Good > Requires Improvement > Inadequate")
 
 ggsave(file.path(output_dir, "boxplots_by_ofsted.png"), p_box_ofsted,
        width = 8, height = 10, dpi = 150)
@@ -334,14 +334,14 @@ message("Ofsted boxplots saved")
 # ===========================================================================
 
 ofsted_counts <- panel %>%
-  count(year_label, OFSTEDRATING) %>%
-  filter(!is.na(OFSTEDRATING))
+  count(year_label, OFSTEDRATING_1) %>%
+  filter(!is.na(OFSTEDRATING_1))
 
-p_ofsted_bar <- ggplot(ofsted_counts, aes(x = year_label, y = n, fill = OFSTEDRATING)) +
+p_ofsted_bar <- ggplot(ofsted_counts, aes(x = year_label, y = n, fill = OFSTEDRATING_1)) +
   geom_col(position = "fill") +
   scale_y_continuous(labels = percent_format()) +
   labs(
-    title = "Ofsted Rating Distribution by Year",
+    title = "Ofsted Rating Distribution by Year (harmonised)",
     subtitle = "Check for years with very few schools in certain categories",
     x = "Academic Year", y = "Proportion of Schools", fill = "Rating"
   ) +

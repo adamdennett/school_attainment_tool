@@ -125,7 +125,7 @@ mod_school_selector_server <- function(id, selected_outcome, selected_school_urn
         tags$h5(sd$SCHNAME),
         tags$p(class = "text-muted mb-1", paste(sd$LANAME, "|", sd$gor_name)),
         tags$p(class = "text-muted mb-2",
-               paste("Ofsted:", ifelse(is.na(sd$OFSTEDRATING), "N/A", sd$OFSTEDRATING))),
+               paste("Ofsted:", ifelse(is.na(sd$OFSTEDRATING_1), "N/A", as.character(sd$OFSTEDRATING_1)))),
         tags$hr(),
         tags$div(
           class = "d-flex justify-content-between",
@@ -275,7 +275,7 @@ mod_school_selector_server <- function(id, selected_outcome, selected_school_urn
           `% EAL` = PNUMEAL,
           `% Low Prior` = PTPRIORLO,
           `Pupils` = TOTPUPS,
-          Ofsted = OFSTEDRATING
+          Ofsted = OFSTEDRATING_1
         ) %>%
         mutate(across(where(is.numeric), ~ round(., 1)))
 

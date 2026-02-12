@@ -308,6 +308,43 @@ build_panel <- function(year_data_list, force_download = FALSE) {
               sum(!is.na(df$PERCTOT)), " total)")
     }
 
+    # --- Derive harmonised OFSTEDRATING_1 ---
+    # In 2021-22 and 2022-23 the performance tables report text labels
+    # (Outstanding, Good, Requires Improvement, Inadequate, etc.)
+    # In 2023-24 and 2024-25 they report numeric codes (1, 2, 3, 4).
+    # Map both to a single numeric 1-4 scale, then label as an ordered factor.
+    if ("OFSTEDRATING" %in% names(df)) {
+      ofsted_text_to_num <- c(
+        "Outstanding"          = "1",
+        "Good"                 = "2",
+        "Requires Improvement" = "3",
+        "Requires improvement" = "3",
+        "Inadequate"           = "4",
+        "Serious Weaknesses"   = "4",
+        "Special Measures"     = "4"
+      )
+
+      df <- df %>%
+        mutate(
+          OFSTEDRATING   = as.character(OFSTEDRATING),
+          # Recode: if the value is text, map it; if already 1-4, keep it
+          OFSTEDRATING_1 = case_when(
+            OFSTEDRATING %in% names(ofsted_text_to_num) ~
+              ofsted_text_to_num[OFSTEDRATING],
+            OFSTEDRATING %in% c("1", "2", "3", "4") ~ OFSTEDRATING,
+            TRUE ~ NA_character_
+          ),
+          OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                                  levels = c("1", "2", "3", "4"),
+                                  labels = c("Outstanding", "Good",
+                                             "Requires Improvement", "Inadequate"),
+                                  ordered = TRUE)
+        )
+
+      n_harmonised <- sum(!is.na(df$OFSTEDRATING_1))
+      message("  OFSTEDRATING_1 (harmonised): ", n_harmonised, "/", nrow(df), " schools")
+    }
+
     # Ensure OFSTEDRATING is a factor for the model
     if ("OFSTEDRATING" %in% names(df)) {
       df <- df %>%
@@ -379,6 +416,7 @@ build_panel <- function(year_data_list, force_download = FALSE) {
       pct_ATT8SCR = round(mean(!is.na(ATT8SCR)) * 100, 1),
       pct_PERCTOT = round(mean(!is.na(PERCTOT)) * 100, 1),
       pct_OFSTED = round(mean(!is.na(OFSTEDRATING)) * 100, 1),
+      pct_OFSTED_1 = round(mean(!is.na(OFSTEDRATING_1)) * 100, 1),
       pct_gor = round(mean(!is.na(gor_name)) * 100, 1),
       .groups = "drop"
     ) %>%

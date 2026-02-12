@@ -172,6 +172,7 @@ VAR_LABELS <- c(
   "MINORGROUP"             = "Type of school/college",
   "SCHOOLTYPE"             = "School type (e.g. Voluntary Aided)",
   "OFSTEDRATING"           = "Ofsted rating",
+  "OFSTEDRATING_1"         = "Ofsted rating (harmonised)",
   "RELCHAR"                = "Religious character",
   "GENDER"                 = "Mixed or single sex",
 

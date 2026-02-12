@@ -109,6 +109,7 @@ create_school_lookup <- function(panel) {
       easting = first(na.omit(easting)),
       northing = first(na.omit(northing)),
       OFSTEDRATING = first(na.omit(OFSTEDRATING)),
+      OFSTEDRATING_1 = first(na.omit(OFSTEDRATING_1)),
       MINORGROUP = first(na.omit(MINORGROUP)),
       n_years_present = n(),
       years_present = paste(sort(unique(year_label)), collapse = ", "),
@@ -152,6 +153,15 @@ clean_panel <- function(panel) {
   if ("OFSTEDRATING" %in% names(panel)) {
     panel <- panel %>%
       mutate(OFSTEDRATING = factor(OFSTEDRATING))
+  }
+
+  # Ensure OFSTEDRATING_1 retains its ordered factor levels
+  if ("OFSTEDRATING_1" %in% names(panel)) {
+    panel <- panel %>%
+      mutate(OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                                     levels = c("Outstanding", "Good",
+                                                "Requires Improvement", "Inadequate"),
+                                     ordered = TRUE))
   }
 
   # Ensure gor_name is a factor
@@ -228,6 +238,7 @@ if (sys.nframe() == 0) {
       mean_ATT8 = round(mean(ATT8SCR, na.rm = TRUE), 1),
       pct_absence = round(mean(!is.na(PERCTOT)) * 100, 1),
       pct_ofsted = round(mean(!is.na(OFSTEDRATING)) * 100, 1),
+      pct_ofsted_1 = round(mean(!is.na(OFSTEDRATING_1)) * 100, 1),
       pct_workforce = round(mean(!is.na(remained_in_the_same_school)) * 100, 1),
       pct_gorard = round(mean(!is.na(gorard_segregation)) * 100, 1),
       .groups = "drop"

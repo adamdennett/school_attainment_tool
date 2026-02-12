@@ -11,7 +11,7 @@
 #          log(remained_in_the_same_school) +
 #          teachers_on_leadership_pay_range_percent +
 #          log(average_number_of_days_taken) +
-#          (1 | year_label) + (1 | OFSTEDRATING) + (1 | gor_name/LANAME)
+#          (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
 #
 #   B. PER-YEAR MODELS (separate model for each academic year)
 #      - Same fixed effects but no year term
@@ -22,7 +22,7 @@
 #          log(remained_in_the_same_school) +
 #          teachers_on_leadership_pay_range_percent +
 #          log(average_number_of_days_taken) +
-#          (1 | OFSTEDRATING) + (1 | gor_name/LANAME)
+#          (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
 #
 # Depends on: R/04_compute_derived.R (produces panel_data.rds)
 # Run from project root: source("R/05_fit_model.R")
@@ -53,7 +53,7 @@ FIXED_PREDICTORS <- c(
 )
 
 # Grouping variables for random effects (shared across both analyses)
-MODEL_GROUPING <- c("OFSTEDRATING", "gor_name", "LANAME")
+MODEL_GROUPING <- c("OFSTEDRATING_1", "gor_name", "LANAME")
 
 # Fixed-effects portion of the formula (shared by panel and per-year models)
 FIXED_FORMULA_RHS <- paste0(
@@ -65,10 +65,10 @@ FIXED_FORMULA_RHS <- paste0(
 )
 
 # Panel model: year as random effect
-PANEL_RANDOM <- "(1 | year_label) + (1 | OFSTEDRATING) + (1 | gor_name/LANAME)"
+PANEL_RANDOM <- "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
 
 # Per-year model: no year term
-PERYEAR_RANDOM <- "(1 | OFSTEDRATING) + (1 | gor_name/LANAME)"
+PERYEAR_RANDOM <- "(1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
 
 
 #' Prepare the modelling dataset
@@ -112,7 +112,7 @@ prepare_model_data <- function(panel) {
       PERCTOT > 0,
       PNUMEAL > 0,
       # Random effect groupings must be present
-      !is.na(OFSTEDRATING),
+      !is.na(OFSTEDRATING_1),
       !is.na(gor_name),
       !is.na(LANAME)
     )
@@ -133,7 +133,10 @@ prepare_model_data <- function(panel) {
   # Ensure factor levels are set
   model_data_full <- model_data_full %>%
     mutate(
-      OFSTEDRATING = factor(OFSTEDRATING),
+      OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                              levels = c("Outstanding", "Good",
+                                         "Requires Improvement", "Inadequate"),
+                              ordered = TRUE),
       gor_name = factor(gor_name),
       LANAME = factor(LANAME),
       year_label = factor(year_label)
@@ -141,7 +144,7 @@ prepare_model_data <- function(panel) {
     # Drop unused factor levels
     droplevels()
 
-  message("  Ofsted levels: ", paste(levels(model_data_full$OFSTEDRATING), collapse = ", "))
+  message("  Ofsted levels: ", paste(levels(model_data_full$OFSTEDRATING_1), collapse = ", "))
   message("  Regions: ", n_distinct(model_data_full$gor_name))
   message("  LAs: ", n_distinct(model_data_full$LANAME))
   message("  Years: ", paste(sort(unique(as.character(model_data_full$year_label))), collapse = ", "))
@@ -167,8 +170,8 @@ fit_attainment_model <- function(outcome_var, data, random_effects, label = outc
     droplevels()
 
   message("  Observations: ", nrow(model_data))
-  message("  OFSTEDRATING levels after filter: ",
-          paste(levels(model_data$OFSTEDRATING), collapse = ", "))
+  message("  OFSTEDRATING_1 levels after filter: ",
+          paste(levels(model_data$OFSTEDRATING_1), collapse = ", "))
 
   # Build formula
   formula_str <- paste0(
@@ -192,12 +195,12 @@ fit_attainment_model <- function(outcome_var, data, random_effects, label = outc
   message("  Readable (fixed): ", fixed_readable)
 
   # Set contrasts (need at least 2 levels)
-  n_ofsted_levels <- nlevels(model_data$OFSTEDRATING)
+  n_ofsted_levels <- nlevels(model_data$OFSTEDRATING_1)
   if (n_ofsted_levels < 2) {
-    stop("OFSTEDRATING has only ", n_ofsted_levels, " level(s) after filtering for ",
+    stop("OFSTEDRATING_1 has only ", n_ofsted_levels, " level(s) after filtering for ",
          outcome_var, ". Cannot fit random intercept. Check data completeness.")
   }
-  contrasts(model_data$OFSTEDRATING) <- contr.treatment(levels(model_data$OFSTEDRATING))
+  contrasts(model_data$OFSTEDRATING_1) <- contr.treatment(levels(model_data$OFSTEDRATING_1))
 
   # Fit model
   model <- lmer(

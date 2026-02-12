@@ -239,7 +239,7 @@ mod_la_overview_server <- function(id, selected_outcome) {
           `% Disadvantaged` = PTFSM6CLA1A,
           `Absence (%)` = PERCTOT,
           Pupils = TOTPUPS,
-          Ofsted = OFSTEDRATING
+          Ofsted = OFSTEDRATING_1
         ) %>%
         mutate(across(where(is.numeric), ~ round(., 1)))
 
