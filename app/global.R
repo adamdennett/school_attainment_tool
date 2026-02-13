@@ -3,10 +3,13 @@
 # This runs once when the app starts and makes objects
 # available to all sessions.
 #
-# Data is loaded from the lightweight app/data/ bundle
+# Data is loaded from the lightweight data/ bundle
 # created by R/06_prepare_app_data.R. This avoids loading
 # the 55MB+ lme4 model objects — the simulator uses
 # predict_slim() with extracted coefficients instead.
+#
+# All helper functions are in R/app_helpers.R so the app
+# is fully self-contained for deployment (shinyapps.io).
 # ----------------------------------------------------
 
 library(tidyverse)
@@ -18,29 +21,19 @@ library(DT)
 library(sf)
 library(scales)
 
-# Source helper functions (variable_display_name, get_slider_config, etc.)
-source(here::here("R", "predict_scenario.R"))
+# Source self-contained helper functions (predict_slim, slider config, etc.)
+source("R/app_helpers.R")
 
-# Source lightweight prediction functions (replaces lme4::predict)
-source(here::here("R", "predict_slim.R"))
-
-# ---- Load pre-computed data from app/data/ bundle ----
+# ---- Load pre-computed data ----
 
 message("Loading lightweight app data bundle ...")
 
-# Determine data directory: use app/data/ if it exists (deployed), else data/
-app_data_dir <- here::here("app", "data")
-if (!dir.exists(app_data_dir)) {
-  app_data_dir <- here::here("data")
-  message("  (falling back to data/ - run R/06_prepare_app_data.R for deployment)")
-}
-
-panel_data      <- readRDS(file.path(app_data_dir, "panel_data.rds"))
-school_lookup   <- readRDS(file.path(app_data_dir, "school_lookup.rds"))
-la_lookup       <- readRDS(file.path(app_data_dir, "la_lookup.rds"))
-diagnostics     <- readRDS(file.path(app_data_dir, "model_diagnostics_core.rds"))
-model_resid     <- readRDS(file.path(app_data_dir, "model_resid_data.rds"))
-slim_models     <- readRDS(file.path(app_data_dir, "slim_core_models.rds"))
+panel_data      <- readRDS("data/panel_data.rds")
+school_lookup   <- readRDS("data/school_lookup.rds")
+la_lookup       <- readRDS("data/la_lookup.rds")
+diagnostics     <- readRDS("data/model_diagnostics_core.rds")
+model_resid     <- readRDS("data/model_resid_data.rds")
+slim_models     <- readRDS("data/slim_core_models.rds")
 
 message("  Panel: ", nrow(panel_data), " school-year rows")
 message("  Schools: ", nrow(school_lookup))
