@@ -31,6 +31,14 @@ predict_scenario <- function(model, school_data, modifications = list(),
   # Set re.form based on whether to include random effects
   re_form <- if (use_random_effects) NULL else NA
 
+  # Fix contrasts: OFSTEDRATING_1 is an ordered factor (polynomial contrasts)
+
+  # but the model was fitted with treatment contrasts.
+  if (is.factor(school_data$OFSTEDRATING_1)) {
+    contrasts(school_data$OFSTEDRATING_1) <-
+      contr.treatment(levels(school_data$OFSTEDRATING_1))
+  }
+
   # 1. Baseline prediction (current values)
   baseline_newdata <- school_data
 
@@ -111,6 +119,12 @@ decompose_scenario <- function(model, school_data, modifications = list(),
   re_form <- if (use_random_effects) NULL else NA
   sigma2 <- sigma(model)^2
   bias_correction <- exp(0.5 * sigma2)
+
+  # Fix contrasts (same as in predict_scenario)
+  if (is.factor(school_data$OFSTEDRATING_1)) {
+    contrasts(school_data$OFSTEDRATING_1) <-
+      contr.treatment(levels(school_data$OFSTEDRATING_1))
+  }
 
   # Baseline prediction
   baseline_log <- predict(model, newdata = school_data, re.form = re_form,
@@ -226,6 +240,8 @@ variable_display_name <- function(var_name) {
 #'
 #' Returns a list of slider parameters for each adjustable variable,
 #' including display name, min/max adjustment range, step size, and unit.
+#' Only variables present in the core model are included so that the
+#' simulator works across all four years including 2024-25.
 get_slider_config <- function() {
   list(
     PERCTOT = list(
@@ -246,35 +262,11 @@ get_slider_config <- function() {
       min_change = -20, max_change = 20,
       step = 1
     ),
-    PTPRIORLO = list(
-      display_name = "% Low Prior Attainment",
-      unit = "%",
-      min_change = -15, max_change = 15,
-      step = 1
-    ),
     gorard_segregation = list(
       display_name = "LA Segregation Index",
       unit = "",
       min_change = -0.15, max_change = 0.15,
       step = 0.01
-    ),
-    remained_in_the_same_school = list(
-      display_name = "Teachers Remaining at School",
-      unit = "",
-      min_change = -30, max_change = 30,
-      step = 1
-    ),
-    teachers_on_leadership_pay_range_percent = list(
-      display_name = "% on Leadership Pay",
-      unit = "%",
-      min_change = -15, max_change = 15,
-      step = 0.5
-    ),
-    average_number_of_days_taken = list(
-      display_name = "Avg Teacher Sick Days",
-      unit = "days",
-      min_change = -5, max_change = 5,
-      step = 0.5
     )
   )
 }

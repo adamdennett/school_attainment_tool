@@ -1,10 +1,10 @@
 # 05_fit_model.R - Fit multilevel models (x3 outcomes) and run diagnostics
 # -------------------------------------------------------------------------
-# This script runs TWO analyses:
+# This script runs FOUR analyses:
 #
-#   A. PANEL MODELS (all 4 years pooled)
+#   A. FULL PANEL MODELS (years with complete data, pooled)
+#      - Requires all 9 fixed predictors incl. absence & workforce
 #      - year_label enters as an additional RANDOM effect
-#      - Captures between-year variation as a variance component
 #      - Formula:
 #        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
 #          PTPRIORLO + ADMPOL_PT + gorard_segregation +
@@ -13,16 +13,22 @@
 #          log(average_number_of_days_taken) +
 #          (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
 #
-#   B. PER-YEAR MODELS (separate model for each academic year)
+#   B. FULL PER-YEAR MODELS (separate model for each year with complete data)
 #      - Same fixed effects but no year term
-#      - Allows coefficients to vary freely across years
+#
+#   C. CORE PANEL MODELS (all 4 years pooled, reduced specification)
+#      - Uses only the 5 predictors available for ALL years (incl. 2024-25)
+#      - Drops: remained_in_the_same_school,
+#        teachers_on_leadership_pay_range_percent, average_number_of_days_taken
+#        (workforce), PTPRIORLO (KS2 prior attainment — 100% NA in 2024-25)
 #      - Formula:
 #        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-#          PTPRIORLO + ADMPOL_PT + gorard_segregation +
-#          log(remained_in_the_same_school) +
-#          teachers_on_leadership_pay_range_percent +
-#          log(average_number_of_days_taken) +
-#          (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+#          ADMPOL_PT + gorard_segregation +
+#          (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+#
+#   D. CORE PER-YEAR MODELS (separate model for each year, reduced spec)
+#      - Same 5 core fixed effects but no year term
+#      - Covers all 4 years including 2024-25
 #
 # Depends on: R/04_compute_derived.R (produces panel_data.rds)
 # Run from project root: source("R/05_fit_model.R")
@@ -69,6 +75,29 @@ PANEL_RANDOM <- "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
 
 # Per-year model: no year term
 PERYEAR_RANDOM <- "(1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+
+
+# ---- Core model configuration (reduced spec for all 4 years) ----
+# Workforce and prior-attainment data are not available for 2024-25,
+# so the core specification uses only the 5 predictors present across
+# all four years.  Dropped relative to the full model:
+#   - remained_in_the_same_school, average_number_of_days_taken,
+#     teachers_on_leadership_pay_range_percent  (workforce)
+#   - PTPRIORLO  (KS2 prior attainment — 100 % NA in 2024-25)
+
+CORE_FIXED_PREDICTORS <- c(
+  "PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
+  "ADMPOL_PT", "gorard_segregation"
+)
+
+CORE_FIXED_FORMULA_RHS <- paste0(
+  "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
+  "ADMPOL_PT + gorard_segregation"
+)
+
+# Random effects are identical to the full model
+CORE_PANEL_RANDOM  <- PANEL_RANDOM
+CORE_PERYEAR_RANDOM <- PERYEAR_RANDOM
 
 
 #' Prepare the modelling dataset
@@ -153,14 +182,72 @@ prepare_model_data <- function(panel) {
 }
 
 
+#' Prepare the CORE modelling dataset (reduced specification, all 4 years)
+#'
+#' Same logic as prepare_model_data() but only requires the 5 predictors
+#' available for all years.  Workforce and prior-attainment variables are
+#' NOT needed.
+prepare_core_model_data <- function(panel) {
+
+  message("Preparing CORE modelling dataset (reduced specification) ...")
+
+  # Keep only mainstream school types
+  school_types_keep <- c("Academy", "Maintained school")
+  n_before <- nrow(panel)
+  panel <- panel %>%
+    filter(MINORGROUP %in% school_types_keep)
+  message("  School type filter (", paste(school_types_keep, collapse = ", "), "): ",
+          n_before, " -> ", nrow(panel), " rows")
+
+  # Filter to rows with valid data for the 5 core predictors + grouping vars
+  model_data <- panel %>%
+    filter(
+      !is.na(ATT8SCR), ATT8SCR > 0,
+      PTFSM6CLA1A > 0,
+      PERCTOT > 0,
+      PNUMEAL > 0,
+      !is.na(ADMPOL_PT),
+      !is.na(gorard_segregation),
+      !is.na(OFSTEDRATING_1),
+      !is.na(gor_name),
+      !is.na(LANAME)
+    )
+
+  message("  After filtering for core predictors: ", nrow(model_data), " rows")
+
+  # Ensure factor levels are set
+  model_data <- model_data %>%
+    mutate(
+      OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                              levels = c("Outstanding", "Good",
+                                         "Requires Improvement", "Inadequate"),
+                              ordered = TRUE),
+      gor_name = factor(gor_name),
+      LANAME = factor(LANAME),
+      year_label = factor(year_label)
+    ) %>%
+    droplevels()
+
+  message("  Ofsted levels: ", paste(levels(model_data$OFSTEDRATING_1), collapse = ", "))
+  message("  Regions: ", n_distinct(model_data$gor_name))
+  message("  LAs: ", n_distinct(model_data$LANAME))
+  message("  Years: ", paste(sort(unique(as.character(model_data$year_label))), collapse = ", "))
+
+  model_data
+}
+
+
 #' Fit a single multilevel model
 #'
 #' @param outcome_var Character name of the outcome variable
 #' @param data Prepared modelling dataframe
 #' @param random_effects Character string for the random effects portion of the formula
+#' @param fixed_rhs Optional custom fixed-effects formula RHS (defaults to FIXED_FORMULA_RHS)
 #' @param label Human-readable label for messages
 #' @return A fitted lmerMod object
-fit_attainment_model <- function(outcome_var, data, random_effects, label = outcome_var) {
+fit_attainment_model <- function(outcome_var, data, random_effects,
+                                 fixed_rhs = FIXED_FORMULA_RHS,
+                                 label = outcome_var) {
 
   message("\nFitting model for: ", label, " (", outcome_var, ")")
 
@@ -176,23 +263,12 @@ fit_attainment_model <- function(outcome_var, data, random_effects, label = outc
   # Build formula
   formula_str <- paste0(
     "log(", outcome_var, ") ~ ",
-    FIXED_FORMULA_RHS, " + ",
+    fixed_rhs, " + ",
     random_effects
   )
 
   formula <- as.formula(formula_str)
   message("  Formula: ", formula_str)
-
-  # Also show human-readable version
-  fixed_readable <- paste0(
-    "log(", var_label(outcome_var), ") ~ ",
-    "log(", var_label("PTFSM6CLA1A"), ") + log(", var_label("PERCTOT"), ") + log(", var_label("PNUMEAL"), ") + ",
-    var_label("PTPRIORLO"), " + ", var_label("ADMPOL_PT"), " + ", var_label("gorard_segregation"), " + ",
-    "log(", var_label("remained_in_the_same_school"), ") + ",
-    var_label("teachers_on_leadership_pay_range_percent"), " + ",
-    "log(", var_label("average_number_of_days_taken"), ")"
-  )
-  message("  Readable (fixed): ", fixed_readable)
 
   # Set contrasts (need at least 2 levels)
   n_ofsted_levels <- nlevels(model_data$OFSTEDRATING_1)
@@ -434,6 +510,116 @@ if (sys.nframe() == 0) {
 
 
   # =====================================================================
+  # ANALYSIS C: CORE PANEL — reduced specification, all 4 years
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("ANALYSIS C: CORE PANEL MODELS (all years, reduced specification)")
+  message(strrep("=", 70))
+
+  core_model_data <- prepare_core_model_data(panel)
+  saveRDS(core_model_data, here::here("data", "model_data_core.rds"))
+
+  core_panel_models <- list()
+  core_panel_diagnostics <- list()
+
+  for (model_name in names(OUTCOMES)) {
+    outcome_var <- OUTCOMES[[model_name]]
+    label <- paste0(
+      switch(model_name,
+             all = "All Pupils",
+             disadvantaged = "Disadvantaged Pupils",
+             non_disadvantaged = "Non-Disadvantaged Pupils"),
+      " [Core Panel]"
+    )
+
+    core_panel_models[[model_name]] <- fit_attainment_model(
+      outcome_var, core_model_data,
+      random_effects = CORE_PANEL_RANDOM,
+      fixed_rhs = CORE_FIXED_FORMULA_RHS,
+      label = label
+    )
+    core_panel_diagnostics[[model_name]] <- run_diagnostics(
+      core_panel_models[[model_name]], label
+    )
+  }
+
+  saveRDS(core_panel_models, here::here("data", "models_core.rds"))
+  saveRDS(core_panel_diagnostics, here::here("data", "model_diagnostics_core.rds"))
+  message("\nCore panel models saved to: data/models_core.rds")
+
+
+  # =====================================================================
+  # ANALYSIS D: CORE PER-YEAR — reduced spec, separate by year (all 4)
+  # =====================================================================
+
+  message("\n", strrep("=", 70))
+  message("ANALYSIS D: CORE PER-YEAR MODELS (reduced spec, all 4 years)")
+  message(strrep("=", 70))
+
+  core_year_levels <- sort(unique(as.character(core_model_data$year_label)))
+  message("Years to fit: ", paste(core_year_levels, collapse = ", "))
+
+  core_yearly_models <- list()
+  core_yearly_diagnostics <- list()
+
+  for (yr in core_year_levels) {
+
+    message("\n", strrep("-", 60))
+    message("  YEAR: ", yr)
+    message(strrep("-", 60))
+
+    yr_data <- core_model_data %>%
+      filter(year_label == yr) %>%
+      droplevels()
+
+    message("  Rows for ", yr, ": ", nrow(yr_data))
+
+    core_yearly_models[[yr]] <- list()
+    core_yearly_diagnostics[[yr]] <- list()
+
+    for (model_name in names(OUTCOMES)) {
+      outcome_var <- OUTCOMES[[model_name]]
+      label <- paste0(
+        switch(model_name,
+               all = "All Pupils",
+               disadvantaged = "Disadvantaged Pupils",
+               non_disadvantaged = "Non-Disadvantaged Pupils"),
+        " [Core ", yr, "]"
+      )
+
+      core_yearly_models[[yr]][[model_name]] <- tryCatch({
+        fit_attainment_model(
+          outcome_var, yr_data,
+          random_effects = CORE_PERYEAR_RANDOM,
+          fixed_rhs = CORE_FIXED_FORMULA_RHS,
+          label = label
+        )
+      }, error = function(e) {
+        warning("  Failed to fit ", label, ": ", e$message)
+        NULL
+      })
+
+      if (!is.null(core_yearly_models[[yr]][[model_name]])) {
+        core_yearly_diagnostics[[yr]][[model_name]] <- run_diagnostics(
+          core_yearly_models[[yr]][[model_name]], label
+        )
+      } else {
+        core_yearly_diagnostics[[yr]][[model_name]] <- list(
+          r2_marginal = NA, r2_conditional = NA,
+          n_obs = 0, sigma = NA,
+          note = paste("Model fitting failed for", yr, model_name)
+        )
+      }
+    }
+  }
+
+  saveRDS(core_yearly_models, here::here("data", "models_yearly_core.rds"))
+  saveRDS(core_yearly_diagnostics, here::here("data", "model_diagnostics_yearly_core.rds"))
+  message("\nCore per-year models saved to: data/models_yearly_core.rds")
+
+
+  # =====================================================================
   # PRE-COMPUTE PREDICTIONS (from panel models, for the Shiny app)
   # =====================================================================
 
@@ -441,6 +627,57 @@ if (sys.nframe() == 0) {
   message("PRE-COMPUTING PREDICTIONS (from panel models)")
   message(strrep("=", 70))
 
+  # Helper: predict only on rows where ALL model variables are non-NA.
+  # lme4::predict() errors with "non-conformable arguments" if grouping
+
+  # factor columns contain NAs, so we must subset first, predict, then
+  # join back.
+  safe_predict <- function(model, data, required_vars, label = "") {
+    # Identify rows with complete data for all model variables
+    complete_idx <- complete.cases(data[, required_vars, drop = FALSE])
+
+    # Also need positive values for log-transformed predictors
+    for (v in required_vars) {
+      if (is.numeric(data[[v]])) {
+        complete_idx <- complete_idx & (data[[v]] > 0 | is.na(data[[v]]))
+      }
+    }
+
+    pred_subset <- data[complete_idx, , drop = FALSE] %>% droplevels()
+
+    if (nrow(pred_subset) == 0) {
+      message("  ", label, ": 0 complete rows for prediction")
+      return(rep(NA_real_, nrow(data)))
+    }
+
+    # Set treatment contrasts on OFSTEDRATING_1 (model uses treatment,
+    # but ordered factors default to polynomial contrasts)
+    if (is.factor(pred_subset$OFSTEDRATING_1)) {
+      contrasts(pred_subset$OFSTEDRATING_1) <-
+        contr.treatment(levels(pred_subset$OFSTEDRATING_1))
+    }
+
+    log_pred <- predict(model, newdata = pred_subset,
+                        re.form = NULL, allow.new.levels = TRUE)
+
+    # Bias-corrected back-transformation
+    bias_factor <- exp(0.5 * sigma(model)^2)
+    pred_values <- exp(log_pred) * bias_factor
+
+    # Map back into full-length vector
+    out <- rep(NA_real_, nrow(data))
+    out[complete_idx] <- pred_values
+    out
+  }
+
+  # Variables required for full model predictions
+  full_req_vars <- c(unlist(OUTCOMES), FIXED_PREDICTORS, MODEL_GROUPING,
+                     "year_label")
+  # Variables required for core model predictions
+  core_req_vars <- c(unlist(OUTCOMES), CORE_FIXED_PREDICTORS, MODEL_GROUPING,
+                     "year_label")
+
+  # --- Full panel model predictions ---
   for (model_name in names(panel_models)) {
     outcome_var <- OUTCOMES[[model_name]]
     model <- panel_models[[model_name]]
@@ -448,16 +685,13 @@ if (sys.nframe() == 0) {
     pred_col <- paste0("predicted_", outcome_var)
     resid_col <- paste0("residual_", outcome_var)
 
-    # Predict on log scale then back-transform with bias correction
-    bias_factor <- exp(0.5 * sigma(model)^2)
-
-    panel[[pred_col]] <- tryCatch({
-      log_pred <- predict(model, newdata = panel, re.form = NULL, allow.new.levels = TRUE)
-      exp(log_pred) * bias_factor
-    }, error = function(e) {
-      message("  Warning: prediction failed for some rows in ", model_name, ": ", e$message)
-      NA_real_
-    })
+    panel[[pred_col]] <- tryCatch(
+      safe_predict(model, panel, full_req_vars, label = model_name),
+      error = function(e) {
+        message("  Warning: prediction failed for ", model_name, ": ", e$message)
+        rep(NA_real_, nrow(panel))
+      }
+    )
 
     panel[[resid_col]] <- panel[[outcome_var]] - panel[[pred_col]]
 
@@ -467,6 +701,34 @@ if (sys.nframe() == 0) {
     if (n_pred > 0) {
       r2 <- cor(panel[[outcome_var]], panel[[pred_col]], use = "complete.obs")^2
       message("  ", model_name, " R2 (observed vs predicted): ", round(r2, 4))
+    }
+  }
+
+  # --- Core model predictions (wider coverage, includes 2024-25) ---
+  message("\n  Core model predictions:")
+  for (model_name in names(core_panel_models)) {
+    outcome_var <- OUTCOMES[[model_name]]
+    model <- core_panel_models[[model_name]]
+
+    pred_col <- paste0("predicted_", outcome_var, "_core")
+    resid_col <- paste0("residual_", outcome_var, "_core")
+
+    panel[[pred_col]] <- tryCatch(
+      safe_predict(model, panel, core_req_vars, label = paste0(model_name, " (core)")),
+      error = function(e) {
+        message("  Warning: core prediction failed for ", model_name, ": ", e$message)
+        rep(NA_real_, nrow(panel))
+      }
+    )
+
+    panel[[resid_col]] <- panel[[outcome_var]] - panel[[pred_col]]
+
+    n_pred <- sum(!is.na(panel[[pred_col]]))
+    message("  ", model_name, " (core): ", n_pred, " predictions computed")
+
+    if (n_pred > 0) {
+      r2 <- cor(panel[[outcome_var]], panel[[pred_col]], use = "complete.obs")^2
+      message("  ", model_name, " (core) R2 (observed vs predicted): ", round(r2, 4))
     }
   }
 
@@ -509,5 +771,31 @@ if (sys.nframe() == 0) {
     }
   }
 
-  message("\nPredictions (from panel models) saved to: data/panel_data.rds")
+  message("\n--- Analysis C: Core Panel Models (reduced specification) ---")
+  message("Saved to: data/models_core.rds, data/model_diagnostics_core.rds")
+  for (mn in names(core_panel_diagnostics)) {
+    d <- core_panel_diagnostics[[mn]]
+    message("\n  ", toupper(mn), ":")
+    message("    R2 marginal: ", round(d$r2_marginal, 4))
+    message("    R2 conditional: ", round(d$r2_conditional, 4))
+    message("    N obs: ", d$n_obs)
+    message("    Sigma: ", round(d$sigma, 4))
+  }
+
+  message("\n--- Analysis D: Core Per-Year Models ---")
+  message("Saved to: data/models_yearly_core.rds, data/model_diagnostics_yearly_core.rds")
+  for (yr in names(core_yearly_diagnostics)) {
+    message("\n  Year: ", yr)
+    for (mn in names(core_yearly_diagnostics[[yr]])) {
+      d <- core_yearly_diagnostics[[yr]][[mn]]
+      if (is.na(d$r2_marginal)) {
+        message("    ", mn, ": FAILED (insufficient data)")
+      } else {
+        message(sprintf("    %-22s  R2m=%.4f  R2c=%.4f  N=%d  sigma=%.4f",
+                        mn, d$r2_marginal, d$r2_conditional, d$n_obs, d$sigma))
+      }
+    }
+  }
+
+  message("\nPredictions (full + core panel models) saved to: data/panel_data.rds")
 }

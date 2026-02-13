@@ -12,6 +12,7 @@ source("modules/mod_school_selector.R")
 source("modules/mod_simulator.R")
 source("modules/mod_la_overview.R")
 source("modules/mod_model_info.R")
+source("modules/mod_obs_vs_pred.R")
 
 
 # ---- UI ----
@@ -78,7 +79,14 @@ ui <- page_navbar(
     mod_la_overview_ui("la_overview")
   ),
 
-  # ---- Tab 4: Model Information ----
+  # ---- Tab 4: Observed vs Predicted ----
+  nav_panel(
+    title = "Observed vs Predicted",
+    icon = icon("braille"),
+    mod_obs_vs_pred_ui("obs_vs_pred")
+  ),
+
+  # ---- Tab 5: Model Information ----
   nav_panel(
     title = "Model Info",
     icon = icon("info-circle"),
@@ -128,6 +136,8 @@ server <- function(input, output, session) {
     "la_overview",
     selected_outcome = selected_outcome
   )
+
+  mod_obs_vs_pred_server("obs_vs_pred")
 
   mod_model_info_server(
     "model_info",

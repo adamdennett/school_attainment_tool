@@ -175,7 +175,7 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
 
       if (is.null(sd) || nrow(sd) == 0) return(NULL)
 
-      model <- models[[outcome]]
+      model <- core_models[[outcome]]
       if (is.null(model)) return(NULL)
 
       predict_scenario(model, sd, mods)
@@ -240,7 +240,7 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
                                      font = list(color = "#999"))))
       }
 
-      model <- models[[outcome]]
+      model <- core_models[[outcome]]
       decomp <- decompose_scenario(model, sd, mods)
 
       if (nrow(decomp) == 0) return(plotly_empty())

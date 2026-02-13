@@ -1,0 +1,12 @@
+name: School_Attainment_Policy_Sim
+title: School_Attainment_Policy_Sim
+username: adam-dennett
+account: adam-dennett
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16668309
+bundleId: 11576683
+url: https://adam-dennett.shinyapps.io/School_Attainment_Policy_Sim/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

@@ -23,6 +23,7 @@ message("Loading data and models ...")
 
 panel_data    <- readRDS(here::here("data", "panel_data.rds"))
 models        <- readRDS(here::here("data", "models.rds"))
+core_models   <- readRDS(here::here("data", "models_core.rds"))
 school_lookup <- readRDS(here::here("data", "school_lookup.rds"))
 la_lookup     <- readRDS(here::here("data", "la_lookup.rds"))
 diagnostics   <- readRDS(here::here("data", "model_diagnostics.rds"))
@@ -36,22 +37,22 @@ message("  Models: ", paste(names(models), collapse = ", "))
 OUTCOME_CONFIG <- list(
   all = list(
     var = "ATT8SCR",
-    pred_var = "predicted_ATT8SCR",
-    resid_var = "residual_ATT8SCR",
+    pred_var = "predicted_ATT8SCR_core",
+    resid_var = "residual_ATT8SCR_core",
     label = "All Pupils",
     description = "Average Attainment 8 score per pupil"
   ),
   disadvantaged = list(
     var = "ATT8SCR_FSM6CLA1A",
-    pred_var = "predicted_ATT8SCR_FSM6CLA1A",
-    resid_var = "residual_ATT8SCR_FSM6CLA1A",
+    pred_var = "predicted_ATT8SCR_FSM6CLA1A_core",
+    resid_var = "residual_ATT8SCR_FSM6CLA1A_core",
     label = "Disadvantaged Pupils",
     description = "Average Attainment 8 score per disadvantaged pupil"
   ),
   non_disadvantaged = list(
     var = "ATT8SCR_NFSM6CLA1A",
-    pred_var = "predicted_ATT8SCR_NFSM6CLA1A",
-    resid_var = "residual_ATT8SCR_NFSM6CLA1A",
+    pred_var = "predicted_ATT8SCR_NFSM6CLA1A_core",
+    resid_var = "residual_ATT8SCR_NFSM6CLA1A_core",
     label = "Non-Disadvantaged Pupils",
     description = "Average Attainment 8 score per non-disadvantaged pupil"
   )
@@ -74,8 +75,8 @@ schools_spatial <- school_lookup %>%
   ) %>%
   st_transform(crs = 4326)  # WGS84 for leaflet
 
-# LA list for dropdowns
-la_choices <- sort(unique(na.omit(la_lookup$LANAME)))
+# LA list for dropdowns (as character so selectInput shows names, not factor codes)
+la_choices <- sort(unique(na.omit(as.character(la_lookup$LANAME))))
 
 # School name list for autocomplete
 school_choices <- school_lookup %>%
