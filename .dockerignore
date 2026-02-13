@@ -1,0 +1,42 @@
+# Docker build context: only include what's needed
+# -------------------------------------------------
+# The Dockerfile explicitly COPYs app/, R/helpers.R,
+# R/predict_scenario.R, and R/predict_slim.R.
+# Everything else is excluded.
+
+# Large data files (not needed - app uses app/data/ bundle)
+data/
+raw_data/
+
+# Output/reports
+output/
+
+# Temp files
+temp_*.R
+*.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.Rproj.user/
+*.Rproj
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# R
+.Rhistory
+.RData
+.Renviron
+
+# Exclude model fitting scripts (not needed at runtime)
+R/01_*.R
+R/02_*.R
+R/03_*.R
+R/04_*.R
+R/05_*.R
+R/06_*.R

@@ -2,6 +2,11 @@
 # ----------------------------------------------------
 # This runs once when the app starts and makes objects
 # available to all sessions.
+#
+# Data is loaded from the lightweight app/data/ bundle
+# created by R/06_prepare_app_data.R. This avoids loading
+# the 55MB+ lme4 model objects — the simulator uses
+# predict_slim() with extracted coefficients instead.
 # ----------------------------------------------------
 
 library(tidyverse)
@@ -11,26 +16,35 @@ library(leaflet)
 library(plotly)
 library(DT)
 library(sf)
-library(lme4)
 library(scales)
 
-# Source prediction functions
+# Source helper functions (variable_display_name, get_slider_config, etc.)
 source(here::here("R", "predict_scenario.R"))
 
-# ---- Load pre-computed data ----
+# Source lightweight prediction functions (replaces lme4::predict)
+source(here::here("R", "predict_slim.R"))
 
-message("Loading data and models ...")
+# ---- Load pre-computed data from app/data/ bundle ----
 
-panel_data    <- readRDS(here::here("data", "panel_data.rds"))
-models        <- readRDS(here::here("data", "models.rds"))
-core_models   <- readRDS(here::here("data", "models_core.rds"))
-school_lookup <- readRDS(here::here("data", "school_lookup.rds"))
-la_lookup     <- readRDS(here::here("data", "la_lookup.rds"))
-diagnostics   <- readRDS(here::here("data", "model_diagnostics.rds"))
+message("Loading lightweight app data bundle ...")
+
+# Determine data directory: use app/data/ if it exists (deployed), else data/
+app_data_dir <- here::here("app", "data")
+if (!dir.exists(app_data_dir)) {
+  app_data_dir <- here::here("data")
+  message("  (falling back to data/ - run R/06_prepare_app_data.R for deployment)")
+}
+
+panel_data      <- readRDS(file.path(app_data_dir, "panel_data.rds"))
+school_lookup   <- readRDS(file.path(app_data_dir, "school_lookup.rds"))
+la_lookup       <- readRDS(file.path(app_data_dir, "la_lookup.rds"))
+diagnostics     <- readRDS(file.path(app_data_dir, "model_diagnostics_core.rds"))
+model_resid     <- readRDS(file.path(app_data_dir, "model_resid_data.rds"))
+slim_models     <- readRDS(file.path(app_data_dir, "slim_core_models.rds"))
 
 message("  Panel: ", nrow(panel_data), " school-year rows")
 message("  Schools: ", nrow(school_lookup))
-message("  Models: ", paste(names(models), collapse = ", "))
+message("  Slim models: ", paste(names(slim_models), collapse = ", "))
 
 # ---- Outcome configuration ----
 

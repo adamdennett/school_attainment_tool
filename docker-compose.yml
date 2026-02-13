@@ -1,0 +1,18 @@
+# docker-compose.yml - School Attainment Policy Simulator
+# -------------------------------------------------------
+# Usage:
+#   docker-compose up --build       # Build and run
+#   docker-compose up -d            # Run in background
+#   docker-compose down             # Stop
+#
+# Then open http://localhost:3838 in your browser.
+# -------------------------------------------------------
+
+services:
+  shiny-app:
+    build: .
+    ports:
+      - "3838:3838"
+    restart: unless-stopped
+    environment:
+      - SHINY_LOG_STDERR=1

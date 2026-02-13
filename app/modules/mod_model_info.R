@@ -164,12 +164,13 @@ mod_model_info_server <- function(id, selected_outcome) {
     output$resid_plot <- renderPlotly({
       outcome <- selected_outcome()
       oc <- OUTCOME_CONFIG[[outcome]]
-      model <- models[[outcome]]
 
-      if (is.null(model)) return(plotly_empty())
+      # Use pre-computed residuals from app data bundle
+      resid_data <- model_resid[[outcome]]
+      if (is.null(resid_data)) return(plotly_empty())
 
-      fitted_vals <- fitted(model)
-      resid_vals <- residuals(model)
+      fitted_vals <- resid_data$fitted
+      resid_vals <- resid_data$residual
 
       plot_ly(
         x = fitted_vals,

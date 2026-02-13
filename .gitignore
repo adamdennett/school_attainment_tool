@@ -26,10 +26,18 @@ data/model_data.rds
 
 # Data - pre-computed model outputs
 # These are needed for the Shiny app but are too large for GitHub.
-# Regenerate by running the pipeline (01-05) or download from release assets.
+# Regenerate by running the pipeline (01-06) or download from release assets.
 data/panel_data.rds
 data/models.rds
+data/models_core.rds
+data/models_yearly.rds
+data/models_yearly_core.rds
+data/model_data.rds
+data/model_data_core.rds
 data/model_diagnostics.rds
+data/model_diagnostics_core.rds
+data/model_diagnostics_yearly.rds
+data/model_diagnostics_yearly_core.rds
 data/school_lookup.rds
 data/la_lookup.rds
 

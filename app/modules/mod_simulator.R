@@ -175,10 +175,10 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
 
       if (is.null(sd) || nrow(sd) == 0) return(NULL)
 
-      model <- core_models[[outcome]]
-      if (is.null(model)) return(NULL)
+      sm <- slim_models[[outcome]]
+      if (is.null(sm)) return(NULL)
 
-      predict_scenario(model, sd, mods)
+      predict_scenario_slim(sm, sd, mods)
     })
 
     # ---- Headline numbers ----
@@ -240,8 +240,8 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
                                      font = list(color = "#999"))))
       }
 
-      model <- core_models[[outcome]]
-      decomp <- decompose_scenario(model, sd, mods)
+      sm <- slim_models[[outcome]]
+      decomp <- decompose_scenario_slim(sm, sd, mods)
 
       if (nrow(decomp) == 0) return(plotly_empty())
 
@@ -287,7 +287,7 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
                                      font = list(color = "#999"))))
       }
 
-      equity <- predict_equity_comparison(models, sd, mods)
+      equity <- predict_equity_comparison_slim(slim_models, sd, mods)
 
       if (nrow(equity) == 0) return(plotly_empty())
 
