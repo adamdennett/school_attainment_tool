@@ -22,6 +22,11 @@ mod_simulator_ui <- function(id) {
 
       hr(),
 
+      # Ofsted rating selector
+      uiOutput(ns("ofsted_selector")),
+
+      hr(),
+
       actionButton(
         ns("reset_sliders"),
         "Reset to Current Values",
@@ -132,6 +137,43 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
       tagList(compact(slider_list))
     })
 
+    # ---- Ofsted rating selector ----
+    output$ofsted_selector <- renderUI({
+      sd <- current_school()
+      if (is.null(sd)) return(NULL)
+
+      current_ofsted <- as.character(sd$OFSTEDRATING_1)
+      ofsted_choices <- c("Outstanding", "Good", "Requires Improvement", "Inadequate")
+
+      # If school has no Ofsted rating, show a note
+      if (is.na(current_ofsted) || !(current_ofsted %in% ofsted_choices)) {
+        return(tags$div(
+          class = "mb-3",
+          tags$label(class = "form-label", "Ofsted Rating"),
+          tags$p(class = "text-muted small", "No Ofsted rating available for this school")
+        ))
+      }
+
+      tags$div(
+        class = "mb-3",
+        tags$label(
+          class = "form-label",
+          paste0("Ofsted Rating (current: ", current_ofsted, ")")
+        ),
+        radioButtons(
+          ns("ofsted_rating"),
+          label = NULL,
+          choices = ofsted_choices,
+          selected = current_ofsted,
+          inline = FALSE
+        ),
+        tags$p(class = "text-muted small mt-1",
+               "Note: changing the Ofsted rating alone is indicative only ",
+               "\u2014 in practice, improvements in Ofsted rating would ",
+               "accompany changes in other school-level variables.")
+      )
+    })
+
     # ---- Reset sliders ----
     observeEvent(input$reset_sliders, {
       sd <- current_school()
@@ -143,6 +185,12 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
           updateSliderInput(session, paste0("slider_", var_name),
                            value = round(current_val, 2))
         }
+      }
+
+      # Reset Ofsted rating
+      current_ofsted <- as.character(sd$OFSTEDRATING_1)
+      if (!is.na(current_ofsted)) {
+        updateRadioButtons(session, "ofsted_rating", selected = current_ofsted)
       }
     })
 
@@ -167,18 +215,35 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
       mods
     })
 
+    # ---- Ofsted override (NULL if unchanged) ----
+    ofsted_override <- reactive({
+      sd <- current_school()
+      if (is.null(sd)) return(NULL)
+
+      selected_ofsted <- input$ofsted_rating
+      if (is.null(selected_ofsted)) return(NULL)
+
+      current_ofsted <- as.character(sd$OFSTEDRATING_1)
+      if (is.na(current_ofsted) || selected_ofsted == current_ofsted) {
+        return(NULL)
+      }
+      selected_ofsted
+    })
+
     # ---- Scenario prediction ----
     scenario_result <- reactive({
       sd <- current_school()
       mods <- modifications()
       outcome <- selected_outcome()
+      ofsted_ov <- ofsted_override()
 
       if (is.null(sd) || nrow(sd) == 0) return(NULL)
 
       sm <- slim_models[[outcome]]
       if (is.null(sm)) return(NULL)
 
-      predict_scenario_slim(sm, sd, mods)
+      predict_scenario_slim(sm, sd, mods, ofsted_override = ofsted_ov,
+                             model_name = outcome)
     })
 
     # ---- Headline numbers ----
@@ -233,27 +298,38 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
       sd <- current_school()
       mods <- modifications()
       outcome <- selected_outcome()
+      ofsted_ov <- ofsted_override()
 
-      if (is.null(sd) || length(mods) == 0) {
+      has_changes <- length(mods) > 0 || !is.null(ofsted_ov)
+
+      if (is.null(sd) || !has_changes) {
         return(plotly_empty() %>%
                  layout(title = list(text = "Adjust sliders to see contributions",
                                      font = list(color = "#999"))))
       }
 
       sm <- slim_models[[outcome]]
-      decomp <- decompose_scenario_slim(sm, sd, mods)
+      decomp <- decompose_scenario_slim(sm, sd, mods,
+                                         ofsted_override = ofsted_ov,
+                                         model_name = outcome)
 
       if (nrow(decomp) == 0) return(plotly_empty())
 
       decomp <- decomp %>%
         mutate(
           color = ifelse(marginal_effect >= 0, "#28a745", "#dc3545"),
-          hover_text = paste0(
-            display_name, "<br>",
-            "Current: ", round(current_value, 1), "<br>",
-            "Scenario: ", round(scenario_value, 1), "<br>",
-            "Effect: ", ifelse(marginal_effect >= 0, "+", ""),
-            round(marginal_effect, 3), " ATT8 points"
+          hover_text = ifelse(
+            variable == "OFSTEDRATING_1",
+            paste0(display_name, "<br>",
+                   "Current: ", as.character(sd$OFSTEDRATING_1), "<br>",
+                   "Scenario: ", ofsted_ov, "<br>",
+                   "Effect: ", ifelse(marginal_effect >= 0, "+", ""),
+                   round(marginal_effect, 3), " ATT8 points"),
+            paste0(display_name, "<br>",
+                   "Current: ", round(current_value, 1), "<br>",
+                   "Scenario: ", round(scenario_value, 1), "<br>",
+                   "Effect: ", ifelse(marginal_effect >= 0, "+", ""),
+                   round(marginal_effect, 3), " ATT8 points")
           )
         ) %>%
         arrange(desc(abs(marginal_effect)))
@@ -280,6 +356,7 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
     output$equity_chart <- renderPlotly({
       sd <- current_school()
       mods <- modifications()
+      ofsted_ov <- ofsted_override()
 
       if (is.null(sd) || nrow(sd) == 0) {
         return(plotly_empty() %>%
@@ -287,7 +364,8 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
                                      font = list(color = "#999"))))
       }
 
-      equity <- predict_equity_comparison_slim(slim_models, sd, mods)
+      equity <- predict_equity_comparison_slim(slim_models, sd, mods,
+                                                ofsted_override = ofsted_ov)
 
       if (nrow(equity) == 0) return(plotly_empty())
 

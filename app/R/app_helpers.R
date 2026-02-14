@@ -28,6 +28,7 @@ variable_display_name <- function(var_name) {
     PTPRIORHI = "High Prior Attainment (%)",
     ADMPOL_PT = "Admissions Policy",
     gorard_segregation = "LA Segregation Index",
+    OFSTEDRATING_1 = "Ofsted Rating",
     remained_in_the_same_school = "Teachers Remaining at School",
     teachers_on_leadership_pay_range_percent = "Leadership Pay Range (%)",
     average_number_of_days_taken = "Teacher Sickness Days (avg)",
@@ -36,6 +37,17 @@ variable_display_name <- function(var_name) {
 
   ifelse(var_name %in% names(display_map), display_map[var_name], var_name)
 }
+
+
+# PTPRIORLO coefficients from the full panel model (Analysis A)
+# These are used as approximate adjustments since PTPRIORLO is not
+# in the core model (100% NA in 2024-25). The coefficient represents
+# the effect on log(ATT8) per 1 percentage-point change in PTPRIORLO.
+PTPRIORLO_BETA <- c(
+  all              = -0.006271547,
+  disadvantaged    = -0.006049313,
+  non_disadvantaged = -0.005707144
+)
 
 
 #' Get the slider configuration for adjustable variables
@@ -64,11 +76,11 @@ get_slider_config <- function() {
       min_change = -20, max_change = 20,
       step = 1
     ),
-    gorard_segregation = list(
-      display_name = "LA Segregation Index",
-      unit = "",
-      min_change = -0.15, max_change = 0.15,
-      step = 0.01
+    PTPRIORLO = list(
+      display_name = "% Low Prior Attainment (KS2)",
+      unit = "%",
+      min_change = -30, max_change = 30,
+      step = 1
     )
   )
 }
@@ -104,9 +116,12 @@ get_slider_config <- function() {
 #' @param newdata A data frame (one or more rows) with the predictor columns.
 #' @param include_re Logical. If TRUE (default), include random effects.
 #'   If FALSE, return fixed-effects-only (population average) prediction.
+#' @param ofsted_override Optional character string to override the Ofsted
+#'   rating used for the random intercept (e.g. "Outstanding", "Good").
 #' @return Numeric vector of predicted values on the ORIGINAL scale
 #'   (i.e. back-transformed from log scale with Duan-type bias correction).
-predict_slim <- function(slim_model, newdata, include_re = TRUE) {
+predict_slim <- function(slim_model, newdata, include_re = TRUE,
+                         ofsted_override = NULL) {
 
   beta <- slim_model$beta
   n <- nrow(newdata)
@@ -166,11 +181,17 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE) {
       log_pred <- log_pred + yr_re
     }
 
-    # OFSTEDRATING_1 random intercept
-    if ("OFSTEDRATING_1" %in% names(ranef) && "OFSTEDRATING_1" %in% names(newdata)) {
+    # OFSTEDRATING_1 random intercept (with optional override)
+    if ("OFSTEDRATING_1" %in% names(ranef)) {
       of_blups <- ranef$OFSTEDRATING_1[["(Intercept)"]]
       names(of_blups) <- rownames(ranef$OFSTEDRATING_1)
-      of_vals <- as.character(newdata$OFSTEDRATING_1)
+      if (!is.null(ofsted_override)) {
+        of_vals <- rep(ofsted_override, n)
+      } else if ("OFSTEDRATING_1" %in% names(newdata)) {
+        of_vals <- as.character(newdata$OFSTEDRATING_1)
+      } else {
+        of_vals <- rep(NA_character_, n)
+      }
       of_re <- of_blups[of_vals]
       of_re[is.na(of_re)] <- 0
       log_pred <- log_pred + of_re
@@ -218,21 +239,28 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE) {
 #' @param modifications Named list of changes to apply (on the original scale).
 #'   e.g. list(PERCTOT = -5, PTFSM6CLA1A = -3)
 #' @param include_re Logical. If TRUE (default), include random effects.
+#' @param ofsted_override Optional character: Ofsted rating to use for scenario.
+#' @param model_name Character name of the model (e.g. "all") for PTPRIORLO lookup.
 #' @return A list with baseline, scenario, change, and percent change values
 predict_scenario_slim <- function(slim_model, school_data, modifications = list(),
-                                   include_re = TRUE) {
+                                   include_re = TRUE, ofsted_override = NULL,
+                                   model_name = NULL) {
 
   stopifnot(nrow(school_data) == 1)
 
   # 1. Baseline prediction (current values)
   baseline <- predict_slim(slim_model, school_data, include_re = include_re)
 
-  # 2. Apply modifications to create scenario data
+  # Separate PTPRIORLO from core model modifications
+  ptpriorlo_change <- modifications[["PTPRIORLO"]]
+  core_modifications <- modifications[names(modifications) != "PTPRIORLO"]
+
+  # 2. Apply core modifications to create scenario data
   scenario_data <- school_data
-  for (var_name in names(modifications)) {
+  for (var_name in names(core_modifications)) {
     if (var_name %in% names(scenario_data)) {
       current_val <- scenario_data[[var_name]]
-      new_val <- current_val + modifications[[var_name]]
+      new_val <- current_val + core_modifications[[var_name]]
       new_val <- max(new_val, 0.01)
       scenario_data[[var_name]] <- new_val
     } else {
@@ -240,10 +268,21 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
     }
   }
 
-  # 3. Scenario prediction
-  scenario <- predict_slim(slim_model, scenario_data, include_re = include_re)
+  # 3. Scenario prediction (with optional Ofsted override)
+  scenario <- predict_slim(slim_model, scenario_data, include_re = include_re,
+                            ofsted_override = ofsted_override)
 
-  # 4. Compute change
+  # 4. Apply PTPRIORLO adjustment (approximate, from full model coefficient)
+  if (!is.null(ptpriorlo_change) && abs(ptpriorlo_change) > 0.001 &&
+      !is.null(model_name) && model_name %in% names(PTPRIORLO_BETA)) {
+    # PTPRIORLO enters the full model linearly on the log scale:
+    # delta_log_Y = beta_ptpriorlo * delta_PTPRIORLO
+    # So the multiplicative effect on Y is: exp(beta * delta)
+    beta_ptpriorlo <- PTPRIORLO_BETA[[model_name]]
+    scenario <- scenario * exp(beta_ptpriorlo * ptpriorlo_change)
+  }
+
+  # 5. Compute change
   change <- scenario - baseline
   pct_change <- ifelse(baseline > 0, (change / baseline) * 100, NA_real_)
 
@@ -263,11 +302,18 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
 #' @param school_data A single-row dataframe
 #' @param modifications Named list of changes
 #' @param include_re Logical
+#' @param ofsted_override Optional Ofsted rating override
+#' @param model_name Character model name for PTPRIORLO lookup
 #' @return A tibble with variable, current_value, scenario_value, marginal_effect
 decompose_scenario_slim <- function(slim_model, school_data, modifications = list(),
-                                     include_re = TRUE) {
+                                     include_re = TRUE, ofsted_override = NULL,
+                                     model_name = NULL) {
 
-  if (length(modifications) == 0) {
+  # Check if there's an Ofsted change (not represented as a modification)
+  has_ofsted_change <- !is.null(ofsted_override) &&
+    as.character(school_data$OFSTEDRATING_1) != ofsted_override
+
+  if (length(modifications) == 0 && !has_ofsted_change) {
     return(tibble(
       variable = character(),
       display_name = character(),
@@ -278,25 +324,52 @@ decompose_scenario_slim <- function(slim_model, school_data, modifications = lis
     ))
   }
 
-  # Per-variable marginal effects
-  results <- purrr::map_dfr(names(modifications), function(var_name) {
-    if (!(var_name %in% names(school_data))) return(NULL)
+  results <- tibble(
+    variable = character(),
+    display_name = character(),
+    current_value = numeric(),
+    scenario_value = numeric(),
+    marginal_effect = numeric()
+  )
 
-    single_mod <- list()
-    single_mod[[var_name]] <- modifications[[var_name]]
-    pred <- predict_scenario_slim(slim_model, school_data, single_mod, include_re)
+  # Per-variable marginal effects for slider modifications
+  if (length(modifications) > 0) {
+    slider_results <- purrr::map_dfr(names(modifications), function(var_name) {
+      if (!(var_name %in% names(school_data))) return(NULL)
 
-    tibble(
-      variable = var_name,
-      display_name = variable_display_name(var_name),
-      current_value = as.numeric(school_data[[var_name]]),
-      scenario_value = as.numeric(school_data[[var_name]] + modifications[[var_name]]),
-      marginal_effect = pred$change
-    )
-  })
+      single_mod <- list()
+      single_mod[[var_name]] <- modifications[[var_name]]
+      pred <- predict_scenario_slim(slim_model, school_data, single_mod,
+                                     include_re, model_name = model_name)
+
+      tibble(
+        variable = var_name,
+        display_name = variable_display_name(var_name),
+        current_value = as.numeric(school_data[[var_name]]),
+        scenario_value = as.numeric(school_data[[var_name]] + modifications[[var_name]]),
+        marginal_effect = pred$change
+      )
+    })
+    results <- bind_rows(results, slider_results)
+  }
+
+  # Ofsted rating change as a separate row
+  if (has_ofsted_change) {
+    ofsted_pred <- predict_scenario_slim(slim_model, school_data, list(),
+                                          include_re, ofsted_override = ofsted_override)
+    results <- bind_rows(results, tibble(
+      variable = "OFSTEDRATING_1",
+      display_name = "Ofsted Rating",
+      current_value = NA_real_,
+      scenario_value = NA_real_,
+      marginal_effect = ofsted_pred$change
+    ))
+  }
 
   # Compute percentage of total change
-  total <- predict_scenario_slim(slim_model, school_data, modifications, include_re)
+  total <- predict_scenario_slim(slim_model, school_data, modifications,
+                                  include_re, ofsted_override = ofsted_override,
+                                  model_name = model_name)
 
   results <- results %>%
     mutate(
@@ -316,8 +389,11 @@ decompose_scenario_slim <- function(slim_model, school_data, modifications = lis
 #' @param slim_models Named list of slim model objects (all, disadvantaged, non_disadvantaged)
 #' @param school_data Single-row dataframe
 #' @param modifications Named list of changes
+#' @param ofsted_override Optional Ofsted rating override
 #' @return A tibble comparing the effect across all three models
-predict_equity_comparison_slim <- function(slim_models, school_data, modifications = list()) {
+predict_equity_comparison_slim <- function(slim_models, school_data,
+                                            modifications = list(),
+                                            ofsted_override = NULL) {
 
   outcome_labels <- c(
     all = "All Pupils",
@@ -326,7 +402,9 @@ predict_equity_comparison_slim <- function(slim_models, school_data, modificatio
   )
 
   results <- purrr::map_dfr(names(slim_models), function(model_name) {
-    pred <- predict_scenario_slim(slim_models[[model_name]], school_data, modifications)
+    pred <- predict_scenario_slim(slim_models[[model_name]], school_data,
+                                   modifications, ofsted_override = ofsted_override,
+                                   model_name = model_name)
     tibble(
       model = model_name,
       label = outcome_labels[model_name],

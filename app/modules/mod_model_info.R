@@ -193,7 +193,8 @@ mod_model_info_server <- function(id, selected_outcome) {
           mode = "lines",
           line = list(color = "#dc3545", dash = "dash"),
           showlegend = FALSE,
-          hoverinfo = "none"
+          hoverinfo = "none",
+          inherit = FALSE
         ) %>%
         layout(
           xaxis = list(title = "Fitted values (log scale)"),
@@ -297,7 +298,19 @@ mod_model_info_server <- function(id, selected_outcome) {
                   " but cannot predict what would happen to a specific school if its ",
                   "characteristics changed. The policy simulator provides indicative estimates only."),
           tags$li("Schools with very small cohorts, unusual characteristics, or missing data ",
-                  "may have less reliable predictions.")
+                  "may have less reliable predictions."),
+          tags$li("The Ofsted rating selector in the simulator uses the model's ",
+                  tags$strong("random intercept"), " for each rating category. ",
+                  "Changing the Ofsted rating in isolation is illustrative only \u2014 ",
+                  "in practice, an improvement in Ofsted rating would not occur ",
+                  "independently of improvements in the other school-level variables ",
+                  "(e.g. absence, teaching quality). The effect shown is indicative of the ",
+                  "average difference between schools at each Ofsted rating, ",
+                  "all else being equal."),
+          tags$li("The ", tags$strong("Low Prior Attainment (PTPRIORLO)"), " slider uses ",
+                  "an approximate coefficient from the full model (which includes workforce ",
+                  "and prior attainment data for 2021\u201324). This variable is unavailable ",
+                  "for 2024-25, so its effect is estimated from earlier years only.")
         ),
         tags$p(class = "text-muted",
                tags$em("Data sources: DfE Performance Tables, Explore Education Statistics, ",
