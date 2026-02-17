@@ -137,7 +137,10 @@ server <- function(input, output, session) {
     selected_outcome = selected_outcome
   )
 
-  mod_obs_vs_pred_server("obs_vs_pred")
+  mod_obs_vs_pred_server(
+    "obs_vs_pred",
+    selected_outcome = selected_outcome
+  )
 
   mod_model_info_server(
     "model_info",

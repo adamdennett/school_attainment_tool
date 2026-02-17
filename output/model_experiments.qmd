@@ -1,0 +1,1211 @@
+---
+title: "Model Experiments"
+subtitle: "Human-readable lmer implementations for manual inspection"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: false
+    theme: flatly
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| label: setup
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(here)
+
+# Load the raw panel data (same starting point as 05_fit_model.R)
+panel <- readRDS(here::here("data", "panel_data.rds"))
+
+cat("Panel loaded:", nrow(panel), "rows,", ncol(panel), "columns\n")
+```
+
+
+# Overview
+
+This document re-implements every model from `model_results.qmd` in a
+deliberately simple, explicit style. Each model is written out longhand
+so you can:
+
+- see exactly which rows survive the filters
+- read the `lmer()` formula as a single, self-contained call
+- inspect `summary()`, `fixef()`, `ranef()`, `VarCorr()` etc. directly
+
+The four analyses and three outcomes produce **12 models** in total.
+
+Models are fitted with `REML = TRUE` and `optimizer = "bobyqa"` to
+match the production pipeline.
+
+
+# Data Preparation
+
+Two datasets are needed: a **full** dataset (requires workforce and
+prior-attainment variables, so covers 3 years) and a **core** dataset
+(5 predictors only, covers all 4 years including 2024-25).
+
+## Full model dataset
+
+```{r data-full}
+#| label: data-full
+
+model_data <- panel %>%
+  # Mainstream schools only
+
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  # Main outcome + log-transformed predictors must be positive & non-NA
+  filter(
+    !is.na(ATT8SCR), ATT8SCR > 0,
+    PTFSM6CLA1A > 0,
+    PERCTOT > 0,
+    PNUMEAL > 0,
+    !is.na(OFSTEDRATING_1),
+    !is.na(gor_name),
+    !is.na(LANAME)
+  ) %>%
+  # Workforce + Gorard variables (drops 2024-25)
+  filter(
+    remained_in_the_same_school > 0,
+    !is.na(teachers_on_leadership_pay_range_percent),
+    average_number_of_days_taken > 0,
+    !is.na(gorard_segregation)
+  ) %>%
+  # Set factor levels
+  mutate(
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name   = factor(gor_name),
+    LANAME     = factor(LANAME),
+    year_label = factor(year_label)
+  ) %>%
+  droplevels()
+
+# Treatment contrasts (lmer default for ordered factors is polynomial)
+contrasts(model_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(model_data$OFSTEDRATING_1))
+
+cat("Full model dataset:", nrow(model_data), "rows\n")
+cat("Years:", paste(levels(model_data$year_label), collapse = ", "), "\n")
+cat("Regions:", n_distinct(model_data$gor_name), "\n")
+cat("LAs:", n_distinct(model_data$LANAME), "\n")
+cat("Ofsted levels:", paste(levels(model_data$OFSTEDRATING_1), collapse = ", "), "\n")
+```
+
+## Core model dataset
+
+```{r data-core}
+#| label: data-core
+
+core_model_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(
+    !is.na(ATT8SCR), ATT8SCR > 0,
+    PTFSM6CLA1A > 0,
+    PERCTOT > 0,
+    PNUMEAL > 0,
+    !is.na(ADMPOL_PT),
+    !is.na(gorard_segregation),
+    !is.na(OFSTEDRATING_1),
+    !is.na(gor_name),
+    !is.na(LANAME)
+  ) %>%
+  mutate(
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name   = factor(gor_name),
+    LANAME     = factor(LANAME),
+    year_label = factor(year_label)
+  ) %>%
+  droplevels()
+
+contrasts(core_model_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(core_model_data$OFSTEDRATING_1))
+
+cat("Core model dataset:", nrow(core_model_data), "rows\n")
+cat("Years:", paste(levels(core_model_data$year_label), collapse = ", "), "\n")
+```
+
+
+# Analysis A: Full Panel Models
+
+All years pooled, `year_label` as a random intercept. Nine fixed-effect
+predictors (5 log-transformed, 4 linear).
+
+## All Pupils
+
+```{r a-all}
+#| label: a-all
+
+d <- model_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_a_all <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_a_all)
+```
+
+### Quick checks
+
+```{r a-all-checks}
+#| label: a-all-checks
+
+cat("Fixed effects:\n")
+fixef(mod_a_all)
+
+cat("\nVariance components:\n")
+print(VarCorr(mod_a_all))
+
+cat("\nR-squared:\n")
+print(r2(mod_a_all))
+
+cat("\nSingular fit?", isSingular(mod_a_all), "\n")
+```
+
+## Disadvantaged Pupils
+
+```{r a-disadv}
+#| label: a-disadv
+
+d <- model_data %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_a_disadv <- lmer(
+  log(ATT8SCR_FSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_a_disadv)
+```
+
+### Quick checks
+
+```{r a-disadv-checks}
+#| label: a-disadv-checks
+
+fixef(mod_a_disadv)
+print(VarCorr(mod_a_disadv))
+print(r2(mod_a_disadv))
+cat("Singular fit?", isSingular(mod_a_disadv), "\n")
+```
+
+## Non-Disadvantaged Pupils
+
+```{r a-nondisadv}
+#| label: a-nondisadv
+
+d <- model_data %>%
+  filter(!is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_a_nondisadv <- lmer(
+  log(ATT8SCR_NFSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_a_nondisadv)
+```
+
+### Quick checks
+
+```{r a-nondisadv-checks}
+#| label: a-nondisadv-checks
+
+fixef(mod_a_nondisadv)
+print(VarCorr(mod_a_nondisadv))
+print(r2(mod_a_nondisadv))
+cat("Singular fit?", isSingular(mod_a_nondisadv), "\n")
+```
+
+
+# Analysis B: Full Per-Year Models
+
+Same 9 fixed effects as Analysis A, but fitted separately for each year.
+No `year_label` random effect.
+
+```{r b-setup}
+#| label: b-setup
+
+year_levels <- sort(unique(as.character(model_data$year_label)))
+cat("Years to fit:", paste(year_levels, collapse = ", "), "\n")
+```
+
+## All Pupils (per year)
+
+```{r b-all}
+#| label: b-all
+
+for (yr in year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- All Pupils\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- model_data %>%
+    filter(year_label == yr, !is.na(ATT8SCR), ATT8SCR > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      log(remained_in_the_same_school) +
+      teachers_on_leadership_pay_range_percent +
+      log(average_number_of_days_taken) +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+## Disadvantaged Pupils (per year)
+
+```{r b-disadv}
+#| label: b-disadv
+
+for (yr in year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- Disadvantaged Pupils\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- model_data %>%
+    filter(year_label == yr,
+           !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR_FSM6CLA1A) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      log(remained_in_the_same_school) +
+      teachers_on_leadership_pay_range_percent +
+      log(average_number_of_days_taken) +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+## Non-Disadvantaged Pupils (per year)
+
+```{r b-nondisadv}
+#| label: b-nondisadv
+
+for (yr in year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- Non-Disadvantaged Pupils\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- model_data %>%
+    filter(year_label == yr,
+           !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR_NFSM6CLA1A) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      log(remained_in_the_same_school) +
+      teachers_on_leadership_pay_range_percent +
+      log(average_number_of_days_taken) +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+
+# Analysis C: Core Panel Models
+
+Reduced specification with 5 fixed effects. All 4 years pooled
+(including 2024-25). `year_label` as a random intercept.
+
+## All Pupils
+
+```{r c-all}
+#| label: c-all
+
+d <- core_model_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_c_all <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_c_all)
+```
+
+### Quick checks
+
+```{r c-all-checks}
+#| label: c-all-checks
+
+fixef(mod_c_all)
+print(VarCorr(mod_c_all))
+print(r2(mod_c_all))
+cat("Singular fit?", isSingular(mod_c_all), "\n")
+```
+
+## Disadvantaged Pupils
+
+```{r c-disadv}
+#| label: c-disadv
+
+d <- core_model_data %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_c_disadv <- lmer(
+  log(ATT8SCR_FSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_c_disadv)
+```
+
+### Quick checks
+
+```{r c-disadv-checks}
+#| label: c-disadv-checks
+
+fixef(mod_c_disadv)
+print(VarCorr(mod_c_disadv))
+print(r2(mod_c_disadv))
+cat("Singular fit?", isSingular(mod_c_disadv), "\n")
+```
+
+## Non-Disadvantaged Pupils
+
+```{r c-nondisadv}
+#| label: c-nondisadv
+
+d <- core_model_data %>%
+  filter(!is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+cat("Observations:", nrow(d), "\n")
+
+mod_c_nondisadv <- lmer(
+  log(ATT8SCR_NFSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_c_nondisadv)
+```
+
+### Quick checks
+
+```{r c-nondisadv-checks}
+#| label: c-nondisadv-checks
+
+fixef(mod_c_nondisadv)
+print(VarCorr(mod_c_nondisadv))
+print(r2(mod_c_nondisadv))
+cat("Singular fit?", isSingular(mod_c_nondisadv), "\n")
+```
+
+
+# Analysis D: Core Per-Year Models
+
+Same 5 core fixed effects, fitted separately for each year. No
+`year_label` random effect.
+
+```{r d-setup}
+#| label: d-setup
+
+core_year_levels <- sort(unique(as.character(core_model_data$year_label)))
+cat("Years to fit:", paste(core_year_levels, collapse = ", "), "\n")
+```
+
+## All Pupils (per year)
+
+```{r d-all}
+#| label: d-all
+
+for (yr in core_year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- All Pupils (core)\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- core_model_data %>%
+    filter(year_label == yr, !is.na(ATT8SCR), ATT8SCR > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      ADMPOL_PT + gorard_segregation +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+## Disadvantaged Pupils (per year)
+
+```{r d-disadv}
+#| label: d-disadv
+
+for (yr in core_year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- Disadvantaged Pupils (core)\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- core_model_data %>%
+    filter(year_label == yr,
+           !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR_FSM6CLA1A) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      ADMPOL_PT + gorard_segregation +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+## Non-Disadvantaged Pupils (per year)
+
+```{r d-nondisadv}
+#| label: d-nondisadv
+
+for (yr in core_year_levels) {
+
+  cat("\n", strrep("=", 60), "\n")
+  cat("YEAR:", yr, "- Non-Disadvantaged Pupils (core)\n")
+  cat(strrep("=", 60), "\n")
+
+  d <- core_model_data %>%
+    filter(year_label == yr,
+           !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+    droplevels()
+
+  contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+  cat("Observations:", nrow(d), "\n")
+
+  mod <- lmer(
+    log(ATT8SCR_NFSM6CLA1A) ~
+      log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      ADMPOL_PT + gorard_segregation +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d,
+    REML = TRUE,
+    na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  print(summary(mod))
+  cat("\nR-squared:\n")
+  print(r2(mod))
+  cat("\nSingular fit?", isSingular(mod), "\n")
+}
+```
+
+
+# Coefficient Commentary
+
+This section compares the core panel model coefficients (Analysis C)
+across the three outcome groups and examines how the core per-year
+coefficients (Analysis D) evolve over time. The core specification is
+used because it covers all four years including 2024-25, giving us the
+broadest view.
+
+## Side-by-side core panel coefficients
+
+```{r commentary-coefs}
+#| label: commentary-coefs
+
+# Extract fixed effects from the three core panel models
+coef_table <- bind_rows(
+  tibble(Group = "All Pupils",
+         Term = names(fixef(mod_c_all)),
+         Estimate = fixef(mod_c_all)),
+  tibble(Group = "Disadvantaged",
+         Term = names(fixef(mod_c_disadv)),
+         Estimate = fixef(mod_c_disadv)),
+  tibble(Group = "Non-Disadvantaged",
+         Term = names(fixef(mod_c_nondisadv)),
+         Estimate = fixef(mod_c_nondisadv))
+) %>%
+  pivot_wider(names_from = Group, values_from = Estimate) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 5)))
+
+knitr::kable(coef_table, align = "lrrr",
+             caption = "Core panel model (Analysis C): fixed effect comparison")
+```
+
+## Coefficient stability over time
+
+```{r commentary-yearly}
+#| label: commentary-yearly
+#| fig-height: 8
+#| fig-width: 9
+#| fig-cap: "Core per-year coefficient estimates across all four academic years, by outcome group"
+
+# Re-fit core per-year models and collect coefficients in a tidy table
+yearly_coefs <- list()
+
+for (yr in core_year_levels) {
+  for (outcome_name in c("all", "disadv", "nondisadv")) {
+
+    outcome_var <- switch(outcome_name,
+                          all = "ATT8SCR",
+                          disadv = "ATT8SCR_FSM6CLA1A",
+                          nondisadv = "ATT8SCR_NFSM6CLA1A")
+    group_label <- switch(outcome_name,
+                          all = "All Pupils",
+                          disadv = "Disadvantaged",
+                          nondisadv = "Non-Disadvantaged")
+
+    d <- core_model_data %>%
+      filter(year_label == yr,
+             !is.na(!!sym(outcome_var)), !!sym(outcome_var) > 0) %>%
+      droplevels()
+
+    contrasts(d$OFSTEDRATING_1) <- contr.treatment(levels(d$OFSTEDRATING_1))
+
+    mod <- tryCatch(
+      lmer(
+        as.formula(paste0(
+          "log(", outcome_var, ") ~ ",
+          "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
+          "ADMPOL_PT + gorard_segregation + ",
+          "(1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+        )),
+        data = d, REML = TRUE, na.action = na.exclude,
+        control = lmerControl(optimizer = "bobyqa",
+                              optCtrl = list(maxfun = 20000))
+      ),
+      error = function(e) NULL
+    )
+
+    if (!is.null(mod)) {
+      fe <- fixef(mod)
+      yearly_coefs[[length(yearly_coefs) + 1]] <- tibble(
+        Year = yr,
+        Group = group_label,
+        Term = names(fe),
+        Estimate = fe
+      )
+    }
+  }
+}
+
+yearly_coefs_df <- bind_rows(yearly_coefs) %>%
+  filter(Term != "(Intercept)") %>%
+  mutate(
+    Group = factor(Group,
+                   levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged"))
+  )
+
+ggplot(yearly_coefs_df,
+       aes(x = Year, y = Estimate, colour = Group, group = Group)) +
+  geom_point(size = 2) +
+  geom_line(linewidth = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ Term, scales = "free_y", ncol = 2) +
+  scale_colour_manual(values = c("All Pupils" = "#1565c0",
+                                  "Disadvantaged" = "#c62828",
+                                  "Non-Disadvantaged" = "#2e7d32")) +
+  labs(y = "Coefficient estimate", x = "Academic year", colour = NULL,
+       title = "Core per-year coefficient trajectories") +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    strip.text = element_text(face = "bold", size = 9)
+  )
+```
+
+## General observations
+
+The commentary below draws on the coefficient tables and trajectories
+above. Because the outcome is **log-transformed**, all coefficients are
+**elasticities** (for log-transformed predictors) or
+**semi-elasticities** (for linear predictors). A coefficient of --0.10
+on a logged predictor means that a 1% increase in that predictor is
+associated with roughly a 0.10% *decrease* in Attainment 8.
+
+### 1. Free school meals (FSM) — the sign flip
+
+The most striking pattern across all four analyses is the coefficient
+on `log(PTFSM6CLA1A)` — the percentage of pupils eligible for free
+school meals:
+
+- **All Pupils and Non-Disadvantaged:** The coefficient is consistently
+  **negative**. Schools with a higher share of disadvantaged pupils tend
+  to have lower overall and non-disadvantaged ATT8 scores, even after
+  controlling for absence, EAL, and segregation. This captures the well
+  documented compositional effect: a more disadvantaged intake is
+  associated with lower average attainment at school level.
+
+- **Disadvantaged Pupils:** The coefficient **flips to positive**. Among
+  schools with a higher proportion of FSM-eligible pupils, the
+  *disadvantaged subgroup specifically* tends to score somewhat higher
+  than predicted. One plausible explanation is that schools serving
+  predominantly disadvantaged cohorts concentrate more resources, Pupil
+  Premium funding, and pastoral support on those pupils — a kind of
+  "critical mass" effect. Alternatively, in schools where almost all
+  pupils are disadvantaged, the disadvantaged group essentially *is* the
+  school average, removing the within-school composition penalty.
+
+This sign reversal is stable across all four years and appears in both
+the full (Analysis A) and core (Analysis C) specifications, suggesting
+it is a robust structural feature rather than a modelling artefact.
+
+### 2. Absence — the largest and most stable predictor
+
+The coefficient on `log(PERCTOT)` (% overall absence) is **strongly
+negative** for all three groups and is typically the largest predictor in
+absolute terms. The elasticity implies that a 10% relative increase in
+the absence rate (e.g. from 5.0% to 5.5%) is associated with a
+substantial drop in ATT8 on the log scale.
+
+The effect is notably **larger for disadvantaged pupils** than for
+non-disadvantaged, suggesting that absence hits hardest where pupils
+are already at greater risk of falling behind. This pattern is
+consistent over all four years.
+
+### 3. English as an additional language (EAL)
+
+`log(PNUMEAL)` shows a **positive** coefficient for all three groups: a
+higher proportion of EAL pupils is associated with *higher* attainment
+once other factors are controlled. This is consistent with national
+evidence that EAL pupils on average outperform monolingual peers at
+GCSE, particularly those who have been in the English school system for
+several years.
+
+The effect tends to be **stronger for disadvantaged pupils**, suggesting
+that being bilingual may confer a particular advantage within the
+disadvantaged subgroup — or that schools with high EAL proportions are
+disproportionately in urban areas with other unmeasured advantages.
+
+### 4. Interpreting log-transformed variables — effects at the extremes
+
+Because several predictors enter the model as `log(x)`, the
+*absolute* effect of a unit change depends on **where you are on the
+distribution**:
+
+- A school moving from 2% to 3% absence (+50% relative change) sees a
+  far larger predicted impact than one moving from 7% to 8% (+14%
+  relative).
+- Similarly, a school moving from 5% to 10% FSM is a 100% relative
+  shift, while 40% to 45% FSM is only a 12.5% relative shift.
+
+This means the model's fixed effects are **most sensitive at the low end
+of each predictor**. Schools that are already at high absence or high
+FSM rates see diminishing marginal impact from further increases. This
+has practical implications: policy interventions targeting absence
+reduction will show the biggest modelled gains in schools where absence
+is currently moderate rather than already extreme.
+
+### 5. Gorard segregation index
+
+The Gorard segregation index coefficient is **negative** for all three
+groups — higher within-LA segregation is associated with lower
+attainment — but the magnitude varies. It tends to be larger (more
+negative) for **disadvantaged pupils**, suggesting that sorting pupils
+into high-deprivation and low-deprivation schools hurts the
+disadvantaged group more than the non-disadvantaged.
+
+### 6. Admissions policy
+
+`ADMPOL_PT` (a continuous admissions policy indicator) is **positive**
+across all groups, implying that more selective admissions policies are
+associated with higher attainment after controlling for intake
+characteristics. However, the coefficient is **relatively small and
+sometimes unstable** across years, particularly for the disadvantaged
+group, where the confidence intervals are wide.
+
+### 7. Workforce variables (full model only)
+
+In Analysis A, the three workforce variables add useful context:
+
+- **Teacher retention** (`log(remained_in_the_same_school)`): Positive
+  coefficient — higher staff stability is associated with higher
+  attainment. The effect is broadly similar across groups.
+- **Leadership pay** (`teachers_on_leadership_pay_range_percent`):
+  Typically small and sometimes non-significant, suggesting that the
+  proportion of teachers on leadership pay scales is not a strong
+  predictor once other factors are controlled.
+- **Teacher absence** (`log(average_number_of_days_taken)`): Negative
+  coefficient — schools where teachers are absent more tend to have
+  lower ATT8 scores. This echoes the pupil absence finding and
+  reinforces that attendance (by both pupils and staff) is strongly
+  associated with outcomes.
+
+### 8. Year-to-year stability
+
+The coefficient trajectory plots above show that the core per-year
+estimates are **remarkably stable** across 2021-22 to 2024-25, with
+most terms moving within a narrow band. The main exception is 2021-22,
+which was the first full examination year after the pandemic disruption
+and occasionally shows slightly different coefficient magnitudes.
+
+
+# Brighton & Hove: A Local Case Study
+
+```{r bh-setup}
+#| label: bh-setup
+
+HIGHLIGHT_LA <- "Brighton and Hove"
+
+bh_data <- panel %>%
+  filter(LANAME == HIGHLIGHT_LA,
+         MINORGROUP %in% c("Academy", "Maintained school"))
+
+cat("Brighton & Hove schools in panel:", n_distinct(bh_data$URN), "\n")
+cat("School-year rows:", nrow(bh_data), "\n")
+cat("Years:", paste(sort(unique(as.character(bh_data$year_label))), collapse = ", "), "\n")
+```
+
+## School profiles
+
+```{r bh-profiles}
+#| label: bh-profiles
+
+bh_profiles <- bh_data %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(School = SCHNAME) %>%
+  summarise(
+    Years = n(),
+    `Mean ATT8 (All)` = round(mean(ATT8SCR, na.rm = TRUE), 1),
+    `Mean ATT8 (Disadv.)` = round(mean(ATT8SCR_FSM6CLA1A, na.rm = TRUE), 1),
+    `Mean ATT8 (Non-Dis.)` = round(mean(ATT8SCR_NFSM6CLA1A, na.rm = TRUE), 1),
+    `Mean % FSM` = round(mean(PTFSM6CLA1A, na.rm = TRUE), 1),
+    `Mean % Absence` = round(mean(PERCTOT, na.rm = TRUE), 1),
+    `Mean % EAL` = round(mean(PNUMEAL, na.rm = TRUE), 1),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(`Mean ATT8 (All)`))
+
+knitr::kable(bh_profiles,
+             caption = paste0("Brighton & Hove secondary schools: ",
+                              "average characteristics across available years"))
+```
+
+## What the log transform means in practice: Brighton & Hove examples
+
+The table below shows the predictor values for Brighton & Hove schools
+and their log-transformed equivalents. This illustrates why a school at
+the low end of a predictor sees a much bigger modelled impact from a
+small absolute change than a school already at the high end.
+
+```{r bh-log-illustration}
+#| label: bh-log-illustration
+
+bh_latest <- bh_data %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
+log_illustration <- bh_latest %>%
+  select(School = SCHNAME, year_label,
+         PTFSM6CLA1A, PERCTOT, PNUMEAL) %>%
+  mutate(
+    `log(% FSM)` = round(log(PTFSM6CLA1A), 3),
+    `log(% Absence)` = round(log(PERCTOT), 3),
+    `log(% EAL)` = round(log(PNUMEAL), 3),
+    PTFSM6CLA1A = round(PTFSM6CLA1A, 1),
+    PERCTOT = round(PERCTOT, 1),
+    PNUMEAL = round(PNUMEAL, 1)
+  ) %>%
+  arrange(PTFSM6CLA1A) %>%
+  rename(Year = year_label,
+         `% FSM` = PTFSM6CLA1A,
+         `% Absence` = PERCTOT,
+         `% EAL` = PNUMEAL)
+
+knitr::kable(log_illustration,
+             caption = paste0("Brighton & Hove schools: raw and log-transformed ",
+                              "predictor values (most recent year)"))
+```
+
+Consider two hypothetical Brighton & Hove schools:
+
+- **School A** with 10% FSM: `log(10) = 2.30`. If FSM rises by 5
+  percentage points to 15%, `log(15) = 2.71` — a shift of **+0.41** on
+  the log scale.
+- **School B** with 40% FSM: `log(40) = 3.69`. If FSM rises by the same
+  5 percentage points to 45%, `log(45) = 3.81` — a shift of only
+  **+0.12** on the log scale.
+
+Because the model operates on the log scale, the *same absolute
+increase* in FSM rate produces a predicted effect that is **more than
+three times larger** for the lower-FSM school. The same logic applies to
+absence and EAL. This is why policy interventions — whether reducing
+absence or managing intake composition — can have dramatically different
+predicted impacts depending on where a school sits on the distribution.
+
+## Brighton & Hove: observed vs predicted
+
+```{r bh-obs-pred}
+#| label: bh-obs-pred
+#| fig-height: 7
+#| fig-width: 9
+#| fig-cap: "Observed vs core-model predicted ATT8 for Brighton & Hove schools across all years"
+
+bh_plot_data <- bh_data %>%
+  filter(!is.na(ATT8SCR)) %>%
+  select(School = SCHNAME, Year = year_label,
+         ATT8SCR, predicted_ATT8SCR_core, residual_ATT8SCR_core,
+         ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_core,
+         ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_core) %>%
+  pivot_longer(
+    cols = -c(School, Year),
+    names_to = c("measure", "group"),
+    names_pattern = "(ATT8SCR|predicted_ATT8SCR|residual_ATT8SCR)_(.*)"
+  )
+
+# Simpler approach: build one panel per outcome
+outcomes_bh <- list(
+  list(obs = "ATT8SCR", pred = "predicted_ATT8SCR_core",
+       label = "All Pupils"),
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_ATT8SCR_FSM6CLA1A_core",
+       label = "Disadvantaged"),
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_ATT8SCR_NFSM6CLA1A_core",
+       label = "Non-Disadvantaged")
+)
+
+bh_long <- map_dfr(outcomes_bh, function(o) {
+  bh_data %>%
+    filter(!is.na(!!sym(o$obs)), !is.na(!!sym(o$pred))) %>%
+    transmute(
+      School = SCHNAME,
+      Year = year_label,
+      Group = o$label,
+      Observed = !!sym(o$obs),
+      Predicted = !!sym(o$pred),
+      Residual = Observed - Predicted
+    )
+}) %>%
+  mutate(Group = factor(Group,
+                        levels = c("All Pupils", "Disadvantaged",
+                                   "Non-Disadvantaged")))
+
+# Scatter: observed vs predicted, faceted by group
+rng <- range(c(bh_long$Observed, bh_long$Predicted), na.rm = TRUE)
+
+ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
+              linewidth = 0.5, linetype = "dashed") +
+  geom_point(size = 2, alpha = 0.8) +
+  facet_wrap(~ Group, ncol = 3) +
+  coord_cartesian(xlim = rng, ylim = rng) +
+  labs(x = "Predicted ATT8 (core model)", y = "Observed ATT8",
+       colour = NULL,
+       title = "Brighton & Hove: observed vs predicted Attainment 8") +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 8),
+    strip.text = element_text(face = "bold")
+  ) +
+  guides(colour = guide_legend(nrow = 3))
+```
+
+## Brighton & Hove: residuals by school
+
+```{r bh-residuals}
+#| label: bh-residuals
+#| fig-height: 6
+#| fig-width: 9
+#| fig-cap: "Model residuals (observed - predicted) for Brighton & Hove schools by outcome group and year"
+
+ggplot(bh_long, aes(x = Year, y = Residual, colour = School, group = School)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(size = 2) +
+  geom_line(linewidth = 0.5, alpha = 0.6) +
+  facet_wrap(~ Group, ncol = 3, scales = "free_y") +
+  labs(x = "Academic year", y = "Residual (Observed - Predicted)",
+       colour = NULL,
+       title = "Brighton & Hove: school-level residuals over time") +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 8),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold")
+  ) +
+  guides(colour = guide_legend(nrow = 3))
+```
+
+## Brighton & Hove: commentary
+
+This section links the general coefficient patterns back to the specific
+schools in Brighton & Hove.
+
+```{r bh-commentary-data}
+#| label: bh-commentary-data
+
+# National distribution context
+national_summary <- core_model_data %>%
+  filter(!is.na(ATT8SCR)) %>%
+  summarise(
+    fsm_p25 = quantile(PTFSM6CLA1A, 0.25, na.rm = TRUE),
+    fsm_p50 = quantile(PTFSM6CLA1A, 0.50, na.rm = TRUE),
+    fsm_p75 = quantile(PTFSM6CLA1A, 0.75, na.rm = TRUE),
+    abs_p25 = quantile(PERCTOT, 0.25, na.rm = TRUE),
+    abs_p50 = quantile(PERCTOT, 0.50, na.rm = TRUE),
+    abs_p75 = quantile(PERCTOT, 0.75, na.rm = TRUE),
+    eal_p25 = quantile(PNUMEAL, 0.25, na.rm = TRUE),
+    eal_p50 = quantile(PNUMEAL, 0.50, na.rm = TRUE),
+    eal_p75 = quantile(PNUMEAL, 0.75, na.rm = TRUE)
+  )
+
+cat("National quartiles (core model data):\n")
+cat(sprintf("  %% FSM:     P25=%.1f  P50=%.1f  P75=%.1f\n",
+            national_summary$fsm_p25, national_summary$fsm_p50,
+            national_summary$fsm_p75))
+cat(sprintf("  %% Absence: P25=%.1f  P50=%.1f  P75=%.1f\n",
+            national_summary$abs_p25, national_summary$abs_p50,
+            national_summary$abs_p75))
+cat(sprintf("  %% EAL:     P25=%.1f  P50=%.1f  P75=%.1f\n",
+            national_summary$eal_p25, national_summary$eal_p50,
+            national_summary$eal_p75))
+
+cat("\nBrighton & Hove schools relative to national distribution:\n")
+bh_latest %>%
+  arrange(SCHNAME) %>%
+  transmute(
+    School = SCHNAME,
+    `% FSM` = round(PTFSM6CLA1A, 1),
+    `FSM quartile` = case_when(
+      PTFSM6CLA1A <= national_summary$fsm_p25 ~ "Bottom 25%",
+      PTFSM6CLA1A <= national_summary$fsm_p50 ~ "Q2",
+      PTFSM6CLA1A <= national_summary$fsm_p75 ~ "Q3",
+      TRUE ~ "Top 25%"
+    ),
+    `% Absence` = round(PERCTOT, 1),
+    `Absence quartile` = case_when(
+      PERCTOT <= national_summary$abs_p25 ~ "Bottom 25%",
+      PERCTOT <= national_summary$abs_p50 ~ "Q2",
+      PERCTOT <= national_summary$abs_p75 ~ "Q3",
+      TRUE ~ "Top 25%"
+    )
+  ) %>%
+  knitr::kable(caption = "Brighton & Hove schools: national quartile position")
+```
+
+Brighton & Hove provides a useful illustration of the coefficient
+patterns because its schools span a **wide range** of intake
+characteristics within a single local authority:
+
+**The FSM sign-flip in practice:** Schools in Brighton & Hove with lower
+FSM rates will see the negative `log(PTFSM6CLA1A)` coefficient
+working in their favour for overall and non-disadvantaged ATT8 (lower
+deprivation → higher predicted score). But for the *disadvantaged*
+model, the positive coefficient means that schools with higher FSM rates
+actually get a modest upward adjustment for their disadvantaged pupils.
+A school with, say, 40% FSM will have a higher predicted disadvantaged
+ATT8 than one with 15% FSM, all else equal — the model is capturing
+the idea that disadvantaged pupils may do relatively better in schools
+where they form a larger share of the cohort.
+
+**The log-scale sensitivity:** Brighton & Hove schools with relatively
+low absence rates sit on the steep part of the log curve. For these
+schools, even a small absolute increase in absence (e.g. 4.5% to 5.5%)
+translates into a meaningful drop in predicted ATT8. In contrast, a
+school already at 8% or 9% absence would need a larger absolute rise to
+see the same predicted impact. This means that **protecting low-absence
+schools from deterioration** may be just as important as tackling
+chronic absence elsewhere — a small slip at the low end has an
+outsized effect in the model.
+
+**Residual patterns:** Schools that consistently sit *above* the
+diagonal on the observed-vs-predicted plot are outperforming the model's
+expectations given their intake. Those consistently below are
+under-performing relative to their statistical peers. Persistent
+residuals in one direction suggest that something not captured by the
+five core predictors — leadership quality, curriculum design, community
+factors — is driving a school's relative position.
+
+
+# Quick Reference
+
+## Formula summary
+
+| Analysis | Fixed Effects | Random Effects | Data |
+|----------|--------------|----------------|------|
+| A (Full Panel) | 9 predictors (5 log, 4 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | 3 years, workforce required |
+| B (Full Per-Year) | Same 9 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately |
+| C (Core Panel) | 5 predictors (3 log, 2 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | All 4 years |
+| D (Core Per-Year) | Same 5 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately |
+
+## Variable key
+
+| Variable | In formula as | Description |
+|----------|--------------|-------------|
+| `ATT8SCR` | `log(ATT8SCR)` | Attainment 8 score (all pupils) |
+| `ATT8SCR_FSM6CLA1A` | `log(ATT8SCR_FSM6CLA1A)` | Attainment 8 score (disadvantaged) |
+| `ATT8SCR_NFSM6CLA1A` | `log(ATT8SCR_NFSM6CLA1A)` | Attainment 8 score (non-disadvantaged) |
+| `PTFSM6CLA1A` | `log(PTFSM6CLA1A)` | % eligible for Free School Meals |
+| `PERCTOT` | `log(PERCTOT)` | % total absence |
+| `PNUMEAL` | `log(PNUMEAL)` | % English as Additional Language |
+| `PTPRIORLO` | `PTPRIORLO` | % low KS2 prior attainment |
+| `ADMPOL_PT` | `ADMPOL_PT` | Admissions policy indicator |
+| `gorard_segregation` | `gorard_segregation` | Gorard segregation index |
+| `remained_in_the_same_school` | `log(remained_in_the_same_school)` | Teacher retention (%) |
+| `teachers_on_leadership_pay_range_percent` | as-is | % teachers on leadership pay |
+| `average_number_of_days_taken` | `log(average_number_of_days_taken)` | Average teacher absence days |
+| `OFSTEDRATING_1` | `(1\|OFSTEDRATING_1)` | Ofsted rating (random intercept) |
+| `gor_name` | `(1\|gor_name/LANAME)` | Government Office Region |
+| `LANAME` | nested in `gor_name` | Local Authority |
+| `year_label` | `(1\|year_label)` | Academic year (panel models only) |

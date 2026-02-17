@@ -1,9 +1,10 @@
 # mod_obs_vs_pred.R - Observed vs Predicted scatter plot module
 # ----------------------------------------------------------------
-# Displays interactive scatter plots of observed ATT8 scores (y-axis)
-# against core-model fitted values (x-axis) for each of the three
-# outcome groups.  Users can filter by academic year and highlight
-# schools within a selected Local Authority in orange.
+# Displays an interactive scatter plot of observed ATT8 scores (y-axis)
+# against core-model fitted values (x-axis) for the outcome group
+# selected via the global radio buttons.  Users can filter by
+# academic year and highlight schools within a selected Local Authority
+# in orange.
 # ----------------------------------------------------------------
 
 
@@ -34,18 +35,9 @@ mod_obs_vs_pred_ui <- function(id) {
              "Grey dashed line = perfect prediction; ",
              "red line = linear regression fit.")
     ),
-    # Three scatter plots stacked vertically
     card(
-      card_header("All Pupils: Observed vs Predicted ATT8"),
-      plotlyOutput(ns("scatter_all"), height = "380px")
-    ),
-    card(
-      card_header("Disadvantaged Pupils: Observed vs Predicted ATT8"),
-      plotlyOutput(ns("scatter_disadv"), height = "380px")
-    ),
-    card(
-      card_header("Non-Disadvantaged Pupils: Observed vs Predicted ATT8"),
-      plotlyOutput(ns("scatter_nondisadv"), height = "380px")
+      card_header(textOutput(ns("scatter_title"))),
+      plotlyOutput(ns("scatter_plot"), height = "550px")
     )
   )
 }
@@ -53,7 +45,7 @@ mod_obs_vs_pred_ui <- function(id) {
 
 # ---- Server ----
 
-mod_obs_vs_pred_server <- function(id) {
+mod_obs_vs_pred_server <- function(id, selected_outcome) {
   moduleServer(id, function(input, output, session) {
 
     # Populate dropdowns
@@ -150,20 +142,21 @@ mod_obs_vs_pred_server <- function(id) {
                              xanchor = "center", y = -0.15))
     }
 
-    # Render the three scatter plots
-    output$scatter_all <- renderPlotly({
-      make_scatter("ATT8SCR", "predicted_ATT8SCR_core",
-                   input$la_select)
+    # Get config for the selected outcome
+    outcome_cfg <- reactive({
+      req(selected_outcome())
+      OUTCOME_CONFIG[[selected_outcome()]]
     })
 
-    output$scatter_disadv <- renderPlotly({
-      make_scatter("ATT8SCR_FSM6CLA1A", "predicted_ATT8SCR_FSM6CLA1A_core",
-                   input$la_select)
+    # Dynamic card header
+    output$scatter_title <- renderText({
+      paste0(outcome_cfg()$label, ": Observed vs Predicted ATT8")
     })
 
-    output$scatter_nondisadv <- renderPlotly({
-      make_scatter("ATT8SCR_NFSM6CLA1A", "predicted_ATT8SCR_NFSM6CLA1A_core",
-                   input$la_select)
+    # Single scatter plot driven by the global radio button
+    output$scatter_plot <- renderPlotly({
+      cfg <- outcome_cfg()
+      make_scatter(cfg$var, cfg$pred_var, input$la_select)
     })
   })
 }
