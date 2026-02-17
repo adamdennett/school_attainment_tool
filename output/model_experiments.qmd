@@ -660,19 +660,56 @@ for (yr in core_year_levels) {
 
 # Coefficient Commentary
 
-This section compares the core panel model coefficients (Analysis C)
-across the three outcome groups and examines how the core per-year
-coefficients (Analysis D) evolve over time. The core specification is
-used because it covers all four years including 2024-25, giving us the
-broadest view.
+This section compares coefficients across the three outcome groups for
+both the **full panel model** (Analysis A: 9 predictors, 3 years) and
+the **core panel model** (Analysis C: 5 predictors, all 4 years), and
+then examines how the core per-year coefficients (Analysis D) evolve
+over time.
 
-## Side-by-side core panel coefficients
 
-```{r commentary-coefs}
-#| label: commentary-coefs
+## Full panel model: side-by-side coefficients
 
-# Extract fixed effects from the three core panel models
-coef_table <- bind_rows(
+The full panel model (Analysis A) includes all 9 fixed effects —
+critically including `PTPRIORLO` (% low KS2 prior attainment) and three
+workforce variables (teacher retention, leadership pay, teacher absence).
+These are only available for the three years with complete workforce
+data, so **2024-25 is excluded**.
+
+```{r commentary-full-coefs}
+#| label: commentary-full-coefs
+
+# Extract fixed effects from the three full panel models (Analysis A)
+full_coef_table <- bind_rows(
+  tibble(Group = "All Pupils",
+         Term = names(fixef(mod_a_all)),
+         Estimate = fixef(mod_a_all)),
+  tibble(Group = "Disadvantaged",
+         Term = names(fixef(mod_a_disadv)),
+         Estimate = fixef(mod_a_disadv)),
+  tibble(Group = "Non-Disadvantaged",
+         Term = names(fixef(mod_a_nondisadv)),
+         Estimate = fixef(mod_a_nondisadv))
+) %>%
+  pivot_wider(names_from = Group, values_from = Estimate) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 5)))
+
+knitr::kable(full_coef_table, align = "lrrr",
+             caption = "Full panel model (Analysis A): fixed effect comparison (9 predictors, 3 years)")
+```
+
+## Core panel model: side-by-side coefficients
+
+The core panel model (Analysis C) drops the four variables not available
+for 2024-25 — `PTPRIORLO`, `remained_in_the_same_school`,
+`teachers_on_leadership_pay_range_percent`, and
+`average_number_of_days_taken` — leaving 5 fixed effects. In return it
+covers **all 4 years** including 2024-25.
+
+```{r commentary-core-coefs}
+#| label: commentary-core-coefs
+
+# Extract fixed effects from the three core panel models (Analysis C)
+core_coef_table <- bind_rows(
   tibble(Group = "All Pupils",
          Term = names(fixef(mod_c_all)),
          Estimate = fixef(mod_c_all)),
@@ -686,8 +723,41 @@ coef_table <- bind_rows(
   pivot_wider(names_from = Group, values_from = Estimate) %>%
   mutate(across(where(is.numeric), \(x) round(x, 5)))
 
-knitr::kable(coef_table, align = "lrrr",
-             caption = "Core panel model (Analysis C): fixed effect comparison")
+knitr::kable(core_coef_table, align = "lrrr",
+             caption = "Core panel model (Analysis C): fixed effect comparison (5 predictors, all 4 years)")
+```
+
+## Full vs core: direct comparison
+
+The table below places the 5 shared predictors side by side for both
+specifications, making it easy to see how dropping the workforce and
+prior-attainment variables shifts the remaining coefficients.
+
+```{r commentary-full-vs-core}
+#| label: commentary-full-vs-core
+
+# Shared terms between full and core (excluding intercept)
+shared_terms <- intersect(
+  core_coef_table$Term[core_coef_table$Term != "(Intercept)"],
+  full_coef_table$Term[full_coef_table$Term != "(Intercept)"]
+)
+
+comparison <- full_coef_table %>%
+  filter(Term %in% shared_terms) %>%
+  rename(`Full: All` = `All Pupils`,
+         `Full: Disadv.` = Disadvantaged,
+         `Full: Non-Dis.` = `Non-Disadvantaged`) %>%
+  left_join(
+    core_coef_table %>%
+      filter(Term %in% shared_terms) %>%
+      rename(`Core: All` = `All Pupils`,
+             `Core: Disadv.` = Disadvantaged,
+             `Core: Non-Dis.` = `Non-Disadvantaged`),
+    by = "Term"
+  )
+
+knitr::kable(comparison, align = "lrrrrrr",
+             caption = "Shared predictor coefficients: full panel (A) vs core panel (C)")
 ```
 
 ## Coefficient stability over time
@@ -782,47 +852,96 @@ above. Because the outcome is **log-transformed**, all coefficients are
 on a logged predictor means that a 1% increase in that predictor is
 associated with roughly a 0.10% *decrease* in Attainment 8.
 
-### 1. Free school meals (FSM) — the sign flip
+### 1. Full vs core model: how dropping variables changes the picture
 
-The most striking pattern across all four analyses is the coefficient
-on `log(PTFSM6CLA1A)` — the percentage of pupils eligible for free
-school meals:
+The most important thing to note when comparing the two specifications
+is that they do **not tell the same story** for every coefficient. The
+full panel model (Analysis A) includes `PTPRIORLO` (% low KS2 prior
+attainment) and three workforce variables that the core model lacks.
+These omitted variables are **not random noise** — prior attainment in
+particular is one of the strongest individual predictors of school-level
+outcomes. When it is dropped from the core model, its explanatory power
+has to go somewhere, and the remaining 5 predictors absorb it. This
+produces some notable shifts:
+
+- **`log(PTFSM6CLA1A)` (% FSM):** In the **full model**, this
+  coefficient is **negative for All Pupils and Non-Disadvantaged**, and
+  **flips to positive for Disadvantaged Pupils**. In the **core model**,
+  FSM is negative across **all three groups** — the sign flip
+  disappears. This is because prior attainment (`PTPRIORLO`) is strongly
+  correlated with FSM: schools with more disadvantaged intakes also tend
+  to have more pupils with low prior attainment. In the full model,
+  `PTPRIORLO` picks up the prior-attainment component of the
+  disadvantage penalty, freeing up `log(PTFSM6CLA1A)` to capture the
+  *residual* relationship — which, for disadvantaged pupils specifically,
+  is positive (the "critical mass" effect described below). When
+  `PTPRIORLO` is absent, `log(PTFSM6CLA1A)` has to absorb both effects
+  and the net result is negative.
+
+- **`log(PERCTOT)` (% absence):** Becomes **more negative** in the core
+  model. Again, with fewer controls absorbing variation, absence picks up
+  some of the explanatory burden previously shared with workforce and
+  prior-attainment variables.
+
+- **`log(PNUMEAL)` (% EAL):** The sign and direction are broadly
+  consistent across both specifications, but the magnitude changes.
+
+The practical implication is that coefficient interpretation must always
+be read **relative to the other variables in the model**. The core model
+is useful for coverage (all 4 years) and for the Shiny app's simulator,
+but the full model provides a more nuanced and arguably more accurate
+decomposition of the relationships — at the cost of excluding the most
+recent year.
+
+### 2. Free school meals (FSM) — the sign flip (full model)
+
+In the **full panel model** (Analysis A), `log(PTFSM6CLA1A)` shows the
+most striking difference across outcome groups:
 
 - **All Pupils and Non-Disadvantaged:** The coefficient is consistently
   **negative**. Schools with a higher share of disadvantaged pupils tend
   to have lower overall and non-disadvantaged ATT8 scores, even after
-  controlling for absence, EAL, and segregation. This captures the well
-  documented compositional effect: a more disadvantaged intake is
-  associated with lower average attainment at school level.
+  controlling for absence, EAL, prior attainment, and segregation. This
+  captures the well documented compositional effect: a more disadvantaged
+  intake is associated with lower average attainment at school level.
 
-- **Disadvantaged Pupils:** The coefficient **flips to positive**. Among
-  schools with a higher proportion of FSM-eligible pupils, the
-  *disadvantaged subgroup specifically* tends to score somewhat higher
-  than predicted. One plausible explanation is that schools serving
-  predominantly disadvantaged cohorts concentrate more resources, Pupil
-  Premium funding, and pastoral support on those pupils — a kind of
-  "critical mass" effect. Alternatively, in schools where almost all
-  pupils are disadvantaged, the disadvantaged group essentially *is* the
-  school average, removing the within-school composition penalty.
+- **Disadvantaged Pupils:** The coefficient **flips to positive**. After
+  controlling for prior attainment and workforce factors, schools with a
+  higher proportion of FSM-eligible pupils see their *disadvantaged
+  subgroup specifically* score somewhat higher than predicted. One
+  plausible explanation is that schools serving predominantly
+  disadvantaged cohorts concentrate more resources, Pupil Premium
+  funding, and pastoral support on those pupils — a kind of "critical
+  mass" effect. Alternatively, in schools where almost all pupils are
+  disadvantaged, the disadvantaged group essentially *is* the school
+  average, removing the within-school composition penalty.
 
-This sign reversal is stable across all four years and appears in both
-the full (Analysis A) and core (Analysis C) specifications, suggesting
-it is a robust structural feature rather than a modelling artefact.
+**Crucially, this sign flip only appears in the full model** where prior
+attainment controls for the low-KS2 component of the disadvantage
+penalty. In the core model (Analysis C), `log(PTFSM6CLA1A)` is
+**negative for all three groups** because it is forced to absorb the
+prior-attainment effect as well. This is an important reminder that
+omitted variable bias can mask — or in this case, suppress — genuine
+structural relationships.
 
-### 2. Absence — the largest and most stable predictor
+### 3. Absence — the largest and most stable predictor
 
 The coefficient on `log(PERCTOT)` (% overall absence) is **strongly
-negative** for all three groups and is typically the largest predictor in
-absolute terms. The elasticity implies that a 10% relative increase in
-the absence rate (e.g. from 5.0% to 5.5%) is associated with a
-substantial drop in ATT8 on the log scale.
+negative** for all three groups in both specifications and is typically
+the largest predictor in absolute terms. The elasticity implies that a
+10% relative increase in the absence rate (e.g. from 5.0% to 5.5%) is
+associated with a substantial drop in ATT8 on the log scale.
 
 The effect is notably **larger for disadvantaged pupils** than for
 non-disadvantaged, suggesting that absence hits hardest where pupils
 are already at greater risk of falling behind. This pattern is
-consistent over all four years.
+consistent over all four years and in both the full and core models.
 
-### 3. English as an additional language (EAL)
+The coefficient is **larger in the core model** than in the full model,
+consistent with absence partially absorbing the effect of the dropped
+workforce and prior-attainment variables.
+
+### 4. English as an additional language (EAL)
 
 `log(PNUMEAL)` shows a **positive** coefficient for all three groups: a
 higher proportion of EAL pupils is associated with *higher* attainment
@@ -836,7 +955,7 @@ that being bilingual may confer a particular advantage within the
 disadvantaged subgroup — or that schools with high EAL proportions are
 disproportionately in urban areas with other unmeasured advantages.
 
-### 4. Interpreting log-transformed variables — effects at the extremes
+### 5. Interpreting log-transformed variables — effects at the extremes
 
 Because several predictors enter the model as `log(x)`, the
 *absolute* effect of a unit change depends on **where you are on the
@@ -855,7 +974,7 @@ has practical implications: policy interventions targeting absence
 reduction will show the biggest modelled gains in schools where absence
 is currently moderate rather than already extreme.
 
-### 5. Gorard segregation index
+### 6. Gorard segregation index
 
 The Gorard segregation index coefficient is **negative** for all three
 groups — higher within-LA segregation is associated with lower
@@ -864,7 +983,7 @@ negative) for **disadvantaged pupils**, suggesting that sorting pupils
 into high-deprivation and low-deprivation schools hurts the
 disadvantaged group more than the non-disadvantaged.
 
-### 6. Admissions policy
+### 7. Admissions policy
 
 `ADMPOL_PT` (a continuous admissions policy indicator) is **positive**
 across all groups, implying that more selective admissions policies are
@@ -873,7 +992,7 @@ characteristics. However, the coefficient is **relatively small and
 sometimes unstable** across years, particularly for the disadvantaged
 group, where the confidence intervals are wide.
 
-### 7. Workforce variables (full model only)
+### 8. Workforce variables (full model only)
 
 In Analysis A, the three workforce variables add useful context:
 
@@ -890,13 +1009,44 @@ In Analysis A, the three workforce variables add useful context:
   reinforces that attendance (by both pupils and staff) is strongly
   associated with outcomes.
 
-### 8. Year-to-year stability
+### 9. Year-to-year stability
 
 The coefficient trajectory plots above show that the core per-year
 estimates are **remarkably stable** across 2021-22 to 2024-25, with
 most terms moving within a narrow band. The main exception is 2021-22,
 which was the first full examination year after the pandemic disruption
 and occasionally shows slightly different coefficient magnitudes.
+
+### 10. What is missing from the core model — and why it matters
+
+The core model exists because workforce data (from the School Workforce
+Census) and KS2 prior-attainment data are **not available for all
+years**:
+
+- **Prior attainment (`PTPRIORLO`):** KS2 SATs were cancelled during
+  COVID, meaning the 2024-25 cohort has no standardised prior-attainment
+  score. This is arguably the most consequential omission, since prior
+  attainment is one of the strongest predictors of GCSE outcomes at
+  school level. Its absence from the core model causes other predictors
+  — particularly FSM and absence — to absorb some of its effect,
+  inflating their coefficients and, in the case of FSM, suppressing
+  the sign flip visible in the full model.
+- **Workforce variables** (`remained_in_the_same_school`,
+  `teachers_on_leadership_pay_range_percent`,
+  `average_number_of_days_taken`): School Workforce Census data follows
+  a different release timetable and is not yet available for 2024-25 at
+  the time of analysis. While individually less powerful than prior
+  attainment, collectively these three variables add meaningful
+  explanatory power — particularly teacher retention and teacher
+  absence, which are moderately correlated with both pupil absence and
+  FSM rates.
+
+The core model should therefore be understood as a **pragmatic
+trade-off**: broader temporal coverage in exchange for a less complete
+decomposition of the relationships driving attainment. The full model
+remains the preferred specification for understanding *why* schools
+differ, while the core model is better suited for *tracking* relative
+performance over time — including the most recent year.
 
 
 # Brighton & Hove: A Local Case Study
