@@ -1268,10 +1268,17 @@ is currently moderate rather than already extreme.
 
 The Gorard segregation index coefficient is **negative** for all three
 groups — higher within-LA segregation is associated with lower
-attainment — but the magnitude varies. It tends to be larger (more
-negative) for **disadvantaged pupils**, suggesting that sorting pupils
-into high-deprivation and low-deprivation schools hurts the
-disadvantaged group more than the non-disadvantaged.
+attainment — but the effect is **statistically insignificant** in the
+imputed full model (Analysis E). The coefficient is small in absolute
+terms and its standard error comfortably spans zero, meaning we cannot
+confidently distinguish the estimated effect from no effect at all.
+This is an important caveat: while the *direction* of the association
+(more segregation → lower attainment) is consistent with broader
+education research, **this model does not provide reliable evidence
+that the Gorard segregation index has a meaningful independent effect
+on Attainment 8 at school level**, once the other 8 predictors are
+controlled for. The variable is retained in the model for completeness,
+but policy recommendations should not be based on its coefficient.
 
 ### 8. Admissions policy
 
@@ -2076,8 +2083,11 @@ context shifts the relative importance of predictors:
 - **Gorard Segregation:** As a single local authority, all B&H schools
   share the same segregation index value in any given year, so the
   within-B&H variance is zero or near-zero. This variable's local
-  importance will therefore be very low, even though it matters at
-  national level where LA-level segregation varies widely.
+  importance will therefore be very low. Note that even at national
+  level, the Gorard segregation coefficient is **statistically
+  insignificant** in the imputed full model (see commentary in
+  section 7 above), so its apparent ranking in the national table
+  should be interpreted with caution.
 
 
 ## Policy recommendations
@@ -2160,8 +2170,8 @@ attainment at school level. The council can support schools through:
 **2. Address the disadvantaged attainment gap directly.**
 
 The model shows that the coefficient magnitudes for disadvantaged pupils
-are often **larger** than for non-disadvantaged — absence, prior
-attainment, and segregation all hit harder for the disadvantaged group.
+are often **larger** than for non-disadvantaged — absence and prior
+attainment in particular hit harder for the disadvantaged group.
 Policy priorities include:
 
 - Ring-fencing and monitoring the impact of Pupil Premium spending
@@ -2172,19 +2182,19 @@ Policy priorities include:
   authority, using the model's predicted vs actual framework to identify
   schools outperforming or underperforming expectations
 
-**3. Reduce segregation where possible.**
+**3. A note on segregation.**
 
-The Gorard segregation index shows a negative association with
-attainment, particularly for disadvantaged pupils. While Brighton & Hove
-has a single index value at any point in time, the council can influence
-future segregation through:
-
-- Admissions policy review: ensuring that catchment areas and
-  oversubscription criteria do not inadvertently concentrate
-  disadvantaged pupils in a small number of schools
-- Supporting a diverse school mix in new housing developments
-- Monitoring and publishing segregation metrics alongside attainment
-  data to maintain transparency
+The Gorard segregation index enters the model with a negative
+coefficient (higher segregation associated with lower attainment), but
+this effect is **statistically insignificant** — the standard error is
+large relative to the estimate, and we cannot confidently distinguish
+it from zero. While reducing segregation may be a worthwhile policy
+goal for broader equity reasons, **this model does not provide reliable
+evidence that reducing the Gorard index would improve Attainment 8
+scores** at school level. The council should therefore not prioritise
+segregation reduction *on the basis of this model alone*, though it
+may of course remain a valid objective on other grounds (social
+cohesion, equal access, community trust).
 
 **4. Support workforce stability across schools.**
 
@@ -2230,9 +2240,9 @@ policy_summary <- tribble(
   3, "% Disadvantaged (FSM)", "School leaders + Council", "Concentrated Pupil Premium spend; monitor FSM gap as KPI",
   4, "Teacher Retention", "School leaders + Council", "Retention strategies; CPD investment; workload management",
   5, "Teacher Sickness Days", "School leaders", "Staff wellbeing programmes; absence monitoring",
-  6, "Gorard Segregation Index", "Council", "Admissions policy review; diverse school mix",
-  7, "% EAL", "School leaders", "Build on EAL advantage; ensure support for new arrivals",
-  8, "Leadership Pay %", "School leaders", "Review leadership structure (low model impact)"
+  6, "% EAL", "School leaders", "Build on EAL advantage; ensure support for new arrivals",
+  7, "Leadership Pay %", "School leaders", "Review leadership structure (low model impact)",
+  8, "Gorard Segregation Index*", "Council", "Effect statistically insignificant — not a reliable lever in this model"
 )
 
 knitr::kable(
@@ -2242,6 +2252,11 @@ knitr::kable(
 )
 ```
 
+\* The Gorard segregation index coefficient is statistically
+insignificant in the imputed full model (Analysis E). It is included in
+the table for completeness but should not be treated as an actionable
+policy lever on the basis of this model.
+
 > **Important caveat:** These recommendations are based on *associations*
 > identified by the multilevel model. The model controls for observable
 > confounders (intake, prior attainment, workforce, area characteristics)
@@ -2249,7 +2264,9 @@ knitr::kable(
 > exactly the predicted ATT8 gain if other unmeasured factors change
 > simultaneously. The rankings and effect sizes should be treated as
 > evidence-informed starting points for policy discussion, not as causal
-> guarantees.
+> guarantees. Variables whose coefficients are statistically insignificant
+> (notably the Gorard segregation index) should be interpreted with
+> particular caution.
 
 
 # Quick Reference
