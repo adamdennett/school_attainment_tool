@@ -105,6 +105,9 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
       sd <- current_school()
       if (is.null(sd)) return(NULL)
 
+      school_year <- as.character(sd$year_label)
+      school_la   <- as.character(sd$LANAME)
+
       slider_list <- map(names(slider_config), function(var_name) {
         cfg <- slider_config[[var_name]]
         current_val <- sd[[var_name]]
@@ -115,11 +118,37 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
         min_val <- max(current_val + cfg$min_change, 0.01)
         max_val <- current_val + cfg$max_change
 
+        # Look up England and LA averages for this variable and year
+        eng_row <- england_avgs %>%
+          filter(year_label == school_year, variable == var_name)
+        la_row <- la_avgs %>%
+          filter(year_label == school_year, LANAME == school_la,
+                 variable == var_name)
+
+        eng_avg <- if (nrow(eng_row) == 1) eng_row$mean_val else NA_real_
+        la_avg  <- if (nrow(la_row) == 1) la_row$mean_val else NA_real_
+
+        # Determine school-vs-England colour based on direction
+        school_color <- "#6c757d"  # default grey
+        if (!is.na(eng_avg)) {
+          if (cfg$direction == "lower_is_better") {
+            school_color <- if (current_val <= eng_avg) "#28a745" else "#dc3545"
+          } else {
+            school_color <- if (current_val >= eng_avg) "#28a745" else "#dc3545"
+          }
+        }
+
+        # Format values
+        unit <- cfg$unit
+        school_str <- round(current_val, 1)
+        eng_str <- if (!is.na(eng_avg)) round(eng_avg, 1) else "N/A"
+        la_str  <- if (!is.na(la_avg)) round(la_avg, 1) else "N/A"
+
         tags$div(
           class = "mb-3",
           tags$label(
             class = "form-label",
-            paste0(cfg$display_name, " (current: ", round(current_val, 1), cfg$unit, ")")
+            paste0(cfg$display_name, " (current: ", school_str, unit, ")")
           ),
           sliderInput(
             ns(paste0("slider_", var_name)),
@@ -129,6 +158,22 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
             value = round(current_val, 2),
             step = cfg$step,
             width = "100%"
+          ),
+          tags$div(
+            class = "text-muted mt-0 mb-1",
+            style = "font-size: 0.78em; line-height: 1.4; margin-top: -8px !important;",
+            tags$span(
+              style = paste0("color:", school_color, "; font-weight:600;"),
+              HTML(paste0("School: ", school_str, unit))
+            ),
+            HTML(" &middot; "),
+            tags$span(
+              HTML(paste0("LA avg: ", la_str, unit))
+            ),
+            HTML(" &middot; "),
+            tags$span(
+              HTML(paste0("England avg: ", eng_str, unit))
+            )
           )
         )
       })

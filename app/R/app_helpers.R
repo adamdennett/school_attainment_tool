@@ -56,43 +56,50 @@ get_slider_config <- function() {
       display_name = "Overall Absence Rate",
       unit = "%",
       min_change = -10, max_change = 10,
-      step = 0.5
+      step = 0.5,
+      direction = "lower_is_better"
     ),
     PTFSM6CLA1A = list(
       display_name = "% Disadvantaged Pupils",
       unit = "%",
       min_change = -20, max_change = 20,
-      step = 1
+      step = 1,
+      direction = "lower_is_better"
     ),
     PNUMEAL = list(
       display_name = "% English as Additional Language",
       unit = "%",
       min_change = -20, max_change = 20,
-      step = 1
+      step = 1,
+      direction = "higher_is_better"
     ),
     PTPRIORLO = list(
       display_name = "% Low Prior Attainment (KS2)",
       unit = "%",
       min_change = -30, max_change = 30,
-      step = 1
+      step = 1,
+      direction = "lower_is_better"
     ),
     remained_in_the_same_school = list(
       display_name = "Teacher Retention (%)",
       unit = "%",
       min_change = -20, max_change = 20,
-      step = 1
+      step = 1,
+      direction = "higher_is_better"
     ),
     teachers_on_leadership_pay_range_percent = list(
       display_name = "Leadership Pay Range (%)",
       unit = "%",
       min_change = -10, max_change = 10,
-      step = 0.5
+      step = 0.5,
+      direction = "lower_is_better"
     ),
     average_number_of_days_taken = list(
       display_name = "Avg Teacher Sickness Days",
       unit = "days",
       min_change = -5, max_change = 5,
-      step = 0.5
+      step = 0.5,
+      direction = "lower_is_better"
     )
   )
 }

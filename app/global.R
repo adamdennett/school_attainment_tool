@@ -102,4 +102,24 @@ year_choices <- sort(unique(panel_data$year_label))
 # Slider configuration
 slider_config <- get_slider_config()
 
+# Pre-compute England and LA averages for slider context markers
+slider_var_names <- names(slider_config)
+
+england_avgs <- panel_data %>%
+  select(year_label, all_of(slider_var_names)) %>%
+  pivot_longer(-year_label, names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(year_label, variable) %>%
+  summarise(mean_val = mean(value, na.rm = TRUE), .groups = "drop")
+
+la_avgs <- panel_data %>%
+  select(year_label, LANAME, all_of(slider_var_names)) %>%
+  pivot_longer(-c(year_label, LANAME), names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(year_label, LANAME, variable) %>%
+  summarise(mean_val = mean(value, na.rm = TRUE), .groups = "drop")
+
+message("  Slider context: ", nrow(england_avgs), " England avgs, ",
+        nrow(la_avgs), " LA avgs")
+
 message("App data loaded successfully.")
