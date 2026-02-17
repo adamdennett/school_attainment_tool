@@ -34,6 +34,9 @@ data/models_yearly.rds
 data/models_yearly_core.rds
 data/model_data.rds
 data/model_data_core.rds
+data/model_data_imputed.rds
+data/models_imputed.rds
+data/model_diagnostics_imputed.rds
 data/model_diagnostics.rds
 data/model_diagnostics_core.rds
 data/model_diagnostics_yearly.rds

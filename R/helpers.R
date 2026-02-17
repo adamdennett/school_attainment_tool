@@ -66,7 +66,8 @@ PANEL_VARS <- c(
   "average_number_of_days_taken",
   "teacher_fte_in_census_year",
   # Derived (computed later)
-  "gorard_segregation"
+  "gorard_segregation",
+  "has_imputed_predictors"
 )
 
 
@@ -196,8 +197,9 @@ VAR_LABELS <- c(
   "pupil_to_adult_ratio"                     = "Pupil-to-adult ratio",
 
   # --- Derived variables ---
-  "gorard_segregation"     = "Gorard segregation index",
-  "retention_rate"         = "Teacher retention rate",
+  "gorard_segregation"        = "Gorard segregation index",
+  "retention_rate"            = "Teacher retention rate",
+  "has_imputed_predictors"    = "2024-25 predictors are estimates (carry-forward)",
 
   # --- Geographic / identifiers ---
   "gor_name"               = "Government Office Region",

@@ -620,6 +620,57 @@ if (sys.nframe() == 0) {
 
 
   # =====================================================================
+  # ANALYSIS E: FULL PANEL WITH IMPUTED 2024-25 PREDICTORS
+  # =====================================================================
+  # Uses the same 9-predictor specification as Analysis A, but now covers
+
+  # all 4 years because 04_compute_derived.R has carry-forward imputed
+  # PTPRIORLO, remained_in_the_same_school,
+  # teachers_on_leadership_pay_range_percent, and
+  # average_number_of_days_taken for 2024-25 schools.
+  # A flag column (has_imputed_predictors) marks which rows use estimates.
+
+  message("\n", strrep("=", 70))
+  message("ANALYSIS E: FULL PANEL WITH IMPUTED 2024-25 PREDICTORS")
+  message(strrep("=", 70))
+
+  # Re-run prepare_model_data() — now that 2024-25 has imputed values,
+  # it should retain those rows too
+  imputed_model_data <- prepare_model_data(panel)
+  saveRDS(imputed_model_data, here::here("data", "model_data_imputed.rds"))
+
+  n_imputed_rows <- sum(imputed_model_data$has_imputed_predictors, na.rm = TRUE)
+  message("  Rows with imputed predictors: ", n_imputed_rows, " / ", nrow(imputed_model_data))
+
+  imputed_models <- list()
+  imputed_diagnostics <- list()
+
+  for (model_name in names(OUTCOMES)) {
+    outcome_var <- OUTCOMES[[model_name]]
+    label <- paste0(
+      switch(model_name,
+             all = "All Pupils",
+             disadvantaged = "Disadvantaged Pupils",
+             non_disadvantaged = "Non-Disadvantaged Pupils"),
+      " [Imputed Panel]"
+    )
+
+    imputed_models[[model_name]] <- fit_attainment_model(
+      outcome_var, imputed_model_data,
+      random_effects = PANEL_RANDOM,
+      label = label
+    )
+    imputed_diagnostics[[model_name]] <- run_diagnostics(
+      imputed_models[[model_name]], label
+    )
+  }
+
+  saveRDS(imputed_models, here::here("data", "models_imputed.rds"))
+  saveRDS(imputed_diagnostics, here::here("data", "model_diagnostics_imputed.rds"))
+  message("\nImputed panel models saved to: data/models_imputed.rds")
+
+
+  # =====================================================================
   # PRE-COMPUTE PREDICTIONS (from panel models, for the Shiny app)
   # =====================================================================
 
@@ -732,6 +783,34 @@ if (sys.nframe() == 0) {
     }
   }
 
+  # --- Imputed full model predictions (all 4 years incl. carry-forward) ---
+  message("\n  Imputed full model predictions:")
+  for (model_name in names(imputed_models)) {
+    outcome_var <- OUTCOMES[[model_name]]
+    model <- imputed_models[[model_name]]
+
+    pred_col <- paste0("predicted_", outcome_var, "_imputed")
+    resid_col <- paste0("residual_", outcome_var, "_imputed")
+
+    panel[[pred_col]] <- tryCatch(
+      safe_predict(model, panel, full_req_vars, label = paste0(model_name, " (imputed)")),
+      error = function(e) {
+        message("  Warning: imputed prediction failed for ", model_name, ": ", e$message)
+        rep(NA_real_, nrow(panel))
+      }
+    )
+
+    panel[[resid_col]] <- panel[[outcome_var]] - panel[[pred_col]]
+
+    n_pred <- sum(!is.na(panel[[pred_col]]))
+    message("  ", model_name, " (imputed): ", n_pred, " predictions computed")
+
+    if (n_pred > 0) {
+      r2 <- cor(panel[[outcome_var]], panel[[pred_col]], use = "complete.obs")^2
+      message("  ", model_name, " (imputed) R2 (observed vs predicted): ", round(r2, 4))
+    }
+  }
+
   # Save panel with predictions
   saveRDS(panel, here::here("data", "panel_data.rds"))
   message("\nUpdated panel_data.rds with predictions")
@@ -797,5 +876,16 @@ if (sys.nframe() == 0) {
     }
   }
 
-  message("\nPredictions (full + core panel models) saved to: data/panel_data.rds")
+  message("\n--- Analysis E: Imputed Full Panel (carry-forward 2024-25) ---")
+  message("Saved to: data/models_imputed.rds, data/model_diagnostics_imputed.rds")
+  for (mn in names(imputed_diagnostics)) {
+    d <- imputed_diagnostics[[mn]]
+    message("\n  ", toupper(mn), ":")
+    message("    R2 marginal: ", round(d$r2_marginal, 4))
+    message("    R2 conditional: ", round(d$r2_conditional, 4))
+    message("    N obs: ", d$n_obs)
+    message("    Sigma: ", round(d$sigma, 4))
+  }
+
+  message("\nPredictions (full + core + imputed panel models) saved to: data/panel_data.rds")
 }

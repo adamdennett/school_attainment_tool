@@ -61,6 +61,99 @@ compute_gorard_index <- function(panel) {
 }
 
 
+#' Impute missing predictor variables for 2024-25
+#'
+#' Four variables are unavailable for 2024-25:
+#'   - PTPRIORLO (KS2 prior attainment — cancelled due to COVID)
+#'   - remained_in_the_same_school (workforce turnover)
+#'   - teachers_on_leadership_pay_range_percent (workforce pay)
+#'   - average_number_of_days_taken (workforce sickness)
+#'
+#' Method: carry-forward from 2023-24. If a school has no 2023-24 value,
+#' fall back to the mean of all available years for that school.
+#'
+#' A flag column `has_imputed_predictors` is set to TRUE for any 2024-25
+#' row that received at least one imputed value.
+#'
+#' @param panel Dataframe with URN, year_label, and the 4 target variables
+#' @return Panel with imputed values and flag column
+impute_missing_predictors <- function(panel) {
+
+  message("Imputing missing predictors for 2024-25 ...")
+
+  impute_vars <- c(
+    "PTPRIORLO",
+    "remained_in_the_same_school",
+    "teachers_on_leadership_pay_range_percent",
+    "average_number_of_days_taken"
+  )
+
+  # Identify 2024-25 rows
+  is_2425 <- panel$year_label == "2024-25"
+  n_2425 <- sum(is_2425)
+  message("  2024-25 rows: ", n_2425)
+
+  # Initialise flag: FALSE for all rows
+
+  panel$has_imputed_predictors <- FALSE
+
+  # Build lookup tables from historical data (non-2024-25 rows)
+  historical <- panel %>% filter(year_label != "2024-25")
+
+  for (v in impute_vars) {
+    if (!v %in% names(panel)) {
+      message("  WARNING: ", v, " not found in panel — skipping")
+      next
+    }
+
+    n_missing_before <- sum(is.na(panel[[v]][is_2425]))
+
+    # 1. Carry-forward from 2023-24 (preferred)
+    carry_forward <- historical %>%
+      filter(year_label == "2023-24", !is.na(!!sym(v))) %>%
+      select(URN, !!v) %>%
+      rename(imputed_value = !!v)
+
+    # 2. Fallback: school-level mean across all available years
+    school_mean <- historical %>%
+      filter(!is.na(!!sym(v))) %>%
+      group_by(URN) %>%
+      summarise(mean_value = mean(!!sym(v), na.rm = TRUE), .groups = "drop")
+
+    # Apply imputation only where value is NA in 2024-25
+    for (i in which(is_2425 & is.na(panel[[v]]))) {
+      urn_i <- panel$URN[i]
+
+      # Try carry-forward first
+      cf <- carry_forward$imputed_value[carry_forward$URN == urn_i]
+      if (length(cf) == 1 && !is.na(cf)) {
+        panel[[v]][i] <- cf
+        panel$has_imputed_predictors[i] <- TRUE
+        next
+      }
+
+      # Fallback to school mean
+      sm <- school_mean$mean_value[school_mean$URN == urn_i]
+      if (length(sm) == 1 && !is.na(sm)) {
+        panel[[v]][i] <- sm
+        panel$has_imputed_predictors[i] <- TRUE
+      }
+    }
+
+    n_missing_after <- sum(is.na(panel[[v]][is_2425]))
+    n_imputed <- n_missing_before - n_missing_after
+    message("  ", v, ": ", n_imputed, " values imputed (",
+            n_missing_after, " still missing)")
+  }
+
+  n_flagged <- sum(panel$has_imputed_predictors)
+  message("  Rows flagged as has_imputed_predictors: ", n_flagged, " / ", n_2425,
+          " (2024-25 rows)")
+
+  panel
+}
+
+
 #' Add log transforms for model variables
 #'
 #' Guards against zero/negative values by setting to NA before log transform.
@@ -210,17 +303,20 @@ if (sys.nframe() == 0) {
   panel <- panel %>%
     left_join(gorard, by = c("LANAME", "academic_year"))
 
-  # 2. Add log transforms
+  # 2. Impute missing predictors for 2024-25
+  panel <- impute_missing_predictors(panel)
+
+  # 3. Add log transforms
   panel <- add_log_transforms(panel)
 
-  # 3. Clean panel
+  # 4. Clean panel
   panel <- clean_panel(panel)
 
-  # 4. Create lookups
+  # 5. Create lookups
   school_lookup <- create_school_lookup(panel)
   la_lookup <- create_la_lookup(panel)
 
-  # 5. Save outputs
+  # 6. Save outputs
   saveRDS(panel, here::here("data", "panel_data.rds"))
   saveRDS(school_lookup, here::here("data", "school_lookup.rds"))
   saveRDS(la_lookup, here::here("data", "la_lookup.rds"))

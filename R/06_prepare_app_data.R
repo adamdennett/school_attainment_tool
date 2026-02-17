@@ -43,6 +43,7 @@ message("  model_diagnostics.rds + model_diagnostics_core.rds copied")
 # (This replaces the need for the 45MB+ models.rds at runtime)
 models <- readRDS(here::here("data", "models.rds"))
 core_models <- readRDS(here::here("data", "models_core.rds"))
+imputed_models <- readRDS(here::here("data", "models_imputed.rds"))
 
 model_resid_data <- list()
 for (mn in names(models)) {
@@ -56,6 +57,11 @@ for (mn in names(models)) {
 saveRDS(model_resid_data, file.path(app_data_dir, "model_resid_data.rds"))
 message("  model_resid_data.rds: ",
         round(file.size(file.path(app_data_dir, "model_resid_data.rds")) / 1e6, 2), " MB")
+
+# ---- 4b. Diagnostics for imputed models ----
+file.copy(here::here("data", "model_diagnostics_imputed.rds"),
+          file.path(app_data_dir, "model_diagnostics_imputed.rds"), overwrite = TRUE)
+message("  model_diagnostics_imputed.rds copied")
 
 # ---- 5. Slim core models for the simulator ----
 # Extract ONLY the fixed-effect coefficients, random effect BLUPs, and
@@ -89,6 +95,31 @@ for (mn in names(core_models)) {
 saveRDS(slim_models, file.path(app_data_dir, "slim_core_models.rds"))
 message("  slim_core_models.rds: ",
         round(file.size(file.path(app_data_dir, "slim_core_models.rds")) / 1e6, 2), " MB")
+
+# ---- 6. Slim imputed models (full spec, all 4 years with carry-forward) ----
+slim_imputed <- list()
+for (mn in names(imputed_models)) {
+  m <- imputed_models[[mn]]
+
+  slim_imputed[[mn]] <- list(
+    beta = fixef(m),
+    formula_rhs = as.character(formula(m))[3],
+    ranef = ranef(m),
+    sigma = sigma(m),
+    ofsted_levels = levels(m@frame$OFSTEDRATING_1),
+    gor_levels = levels(m@frame$gor_name),
+    la_levels = levels(m@frame$LANAME),
+    year_levels = levels(m@frame$year_label),
+    ofsted_contrasts = contrasts(m@frame$OFSTEDRATING_1)
+  )
+
+  message("  Slim imputed model '", mn, "': ",
+          length(slim_imputed[[mn]]$beta), " fixed effects, ",
+          length(slim_imputed[[mn]]$ranef), " random effect groups")
+}
+saveRDS(slim_imputed, file.path(app_data_dir, "slim_imputed_models.rds"))
+message("  slim_imputed_models.rds: ",
+        round(file.size(file.path(app_data_dir, "slim_imputed_models.rds")) / 1e6, 2), " MB")
 
 
 # ---- Summary ----
