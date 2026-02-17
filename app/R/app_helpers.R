@@ -39,23 +39,17 @@ variable_display_name <- function(var_name) {
 }
 
 
-# PTPRIORLO coefficients from the full panel model (Analysis A)
-# These are used as approximate adjustments since PTPRIORLO is not
-# in the core model (100% NA in 2024-25). The coefficient represents
-# the effect on log(ATT8) per 1 percentage-point change in PTPRIORLO.
-PTPRIORLO_BETA <- c(
-  all              = -0.006271547,
-  disadvantaged    = -0.006049313,
-  non_disadvantaged = -0.005707144
-)
+# Note: PTPRIORLO_BETA workaround removed — the imputed full model
+# (Analysis E) now includes PTPRIORLO directly in the model formula,
+# so predict_slim() handles it natively via the beta coefficients.
 
 
 #' Get the slider configuration for adjustable variables
 #'
 #' Returns a list of slider parameters for each adjustable variable,
 #' including display name, min/max adjustment range, step size, and unit.
-#' Only variables present in the core model are included so that the
-#' simulator works across all four years including 2024-25.
+#' Covers all 9 fixed-effect predictors in the imputed full model
+#' (Analysis E), which works across all four years including 2024-25.
 get_slider_config <- function() {
   list(
     PERCTOT = list(
@@ -81,6 +75,24 @@ get_slider_config <- function() {
       unit = "%",
       min_change = -30, max_change = 30,
       step = 1
+    ),
+    remained_in_the_same_school = list(
+      display_name = "Teacher Retention (%)",
+      unit = "%",
+      min_change = -20, max_change = 20,
+      step = 1
+    ),
+    teachers_on_leadership_pay_range_percent = list(
+      display_name = "Leadership Pay Range (%)",
+      unit = "%",
+      min_change = -10, max_change = 10,
+      step = 0.5
+    ),
+    average_number_of_days_taken = list(
+      display_name = "Avg Teacher Sickness Days",
+      unit = "days",
+      min_change = -5, max_change = 5,
+      step = 0.5
     )
   )
 }
@@ -101,9 +113,12 @@ get_slider_config <- function() {
 #   $ofsted_contrasts  - contrast matrix used in fitting
 #   $formula_rhs       - the RHS of the model formula (for reference)
 #
-# The core model formula is:
+# The imputed full model formula (Analysis E) is:
 #   log(Y) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-#            ADMPOL_PT + gorard_segregation +
+#            PTPRIORLO + ADMPOL_PT + gorard_segregation +
+#            log(remained_in_the_same_school) +
+#            teachers_on_leadership_pay_range_percent +
+#            log(average_number_of_days_taken) +
 #            (1|year_label) + (1|OFSTEDRATING_1) + (1|gor_name/LANAME)
 
 
@@ -131,9 +146,12 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
   log_pred <- rep(beta[["(Intercept)"]], n)
 
   # Continuous log-transformed predictors
-  log_vars <- c("PTFSM6CLA1A" = "log(PTFSM6CLA1A)",
-                "PERCTOT"      = "log(PERCTOT)",
-                "PNUMEAL"      = "log(PNUMEAL)")
+  # Includes the 3 original core predictors + 2 workforce variables
+  log_vars <- c("PTFSM6CLA1A"              = "log(PTFSM6CLA1A)",
+                "PERCTOT"                   = "log(PERCTOT)",
+                "PNUMEAL"                   = "log(PNUMEAL)",
+                "remained_in_the_same_school" = "log(remained_in_the_same_school)",
+                "average_number_of_days_taken" = "log(average_number_of_days_taken)")
 
   for (raw_name in names(log_vars)) {
     beta_name <- log_vars[[raw_name]]
@@ -145,8 +163,10 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
     }
   }
 
-  # Linear continuous predictors
-  linear_vars <- c("gorard_segregation")
+  # Linear continuous predictors (gorard_segregation, PTPRIORLO,
+  # teachers_on_leadership_pay_range_percent)
+  linear_vars <- c("gorard_segregation", "PTPRIORLO",
+                    "teachers_on_leadership_pay_range_percent")
   for (v in linear_vars) {
     if (v %in% names(beta) && v %in% names(newdata)) {
       log_pred <- log_pred + beta[[v]] * as.numeric(newdata[[v]])
@@ -234,13 +254,14 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
 
 #' Predict a policy scenario using slim model objects
 #'
-#' @param slim_model A slim model list (from slim_core_models.rds)
+#' @param slim_model A slim model list (from slim_imputed_models.rds)
 #' @param school_data A single-row dataframe with the school's current values
 #' @param modifications Named list of changes to apply (on the original scale).
-#'   e.g. list(PERCTOT = -5, PTFSM6CLA1A = -3)
+#'   e.g. list(PERCTOT = -5, PTFSM6CLA1A = -3, PTPRIORLO = -10)
 #' @param include_re Logical. If TRUE (default), include random effects.
 #' @param ofsted_override Optional character: Ofsted rating to use for scenario.
-#' @param model_name Character name of the model (e.g. "all") for PTPRIORLO lookup.
+#' @param model_name Character name of the model (e.g. "all") — kept for API
+#'   compatibility but no longer used for PTPRIORLO lookup (now in model).
 #' @return A list with baseline, scenario, change, and percent change values
 predict_scenario_slim <- function(slim_model, school_data, modifications = list(),
                                    include_re = TRUE, ofsted_override = NULL,
@@ -251,16 +272,14 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
   # 1. Baseline prediction (current values)
   baseline <- predict_slim(slim_model, school_data, include_re = include_re)
 
-  # Separate PTPRIORLO from core model modifications
-  ptpriorlo_change <- modifications[["PTPRIORLO"]]
-  core_modifications <- modifications[names(modifications) != "PTPRIORLO"]
-
-  # 2. Apply core modifications to create scenario data
+  # 2. Apply all modifications to create scenario data
+  # All variables (including PTPRIORLO and workforce) are now in the model
+  # directly, so no special-case handling is needed.
   scenario_data <- school_data
-  for (var_name in names(core_modifications)) {
+  for (var_name in names(modifications)) {
     if (var_name %in% names(scenario_data)) {
       current_val <- scenario_data[[var_name]]
-      new_val <- current_val + core_modifications[[var_name]]
+      new_val <- current_val + modifications[[var_name]]
       new_val <- max(new_val, 0.01)
       scenario_data[[var_name]] <- new_val
     } else {
@@ -272,17 +291,7 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
   scenario <- predict_slim(slim_model, scenario_data, include_re = include_re,
                             ofsted_override = ofsted_override)
 
-  # 4. Apply PTPRIORLO adjustment (approximate, from full model coefficient)
-  if (!is.null(ptpriorlo_change) && abs(ptpriorlo_change) > 0.001 &&
-      !is.null(model_name) && model_name %in% names(PTPRIORLO_BETA)) {
-    # PTPRIORLO enters the full model linearly on the log scale:
-    # delta_log_Y = beta_ptpriorlo * delta_PTPRIORLO
-    # So the multiplicative effect on Y is: exp(beta * delta)
-    beta_ptpriorlo <- PTPRIORLO_BETA[[model_name]]
-    scenario <- scenario * exp(beta_ptpriorlo * ptpriorlo_change)
-  }
-
-  # 5. Compute change
+  # 4. Compute change
   change <- scenario - baseline
   pct_change <- ifelse(baseline > 0, (change / baseline) * 100, NA_real_)
 

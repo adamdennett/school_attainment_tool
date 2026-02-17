@@ -25,6 +25,7 @@ library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(performance)
+library(plotly)
 library(here)
 
 # Load the raw panel data (same starting point as 05_fit_model.R)
@@ -871,41 +872,42 @@ structural feature of the data when prior attainment is controlled for.
 
 # Coefficient Commentary
 
-This section compares coefficients across the three outcome groups for
-both the **full panel model** (Analysis A: 9 predictors, 3 years) and
-the **core panel model** (Analysis C: 5 predictors, all 4 years), and
-then examines how the core per-year coefficients (Analysis D) evolve
-over time.
+This section examines the coefficients from the **imputed full model**
+(Analysis E: 9 predictors, all 4 years including 2024-25 with
+carry-forward imputed PTPRIORLO and workforce variables). This is the
+model now used in the Shiny app. For reference, the core panel model
+(Analysis C: 5 predictors) and the original 3-year full model
+(Analysis A) are compared below.
 
 
-## Full panel model: side-by-side coefficients
+## Imputed full model: side-by-side coefficients
 
-The full panel model (Analysis A) includes all 9 fixed effects —
-critically including `PTPRIORLO` (% low KS2 prior attainment) and three
-workforce variables (teacher retention, leadership pay, teacher absence).
-These are only available for the three years with complete workforce
-data, so **2024-25 is excluded**.
+The imputed full model (Analysis E) includes all 9 fixed effects and
+covers all four academic years. For 2024-25, `PTPRIORLO` and three
+workforce variables are carry-forward imputed from each school's
+2023-24 value (or 3-year mean as fallback). Rows using imputed values
+are flagged with `has_imputed_predictors = TRUE`.
 
-```{r commentary-full-coefs}
-#| label: commentary-full-coefs
+```{r commentary-imputed-coefs}
+#| label: commentary-imputed-coefs
 
-# Extract fixed effects from the three full panel models (Analysis A)
-full_coef_table <- bind_rows(
+# Extract fixed effects from the three imputed full panel models (Analysis E)
+imputed_coef_table <- bind_rows(
   tibble(Group = "All Pupils",
-         Term = names(fixef(mod_a_all)),
-         Estimate = fixef(mod_a_all)),
+         Term = names(fixef(mod_e_all)),
+         Estimate = fixef(mod_e_all)),
   tibble(Group = "Disadvantaged",
-         Term = names(fixef(mod_a_disadv)),
-         Estimate = fixef(mod_a_disadv)),
+         Term = names(fixef(mod_e_disadv)),
+         Estimate = fixef(mod_e_disadv)),
   tibble(Group = "Non-Disadvantaged",
-         Term = names(fixef(mod_a_nondisadv)),
-         Estimate = fixef(mod_a_nondisadv))
+         Term = names(fixef(mod_e_nondisadv)),
+         Estimate = fixef(mod_e_nondisadv))
 ) %>%
   pivot_wider(names_from = Group, values_from = Estimate) %>%
   mutate(across(where(is.numeric), \(x) round(x, 5)))
 
-knitr::kable(full_coef_table, align = "lrrr",
-             caption = "Full panel model (Analysis A): fixed effect comparison (9 predictors, 3 years)")
+knitr::kable(imputed_coef_table, align = "lrrr",
+             caption = "Imputed full model (Analysis E): fixed effect comparison (9 predictors, all 4 years)")
 ```
 
 ## Core panel model: side-by-side coefficients
@@ -913,8 +915,7 @@ knitr::kable(full_coef_table, align = "lrrr",
 The core panel model (Analysis C) drops the four variables not available
 for 2024-25 — `PTPRIORLO`, `remained_in_the_same_school`,
 `teachers_on_leadership_pay_range_percent`, and
-`average_number_of_days_taken` — leaving 5 fixed effects. In return it
-covers **all 4 years** including 2024-25.
+`average_number_of_days_taken` — leaving 5 fixed effects.
 
 ```{r commentary-core-coefs}
 #| label: commentary-core-coefs
@@ -938,26 +939,26 @@ knitr::kable(core_coef_table, align = "lrrr",
              caption = "Core panel model (Analysis C): fixed effect comparison (5 predictors, all 4 years)")
 ```
 
-## Full vs core: direct comparison
+## Imputed full vs core: direct comparison
 
 The table below places the 5 shared predictors side by side for both
 specifications, making it easy to see how dropping the workforce and
 prior-attainment variables shifts the remaining coefficients.
 
-```{r commentary-full-vs-core}
-#| label: commentary-full-vs-core
+```{r commentary-imputed-vs-core}
+#| label: commentary-imputed-vs-core
 
-# Shared terms between full and core (excluding intercept)
+# Shared terms between imputed full and core (excluding intercept)
 shared_terms <- intersect(
   core_coef_table$Term[core_coef_table$Term != "(Intercept)"],
-  full_coef_table$Term[full_coef_table$Term != "(Intercept)"]
+  imputed_coef_table$Term[imputed_coef_table$Term != "(Intercept)"]
 )
 
-comparison <- full_coef_table %>%
+comparison <- imputed_coef_table %>%
   filter(Term %in% shared_terms) %>%
-  rename(`Full: All` = `All Pupils`,
-         `Full: Disadv.` = Disadvantaged,
-         `Full: Non-Dis.` = `Non-Disadvantaged`) %>%
+  rename(`Imputed Full: All` = `All Pupils`,
+         `Imputed Full: Disadv.` = Disadvantaged,
+         `Imputed Full: Non-Dis.` = `Non-Disadvantaged`) %>%
   left_join(
     core_coef_table %>%
       filter(Term %in% shared_terms) %>%
@@ -968,21 +969,26 @@ comparison <- full_coef_table %>%
   )
 
 knitr::kable(comparison, align = "lrrrrrr",
-             caption = "Shared predictor coefficients: full panel (A) vs core panel (C)")
+             caption = "Shared predictor coefficients: imputed full (E) vs core panel (C)")
 ```
 
-## Coefficient stability over time
+## Coefficient stability over time (full model)
+
+The per-year full models (Analysis B) show how each of the 9 predictor
+coefficients evolves across the three years with real data. The static
+ggplot is followed by an interactive plotly version for easier
+exploration.
 
 ```{r commentary-yearly}
 #| label: commentary-yearly
-#| fig-height: 8
+#| fig-height: 10
 #| fig-width: 9
-#| fig-cap: "Core per-year coefficient estimates across all four academic years, by outcome group"
+#| fig-cap: "Full per-year coefficient estimates (Analysis B), by outcome group"
 
-# Re-fit core per-year models and collect coefficients in a tidy table
+# Re-fit full per-year models and collect coefficients in a tidy table
 yearly_coefs <- list()
 
-for (yr in core_year_levels) {
+for (yr in year_levels) {
   for (outcome_name in c("all", "disadv", "nondisadv")) {
 
     outcome_var <- switch(outcome_name,
@@ -994,7 +1000,7 @@ for (yr in core_year_levels) {
                           disadv = "Disadvantaged",
                           nondisadv = "Non-Disadvantaged")
 
-    d <- core_model_data %>%
+    d <- model_data %>%
       filter(year_label == yr,
              !is.na(!!sym(outcome_var)), !!sym(outcome_var) > 0) %>%
       droplevels()
@@ -1006,7 +1012,10 @@ for (yr in core_year_levels) {
         as.formula(paste0(
           "log(", outcome_var, ") ~ ",
           "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
-          "ADMPOL_PT + gorard_segregation + ",
+          "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+          "log(remained_in_the_same_school) + ",
+          "teachers_on_leadership_pay_range_percent + ",
+          "log(average_number_of_days_taken) + ",
           "(1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
         )),
         data = d, REML = TRUE, na.action = na.exclude,
@@ -1045,7 +1054,7 @@ ggplot(yearly_coefs_df,
                                   "Disadvantaged" = "#c62828",
                                   "Non-Disadvantaged" = "#2e7d32")) +
   labs(y = "Coefficient estimate", x = "Academic year", colour = NULL,
-       title = "Core per-year coefficient trajectories") +
+       title = "Full per-year coefficient trajectories (Analysis B)") +
   theme_minimal(base_size = 11) +
   theme(
     legend.position = "bottom",
@@ -1054,20 +1063,77 @@ ggplot(yearly_coefs_df,
   )
 ```
 
+### Interactive coefficient explorer
+
+```{r commentary-yearly-plotly}
+#| label: commentary-yearly-plotly
+#| fig-height: 10
+#| fig-width: 9
+
+# Create a readable Term label for tooltips
+yearly_coefs_plotly <- yearly_coefs_df %>%
+  mutate(
+    Term_short = case_when(
+      Term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
+      Term == "log(PERCTOT)" ~ "log(% Absence)",
+      Term == "log(PNUMEAL)" ~ "log(% EAL)",
+      Term == "PTPRIORLO" ~ "% Low Prior Attainment",
+      Term == "gorard_segregation" ~ "Gorard Segregation",
+      Term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other Non-Sel",
+      Term == "ADMPOL_PTSEL" ~ "Admissions: Selective",
+      Term == "log(remained_in_the_same_school)" ~ "log(Teacher Retention)",
+      Term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
+      Term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
+      TRUE ~ Term
+    ),
+    tooltip_text = paste0(
+      "<b>", Term_short, "</b><br>",
+      "Year: ", Year, "<br>",
+      "Group: ", Group, "<br>",
+      "Estimate: ", round(Estimate, 5)
+    )
+  )
+
+p_yearly <- ggplot(yearly_coefs_plotly,
+       aes(x = Year, y = Estimate, colour = Group, group = Group,
+           text = tooltip_text)) +
+  geom_point(size = 2) +
+  geom_line(linewidth = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ Term, scales = "free_y", ncol = 2) +
+  scale_colour_manual(values = c("All Pupils" = "#1565c0",
+                                  "Disadvantaged" = "#c62828",
+                                  "Non-Disadvantaged" = "#2e7d32")) +
+  labs(y = "Coefficient estimate", x = "Academic year", colour = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+    strip.text = element_text(face = "bold", size = 8)
+  )
+
+ggplotly(p_yearly, tooltip = "text") %>%
+  layout(
+    title = list(text = "Full per-year coefficients (hover for details)"),
+    legend = list(orientation = "h", y = -0.15)
+  )
+```
+
 ## General observations
 
-The commentary below draws on the coefficient tables and trajectories
-above. Because the outcome is **log-transformed**, all coefficients are
-**elasticities** (for log-transformed predictors) or
-**semi-elasticities** (for linear predictors). A coefficient of --0.10
-on a logged predictor means that a 1% increase in that predictor is
-associated with roughly a 0.10% *decrease* in Attainment 8.
+The commentary below draws on the imputed full model (Analysis E)
+coefficient table and the per-year trajectories above. Because the
+outcome is **log-transformed**, all coefficients are **elasticities**
+(for log-transformed predictors) or **semi-elasticities** (for linear
+predictors). A coefficient of --0.10 on a logged predictor means that
+a 1% increase in that predictor is associated with roughly a 0.10%
+*decrease* in Attainment 8.
 
-### 1. Full vs core model: how dropping variables changes the picture
+### 1. Imputed full vs core model: how dropping variables changes the picture
 
 The most important thing to note when comparing the two specifications
 is that they do **not tell the same story** for every coefficient. The
-full panel model (Analysis A) includes `PTPRIORLO` (% low KS2 prior
+imputed full model (Analysis E) includes `PTPRIORLO` (% low KS2 prior
 attainment) and three workforce variables that the core model lacks.
 These omitted variables are **not random noise** — prior attainment in
 particular is one of the strongest individual predictors of school-level
@@ -1075,7 +1141,7 @@ outcomes. When it is dropped from the core model, its explanatory power
 has to go somewhere, and the remaining 5 predictors absorb it. This
 produces some notable shifts:
 
-- **`log(PTFSM6CLA1A)` (% FSM):** In the **full model**, this
+- **`log(PTFSM6CLA1A)` (% FSM):** In the **imputed full model**, this
   coefficient is **negative for All Pupils and Non-Disadvantaged**, and
   **flips to positive for Disadvantaged Pupils**. In the **core model**,
   FSM is negative across **all three groups** — the sign flip
@@ -1098,16 +1164,16 @@ produces some notable shifts:
   consistent across both specifications, but the magnitude changes.
 
 The practical implication is that coefficient interpretation must always
-be read **relative to the other variables in the model**. The core model
-is useful for coverage (all 4 years) and for the Shiny app's simulator,
-but the full model provides a more nuanced and arguably more accurate
-decomposition of the relationships — at the cost of excluding the most
-recent year.
+be read **relative to the other variables in the model**. Now that the
+Shiny app uses the imputed full model, users get the benefit of all 9
+predictors — including the workforce and prior-attainment controls —
+across all four years. The 2024-25 values for the four imputed variables
+use conservative carry-forward estimates, and this is flagged in the data.
 
-### 2. Free school meals (FSM) — the sign flip (full model)
+### 2. Free school meals (FSM) — the sign flip
 
-In the **full panel model** (Analysis A), `log(PTFSM6CLA1A)` shows the
-most striking difference across outcome groups:
+In the **imputed full model** (Analysis E), `log(PTFSM6CLA1A)` shows
+the most striking difference across outcome groups:
 
 - **All Pupils and Non-Disadvantaged:** The coefficient is consistently
   **negative**. Schools with a higher share of disadvantaged pupils tend
@@ -1133,24 +1199,23 @@ penalty. In the core model (Analysis C), `log(PTFSM6CLA1A)` is
 **negative for all three groups** because it is forced to absorb the
 prior-attainment effect as well. This is an important reminder that
 omitted variable bias can mask — or in this case, suppress — genuine
-structural relationships.
+structural relationships. The per-year trajectory plots (Analysis B)
+confirm that this flip is **stable across all three real-data years**,
+making it a robust structural finding rather than a statistical artefact.
 
 ### 3. Absence — the largest and most stable predictor
 
 The coefficient on `log(PERCTOT)` (% overall absence) is **strongly
-negative** for all three groups in both specifications and is typically
-the largest predictor in absolute terms. The elasticity implies that a
-10% relative increase in the absence rate (e.g. from 5.0% to 5.5%) is
-associated with a substantial drop in ATT8 on the log scale.
+negative** for all three groups in the imputed full model and is
+typically the largest predictor in absolute terms. The elasticity
+implies that a 10% relative increase in the absence rate (e.g. from
+5.0% to 5.5%) is associated with a substantial drop in ATT8 on the
+log scale.
 
 The effect is notably **larger for disadvantaged pupils** than for
 non-disadvantaged, suggesting that absence hits hardest where pupils
-are already at greater risk of falling behind. This pattern is
-consistent over all four years and in both the full and core models.
-
-The coefficient is **larger in the core model** than in the full model,
-consistent with absence partially absorbing the effect of the dropped
-workforce and prior-attainment variables.
+are already at greater risk of falling behind. The per-year plots
+confirm this pattern is consistent across all years.
 
 ### 4. English as an additional language (EAL)
 
@@ -1166,7 +1231,21 @@ that being bilingual may confer a particular advantage within the
 disadvantaged subgroup — or that schools with high EAL proportions are
 disproportionately in urban areas with other unmeasured advantages.
 
-### 5. Interpreting log-transformed variables — effects at the extremes
+### 5. Prior attainment (PTPRIORLO)
+
+The `PTPRIORLO` coefficient is **strongly negative** across all three
+groups — a higher percentage of pupils with low KS2 prior attainment
+is associated with lower Attainment 8 scores. This is the most
+intuitive relationship in the model: schools receiving pupils with
+weaker primary-level preparation see lower secondary outcomes, even
+after controlling for all other factors.
+
+The magnitude is broadly similar across outcome groups, though the
+coefficient for non-disadvantaged pupils tends to be slightly smaller,
+consistent with higher-attaining pupils being somewhat more resilient
+to a low-prior-attainment school environment.
+
+### 6. Interpreting log-transformed variables — effects at the extremes
 
 Because several predictors enter the model as `log(x)`, the
 *absolute* effect of a unit change depends on **where you are on the
@@ -1185,7 +1264,7 @@ has practical implications: policy interventions targeting absence
 reduction will show the biggest modelled gains in schools where absence
 is currently moderate rather than already extreme.
 
-### 6. Gorard segregation index
+### 7. Gorard segregation index
 
 The Gorard segregation index coefficient is **negative** for all three
 groups — higher within-LA segregation is associated with lower
@@ -1194,22 +1273,23 @@ negative) for **disadvantaged pupils**, suggesting that sorting pupils
 into high-deprivation and low-deprivation schools hurts the
 disadvantaged group more than the non-disadvantaged.
 
-### 7. Admissions policy
+### 8. Admissions policy
 
-`ADMPOL_PT` (a continuous admissions policy indicator) is **positive**
-across all groups, implying that more selective admissions policies are
-associated with higher attainment after controlling for intake
-characteristics. However, the coefficient is **relatively small and
-sometimes unstable** across years, particularly for the disadvantaged
-group, where the confidence intervals are wide.
+`ADMPOL_PT` is represented as a categorical variable with "NON SEL" as
+the reference level. The **selective** (`ADMPOL_PTSEL`) coefficient is
+**strongly positive** across all groups — grammar and other selective
+schools show higher attainment after controlling for intake
+characteristics. The **other non-selective** category shows a small
+and often non-significant coefficient.
 
-### 8. Workforce variables (full model only)
+### 9. Workforce variables
 
-In Analysis A, the three workforce variables add useful context:
+In the imputed full model, the three workforce variables add useful
+context:
 
 - **Teacher retention** (`log(remained_in_the_same_school)`): Positive
   coefficient — higher staff stability is associated with higher
-  attainment. The effect is broadly similar across groups.
+  attainment. The per-year plots show this is consistent across years.
 - **Leadership pay** (`teachers_on_leadership_pay_range_percent`):
   Typically small and sometimes non-significant, suggesting that the
   proportion of teachers on leadership pay scales is not a strong
@@ -1220,44 +1300,36 @@ In Analysis A, the three workforce variables add useful context:
   reinforces that attendance (by both pupils and staff) is strongly
   associated with outcomes.
 
-### 9. Year-to-year stability
+### 10. Year-to-year stability
 
-The coefficient trajectory plots above show that the core per-year
-estimates are **remarkably stable** across 2021-22 to 2024-25, with
-most terms moving within a narrow band. The main exception is 2021-22,
-which was the first full examination year after the pandemic disruption
-and occasionally shows slightly different coefficient magnitudes.
+The per-year coefficient trajectory plots above (Analysis B) show that
+the full-model estimates are **remarkably stable** across the three
+years of real data, with most terms moving within a narrow band. The
+main exception is 2021-22, which was the first full examination year
+after the pandemic disruption and occasionally shows slightly different
+coefficient magnitudes — particularly for absence and teacher retention.
 
-### 10. What is missing from the core model — and why it matters
+### 11. What the imputed model gains over the core model
 
-The core model exists because workforce data (from the School Workforce
-Census) and KS2 prior-attainment data are **not available for all
-years**:
+The imputed full model (Analysis E, now used in the Shiny app)
+represents the best available specification:
 
-- **Prior attainment (`PTPRIORLO`):** KS2 SATs were cancelled during
-  COVID, meaning the 2024-25 cohort has no standardised prior-attainment
-  score. This is arguably the most consequential omission, since prior
-  attainment is one of the strongest predictors of GCSE outcomes at
-  school level. Its absence from the core model causes other predictors
-  — particularly FSM and absence — to absorb some of its effect,
-  inflating their coefficients and, in the case of FSM, suppressing
-  the sign flip visible in the full model.
-- **Workforce variables** (`remained_in_the_same_school`,
-  `teachers_on_leadership_pay_range_percent`,
-  `average_number_of_days_taken`): School Workforce Census data follows
-  a different release timetable and is not yet available for 2024-25 at
-  the time of analysis. While individually less powerful than prior
-  attainment, collectively these three variables add meaningful
-  explanatory power — particularly teacher retention and teacher
-  absence, which are moderately correlated with both pupil absence and
-  FSM rates.
-
-The core model should therefore be understood as a **pragmatic
-trade-off**: broader temporal coverage in exchange for a less complete
-decomposition of the relationships driving attainment. The full model
-remains the preferred specification for understanding *why* schools
-differ, while the core model is better suited for *tracking* relative
-performance over time — including the most recent year.
+- **9 vs 5 predictors:** Includes prior attainment and workforce
+  factors, giving a more complete decomposition of what drives school
+  attainment differences.
+- **Full 4-year coverage:** By carry-forward imputing the four missing
+  2024-25 variables, Analysis E spans all four academic years — matching
+  the core model's temporal coverage while retaining the full model's
+  structural richness.
+- **Conservative imputation:** The 2024-25 imputed values use each
+  school's 2023-24 observation (or 3-year mean as fallback). Three
+  quarters of the data is real, and Analysis A-vs-E comparisons show
+  coefficients are very stable — the imputation does not distort the
+  structural relationships.
+- **Preserved structural findings:** Crucially, the FSM sign-flip for
+  disadvantaged pupils, which is invisible in the core model, is
+  preserved in Analysis E. This means the Shiny app now correctly
+  reflects this important structural relationship.
 
 
 # Brighton & Hove: A Local Case Study
@@ -1361,27 +1433,15 @@ predicted impacts depending on where a school sits on the distribution.
 #| label: bh-obs-pred
 #| fig-height: 7
 #| fig-width: 9
-#| fig-cap: "Observed vs core-model predicted ATT8 for Brighton & Hove schools across all years"
+#| fig-cap: "Observed vs imputed-full-model predicted ATT8 for Brighton & Hove schools"
 
-bh_plot_data <- bh_data %>%
-  filter(!is.na(ATT8SCR)) %>%
-  select(School = SCHNAME, Year = year_label,
-         ATT8SCR, predicted_ATT8SCR_core, residual_ATT8SCR_core,
-         ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_core,
-         ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_core) %>%
-  pivot_longer(
-    cols = -c(School, Year),
-    names_to = c("measure", "group"),
-    names_pattern = "(ATT8SCR|predicted_ATT8SCR|residual_ATT8SCR)_(.*)"
-  )
-
-# Simpler approach: build one panel per outcome
+# Build one panel per outcome using imputed model predictions
 outcomes_bh <- list(
-  list(obs = "ATT8SCR", pred = "predicted_ATT8SCR_core",
+  list(obs = "ATT8SCR", pred = "predicted_ATT8SCR_imputed",
        label = "All Pupils"),
-  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_ATT8SCR_FSM6CLA1A_core",
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_ATT8SCR_FSM6CLA1A_imputed",
        label = "Disadvantaged"),
-  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_ATT8SCR_NFSM6CLA1A_core",
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_ATT8SCR_NFSM6CLA1A_imputed",
        label = "Non-Disadvantaged")
 )
 
@@ -1394,24 +1454,27 @@ bh_long <- map_dfr(outcomes_bh, function(o) {
       Group = o$label,
       Observed = !!sym(o$obs),
       Predicted = !!sym(o$pred),
-      Residual = Observed - Predicted
+      Residual = Observed - Predicted,
+      Imputed = ifelse(!is.na(has_imputed_predictors) & has_imputed_predictors,
+                       "Yes", "No")
     )
 }) %>%
   mutate(Group = factor(Group,
                         levels = c("All Pupils", "Disadvantaged",
                                    "Non-Disadvantaged")))
 
-# Scatter: observed vs predicted, faceted by group
+# Static scatter: observed vs predicted, faceted by group
 rng <- range(c(bh_long$Observed, bh_long$Predicted), na.rm = TRUE)
 
 ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
-  geom_point(size = 2, alpha = 0.8) +
+  geom_point(aes(shape = Imputed), size = 2, alpha = 0.8) +
+  scale_shape_manual(values = c("No" = 16, "Yes" = 17)) +
   facet_wrap(~ Group, ncol = 3) +
   coord_cartesian(xlim = rng, ylim = rng) +
-  labs(x = "Predicted ATT8 (core model)", y = "Observed ATT8",
-       colour = NULL,
+  labs(x = "Predicted ATT8 (imputed full model)", y = "Observed ATT8",
+       colour = NULL, shape = "Imputed predictors?",
        title = "Brighton & Hove: observed vs predicted Attainment 8") +
   theme_minimal(base_size = 11) +
   theme(
@@ -1420,6 +1483,49 @@ ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
     strip.text = element_text(face = "bold")
   ) +
   guides(colour = guide_legend(nrow = 3))
+```
+
+### Interactive observed vs predicted
+
+```{r bh-obs-pred-plotly}
+#| label: bh-obs-pred-plotly
+#| fig-height: 7
+#| fig-width: 9
+
+bh_plotly_scatter <- bh_long %>%
+  mutate(
+    tooltip = paste0(
+      "<b>", School, "</b><br>",
+      "Year: ", Year,
+      ifelse(Imputed == "Yes", " (imputed)", ""), "<br>",
+      "Observed: ", round(Observed, 1), "<br>",
+      "Predicted: ", round(Predicted, 1), "<br>",
+      "Residual: ", sprintf("%+.1f", Residual)
+    )
+  )
+
+p_scatter <- ggplot(bh_plotly_scatter,
+       aes(x = Predicted, y = Observed, colour = School, text = tooltip)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
+              linewidth = 0.5, linetype = "dashed") +
+  geom_point(aes(shape = Imputed), size = 2, alpha = 0.8) +
+  scale_shape_manual(values = c("No" = 16, "Yes" = 17)) +
+  facet_wrap(~ Group, ncol = 3) +
+  coord_cartesian(xlim = rng, ylim = rng) +
+  labs(x = "Predicted ATT8", y = "Observed ATT8",
+       colour = NULL, shape = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    strip.text = element_text(face = "bold", size = 9)
+  )
+
+ggplotly(p_scatter, tooltip = "text") %>%
+  layout(
+    title = list(text = "Brighton & Hove: observed vs predicted (hover for details)"),
+    legend = list(orientation = "h", y = -0.15)
+  )
 ```
 
 ## Brighton & Hove: residuals by school
@@ -1432,11 +1538,12 @@ ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
 
 ggplot(bh_long, aes(x = Year, y = Residual, colour = School, group = School)) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_point(size = 2) +
+  geom_point(aes(shape = Imputed), size = 2) +
   geom_line(linewidth = 0.5, alpha = 0.6) +
+  scale_shape_manual(values = c("No" = 16, "Yes" = 17)) +
   facet_wrap(~ Group, ncol = 3, scales = "free_y") +
   labs(x = "Academic year", y = "Residual (Observed - Predicted)",
-       colour = NULL,
+       colour = NULL, shape = "Imputed?",
        title = "Brighton & Hove: school-level residuals over time") +
   theme_minimal(base_size = 11) +
   theme(
@@ -1446,6 +1553,49 @@ ggplot(bh_long, aes(x = Year, y = Residual, colour = School, group = School)) +
     strip.text = element_text(face = "bold")
   ) +
   guides(colour = guide_legend(nrow = 3))
+```
+
+### Interactive residuals
+
+```{r bh-residuals-plotly}
+#| label: bh-residuals-plotly
+#| fig-height: 6
+#| fig-width: 9
+
+bh_plotly_resid <- bh_long %>%
+  mutate(
+    tooltip = paste0(
+      "<b>", School, "</b><br>",
+      "Year: ", Year,
+      ifelse(Imputed == "Yes", " (imputed)", ""), "<br>",
+      "Residual: ", sprintf("%+.1f", Residual), "<br>",
+      "Observed: ", round(Observed, 1), " | Predicted: ", round(Predicted, 1)
+    )
+  )
+
+p_resid <- ggplot(bh_plotly_resid,
+       aes(x = Year, y = Residual, colour = School, group = School,
+           text = tooltip)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(aes(shape = Imputed), size = 2) +
+  geom_line(linewidth = 0.5, alpha = 0.6) +
+  scale_shape_manual(values = c("No" = 16, "Yes" = 17)) +
+  facet_wrap(~ Group, ncol = 3, scales = "free_y") +
+  labs(x = "Academic year", y = "Residual (Observed - Predicted)",
+       colour = NULL, shape = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 7),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(face = "bold", size = 9)
+  )
+
+ggplotly(p_resid, tooltip = "text") %>%
+  layout(
+    title = list(text = "Brighton & Hove: residuals over time (hover for details)"),
+    legend = list(orientation = "h", y = -0.15)
+  )
 ```
 
 ## Brighton & Hove: commentary
@@ -1513,12 +1663,14 @@ characteristics within a single local authority:
 FSM rates will see the negative `log(PTFSM6CLA1A)` coefficient
 working in their favour for overall and non-disadvantaged ATT8 (lower
 deprivation → higher predicted score). But for the *disadvantaged*
-model, the positive coefficient means that schools with higher FSM rates
-actually get a modest upward adjustment for their disadvantaged pupils.
-A school with, say, 40% FSM will have a higher predicted disadvantaged
-ATT8 than one with 15% FSM, all else equal — the model is capturing
-the idea that disadvantaged pupils may do relatively better in schools
-where they form a larger share of the cohort.
+model, the positive coefficient in the imputed full model means that
+schools with higher FSM rates actually get a modest upward adjustment
+for their disadvantaged pupils. A school with, say, 40% FSM will have
+a higher predicted disadvantaged ATT8 than one with 15% FSM, all else
+equal — the model is capturing the idea that disadvantaged pupils may
+do relatively better in schools where they form a larger share of the
+cohort. The interactive plots above let you hover over individual
+school-year points to see this effect in action.
 
 **The log-scale sensitivity:** Brighton & Hove schools with relatively
 low absence rates sit on the steep part of the log curve. For these
@@ -1530,25 +1682,38 @@ schools from deterioration** may be just as important as tackling
 chronic absence elsewhere — a small slip at the low end has an
 outsized effect in the model.
 
+**Workforce effects locally:** The imputed full model now includes
+teacher retention and teacher sickness as predictors. In Brighton &
+Hove, schools with higher staff stability (`remained_in_the_same_school`)
+receive a positive adjustment, while those with higher teacher
+absence (`average_number_of_days_taken`) see a penalty. These effects
+are visible in the school-level residuals: schools that previously
+appeared to over- or under-perform the core model may now be better
+explained by the additional workforce variables.
+
 **Residual patterns:** Schools that consistently sit *above* the
 diagonal on the observed-vs-predicted plot are outperforming the model's
 expectations given their intake. Those consistently below are
-under-performing relative to their statistical peers. Persistent
-residuals in one direction suggest that something not captured by the
-five core predictors — leadership quality, curriculum design, community
-factors — is driving a school's relative position.
+under-performing relative to their statistical peers. With the imputed
+full model's 9 predictors, persistent residuals now point to factors
+genuinely beyond the model — leadership quality, curriculum design,
+community factors — rather than being artefacts of missing workforce or
+prior-attainment controls. Note that 2024-25 points (shown as triangles
+in the plots) use carry-forward imputed values for the four estimated
+variables.
 
 
 # Quick Reference
 
 ## Formula summary
 
-| Analysis | Fixed Effects | Random Effects | Data |
-|----------|--------------|----------------|------|
-| A (Full Panel) | 9 predictors (5 log, 4 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | 3 years, workforce required |
-| B (Full Per-Year) | Same 9 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately |
-| C (Core Panel) | 5 predictors (3 log, 2 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | All 4 years |
-| D (Core Per-Year) | Same 5 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately |
+| Analysis | Fixed Effects | Random Effects | Data | Used in App? |
+|----------|--------------|----------------|------|:---:|
+| A (Full Panel) | 9 predictors (5 log, 4 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | 3 years, workforce required | No |
+| B (Full Per-Year) | Same 9 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately | No |
+| C (Core Panel) | 5 predictors (3 log, 2 linear) | `(1\|year) + (1\|Ofsted) + (1\|region/LA)` | All 4 years | No |
+| D (Core Per-Year) | Same 5 predictors | `(1\|Ofsted) + (1\|region/LA)` | Each year separately | No |
+| **E (Imputed Full)** | **9 predictors (5 log, 4 linear)** | **`(1\|year) + (1\|Ofsted) + (1\|region/LA)`** | **All 4 years (2024-25 imputed)** | **Yes** |
 
 ## Variable key
 

@@ -8,6 +8,10 @@
 # the 55MB+ lme4 model objects — the simulator uses
 # predict_slim() with extracted coefficients instead.
 #
+# Uses the imputed full model (Analysis E, 9 predictors)
+# which covers all 4 years including 2024-25 (with
+# carry-forward imputed workforce and prior attainment).
+#
 # All helper functions are in R/app_helpers.R so the app
 # is fully self-contained for deployment (shinyapps.io).
 # ----------------------------------------------------
@@ -31,9 +35,9 @@ message("Loading lightweight app data bundle ...")
 panel_data      <- readRDS("data/panel_data.rds")
 school_lookup   <- readRDS("data/school_lookup.rds")
 la_lookup       <- readRDS("data/la_lookup.rds")
-diagnostics     <- readRDS("data/model_diagnostics_core.rds")
+diagnostics     <- readRDS("data/model_diagnostics_imputed.rds")
 model_resid     <- readRDS("data/model_resid_data.rds")
-slim_models     <- readRDS("data/slim_core_models.rds")
+slim_models     <- readRDS("data/slim_imputed_models.rds")
 
 message("  Panel: ", nrow(panel_data), " school-year rows")
 message("  Schools: ", nrow(school_lookup))
@@ -44,22 +48,22 @@ message("  Slim models: ", paste(names(slim_models), collapse = ", "))
 OUTCOME_CONFIG <- list(
   all = list(
     var = "ATT8SCR",
-    pred_var = "predicted_ATT8SCR_core",
-    resid_var = "residual_ATT8SCR_core",
+    pred_var = "predicted_ATT8SCR_imputed",
+    resid_var = "residual_ATT8SCR_imputed",
     label = "All Pupils",
     description = "Average Attainment 8 score per pupil"
   ),
   disadvantaged = list(
     var = "ATT8SCR_FSM6CLA1A",
-    pred_var = "predicted_ATT8SCR_FSM6CLA1A_core",
-    resid_var = "residual_ATT8SCR_FSM6CLA1A_core",
+    pred_var = "predicted_ATT8SCR_FSM6CLA1A_imputed",
+    resid_var = "residual_ATT8SCR_FSM6CLA1A_imputed",
     label = "Disadvantaged Pupils",
     description = "Average Attainment 8 score per disadvantaged pupil"
   ),
   non_disadvantaged = list(
     var = "ATT8SCR_NFSM6CLA1A",
-    pred_var = "predicted_ATT8SCR_NFSM6CLA1A_core",
-    resid_var = "residual_ATT8SCR_NFSM6CLA1A_core",
+    pred_var = "predicted_ATT8SCR_NFSM6CLA1A_imputed",
+    resid_var = "residual_ATT8SCR_NFSM6CLA1A_imputed",
     label = "Non-Disadvantaged Pupils",
     description = "Average Attainment 8 score per non-disadvantaged pupil"
   )
