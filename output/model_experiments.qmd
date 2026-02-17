@@ -1703,6 +1703,555 @@ in the plots) use carry-forward imputed values for the four estimated
 variables.
 
 
+# Variable Importance & Policy Recommendations
+
+This section ranks the explanatory variables in order of their
+importance for predicting Attainment 8, drawing on the imputed full model
+(Analysis E). Two complementary importance measures are presented:
+
+1. **Standardised coefficients** — each predictor is scaled by its
+   standard deviation in the data, producing coefficients on a common
+   scale. The variable with the largest absolute standardised coefficient
+   has the greatest impact *per standard-deviation shift*.
+2. **Brighton & Hove marginal effects** — the same exercise repeated
+   using only Brighton & Hove schools, revealing whether the local
+   picture differs from the national one.
+
+Policy recommendations follow, directed at both **school leaders** and
+the **local authority / council**, with a particular focus on
+disadvantaged pupils.
+
+
+## National variable importance (standardised coefficients)
+
+The table below standardises each continuous predictor by its pooled
+standard deviation across all school-year observations, then multiplies
+by the Analysis E fixed-effect coefficient. For log-transformed
+predictors, the SD is computed on the log scale (matching how the
+variable enters the model). Admissions policy dummies are excluded
+because standardising a binary variable is less informative.
+
+```{r importance-national}
+#| label: importance-national
+
+# ---- Helper: compute standardised coefficients for one model ----
+standardised_importance <- function(model, data, outcome_var, group_label) {
+
+  fe <- fixef(model)
+  fe <- fe[names(fe) != "(Intercept)"]
+
+  # Map coefficient names to the actual data columns and transformations
+  coef_info <- tribble(
+    ~term,                                    ~data_col,                                  ~transform,
+    "log(PTFSM6CLA1A)",                       "PTFSM6CLA1A",                              "log",
+    "log(PERCTOT)",                            "PERCTOT",                                  "log",
+    "log(PNUMEAL)",                            "PNUMEAL",                                  "log",
+    "PTPRIORLO",                               "PTPRIORLO",                                "none",
+    "gorard_segregation",                      "gorard_segregation",                       "none",
+    "log(remained_in_the_same_school)",         "remained_in_the_same_school",              "log",
+    "teachers_on_leadership_pay_range_percent", "teachers_on_leadership_pay_range_percent", "none",
+    "log(average_number_of_days_taken)",        "average_number_of_days_taken",             "log"
+  )
+
+  results <- coef_info %>%
+    filter(term %in% names(fe)) %>%
+    rowwise() %>%
+    mutate(
+      coef = fe[term],
+      x_vals = list(
+        if (transform == "log") log(data[[data_col]][!is.na(data[[data_col]]) & data[[data_col]] > 0])
+        else data[[data_col]][!is.na(data[[data_col]])]
+      ),
+      sd_x = sd(unlist(x_vals), na.rm = TRUE),
+      std_coef = coef * sd_x,
+      abs_std_coef = abs(std_coef),
+      Group = group_label
+    ) %>%
+    ungroup() %>%
+    select(term, data_col, coef, sd_x, std_coef, abs_std_coef, Group)
+
+  results
+}
+
+# Compute for all three outcome groups
+imp_all <- standardised_importance(mod_e_all, imputed_full_data,
+                                    "ATT8SCR", "All Pupils")
+imp_dis <- standardised_importance(mod_e_disadv, imputed_full_data,
+                                    "ATT8SCR_FSM6CLA1A", "Disadvantaged")
+imp_non <- standardised_importance(mod_e_nondisadv, imputed_full_data,
+                                    "ATT8SCR_NFSM6CLA1A", "Non-Disadvantaged")
+
+importance_national <- bind_rows(imp_all, imp_dis, imp_non)
+
+# Display name mapping
+display_names <- c(
+  "log(PTFSM6CLA1A)" = "% Disadvantaged (FSM)",
+  "log(PERCTOT)" = "Overall Absence Rate",
+  "log(PNUMEAL)" = "% EAL",
+  "PTPRIORLO" = "% Low Prior Attainment",
+  "gorard_segregation" = "Gorard Segregation Index",
+  "log(remained_in_the_same_school)" = "Teacher Retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
+  "log(average_number_of_days_taken)" = "Teacher Sickness Days"
+)
+
+importance_national <- importance_national %>%
+  mutate(display_name = display_names[term])
+```
+
+### National ranking table
+
+```{r importance-national-table}
+#| label: importance-national-table
+
+# Pivot to wide format for a clean comparison table
+national_ranking <- importance_national %>%
+  select(display_name, Group, std_coef) %>%
+  pivot_wider(names_from = Group, values_from = std_coef) %>%
+  mutate(
+    `Avg |Std. Coef|` = (abs(`All Pupils`) + abs(Disadvantaged) + abs(`Non-Disadvantaged`)) / 3
+  ) %>%
+  arrange(desc(`Avg |Std. Coef|`)) %>%
+  mutate(Rank = row_number()) %>%
+  relocate(Rank) %>%
+  mutate(across(where(is.numeric) & !matches("Rank"), \(x) round(x, 4)))
+
+knitr::kable(
+  national_ranking,
+  align = "rlrrrr",
+  caption = "National variable importance: standardised coefficients (Analysis E)"
+)
+```
+
+### National importance chart
+
+```{r importance-national-chart}
+#| label: importance-national-chart
+#| fig-height: 6
+#| fig-width: 9
+
+importance_chart_data <- importance_national %>%
+  mutate(
+    display_name = factor(display_name),
+    Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")),
+    tooltip_text = paste0(
+      "<b>", display_name, "</b><br>",
+      "Group: ", Group, "<br>",
+      "Raw coefficient: ", round(coef, 5), "<br>",
+      "SD of predictor: ", round(sd_x, 3), "<br>",
+      "Standardised coef: ", round(std_coef, 4), "<br>",
+      "|Std. coef|: ", round(abs_std_coef, 4)
+    )
+  )
+
+# Reorder by average absolute standardised coefficient
+var_order <- importance_chart_data %>%
+  group_by(display_name) %>%
+  summarise(avg_abs = mean(abs_std_coef)) %>%
+  arrange(avg_abs) %>%
+  pull(display_name)
+
+importance_chart_data <- importance_chart_data %>%
+  mutate(display_name = factor(display_name, levels = var_order))
+
+p_imp <- ggplot(importance_chart_data,
+       aes(x = display_name, y = abs_std_coef, fill = Group,
+           text = tooltip_text)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c("All Pupils" = "#1565c0",
+                                "Disadvantaged" = "#c62828",
+                                "Non-Disadvantaged" = "#2e7d32")) +
+  labs(x = NULL, y = "|Standardised Coefficient|",
+       title = "Variable Importance: National (Analysis E)",
+       fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_imp, tooltip = "text") %>%
+  layout(legend = list(orientation = "h", y = -0.15))
+```
+
+### National importance: direction of effect
+
+The **signed** standardised coefficients reveal both magnitude and
+direction. Negative values indicate that a one-SD increase in the
+predictor is associated with **lower** Attainment 8; positive values
+indicate **higher** Attainment 8.
+
+```{r importance-national-direction}
+#| label: importance-national-direction
+#| fig-height: 6
+#| fig-width: 9
+
+p_dir <- ggplot(importance_chart_data,
+       aes(x = display_name, y = std_coef, fill = Group,
+           text = tooltip_text)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  coord_flip() +
+  scale_fill_manual(values = c("All Pupils" = "#1565c0",
+                                "Disadvantaged" = "#c62828",
+                                "Non-Disadvantaged" = "#2e7d32")) +
+  labs(x = NULL, y = "Standardised Coefficient (signed)",
+       title = "Direction & Magnitude of Effect: National",
+       fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_dir, tooltip = "text") %>%
+  layout(legend = list(orientation = "h", y = -0.15))
+```
+
+
+## Brighton & Hove variable importance
+
+The same standardised-coefficient approach is repeated using only
+Brighton & Hove schools. Because the local predictor distributions may
+differ from the national picture (e.g. lower absence variance, different
+FSM range), the rankings may shift.
+
+```{r importance-bh}
+#| label: importance-bh
+
+# Filter to Brighton & Hove
+bh_data <- imputed_full_data %>%
+  filter(LANAME == "Brighton and Hove")
+
+cat("Brighton & Hove observations:", nrow(bh_data), "\n")
+
+# Use the NATIONAL model coefficients but LOCAL predictor SDs
+imp_bh_all <- standardised_importance(mod_e_all, bh_data,
+                                       "ATT8SCR", "All Pupils")
+imp_bh_dis <- standardised_importance(mod_e_disadv, bh_data,
+                                       "ATT8SCR_FSM6CLA1A", "Disadvantaged")
+imp_bh_non <- standardised_importance(mod_e_nondisadv, bh_data,
+                                       "ATT8SCR_NFSM6CLA1A", "Non-Disadvantaged")
+
+importance_bh <- bind_rows(imp_bh_all, imp_bh_dis, imp_bh_non) %>%
+  mutate(display_name = display_names[term])
+```
+
+### Brighton & Hove ranking table
+
+```{r importance-bh-table}
+#| label: importance-bh-table
+
+bh_ranking <- importance_bh %>%
+  select(display_name, Group, std_coef) %>%
+  pivot_wider(names_from = Group, values_from = std_coef) %>%
+  mutate(
+    `Avg |Std. Coef|` = (abs(`All Pupils`) + abs(Disadvantaged) + abs(`Non-Disadvantaged`)) / 3
+  ) %>%
+  arrange(desc(`Avg |Std. Coef|`)) %>%
+  mutate(Rank = row_number()) %>%
+  relocate(Rank) %>%
+  mutate(across(where(is.numeric) & !matches("Rank"), \(x) round(x, 4)))
+
+knitr::kable(
+  bh_ranking,
+  align = "rlrrrr",
+  caption = "Brighton & Hove variable importance: standardised coefficients (local predictor SDs, national model)"
+)
+```
+
+### Brighton & Hove importance chart
+
+```{r importance-bh-chart}
+#| label: importance-bh-chart
+#| fig-height: 6
+#| fig-width: 9
+
+bh_chart_data <- importance_bh %>%
+  mutate(
+    Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")),
+    tooltip_text = paste0(
+      "<b>", display_name, "</b> (B&H)<br>",
+      "Group: ", Group, "<br>",
+      "Raw coefficient (national): ", round(coef, 5), "<br>",
+      "SD of predictor (B&H): ", round(sd_x, 3), "<br>",
+      "Standardised coef: ", round(std_coef, 4)
+    )
+  )
+
+bh_var_order <- bh_chart_data %>%
+  group_by(display_name) %>%
+  summarise(avg_abs = mean(abs_std_coef)) %>%
+  arrange(avg_abs) %>%
+  pull(display_name)
+
+bh_chart_data <- bh_chart_data %>%
+  mutate(display_name = factor(display_name, levels = bh_var_order))
+
+p_bh <- ggplot(bh_chart_data,
+       aes(x = display_name, y = abs_std_coef, fill = Group,
+           text = tooltip_text)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = c("All Pupils" = "#1565c0",
+                                "Disadvantaged" = "#c62828",
+                                "Non-Disadvantaged" = "#2e7d32")) +
+  labs(x = NULL, y = "|Standardised Coefficient|",
+       title = "Variable Importance: Brighton & Hove",
+       fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_bh, tooltip = "text") %>%
+  layout(legend = list(orientation = "h", y = -0.15))
+```
+
+
+## National vs Brighton & Hove comparison
+
+```{r importance-comparison}
+#| label: importance-comparison
+
+# Compare rankings side by side (All Pupils model)
+comparison_all <- national_ranking %>%
+  select(display_name, `National Rank` = Rank,
+         `National Std.Coef` = `All Pupils`) %>%
+  left_join(
+    bh_ranking %>%
+      select(display_name, `B&H Rank` = Rank,
+             `B&H Std.Coef` = `All Pupils`),
+    by = "display_name"
+  ) %>%
+  mutate(`Rank Change` = `National Rank` - `B&H Rank`)
+
+knitr::kable(
+  comparison_all,
+  align = "lrrrrl",
+  caption = "All Pupils: National vs Brighton & Hove variable importance rankings"
+)
+```
+
+```{r importance-comparison-disadv}
+#| label: importance-comparison-disadv
+
+# Same for Disadvantaged pupils
+comparison_disadv <- importance_national %>%
+  filter(Group == "Disadvantaged") %>%
+  arrange(desc(abs_std_coef)) %>%
+  mutate(`National Rank` = row_number()) %>%
+  select(display_name, `National Rank`, `National Std.Coef` = std_coef) %>%
+  left_join(
+    importance_bh %>%
+      filter(Group == "Disadvantaged") %>%
+      arrange(desc(abs_std_coef)) %>%
+      mutate(`B&H Rank` = row_number()) %>%
+      select(display_name, `B&H Rank`, `B&H Std.Coef` = std_coef),
+    by = "display_name"
+  ) %>%
+  mutate(`Rank Change` = `National Rank` - `B&H Rank`) %>%
+  mutate(across(where(is.numeric) & !matches("Rank"), \(x) round(x, 4)))
+
+knitr::kable(
+  comparison_disadv,
+  align = "lrrrrl",
+  caption = "Disadvantaged Pupils: National vs Brighton & Hove variable importance rankings"
+)
+```
+
+### Key differences between national and local rankings
+
+The comparison tables above highlight where Brighton & Hove's local
+context shifts the relative importance of predictors:
+
+- **% Disadvantaged (FSM):** Brighton & Hove schools span a wide FSM
+  range (from under 10% to over 50%), which may amplify or dampen this
+  variable's local importance relative to the national picture depending
+  on the SD of log(FSM) in the borough.
+
+- **Overall Absence:** If Brighton & Hove has a narrower spread of
+  absence rates than the national distribution, absence will appear less
+  important locally — not because it matters less per unit of change, but
+  because schools are more similar to each other in this dimension.
+
+- **Teacher Retention and Sickness:** Brighton & Hove's workforce
+  stability profile — shaped by coastal-city labour market conditions,
+  London proximity for recruitment, and academy vs maintained school
+  mix — may produce a different local variance in these predictors.
+
+- **Gorard Segregation:** As a single local authority, all B&H schools
+  share the same segregation index value in any given year, so the
+  within-B&H variance is zero or near-zero. This variable's local
+  importance will therefore be very low, even though it matters at
+  national level where LA-level segregation varies widely.
+
+
+## Policy recommendations
+
+The variable importance rankings, combined with the direction-of-effect
+analysis and the model's structural features, suggest several priority
+areas for intervention. These are organised by audience.
+
+### For school leaders
+
+**1. Absence reduction is the single biggest lever.**
+
+Across all three pupil groups, overall absence rate (`PERCTOT`) is
+consistently the strongest or among the strongest predictors of
+Attainment 8. The log-transformed relationship means that gains from
+reducing absence are **largest for schools with already-moderate absence
+rates** (the steep part of the curve). For a school currently at 6%
+absence, reducing to 5% has a larger predicted effect than a school at
+10% reducing to 9%. This argues for:
+
+- Intensive early-intervention strategies (attendance officers,
+  family liaison, mentoring) before absence becomes entrenched
+- Special attention to protecting low-absence schools from
+  deterioration, not just tackling chronic cases
+- Focus on disadvantaged pupils specifically, where the absence
+  coefficient is largest
+
+**2. Support for pupils with low prior attainment.**
+
+The `PTPRIORLO` coefficient is strongly negative — schools serving a
+higher proportion of pupils who entered secondary school with low KS2
+scores see lower Attainment 8 outcomes. While schools cannot change their
+intake composition, they can invest in:
+
+- Targeted catch-up programmes (literacy, numeracy) for pupils arriving
+  with below-expected KS2 levels
+- Diagnostic assessment at transition from primary school to identify
+  gaps early
+- Small-group intervention during KS3 to prevent the attainment gap
+  widening before GCSE
+
+**3. Workforce stability matters.**
+
+Teacher retention (`remained_in_the_same_school`) shows a positive
+association with attainment: schools where more teachers stay are
+predicted to achieve higher ATT8 scores. Meanwhile, teacher sickness
+days show a negative association. School leaders should consider:
+
+- Retention strategies: competitive CPD offers, workload management,
+  mentoring for early-career teachers
+- Wellbeing programmes targeting staff absence
+- Succession planning to avoid disruptive turnover in key departments
+
+**4. The FSM sign-flip for disadvantaged pupils.**
+
+Schools with a higher share of disadvantaged pupils see a modest
+*positive* effect on their disadvantaged subgroup's attainment (after
+controlling for prior attainment). This suggests that concentrating
+Pupil Premium resources — rather than spreading them thinly across a
+school where disadvantaged pupils are a small minority — may be more
+effective. Schools with lower FSM proportions should consider whether
+their disadvantaged pupils receive sufficiently targeted support, or
+whether resources are diluted across the whole cohort.
+
+
+### For Brighton & Hove Council and local authority
+
+**1. Tackle absence strategically across the borough.**
+
+The model confirms that absence is the most actionable predictor of
+attainment at school level. The council can support schools through:
+
+- Borough-wide attendance campaigns and shared best practice
+- Coordinated data sharing to identify pupils with poor attendance
+  across multiple schools (e.g. following managed moves)
+- Targeted outreach to communities with high persistent-absence rates
+- Ensuring that alternative provision maintains strong attendance
+  tracking
+
+**2. Address the disadvantaged attainment gap directly.**
+
+The model shows that the coefficient magnitudes for disadvantaged pupils
+are often **larger** than for non-disadvantaged — absence, prior
+attainment, and segregation all hit harder for the disadvantaged group.
+Policy priorities include:
+
+- Ring-fencing and monitoring the impact of Pupil Premium spending
+  across all maintained and academy schools
+- Commissioning cross-school programmes (e.g. summer schools, mentoring
+  networks) that pool resources for disadvantaged pupils across the LA
+- Tracking the FSM attainment gap as a headline KPI for the local
+  authority, using the model's predicted vs actual framework to identify
+  schools outperforming or underperforming expectations
+
+**3. Reduce segregation where possible.**
+
+The Gorard segregation index shows a negative association with
+attainment, particularly for disadvantaged pupils. While Brighton & Hove
+has a single index value at any point in time, the council can influence
+future segregation through:
+
+- Admissions policy review: ensuring that catchment areas and
+  oversubscription criteria do not inadvertently concentrate
+  disadvantaged pupils in a small number of schools
+- Supporting a diverse school mix in new housing developments
+- Monitoring and publishing segregation metrics alongside attainment
+  data to maintain transparency
+
+**4. Support workforce stability across schools.**
+
+Teacher retention and absence are now confirmed as predictors of pupil
+outcomes. The council and local partnerships can help by:
+
+- Facilitating borough-wide teacher recruitment and retention
+  initiatives (e.g. housing support, shared CPD networks)
+- Monitoring teacher turnover and sickness across schools, identifying
+  outliers that may need additional support
+- Ensuring that schools in challenging contexts (high FSM, high
+  absence) receive additional staffing flexibility or funding to
+  counteract higher turnover pressures
+
+**5. Use the model to target support.**
+
+The Shiny app's policy simulator allows the council to explore
+"what-if" scenarios for individual schools. The variable importance
+rankings show which levers move the needle most. By combining the
+model's predictions with local knowledge, the council can:
+
+- Prioritise school improvement resources toward the interventions with
+  the largest predicted impact
+- Use the residual analysis to identify schools that are outperforming
+  expectations (positive residuals) and learn from their practices
+- Track whether policy changes (e.g. attendance initiatives) produce
+  the predicted improvements over subsequent years
+
+
+### Summary: the biggest levers
+
+The table below summarises the top policy priorities based on the
+variable importance analysis:
+
+```{r policy-summary-table}
+#| label: policy-summary-table
+#| echo: false
+
+policy_summary <- tribble(
+  ~Priority, ~`Variable`, ~`Who Can Act`, ~`Key Action`,
+  1, "Overall Absence Rate", "School leaders + Council", "Intensive early intervention; protect low-absence schools",
+  2, "% Low Prior Attainment", "School leaders", "Targeted KS2-KS3 transition catch-up programmes",
+  3, "% Disadvantaged (FSM)", "School leaders + Council", "Concentrated Pupil Premium spend; monitor FSM gap as KPI",
+  4, "Teacher Retention", "School leaders + Council", "Retention strategies; CPD investment; workload management",
+  5, "Teacher Sickness Days", "School leaders", "Staff wellbeing programmes; absence monitoring",
+  6, "Gorard Segregation Index", "Council", "Admissions policy review; diverse school mix",
+  7, "% EAL", "School leaders", "Build on EAL advantage; ensure support for new arrivals",
+  8, "Leadership Pay %", "School leaders", "Review leadership structure (low model impact)"
+)
+
+knitr::kable(
+  policy_summary,
+  align = "rlllc",
+  caption = "Policy priorities ranked by variable importance"
+)
+```
+
+> **Important caveat:** These recommendations are based on *associations*
+> identified by the multilevel model. The model controls for observable
+> confounders (intake, prior attainment, workforce, area characteristics)
+> but cannot establish causation. A school reducing absence may not see
+> exactly the predicted ATT8 gain if other unmeasured factors change
+> simultaneously. The rankings and effect sizes should be treated as
+> evidence-informed starting points for policy discussion, not as causal
+> guarantees.
+
+
 # Quick Reference
 
 ## Formula summary
