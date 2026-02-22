@@ -24,6 +24,9 @@ library(plotly)
 library(DT)
 library(sf)
 library(scales)
+library(stringr)
+library(purrr)
+library(glue)
 
 # Source self-contained helper functions (predict_slim, slider config, etc.)
 source("R/app_helpers.R")
@@ -123,3 +126,159 @@ message("  Slider context: ", nrow(england_avgs), " England avgs, ",
         nrow(la_avgs), " LA avgs")
 
 message("App data loaded successfully.")
+
+
+# ============================================================
+# ---- LA Typology data (from 07_la_typology.R) ----
+# ============================================================
+
+message("Loading LA typology data ...")
+
+# Core typology: one row per LA with cluster assignment and key indicators
+la_typology_path <- "data/la_typology.rds"
+la_typology <- if (file.exists(la_typology_path)) {
+  readRDS(la_typology_path)
+} else {
+  message("  WARNING: la_typology.rds not found. Run R/07_la_typology.R first.")
+  NULL
+}
+
+# Full indicator table
+la_indicators_path <- "data/la_indicators.rds"
+la_indicators_data <- if (file.exists(la_indicators_path)) {
+  readRDS(la_indicators_path)
+} else {
+  message("  WARNING: la_indicators.rds not found.")
+  NULL
+}
+
+# Cluster summary (pen portraits, labels, profiles)
+cluster_summary_path <- "data/la_cluster_summary.rds"
+la_cluster_summary <- if (file.exists(cluster_summary_path)) {
+  readRDS(cluster_summary_path)
+} else {
+  message("  WARNING: la_cluster_summary.rds not found.")
+  NULL
+}
+
+# Cluster metadata (k, sizes, labels, colours)
+cluster_meta_path <- "data/cluster_meta.rds"
+cluster_meta_data <- if (file.exists(cluster_meta_path)) {
+  cm <- readRDS(cluster_meta_path)
+
+  # Attach a consistent colour palette
+  palette_cols <- c(
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+    "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+    "#bcbd22", "#17becf", "#aec7e8", "#ffbb78"
+  )
+  cm$cluster_colours <- palette_cols[seq_len(cm$chosen_k)]
+  cm
+} else {
+  message("  WARNING: cluster_meta.rds not found.")
+  NULL
+}
+
+# ---- LA boundary polygons (for choropleth map) ----
+la_boundary_cache <- "data/la_boundaries.rds"   # lives in app/data/ alongside other app data
+
+load_la_boundaries_app <- function() {
+  if (file.exists(la_boundary_cache)) {
+    message("  Loading cached LA boundaries ...")
+    boundaries <- readRDS(la_boundary_cache)
+    # If the cache is unsimplified (>2MB), simplify now and re-cache
+    cache_mb <- file.info(la_boundary_cache)$size / 1024^2
+    if (cache_mb > 2) {
+      message(sprintf("  Cached boundaries are large (%.1f MB) — simplifying ...", cache_mb))
+      tryCatch({
+        if (requireNamespace("rmapshaper", quietly = TRUE)) {
+          boundaries <- rmapshaper::ms_simplify(boundaries, keep = 0.05,
+                                                 keep_shapes = TRUE)
+        } else {
+          b_proj <- sf::st_transform(boundaries, 27700)
+          b_proj <- sf::st_simplify(b_proj, dTolerance = 200,
+                                     preserveTopology = TRUE)
+          boundaries <- sf::st_transform(b_proj, 4326)
+          if (any(!sf::st_is_valid(boundaries)))
+            boundaries <- sf::st_make_valid(boundaries)
+        }
+        saveRDS(boundaries, la_boundary_cache)
+        message(sprintf("  Re-cached simplified boundaries (%.1f MB)",
+                        file.info(la_boundary_cache)$size / 1024^2))
+      }, error = function(e) {
+        message("  Simplification failed (using full-res): ", e$message)
+      })
+    }
+  } else {
+    message("  Downloading LA boundary data from ONS ...")
+    # Counties and Unitary Authorities (upper-tier) — matches education LEA geography
+    boundary_url <- paste0(
+      "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/",
+      "Counties_and_Unitary_Authorities_December_2023_Boundaries_UK_BGC/FeatureServer/0/",
+      "query?where=1%3D1&outFields=CTYUA23CD,CTYUA23NM&outSR=4326&f=geojson"
+    )
+    boundaries <- tryCatch(
+      st_read(boundary_url, quiet = TRUE),
+      error = function(e) {
+        message("  Boundary download failed: ", e$message)
+        NULL
+      }
+    )
+    if (!is.null(boundaries)) {
+      # Simplify before caching — ~467K coords → ~25K for fast map rendering
+      tryCatch({
+        if (requireNamespace("rmapshaper", quietly = TRUE)) {
+          boundaries <- rmapshaper::ms_simplify(boundaries, keep = 0.05,
+                                                 keep_shapes = TRUE)
+          message("  Pre-simplified boundaries (rmapshaper, keep = 5%)")
+        } else {
+          b_proj <- sf::st_transform(boundaries, 27700)
+          b_proj <- sf::st_simplify(b_proj, dTolerance = 200,
+                                     preserveTopology = TRUE)
+          boundaries <- sf::st_transform(b_proj, 4326)
+          if (any(!sf::st_is_valid(boundaries)))
+            boundaries <- sf::st_make_valid(boundaries)
+          message("  Pre-simplified boundaries (st_simplify, 200m)")
+        }
+      }, error = function(e) {
+        message("  Pre-simplification skipped: ", e$message)
+      })
+      saveRDS(boundaries, la_boundary_cache)
+    }
+  }
+
+  if (is.null(boundaries) || is.null(la_typology)) return(NULL)
+
+  # Identify name column (CTYUA23NM for UTLA, LAD23NM for LAD fallback)
+  name_col <- names(boundaries)[grepl("NM$|name", names(boundaries), ignore.case = TRUE)][1]
+  message("  Using boundary name column: ", name_col)
+
+  clean_name <- function(x) {
+    x %>%
+      tolower() %>%
+      str_replace_all("&", "and") %>%
+      str_remove_all("[^a-z0-9 ]") %>%
+      str_squish()
+  }
+
+  boundaries_join <- boundaries %>%
+    mutate(la_name_clean = clean_name(get(name_col)))
+
+  typology_join <- la_typology %>%
+    mutate(la_name_clean = clean_name(LANAME))
+
+  joined <- boundaries_join %>%
+    inner_join(typology_join, by = "la_name_clean")
+
+  message("  Boundaries joined: ", nrow(joined), "/", nrow(la_typology), " LAs matched")
+
+  joined
+}
+
+la_boundaries_sf <- load_la_boundaries_app()
+
+if (!is.null(la_boundaries_sf)) {
+  message("  LA boundaries ready: ", nrow(la_boundaries_sf), " polygons")
+} else {
+  message("  LA boundaries unavailable — typology map will be limited")
+}

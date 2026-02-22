@@ -13,6 +13,7 @@ source("modules/mod_simulator.R")
 source("modules/mod_la_overview.R")
 source("modules/mod_model_info.R")
 source("modules/mod_obs_vs_pred.R")
+source("modules/mod_la_typology.R")
 
 
 # ---- UI ----
@@ -58,6 +59,207 @@ ui <- page_navbar(
     )
   ),
 
+  # ---- Tab 0: Welcome / About ----
+  nav_panel(
+    title = "About",
+    icon = icon("home"),
+    tags$div(
+      class = "container py-4", style = "max-width: 960px;",
+
+      # ---- Hero ----
+      tags$div(
+        class = "text-center mb-4",
+        tags$h2("School Attainment Policy Simulator"),
+        tags$p(
+          class = "lead text-muted",
+          "Moving beyond raw league tables to understand what drives attainment"
+        ),
+        tags$p(
+          class = "text-muted mb-3",
+          "Designed by ",
+          tags$strong("Prof Adam Dennett"),
+          " as part of the ",
+          tags$a(href = "https://ai4ci.ac.uk/", target = "_blank",
+                 "UKRI AI for Collective Intelligence Research Hub"),
+          ", with assistance from Claude AI."
+        ),
+        # ---- Logos ----
+        tags$div(
+          class = "d-flex justify-content-center align-items-center gap-4 mt-3",
+          tags$a(
+            href = "https://ai4ci.ac.uk/", target = "_blank",
+            tags$img(src = "ai4ci_logo.svg", alt = "AI4CI: AI for Collective Intelligence",
+                     style = "height: 60px;")
+          ),
+          tags$a(
+            href = "https://www.ukri.org/", target = "_blank",
+            tags$img(src = "ukri_logo.png", alt = "UKRI: UK Research and Innovation",
+                     style = "height: 55px;")
+          )
+        )
+      ),
+
+      # ---- Purpose ----
+      card(
+        class = "mb-3",
+        card_body(
+          tags$h5(icon("bullseye"), " What is this tool?"),
+          tags$p(
+            "This simulator is designed for school leaders, governors and policy makers ",
+            "who want to move beyond raw attainment and progress statistics. It allows you ",
+            "to compare individual schools against others with similar characteristics across ",
+            "England and to see how each school compares with what we would ",
+            tags$em("expect"), " its attainment to be, given those characteristics."
+          )
+        )
+      ),
+
+      # ---- Model ----
+      card(
+        class = "mb-3",
+        card_body(
+          tags$h5(icon("chart-line"), " The model behind the numbers"),
+          tags$p(
+            "Underpinning the expected attainment figures is a multilevel regression model ",
+            "(schools nested within Local Authorities) that explains around ",
+            tags$strong("85% of the variation"), " in Attainment 8 scores across secondary ",
+            "schools in England \u2014 an exceptionally strong model. Where schools do better or ",
+            "worse than expected, this is attributable to other unobserved school-level factors ",
+            "such as leadership quality, teaching practice, culture, and ethos."
+          ),
+          tags$p(
+            "Separate models are fitted for all pupils, disadvantaged pupils, and non-disadvantaged ",
+            "pupils. Use the ", tags$strong("Outcome"), " selector in the header bar to switch between them."
+          ),
+          tags$p(
+            "For a fuller explanation of the modelling methodology, diagnostics, and results, see the ",
+            tags$a(href = "https://adamdennett.github.io/school_attainment_tool/",
+                   target = "_blank",
+                   icon("book-open"),
+                   " detailed model documentation"),
+            "."
+          )
+        )
+      ),
+
+      # ---- Tabs guide ----
+      card(
+        class = "mb-3",
+        card_body(
+          tags$h5(icon("compass"), " Guide to the tabs"),
+          tags$div(
+            class = "table-responsive",
+            tags$table(
+              class = "table table-sm align-middle mb-0",
+              tags$thead(
+                tags$tr(
+                  tags$th(style = "width: 180px;", "Tab"),
+                  tags$th("What it does")
+                )
+              ),
+              tags$tbody(
+                tags$tr(
+                  tags$td(icon("search"), " School Finder"),
+                  tags$td(
+                    "Search for a school by name or Local Authority. View it on a map, see ",
+                    "key statistics, and send it to the Policy Simulator for deeper analysis."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("braille"), " Observed vs Predicted"),
+                  tags$td(
+                    "An interactive scatter plot comparing every school's actual attainment ",
+                    "against its model-predicted value. Schools above the line are outperforming; ",
+                    "those below are underperforming relative to expectations."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("sliders-h"), " Policy Simulator"),
+                  tags$td(
+                    "The core tool. Adjust school-level variables \u2014 absence rates, ",
+                    "pupil composition, teacher retention, leadership pay, and more \u2014 to see ",
+                    "the predicted impact on attainment. Crucially, some of these relationships ",
+                    "are non-linear, so the simulator reveals where small changes matter most ",
+                    "and where returns diminish."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("map"), " LA Overview"),
+                  tags$td(
+                    "A Local Authority-level view showing how schools within an LA perform ",
+                    "relative to expectations, with a distribution chart comparing the LA ",
+                    "against the national picture."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("layer-group"), " LA Typology"),
+                  tags$td(
+                    "A data-driven classification of Local Authorities into clusters based ",
+                    "on over 200 indicators. Explore which LAs face similar challenges ",
+                    "and compare their profiles on an interactive map."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("chart-area"), " Cluster Analysis"),
+                  tags$td(
+                    "Radar charts and summary statistics for each LA cluster, making it easy ",
+                    "to compare groups and identify shared characteristics."
+                  )
+                ),
+                tags$tr(
+                  tags$td(icon("info-circle"), " Model Info"),
+                  tags$td(
+                    "Technical detail: model coefficients, fit statistics, diagnostics, ",
+                    "and caveats. Useful for understanding the model's strengths and limitations."
+                  )
+                )
+              )
+            )
+          )
+        )
+      ),
+
+      # ---- How to use ----
+      card(
+        class = "mb-3",
+        card_body(
+          tags$h5(icon("rocket"), " Getting started"),
+          tags$ol(
+            tags$li(
+              tags$strong("Find your school"), " \u2014 use the ",
+              tags$em("School Finder"), " tab to locate it by name or LA."
+            ),
+            tags$li(
+              tags$strong("Check performance"), " \u2014 see how it compares to its predicted ",
+              "attainment in ", tags$em("Observed vs Predicted"), "."
+            ),
+            tags$li(
+              tags$strong("Simulate change"), " \u2014 open the ",
+              tags$em("Policy Simulator"), " to explore which levers could improve outcomes, ",
+              "paying particular attention to where non-linear effects mean small changes ",
+              "can have outsized impact."
+            ),
+            tags$li(
+              tags$strong("Explore context"), " \u2014 use ", tags$em("LA Overview"),
+              " and ", tags$em("LA Typology"),
+              " to understand the wider environment your school operates in."
+            )
+          )
+        )
+      ),
+
+      # ---- Data note ----
+      tags$div(
+        class = "text-muted text-center small mt-3",
+        tags$p(
+          "Data: DfE school performance tables, 2021-22 to 2024-25. ",
+          "Model: multilevel linear regression (lme4). ",
+          "All figures are modelled estimates and should be interpreted alongside professional judgement."
+        )
+      )
+    )
+  ),
+
   # ---- Tab 1: School Finder ----
   nav_panel(
     title = "School Finder",
@@ -65,28 +267,72 @@ ui <- page_navbar(
     mod_school_selector_ui("school_finder")
   ),
 
-  # ---- Tab 2: Policy Simulator ----
-  nav_panel(
-    title = "Policy Simulator",
-    icon = icon("sliders-h"),
-    mod_simulator_ui("simulator")
-  ),
-
-  # ---- Tab 3: LA Overview ----
-  nav_panel(
-    title = "LA Overview",
-    icon = icon("map"),
-    mod_la_overview_ui("la_overview")
-  ),
-
-  # ---- Tab 4: Observed vs Predicted ----
+  # ---- Tab 2: Observed vs Predicted ----
   nav_panel(
     title = "Observed vs Predicted",
     icon = icon("braille"),
     mod_obs_vs_pred_ui("obs_vs_pred")
   ),
 
-  # ---- Tab 5: Model Information ----
+  # ---- Tab 3: Policy Simulator ----
+  nav_panel(
+    title = "Policy Simulator",
+    icon = icon("sliders-h"),
+    mod_simulator_ui("simulator")
+  ),
+
+  # ---- Tab 4: LA Overview ----
+  nav_panel(
+    title = "LA Overview",
+    icon = icon("map"),
+    mod_la_overview_ui("la_overview")
+  ),
+
+  # ---- Tab 5: LA Typology Map ----
+  nav_panel(
+    title = "LA Typology",
+    icon = icon("layer-group"),
+    if (!is.null(la_typology) && !is.null(cluster_meta_data)) {
+      mod_la_typology_ui("la_typology")
+    } else {
+      card(
+        card_body(
+          tags$div(
+            class = "text-center p-5",
+            icon("triangle-exclamation", style = "font-size:48px; color:#f0ad4e;"),
+            tags$h4("Typology data not yet generated"),
+            tags$p("Run ", tags$code("source('R/07_la_typology.R')"),
+                   " from the project root to build the LA typology."),
+            tags$p("This will create the necessary data files in ", tags$code("data/"), ".")
+          )
+        )
+      )
+    }
+  ),
+
+  # ---- Tab 6: Cluster Analysis ----
+  nav_panel(
+    title = "Cluster Analysis",
+    icon = icon("chart-area"),
+    if (!is.null(la_typology) && !is.null(cluster_meta_data)) {
+      mod_la_cluster_ui("la_typology")
+    } else {
+      card(
+        card_body(
+          tags$div(
+            class = "text-center p-5",
+            icon("triangle-exclamation", style = "font-size:48px; color:#f0ad4e;"),
+            tags$h4("Typology data not yet generated"),
+            tags$p("Run ", tags$code("source('R/07_la_typology.R')"),
+                   " from the project root to build the LA typology."),
+            tags$p("This will create the necessary data files in ", tags$code("data/"), ".")
+          )
+        )
+      )
+    }
+  ),
+
+  # ---- Tab 7: Model Information ----
   nav_panel(
     title = "Model Info",
     icon = icon("info-circle"),
@@ -146,6 +392,10 @@ server <- function(input, output, session) {
     "model_info",
     selected_outcome = selected_outcome
   )
+
+  if (!is.null(la_typology) && !is.null(cluster_meta_data)) {
+    mod_la_typology_server("la_typology")
+  }
 
   # ---- Navigate to simulator when button clicked ----
   observeEvent(go_simulator(), {

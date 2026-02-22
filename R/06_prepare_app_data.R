@@ -122,6 +122,59 @@ message("  slim_imputed_models.rds: ",
         round(file.size(file.path(app_data_dir, "slim_imputed_models.rds")) / 1e6, 2), " MB")
 
 
+# ---- 7. LA Typology data (from 07_la_typology.R, if available) ----
+typology_files <- c(
+  "la_typology.rds",
+  "la_indicators.rds",
+  "la_cluster_summary.rds",
+  "cluster_meta.rds",
+  "la_boundaries.rds"
+)
+for (f in typology_files) {
+  src <- here::here("data", f)
+  # la_boundaries: prefer data/cache/ (written by 07/08), fallback to data/
+  if (f == "la_boundaries.rds") {
+    src_cache <- here::here("data", "cache", f)
+    if (file.exists(src_cache)) src <- src_cache
+  }
+  if (file.exists(src)) {
+    # Simplify boundary geometries before copying to app/ for faster map rendering
+    if (f == "la_boundaries.rds") {
+      tryCatch({
+        bnd <- readRDS(src)
+        src_mb <- file.info(src)$size / 1024^2
+        if (src_mb > 2) {
+          message("  Simplifying boundaries (", round(src_mb, 1), " MB) ...")
+          if (requireNamespace("rmapshaper", quietly = TRUE)) {
+            bnd <- rmapshaper::ms_simplify(bnd, keep = 0.05, keep_shapes = TRUE)
+          } else {
+            b_proj <- sf::st_transform(bnd, 27700)
+            b_proj <- sf::st_simplify(b_proj, dTolerance = 200,
+                                       preserveTopology = TRUE)
+            bnd <- sf::st_transform(b_proj, 4326)
+            if (any(!sf::st_is_valid(bnd))) bnd <- sf::st_make_valid(bnd)
+          }
+          dest <- file.path(app_data_dir, f)
+          saveRDS(bnd, dest)
+          message("  ", f, " simplified and saved (",
+                  round(file.info(dest)$size / 1024^2, 1), " MB)")
+        } else {
+          file.copy(src, file.path(app_data_dir, f), overwrite = TRUE)
+          message("  ", f, " copied (already simplified)")
+        }
+      }, error = function(e) {
+        file.copy(src, file.path(app_data_dir, f), overwrite = TRUE)
+        message("  ", f, " copied (simplification failed: ", e$message, ")")
+      })
+    } else {
+      file.copy(src, file.path(app_data_dir, f), overwrite = TRUE)
+      message("  ", f, " copied")
+    }
+  } else {
+    message("  ", f, " not found — run R/07_la_typology.R to generate")
+  }
+}
+
 # ---- Summary ----
 message("\n=== App data bundle summary ===")
 app_files <- list.files(app_data_dir, pattern = "\\.rds$", full.names = TRUE)

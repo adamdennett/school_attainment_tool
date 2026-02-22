@@ -200,6 +200,7 @@ VAR_LABELS <- c(
   "gorard_segregation"        = "Gorard segregation index",
   "retention_rate"            = "Teacher retention rate",
   "has_imputed_predictors"    = "2024-25 predictors are estimates (carry-forward)",
+  "gap_driver_index"          = "Gap driver index: z(FSM ATT8) - z(non-FSM ATT8); neg = low FSM driven, pos = high non-FSM driven",
 
   # --- Geographic / identifiers ---
   "gor_name"               = "Government Office Region",
@@ -213,6 +214,12 @@ VAR_LABELS <- c(
   "year_numeric"           = "Year index (0 = 2021-22)",
   "time_period"            = "DfE time period code"
 )
+
+
+# Null-or-NA coalescing operator: returns y if x is NULL, length-0, or all-NA
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0 || all(is.na(x))) y else x
+}
 
 
 #' Get a human-readable label for a variable
