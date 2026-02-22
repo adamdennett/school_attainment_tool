@@ -2,7 +2,9 @@
 .Rproj.user
 .Rhistory
 .RData
+.RDataTmp*
 .Ruserdata
+nul
 
 # renv
 renv/library/
