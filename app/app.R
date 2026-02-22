@@ -22,11 +22,27 @@ ui <- page_navbar(
   title = "School Attainment Policy Simulator",
   id = "main_nav",
 
+  # Load custom CSS
+  tags$head(
+    tags$link(rel = "stylesheet", href = "custom.css")
+  ),
+
   theme = bs_theme(
     version = 5,
     bootswatch = "flatly",
-    primary = "#0d6efd",
-    "navbar-bg" = "#2c3e50"
+    primary = "#0070ba",
+    secondary = "#1C1B3A",
+    success = "#2ca02c",
+    danger = "#E20164",
+    "navbar-bg" = "#001022",
+    "navbar-dark-color" = "rgba(255,255,255,0.9)",
+    "navbar-dark-hover-color" = "#E20164",
+    "navbar-dark-active-color" = "#FFFFFF",
+    "body-color" = "#333333",
+    "headings-color" = "#1C1B3A",
+    "link-color" = "#0070ba",
+    "link-hover-color" = "#E20164",
+    "card-border-color" = "rgba(0,112,186,0.15)"
   ),
 
   # Global outcome model switcher in the navbar
@@ -63,41 +79,44 @@ ui <- page_navbar(
   nav_panel(
     title = "About",
     icon = icon("home"),
+    # ---- Full-width hero banner (outside container) ----
     tags$div(
-      class = "container py-4", style = "max-width: 960px;",
-
-      # ---- Hero ----
+      class = "ai4ci-hero",
       tags$div(
-        class = "text-center mb-4",
-        tags$h2("School Attainment Policy Simulator"),
+        class = "ai4ci-hero-overlay",
+        tags$h1("School Attainment Policy Simulator"),
         tags$p(
-          class = "lead text-muted",
+          class = "ai4ci-hero-subtitle",
           "Moving beyond raw league tables to understand what drives attainment"
         ),
         tags$p(
-          class = "text-muted mb-3",
+          class = "ai4ci-hero-credit",
           "Designed by ",
           tags$strong("Prof Adam Dennett"),
-          " as part of the ",
+          " | ",
           tags$a(href = "https://ai4ci.ac.uk/", target = "_blank",
                  "UKRI AI for Collective Intelligence Research Hub"),
-          ", with assistance from Claude AI."
+          " | with assistance from Claude AI"
         ),
         # ---- Logos ----
         tags$div(
-          class = "d-flex justify-content-center align-items-center gap-4 mt-3",
+          class = "ai4ci-hero-logos",
           tags$a(
             href = "https://ai4ci.ac.uk/", target = "_blank",
             tags$img(src = "ai4ci_logo.svg", alt = "AI4CI: AI for Collective Intelligence",
-                     style = "height: 60px;")
+                     style = "height: 50px; filter: brightness(0) invert(1);")
           ),
           tags$a(
             href = "https://www.ukri.org/", target = "_blank",
             tags$img(src = "ukri_logo.png", alt = "UKRI: UK Research and Innovation",
-                     style = "height: 55px;")
+                     style = "height: 45px; filter: brightness(0) invert(1);")
           )
         )
-      ),
+      )
+    ),
+
+    tags$div(
+      class = "container py-4", style = "max-width: 960px;",
 
       # ---- Purpose ----
       card(
@@ -106,8 +125,9 @@ ui <- page_navbar(
           tags$h5(icon("bullseye"), " What is this tool?"),
           tags$p(
             "This simulator is designed for school leaders, governors and policy makers ",
-            "who want to move beyond raw attainment and progress statistics. It allows you ",
-            "to compare individual schools against others with similar characteristics across ",
+            "who want to move beyond raw attainment and progress statistics and understand their drivers."),
+          tags$p(
+            "It allows you to compare individual schools against others with similar characteristics across ",
             "England and to see how each school compares with what we would ",
             tags$em("expect"), " its attainment to be, given those characteristics."
           )
@@ -120,12 +140,13 @@ ui <- page_navbar(
         card_body(
           tags$h5(icon("chart-line"), " The model behind the numbers"),
           tags$p(
-            "Underpinning the expected attainment figures is a multilevel regression model ",
-            "(schools nested within Local Authorities) that explains around ",
-            tags$strong("85% of the variation"), " in Attainment 8 scores across secondary ",
-            "schools in England \u2014 an exceptionally strong model. Where schools do better or ",
-            "worse than expected, this is attributable to other unobserved school-level factors ",
-            "such as leadership quality, teaching practice, culture, and ethos."
+            "Underpinning the expected attainment figures is a linear mixed effects (multilevel) regression model ",
+            "(schools nested within Local Authorities and Regions) that explains ",
+            tags$strong("up to 85% of the variation"), " in Attainment 8 scores across state secondary ",
+            "in England over four years."),
+          tags$p("This is a very good model. And means that, on average, school-level attainment is both predictable and to some extent, controllable. The sliders in the policy simulator allow you to experiment with this control."),
+          tags$p("Where schools do better or worse than expected, this is attributable to other unobserved factors ",
+            "which might include things like leadership quality, teaching practice, culture, and ethos."
           ),
           tags$p(
             "Separate models are fitted for all pupils, disadvantaged pupils, and non-disadvantaged ",
