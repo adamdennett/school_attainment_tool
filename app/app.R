@@ -158,6 +158,11 @@ ui <- page_navbar(
                    target = "_blank",
                    icon("book-open"),
                    " detailed model documentation"),
+            ". All code and data pipelines are available on ",
+            tags$a(href = "https://github.com/adamdennett/school_attainment_tool",
+                   target = "_blank",
+                   icon("github"),
+                   " GitHub"),
             "."
           )
         )
