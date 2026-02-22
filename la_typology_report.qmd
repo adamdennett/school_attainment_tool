@@ -1,0 +1,947 @@
+---
+title: "Local Authority Typology: Methodology and Cluster Profiles"
+subtitle: "School Attainment Tool — Technical Report"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: flatly
+    embed-resources: true
+    code-fold: true
+    fig-width: 9
+    fig-height: 6
+  pdf:
+    toc: true
+    number-sections: true
+    geometry: margin=2.5cm
+    fontsize: 11pt
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(leaflet)
+library(sf)
+library(here)
+
+# Load cluster outputs
+cl_sum  <- readRDS(here("data", "la_cluster_summary.rds"))
+cl_meta <- readRDS(here("data", "cluster_meta.rds"))
+metrics <- readRDS(here("data", "cluster_metrics.rds"))
+la_ind  <- readRDS(here("data", "la_indicators.rds"))
+la_typ  <- readRDS(here("data", "la_typology.rds"))
+
+chosen_k     <- cl_meta$chosen_k
+cluster_labs <- cl_meta$cluster_labels
+
+# Generate cluster colours from the same palette used in global.R
+# (colours are not stored in cluster_meta.rds — they are assigned at app startup)
+palette_cols <- c(
+  "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+  "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+  "#bcbd22", "#17becf", "#aec7e8", "#ffbb78"
+)
+cluster_cols <- palette_cols[seq_len(chosen_k)]
+
+# Helper: hex colour → rgba string (plotly-compatible fill with alpha)
+hex_to_rgba <- function(hex, alpha = 0.15) {
+  rgb <- col2rgb(hex)
+  sprintf("rgba(%d,%d,%d,%.2f)", rgb[1], rgb[2], rgb[3], alpha)
+}
+
+# ---- Radar chart infrastructure (mirrors app module logic) ----
+RADAR_VARS <- c(
+  "att8_mean",            "pct_fsm_mean",       "abs_overall_mean",
+  "ofsted_good_plus_pct", "retention_mean",      "pct_eal_mean",
+  "att8_fsm_mean",        "gorard_mean",         "sickness_mean",
+  "ptr_qual_mean"
+)
+RADAR_LABELS <- c(
+  "ATT8", "% FSM", "Absence",
+  "Good+ Ofsted", "Retention", "% EAL",
+  "FSM ATT8", "Segregation", "Sickness",
+  "PTR"
+)
+# FSM ATT8 is NOT inverted: higher = better (outward)
+RADAR_INVERT <- c("pct_fsm_mean", "abs_overall_mean",
+                   "gorard_mean",  "sickness_mean",    "ptr_qual_mean")
+
+radar_vars_avail <- intersect(RADAR_VARS, names(la_ind))
+available_mask   <- RADAR_VARS %in% radar_vars_avail
+radar_vars_use   <- RADAR_VARS[available_mask]
+radar_labels_use <- RADAR_LABELS[available_mask]
+radar_invert_use <- RADAR_INVERT[RADAR_INVERT %in% radar_vars_use]
+
+# Z-scores per LA (same as app)
+la_z_scores <- la_ind |>
+  select(LANAME, cluster, all_of(radar_vars_avail)) |>
+  mutate(across(all_of(radar_vars_avail), function(x) {
+    m <- mean(x, na.rm = TRUE); s <- sd(x, na.rm = TRUE)
+    if (is.na(s) || s == 0) rep(0, length(x)) else (x - m) / s
+  }))
+
+# Cluster-level mean z-scores
+cluster_z_scores <- la_z_scores |>
+  group_by(cluster) |>
+  summarise(across(all_of(radar_vars_avail), ~ mean(.x, na.rm = TRUE)),
+            .groups = "drop")
+
+# Helper: transform z-scores to radar scale [0, 5]
+# Inverts "bad" variables so outward = better on every axis
+to_radar <- function(z_vec) {
+  d <- z_vec
+  for (v in radar_invert_use) {
+    if (v %in% names(d)) d[v] <- -d[v]
+  }
+  pmin(pmax(d, -2.5), 2.5) + 2.5
+}
+
+# Helper: build a single-cluster radar chart (returns a plotly object)
+build_cluster_radar <- function(k, col, label, show_legend = TRUE) {
+  cr <- cluster_z_scores |> filter(cluster == k)
+  if (nrow(cr) == 0) return(plotly_empty())
+  z <- vapply(radar_vars_use, function(v) as.numeric(cr[[v]][1]), numeric(1))
+  names(z) <- radar_vars_use
+  rv  <- to_radar(z)
+  rv  <- c(rv, rv[1])
+  eng <- rep(2.5, length(radar_vars_use) + 1)
+  theta <- c(radar_labels_use, radar_labels_use[1])
+
+  plot_ly() |>
+    add_trace(type = "scatterpolar", r = eng, theta = theta,
+              mode = "lines", line = list(color = "#bbb", dash = "dot", width = 1.2),
+              fill = "none", name = "England avg", hoverinfo = "skip",
+              showlegend = show_legend) |>
+    add_trace(type = "scatterpolar", r = rv, theta = theta,
+              fill = "toself", fillcolor = hex_to_rgba(col, 0.15),
+              line = list(color = col, width = 2.5), name = label,
+              customdata = c(z, z[1]),
+              hovertemplate = "<b>%{theta}</b><br>z: %{customdata:.2f}<extra></extra>",
+              showlegend = show_legend) |>
+    layout(
+      polar = list(
+        radialaxis = list(visible = TRUE, range = c(0, 5),
+                          tickvals = c(0, 1.5, 2.5, 3.5, 5),
+                          ticktext = c("-2.5", "-1", "Avg", "+1", "+2.5"),
+                          tickfont = list(size = 8), gridcolor = "#e8e8e8"),
+        angularaxis = list(tickfont = list(size = 10))
+      ),
+      legend = list(orientation = "h", y = -0.15, font = list(size = 10)),
+      margin = list(t = 10, b = 50, l = 20, r = 20),
+      showlegend = show_legend
+    ) |>
+    config(displayModeBar = FALSE)
+}
+
+# ---- Load LA boundary polygons (same logic as app/global.R) ----
+# Try cached copy from app/data first, then data/cache, then download
+boundary_paths <- c(
+  here("app", "data", "la_boundaries.rds"),
+  here("data", "cache", "la_boundaries.rds")
+)
+boundaries <- NULL
+for (bp in boundary_paths) {
+  if (file.exists(bp)) {
+    boundaries <- readRDS(bp)
+    break
+  }
+}
+
+# If no cache, download from ONS
+if (is.null(boundaries)) {
+  boundary_url <- paste0(
+    "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/",
+    "Counties_and_Unitary_Authorities_December_2023_Boundaries_UK_BGC/FeatureServer/0/",
+    "query?where=1%3D1&outFields=CTYUA23CD,CTYUA23NM&outSR=4326&f=geojson"
+  )
+  boundaries <- tryCatch(st_read(boundary_url, quiet = TRUE), error = function(e) NULL)
+}
+
+# Join boundaries to typology data
+la_boundaries_sf <- NULL
+if (!is.null(boundaries)) {
+  clean_name <- function(x) {
+    x |> tolower() |>
+      str_replace_all("&", "and") |>
+      str_remove_all("[^a-z0-9 ]") |>
+      str_squish()
+  }
+  name_col <- names(boundaries)[grepl("NM$|name", names(boundaries), ignore.case = TRUE)][1]
+  boundaries_join <- boundaries |> mutate(la_name_clean = clean_name(.data[[name_col]]))
+  # Use la_typ as base; supplement with FSM/non-FSM ATT8 from la_ind if not already present
+  typ_for_join <- la_typ
+  for (extra_col in c("att8_fsm_mean", "att8_nfsm_mean", "gap_driver_index")) {
+    if (!extra_col %in% names(typ_for_join) && extra_col %in% names(la_ind)) {
+      typ_for_join <- typ_for_join |>
+        left_join(la_ind |> select(LANAME, all_of(extra_col)), by = "LANAME")
+    }
+  }
+  typology_join   <- typ_for_join |> mutate(la_name_clean = clean_name(LANAME))
+  la_boundaries_sf <- boundaries_join |> inner_join(typology_join, by = "la_name_clean")
+}
+```
+
+# Overview
+
+This report describes the construction of a Local Authority (LA) typology for secondary schools in England, developed as part of the School Attainment Tool. The typology groups England's 152 local authorities into a small number of empirically derived clusters based on a wide range of educational, demographic, workforce, and structural indicators. The aim is to help contextualise school-level performance data — recognising that schools operate in very different local environments — and to support comparisons between similar LAs rather than the national average alone.
+
+The analysis covers **four academic years** (2021–22 to 2024–25) and is built from school-level panel data linked to DfE KS4 performance tables, school workforce census data, Ofsted inspection outcomes, and pupil absence statistics.
+
+---
+
+# Data Sources
+
+The typology draws on four administrative datasets published by the Department for Education (DfE):
+
+| Dataset | Source | Years covered |
+|---|---|---|
+| KS4 Performance Tables | DfE (via Explore Education Statistics) | 2021–22 to 2024–25 |
+| School Workforce Census | DfE (via Explore Education Statistics) | 2021–22 to 2024–25 |
+| Pupil Absence Statistics | DfE (via Explore Education Statistics API) | 2021–22 to 2024–25 |
+| Ofsted School Inspections | Ofsted (Official Statistics, Aug 2024 snapshot) | Most recent inspection |
+| EduBase (school register) | DfE Get Information About Schools | Oct 2024 snapshot |
+
+All data are at school level and are aggregated to local authority level for the purpose of clustering.
+
+---
+
+# Indicator Construction {#sec-indicators}
+
+Over 200 LA-level indicators are constructed from the school-level panel. These are grouped into thematic domains.
+
+## Attainment Indicators
+
+The primary attainment measure is the **Attainment 8 (ATT8) score**, which measures average performance across eight GCSE subjects (English, mathematics, three further EBacc subjects, and three open slots). Indicators include:
+
+| Indicator | Description |
+|---|---|
+| `att8_mean` | Mean ATT8 score across all schools in the LA (averaged across years) |
+| `att8_median` | Median ATT8 score |
+| `att8_sd` | Standard deviation of ATT8 — measures within-LA spread of school performance |
+| `att8_cv` | Coefficient of variation (SD/mean) — relative spread |
+| `att8_iqr` | Inter-quartile range of ATT8 |
+| `att8_p25`, `att8_p75` | 25th and 75th percentile ATT8 |
+| `att8_fsm_mean` | Mean ATT8 for disadvantaged pupils (FSM6 classification) |
+| `att8_nfsm_mean` | Mean ATT8 for non-disadvantaged pupils |
+| `att8_gap_mean` | **Disadvantage gap** — mean difference between non-FSM and FSM ATT8 scores |
+| `att8_gap_sd` | Within-LA variation in the disadvantage gap |
+| `gap_driver_index` | **Gap driver index** — z(FSM ATT8) minus z(non-FSM ATT8). Negative values indicate the gap is driven by low disadvantaged attainment; positive values indicate it is driven by high non-disadvantaged attainment (see @sec-gap-decomp) |
+| `att8_girls_mean`, `att8_boys_mean` | Mean ATT8 by gender |
+| `att8_gender_gap` | Gender gap in ATT8 (girls minus boys) |
+| `att8_eng_mean`, `att8_mat_mean` | Mean ATT8 in the English and Maths elements respectively |
+| `att8_eng_mat_diff` | Relative performance on English vs Maths within the LA |
+| `p8_mean` | Mean **Progress 8** score — measures value-added relative to prior attainment |
+| `p8_fsm_mean`, `p8_nfsm_mean` | Progress 8 by disadvantage group |
+| `p8_gap_mean` | Gap in Progress 8 between non-FSM and FSM pupils |
+
+> **Attainment 8** is scored on a scale of approximately 0–90. The national average is around 46–48 points. **Progress 8** is a value-added measure centred on zero; positive scores indicate above-average progress given prior attainment.
+
+## Attainment Trends
+
+Temporal trends are estimated by fitting a simple linear regression of the attainment measure on a year index (0 = 2021–22, 1 = 2022–23, 2 = 2023–24, 3 = 2024–25) separately for each LA.
+
+| Indicator | Description |
+|---|---|
+| `att8_trend_slope` | Annual change in mean ATT8 (points per year) — positive = improving |
+| `att8_fsm_trend_slope` | Annual ATT8 trend for disadvantaged pupils |
+| `att8_nfsm_trend_slope` | Annual ATT8 trend for non-disadvantaged pupils |
+| `p8_trend_slope` | Annual trend in Progress 8 |
+
+## Pupil Composition
+
+| Indicator | Description |
+|---|---|
+| `pct_fsm_mean` | Mean % of pupils eligible for Free School Meals in last 6 years (FSM6) — principal disadvantage proxy |
+| `pct_fsm_sd`, `pct_fsm_cv` | Within-LA spread of FSM rates |
+| `pct_eal_mean` | Mean % of pupils with English as an Additional Language (EAL) |
+| `pct_eal_sd`, `pct_eal_cv` | Within-LA spread of EAL rates |
+| `pct_prior_lo_mean` | Mean % of KS4 pupils with low prior attainment (KS2) |
+| `pct_prior_hi_mean` | Mean % of KS4 pupils with high prior attainment (KS2) |
+| `prior_lo_hi_ratio` | Ratio of low to high prior attainment — measure of prior attainment composition |
+| `pct_sen_ehcp_mean` | Mean % of pupils with an Education, Health and Care Plan (EHCP) |
+| `pct_sen_support_mean` | Mean % of pupils receiving SEN support (without EHCP) |
+| `pct_fsm_ever_mean` | Mean % of pupils ever eligible for FSM (broader deprivation measure) |
+| `totpups_mean` | Mean total pupils on roll — a proxy for school size |
+| `totpups_sd`, `totpups_cv` | Within-LA spread of school sizes |
+
+> **FSM6** (Free School Meals in the last six years) is the DfE's standard measure of disadvantage for performance accountability purposes. It is a cumulative measure — a pupil is counted if they were ever eligible for FSM in any of the previous six years.
+
+## Absence
+
+| Indicator | Description |
+|---|---|
+| `abs_overall_mean` | Mean overall absence rate (% of sessions missed) |
+| `abs_overall_sd`, `abs_overall_cv` | Within-LA spread of absence rates |
+| `abs_persist_mean` | Mean persistent absence rate (% of pupils missing 10%+ of sessions) |
+| `abs_persist_sd`, `abs_persist_cv` | Within-LA spread of persistent absence |
+| `abs_persist_to_overall_ratio` | Ratio of persistent to overall absence — indicates severity |
+| `abs_trend_slope` | Annual trend in overall absence rate |
+| `abs_persist_trend` | Annual trend in persistent absence rate |
+
+> **Persistent absence** (PA) is defined as missing 10% or more of possible sessions in a school year. It is a key indicator of educational engagement and is used by DfE for school accountability.
+
+## Ofsted Inspection Outcomes
+
+| Indicator | Description |
+|---|---|
+| `ofsted_good_plus_pct` | % of schools rated Good or Outstanding |
+| `ofsted_outstanding_pct` | % of schools rated Outstanding |
+| `ofsted_good_pct` | % of schools rated Good |
+| `ofsted_ri_pct` | % of schools rated Requires Improvement |
+| `ofsted_inadequate_pct` | % of schools rated Inadequate |
+| `ofsted_below_good_pct` | % of schools below Good (RI + Inadequate) |
+| `ofsted_numeric_mean` | Mean numeric Ofsted grade (1=Outstanding to 4=Inadequate) |
+| `ofsted_numeric_sd` | SD of Ofsted grades — within-LA variation in inspection outcomes |
+
+> Ofsted ratings are based on the most recent inspection outcome for each school as at the August 2024 snapshot.
+
+## Socioeconomic Segregation
+
+A **Gorard segregation index** is computed at school level for each LA and year. This measures the degree to which FSM pupils are unevenly distributed across schools within the LA, relative to a hypothetical even distribution.
+
+| Indicator | Description |
+|---|---|
+| `gorard_mean` | Mean Gorard segregation index (0 = perfectly even, 1 = complete segregation) |
+| `gorard_sd` | Within-LA variation in segregation |
+| `gorard_trend` | Trend in segregation over time |
+
+> The **Gorard index** for LA $l$ in year $t$ is computed as:
+> $$G_{lt} = \frac{1}{2} \sum_{s \in l} \left| \frac{n_{s,\text{FSM}}}{N_{l,\text{FSM}}} - \frac{n_{s,\text{total}}}{N_{l,\text{total}}} \right|$$
+> where $n_{s,\text{FSM}}$ is the number of FSM pupils in school $s$, $N_{l,\text{FSM}}$ is the total number of FSM pupils in the LA, and equivalent total-pupil quantities. Higher values indicate greater concentration of disadvantaged pupils in particular schools.
+
+## School Type and Structural Composition
+
+| Indicator | Description |
+|---|---|
+| `pct_selective` | % of schools with selective admissions policy (grammar schools) |
+| `pct_comprehensive` | % of schools with comprehensive (non-selective) admissions |
+| `pct_academy` | % of schools that are academies (any type) |
+| `pct_converter_acad` | % converter academies (previously good schools that converted) |
+| `pct_sponsored_acad` | % sponsored academies (typically underperforming schools taken over by sponsor) |
+| `pct_free_school` | % free schools |
+| `pct_va_school` | % Voluntary Aided schools |
+| `pct_vc_school` | % Voluntary Controlled schools |
+| `pct_community` | % community schools (LA-maintained) |
+| `pct_religious` | % of schools with a religious character |
+| `pct_ce` | % Church of England schools |
+| `pct_rc` | % Roman Catholic schools |
+
+## Workforce Indicators
+
+| Indicator | Description |
+|---|---|
+| `retention_mean` | Mean teacher retention (FTE remaining in the same school year-on-year) |
+| `retention_sd`, `retention_cv` | Within-LA spread of retention |
+| `retention_trend` | Annual trend in teacher retention |
+| `sickness_mean` | Mean average teacher sickness absence days per year |
+| `sickness_sd`, `sickness_cv` | Within-LA spread of sickness absence |
+| `sickness_trend` | Annual trend in teacher sickness absence |
+| `ptr_qual_mean` | Mean **pupil-to-qualified-teacher ratio** |
+| `ptr_qual_sd` | Within-LA spread of PTR |
+| `ptr_trend` | Annual trend in PTR |
+| `ptr_adult_mean` | Mean pupil-to-adult ratio (including teaching assistants) |
+| `pay_main_mean` | Mean % of teachers on main pay range |
+| `pay_upper_mean` | Mean % of teachers on upper pay range |
+| `leadership_pay_mean` | Mean % of teachers on leadership pay range |
+| `fte_ta_to_teacher_ratio` | Ratio of teaching assistant FTE to teacher FTE |
+| `fte_leadership_prop` | Leadership teachers as proportion of all teachers |
+| `pct_taking_sickness_mean` | Mean % of teachers taking any sickness absence |
+
+> **Teacher retention** is measured as the FTE count of teachers remaining in the same school in the next year's census, expressed as a proportion of the current year's teacher count. Higher values = more stable workforce. The **pupil-to-qualified-teacher ratio (PTR)** measures class sizes relative to qualified teacher supply — higher values indicate more pupils per qualified teacher, which can signal workforce pressure.
+
+## Derived / Composite Indicators
+
+| Indicator | Description |
+|---|---|
+| `att8_between_school_sd` | SD of ATT8 across schools — within-LA inequality in attainment |
+| `fsm_att8_cor` | Within-LA correlation between FSM rate and ATT8 — how tightly linked are disadvantage and attainment |
+| `eal_att8_cor` | Within-LA correlation between EAL rate and ATT8 |
+| `abs_att8_cor` | Within-LA correlation between absence rate and ATT8 |
+| `retention_att8_cor` | Within-LA correlation between teacher retention and ATT8 |
+| `avg_years_per_school` | Average number of data years available per school (churn indicator) |
+
+---
+
+# Clustering Methodology {#sec-method}
+
+## Feature Selection and Pre-processing
+
+All numeric LA-level indicators described in @sec-indicators are candidates for clustering. Three pre-processing filters are applied sequentially:
+
+1. **Missing data filter** — Variables with more than 30% missing values across LAs are excluded. This removes indicators that are sparsely populated (e.g. workforce variables for small LAs).
+
+2. **Near-zero variance filter** — Variables with a standard deviation below $10^{-6}$ are excluded. These contribute no discriminating information.
+
+3. **High collinearity filter** — From any pair of variables with $|r| > 0.97$ (Pearson correlation, using pairwise complete observations), one variable is dropped. This prevents near-duplicate features from dominating the distance metric.
+
+After these filters, the remaining variables are **z-score standardised** (centred at the mean, scaled to unit variance) using parameters estimated from the full set of 152 LAs. This ensures that each variable contributes equally to the Euclidean distances used by k-means, regardless of its original scale.
+
+Missing values remaining after filtering are imputed with each variable's column **median** prior to scaling.
+
+```{r feature-counts}
+#| tbl-cap: "Feature selection summary"
+tibble(
+  Stage = c(
+    "All numeric indicators",
+    "After >30% missing filter",
+    "After near-zero variance filter",
+    "After |r| > 0.97 collinearity filter",
+    "Final variables used in clustering"
+  ),
+  `Variable count` = c(
+    "~210+",
+    "~180+",
+    "~175+",
+    paste0("~", cl_meta$n_vars_used, " (final)"),
+    cl_meta$n_vars_used
+  )
+) |>
+  kbl(align = c("l","r")) |>
+  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE)
+```
+
+## Outlier LA Exclusion
+
+A small number of LAs have an unusually low number of secondary schools and would otherwise form singleton clusters or distort the k-means solution. LAs with **fewer than 5 unique schools** in the panel are excluded from the initial clustering:
+
+```{r outlier-table}
+#| tbl-cap: "LAs excluded from initial k-means (assigned post-hoc)"
+if (length(cl_meta$outlier_las) > 0) {
+  tibble(
+    `Local Authority` = cl_meta$outlier_las,
+    Reason = "Fewer than 5 schools in panel data"
+  ) |>
+    kbl() |>
+    kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE)
+} else {
+  cat("No LAs were excluded.")
+}
+```
+
+These LAs are not discarded — after the main clustering is complete, each is **assigned to the nearest centroid** using Euclidean distance in the scaled feature space.
+
+## Optimal k Selection
+
+K-means was run on the main LA set across k = 5 to 10 clusters, with `nstart = 100` random initialisations and `iter.max = 300` iterations per run to ensure stable solutions. Three complementary criteria were evaluated:
+
+- **Silhouette width** — measures how similar each LA is to its own cluster compared to the nearest other cluster. Higher = better-separated clusters.
+- **Calinski-Harabasz (CH) index** — ratio of between-cluster variance to within-cluster variance. Higher = more compact and well-separated clusters.
+- **WSS elbow** — the within-cluster sum of squares. The "elbow" (point of fastest rate of improvement) indicates diminishing returns from adding more clusters.
+
+The final k is chosen as the **median** of the k values preferred by each of the three criteria, clamped to the range [5, 10].
+
+```{r metrics-table}
+#| tbl-cap: "Cluster selection metrics across candidate k values"
+metrics |>
+  mutate(
+    wss              = round(wss, 1),
+    silhouette       = round(silhouette, 4),
+    calinski_harabasz = round(calinski_harabasz, 2),
+    wss_improvement  = ifelse(is.na(wss_improvement), "—",
+                              paste0(round(wss_improvement * 100, 1), "%"))
+  ) |>
+  rename(
+    `k` = k,
+    `WSS` = wss,
+    `Silhouette` = silhouette,
+    `Calinski-Harabasz` = calinski_harabasz,
+    `WSS improvement` = wss_improvement
+  ) |>
+  kbl(align = c("c","r","r","r","r")) |>
+  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE) |>
+  row_spec(which(metrics$k == cl_meta$chosen_k), bold = TRUE, background = "#e8f4e8")
+```
+
+```{r criteria-summary}
+#| tbl-cap: "k selection criteria"
+tibble(
+  Criterion = c("Best silhouette", "Best Calinski-Harabasz", "WSS elbow", "**Chosen k (median)**"),
+  `Preferred k` = c(
+    cl_meta$best_sil_k,
+    cl_meta$best_ch_k,
+    "—",
+    paste0("**", cl_meta$chosen_k, "**")
+  )
+) |>
+  kbl(align = c("l","c")) |>
+  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE)
+```
+
+## Final Clustering
+
+The final k-means solution used:
+
+- **k = `r cl_meta$chosen_k` clusters**
+- `nstart = 200`, `iter.max = 500` (for the final run, to maximise stability)
+- `set.seed(42)` for reproducibility
+- **`r cl_meta$n_las_main` LAs** in the main clustering set; **`r cl_meta$n_las_outlier` outlier LA(s)** assigned post-hoc
+
+The solution explains **`r cl_meta$variance_explained`%** of total variance in the scaled feature matrix (between-cluster SS / total SS).
+
+```{r cluster-sizes}
+#| tbl-cap: "Final cluster sizes"
+tibble(
+  Cluster = 1:cl_meta$chosen_k,
+  Label   = cl_meta$cluster_labels,
+  `Number of LAs` = cl_meta$cluster_sizes
+) |>
+  kbl(align = c("c","l","c")) |>
+  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE)
+```
+
+---
+
+# Radar Chart Variables {#sec-radar}
+
+The Shiny application displays **radar (spider) charts** for each cluster and for individual LAs. Ten variables are shown on the radar, chosen to represent the key policy-relevant dimensions:
+
+```{r radar-vars}
+#| tbl-cap: "Radar chart variables"
+tibble(
+  Variable = c(
+    "att8_mean", "pct_fsm_mean", "abs_overall_mean",
+    "ofsted_good_plus_pct", "retention_mean", "pct_eal_mean",
+    "att8_fsm_mean", "gorard_mean", "sickness_mean", "ptr_qual_mean"
+  ),
+  Label = c(
+    "ATT8", "% FSM", "Absence",
+    "Good+ Ofsted", "Retention", "% EAL",
+    "FSM ATT8", "Segregation", "Sickness", "PTR"
+  ),
+  Direction = c(
+    "↑ Higher = better",
+    "↓ Lower = better (inverted)",
+    "↓ Lower = better (inverted)",
+    "↑ Higher = better",
+    "↑ Higher = better",
+    "↑ Higher = better",
+    "↑ Higher = better",
+    "↓ Lower = better (inverted)",
+    "↓ Lower = better (inverted)",
+    "↓ Lower = better (inverted)"
+  ),
+  Description = c(
+    "Mean Attainment 8 score",
+    "% pupils eligible for Free School Meals (6-year)",
+    "Overall absence rate (%)",
+    "% schools rated Good or Outstanding",
+    "Teacher retention (FTE remaining in same school)",
+    "% pupils with English as an Additional Language",
+    "Mean ATT8 for disadvantaged (FSM) pupils — higher = better outcomes for FSM pupils",
+    "Gorard FSM segregation index",
+    "Mean teacher sickness days per year",
+    "Pupil-to-qualified-teacher ratio"
+  )
+) |>
+  kbl(align = c("l","l","l","l")) |>
+  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE) |>
+  column_spec(3, color = ifelse(
+    c(TRUE,FALSE,FALSE,TRUE,TRUE,TRUE,TRUE,FALSE,FALSE,FALSE),
+    "#27ae60", "#c0392b"
+  ))
+```
+
+Radar values are expressed as **z-scores relative to the England average** (z = 0 = England mean). For variables where a *lower* value is better (absence, % FSM, segregation, sickness, PTR), the z-score is **negated** so that the outward direction on every axis consistently means "better than average." Values are clipped to the range [−2.5, +2.5] and shifted to [0, 5] for display. The dotted ring at the midpoint represents the England average.
+
+::: {.callout-note}
+## Why FSM ATT8 replaced the Disadvantage Gap on the radar
+
+In an earlier version of the radar chart, the "Disadvantage Gap" axis was displayed (inverted, so that a narrower gap pointed outward). However, the raw gap conflates two very different situations: an LA might have a wide gap because its FSM pupils do *poorly* (a policy concern), or because its non-FSM pupils do *exceptionally well* (less concerning). By showing **FSM ATT8 directly**, the radar now reveals the actual attainment level of disadvantaged pupils — higher = outward = better. The raw gap, its decomposition (`gap_driver_index`), and both group-level means remain available in the data table and bar chart.
+:::
+
+::: {.callout-important}
+## Reading inverted variables on the radar
+
+Five of the ten radar axes are **inverted** (marked ↓ in the table above): % FSM, Absence, Segregation, Sickness, and PTR. For these variables, a value that is *worse* than the England average will appear **inside** the dotted ring (closer to the centre), even though the underlying z-score is positive (above average).
+
+The same logic applies to all inverted axes: higher absence, higher FSM rates, greater segregation, more sickness days, and larger pupil-to-teacher ratios all plot *inward* because they represent worse outcomes.
+:::
+
+---
+
+# Cluster Profiles {#sec-clusters}
+
+```{r profile-setup}
+# Key profile variables for the summary table
+prof_vars <- c(
+  "att8_mean", "att8_fsm_mean", "att8_nfsm_mean",
+  "att8_gap_mean", "gap_driver_index", "p8_mean",
+  "pct_fsm_mean", "pct_eal_mean",
+  "abs_overall_mean", "abs_persist_mean",
+  "ofsted_good_plus_pct",
+  "gorard_mean",
+  "retention_mean", "sickness_mean", "ptr_qual_mean",
+  "pct_selective", "pct_academy",
+  "att8_trend_slope"
+)
+prof_vars <- intersect(prof_vars, names(la_ind))
+
+# Compute England-wide means for comparison
+eng_means <- la_ind |>
+  summarise(across(all_of(prof_vars), ~ mean(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "variable", values_to = "england_mean")
+
+# Cluster means
+cl_means <- la_ind |>
+  filter(!is.na(cluster)) |>
+  group_by(cluster) |>
+  summarise(across(all_of(prof_vars), ~ mean(.x, na.rm = TRUE)), .groups = "drop") |>
+  pivot_longer(-cluster, names_to = "variable", values_to = "cluster_mean") |>
+  left_join(eng_means, by = "variable")
+
+nice_names <- c(
+  att8_mean           = "ATT8 mean",
+  att8_fsm_mean       = "FSM ATT8",
+  att8_nfsm_mean      = "Non-FSM ATT8",
+  att8_gap_mean       = "Disadv. gap (pts)",
+  gap_driver_index    = "Gap driver",
+  p8_mean             = "Progress 8",
+  pct_fsm_mean        = "% FSM",
+  pct_eal_mean        = "% EAL",
+  abs_overall_mean    = "Absence (%)",
+  abs_persist_mean    = "Pers. absence (%)",
+  ofsted_good_plus_pct = "Good+ Ofsted",
+  gorard_mean         = "Gorard seg.",
+  retention_mean      = "Retention (FTE)",
+  sickness_mean       = "Sickness (days)",
+  ptr_qual_mean       = "PTR",
+  pct_selective       = "% Selective",
+  pct_academy         = "% Academy",
+  att8_trend_slope    = "ATT8 trend (pts/yr)"
+)
+```
+
+## Summary Comparison Table
+
+The table below shows the mean value of each key indicator for each cluster, alongside the England-wide mean.
+
+```{r summary-table}
+#| tbl-cap: "Cluster profile means on key indicators (England mean shown for reference)"
+
+# Build wide table: rows = indicators, cols = clusters + England
+wide <- cl_means |>
+  mutate(variable = nice_names[variable]) |>
+  filter(!is.na(variable)) |>
+  select(variable, cluster, cluster_mean) |>
+  pivot_wider(names_from = cluster, values_from = cluster_mean,
+              names_prefix = "C")
+
+eng_col <- eng_means |>
+  mutate(variable = nice_names[variable]) |>
+  filter(!is.na(variable)) |>
+  select(variable, England = england_mean)
+
+wide <- wide |> left_join(eng_col, by = "variable")
+
+# Round numeric columns
+wide <- wide |>
+  mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+# Format % columns
+pct_rows <- c("% FSM", "% EAL", "Absence (%)", "Pers. absence (%)",
+              "% Selective", "% Academy")
+wide <- wide |>
+  mutate(across(
+    where(is.numeric),
+    ~ if_else(variable %in% pct_rows & !is.na(.x), round(.x, 1), round(.x, 2))
+  ))
+
+# Good+ Ofsted is 0-1 proportion — convert to %
+if ("Good+ Ofsted" %in% wide$variable) {
+  wide <- wide |>
+    mutate(across(
+      where(is.numeric),
+      ~ if_else(variable == "Good+ Ofsted", round(.x * 100, 0), .x)
+    ))
+  wide$variable[wide$variable == "Good+ Ofsted"] <- "Good+ Ofsted (%)"
+}
+
+col_names <- c("Indicator", paste0("C", 1:cl_meta$chosen_k), "England")
+
+wide |>
+  kbl(col.names = col_names, align = c("l", rep("r", cl_meta$chosen_k + 1))) |>
+  kable_styling(bootstrap_options = c("striped","condensed","hover"),
+                font_size = 12, full_width = TRUE) |>
+  column_spec(ncol(wide), bold = TRUE, background = "#f0f0f0")
+```
+
+## All-Cluster Radar Comparison
+
+The radar chart below overlays all `r chosen_k` cluster profiles on a single plot. Each axis represents a z-score relative to the England average (dotted ring). Axes are oriented so that **outward = better** — for variables where lower is better (e.g. absence, % FSM, segregation, sickness, PTR), the z-score is inverted so that worse-than-average values appear *inside* the ring. The "FSM ATT8" axis shows disadvantaged pupil attainment directly (higher = outward = better).
+
+```{r all-cluster-radar}
+#| fig-cap: "Radar profiles for all clusters (outward = better on every axis)"
+#| fig-height: 7
+
+p <- plot_ly()
+
+# England average ring
+eng_theta <- c(radar_labels_use, radar_labels_use[1])
+p <- p |> add_trace(
+  type = "scatterpolar",
+  r = rep(2.5, length(radar_labels_use) + 1),
+  theta = eng_theta,
+  mode = "lines",
+  line = list(color = "#999", dash = "dot", width = 1.5),
+  fill = "none", name = "England average",
+  hoverinfo = "skip", showlegend = TRUE
+)
+
+# Add each cluster as a layer
+for (k in 1:chosen_k) {
+  cr <- cluster_z_scores |> filter(cluster == k)
+  if (nrow(cr) == 0) next
+  z <- vapply(radar_vars_use, function(v) as.numeric(cr[[v]][1]), numeric(1))
+  names(z) <- radar_vars_use
+  rv    <- to_radar(z)
+  rv    <- c(rv, rv[1])
+  col   <- cluster_cols[k]
+  lname <- cluster_labs[k]
+  p <- p |> add_trace(
+    type = "scatterpolar", r = rv, theta = eng_theta,
+    fill = "toself", fillcolor = hex_to_rgba(col, 0.10),
+    line = list(color = col, width = 2.2), name = lname,
+    customdata = c(z, z[1]),
+    hovertemplate = paste0("<b>%{theta}</b><br>z: %{customdata:.2f}<extra>", lname, "</extra>")
+  )
+}
+
+p |> layout(
+  polar = list(
+    radialaxis = list(visible = TRUE, range = c(0, 5),
+                      tickvals = c(0, 1.5, 2.5, 3.5, 5),
+                      ticktext = c("-2.5", "-1", "0", "+1", "+2.5"),
+                      tickfont = list(size = 9), gridcolor = "#e0e0e0"),
+    angularaxis = list(tickfont = list(size = 11))
+  ),
+  legend = list(orientation = "h", y = -0.12, font = list(size = 11)),
+  margin = list(t = 20, b = 70, l = 30, r = 30),
+  showlegend = TRUE
+) |> config(displayModeBar = FALSE)
+```
+
+## Cluster Map
+
+The map below shows the geographic distribution of each cluster across English local authorities. Each LA is coloured by its cluster assignment. Click on an LA for a summary popup.
+
+```{r cluster-map}
+#| fig-height: 8
+
+if (!is.null(la_boundaries_sf) && nrow(la_boundaries_sf) > 0) {
+
+  # Colour palette matching the cluster colours
+  pal <- colorFactor(palette = cluster_cols,
+                     domain  = as.character(1:chosen_k),
+                     na.color = "#cccccc")
+
+  # Build popup HTML for each LA
+  popups <- purrr::map_chr(seq_len(nrow(la_boundaries_sf)), function(i) {
+    row <- st_drop_geometry(la_boundaries_sf[i, ])
+    cl  <- row$cluster
+    col <- cluster_cols[cl]
+    paste0(
+      '<div style="font-family:Arial,sans-serif;max-width:280px;">',
+      '<div style="background:', col, ';color:white;padding:5px 9px;',
+      'border-radius:4px 4px 0 0;font-weight:bold;">',
+      htmltools::htmlEscape(row$LANAME), '</div>',
+      '<div style="border:1px solid ', col, ';border-top:none;padding:6px 9px;',
+      'border-radius:0 0 4px 4px;font-size:12px;">',
+      '<b>', htmltools::htmlEscape(row$cluster_label), '</b><br>',
+      'ATT8: ', round(row$att8_mean, 1), '<br>',
+      'Gap: ', round(row$att8_gap_mean, 1),
+      if ("att8_fsm_mean" %in% names(row) && !is.na(row$att8_fsm_mean))
+        paste0(' (FSM: ', round(row$att8_fsm_mean, 1),
+               ' / non-FSM: ', round(row$att8_nfsm_mean, 1), ')')
+      else "",
+      '<br>',
+      '% FSM: ', round(row$pct_fsm_mean, 1), '%<br>',
+      'Absence: ', round(row$abs_overall_mean, 1), '%<br>',
+      'Good+ Ofsted: ', round(row$ofsted_good_plus_pct * 100, 0), '%',
+      '</div></div>'
+    )
+  })
+
+  # Build legend HTML
+  legend_items <- purrr::map_chr(1:chosen_k, function(k) {
+    paste0('<div style="display:flex;align-items:center;margin-bottom:4px;">',
+           '<div style="width:14px;height:14px;border-radius:3px;background:',
+           cluster_cols[k], ';margin-right:7px;flex-shrink:0;"></div>',
+           '<span style="font-size:11px;">', htmltools::htmlEscape(cluster_labs[k]),
+           ' (', cl_meta$cluster_sizes[k], ')</span></div>')
+  })
+  legend_html <- paste0(
+    '<div style="background:white;padding:8px 11px;border-radius:5px;',
+    'box-shadow:0 1px 5px rgba(0,0,0,.25);font-family:Arial,sans-serif;">',
+    '<strong style="font-size:12px;display:block;margin-bottom:5px;">',
+    'Clusters (', chosen_k, ')</strong>',
+    paste(legend_items, collapse = ""), '</div>'
+  )
+
+  leaflet(la_boundaries_sf) |>
+    addProviderTiles(providers$CartoDB.Positron,
+                     options = tileOptions(minZoom = 5, maxZoom = 12)) |>
+    setView(lng = -1.5, lat = 52.8, zoom = 6) |>
+    addPolygons(
+      fillColor   = ~pal(as.character(cluster)),
+      fillOpacity = 0.75,
+      color       = "white",
+      weight      = 1.2,
+      opacity     = 0.8,
+      popup       = popups,
+      label       = ~paste0(LANAME, ": ", cluster_label),
+      labelOptions = labelOptions(style = list("font-size" = "12px"), direction = "auto"),
+      highlightOptions = highlightOptions(
+        weight = 3, color = "#333", fillOpacity = 0.9, bringToFront = TRUE
+      )
+    ) |>
+    addControl(html = legend_html, position = "topright")
+
+} else {
+  cat("*LA boundary data not available — map cannot be rendered. ",
+      "Ensure `app/data/la_boundaries.rds` exists (generated by the Shiny app on first run).*\n")
+}
+```
+
+## Individual Cluster Pen Portraits {#sec-portraits}
+
+Each cluster was assigned a descriptive label and pen portrait automatically from the z-score profile. Labels are formed by combining the top two distinguishing features (those with |z| > 0.5 on the priority-ordered indicator list), so that each name captures the most policy-relevant characteristics of that group. Each portrait is accompanied by a radar chart showing that cluster's profile against the England average.
+
+::: {.callout-note}
+## Radar chart polarity reminder
+On every radar axis, **outward = better**. For inverted variables (% FSM, Absence, Segregation, Sickness, PTR), values that are worse than the England average appear *inside* the dotted ring — closer to the centre. The "FSM ATT8" axis directly shows disadvantaged pupil attainment (not inverted: higher = outward = better). See @sec-radar for full details.
+:::
+
+::: {.column-page}
+
+```{r portrait-loop, results='asis'}
+# Build all individual radar widgets and convert to standalone HTML fragments.
+# The plotly JS dependency is already loaded by the all-cluster radar chunk above,
+# so we only need the per-widget div + data (not the full library again).
+
+for (i in 1:nrow(cl_sum)) {
+  k     <- cl_sum$cluster[i]
+  lbl   <- cl_sum$label[i]
+  n     <- cl_sum$n_las[i]
+  port  <- cl_sum$pen_portrait[i]
+  col   <- cluster_cols[k]
+
+  lines  <- strsplit(port, "\n")[[1]]
+  lines  <- lines[nchar(trimws(lines)) > 0]
+  header <- lines[1]
+  body   <- paste(lines[-1], collapse = " ")
+
+  las_in_cluster <- la_typ |>
+    filter(cluster == k) |>
+    arrange(LANAME) |>
+    pull(LANAME)
+  las_str <- paste(las_in_cluster, collapse = ", ")
+
+  # Build the plotly radar widget
+  widget <- build_cluster_radar(k, col, cluster_labs[k], show_legend = TRUE)
+
+  # Convert to a self-contained HTML div via htmltools
+  # (plotly_json + widget sizing, no duplicate JS library)
+  widget_html <- as.character(htmltools::as.tags(widget))
+
+  # Emit markdown + embedded HTML
+  cat(sprintf("\n\n### Cluster %d: %s {.unnumbered}\n\n", k, lbl))
+  cat(sprintf("> **%d local authorities** | %s\n\n", n, header))
+  cat('<div style="max-width:560px; margin: 8px auto 16px auto;">\n')
+  cat(widget_html, "\n")
+  cat('</div>\n\n')
+  cat(body, "\n\n")
+  cat("**Local authorities in this cluster:**\n\n")
+  cat(las_str, "\n\n")
+  cat("---\n")
+}
+```
+
+:::
+
+---
+
+# Methodological Notes and Caveats
+
+## Sensitivity to k
+
+The choice of k = `r cl_meta$chosen_k` reflects a balance between parsimony (a small, interpretable number of groups) and granularity (sufficient nuance to distinguish meaningfully different LA contexts). The cluster metrics indicate that silhouette scores plateau after k = `r cl_meta$best_sil_k`, suggesting moderate cluster separation. Users should treat the typology as a descriptive tool rather than a definitive classification.
+
+## Outlier LAs
+
+Authorities with very few schools (below the 5-school threshold) — in practice `r if(cl_meta$n_las_outlier > 0) paste(cl_meta$outlier_las, collapse=" and ") else "none"` — are excluded from the k-means optimisation to avoid them forming artefactual singleton clusters. They are assigned post-hoc to the nearest centroid. Their cluster membership should be interpreted cautiously.
+
+## Cross-year averaging
+
+Indicators are averaged across all available years (2021–22 to 2024–25) before clustering. This means the typology reflects structural characteristics of LAs over the medium term rather than any single year. Year-on-year volatility is captured separately via trend and variability indicators (CV, SD, trend slopes).
+
+## Imputed data (2024–25)
+
+For 2024–25, some pupil composition predictors (e.g. prior attainment, SEN rates) were not available at the time of data collection and were carried forward from 2023–24. Schools with imputed predictors are flagged in the panel data via the `has_imputed_predictors` column. This affects a small proportion of the KS4 cohort.
+
+## Ecological fallacy
+
+All indicators are LA-level aggregates. Statements about clusters describe the average characteristics of LAs in that group, not individual schools or pupils. Considerable variation exists within each LA and within each cluster.
+
+## Workforce data availability
+
+Some workforce indicators have higher rates of missingness for smaller LAs (particularly those with few schools). The >30% missing data filter removes the worst-affected variables, but residual missingness is handled by median imputation, which may compress variation in workforce-heavy clusters.
+
+## Gap Decomposition {#sec-gap-decomp}
+
+The raw disadvantage gap (`att8_gap_mean` = non-FSM ATT8 minus FSM ATT8) captures the *size* of the gap but not its *driver*. Two LAs can have the same 15-point gap for very different reasons:
+
+- **LA A**: FSM pupils score 30 (well below average), non-FSM score 45 (average) — the gap is driven by **low disadvantaged attainment**, which is a significant policy concern.
+- **LA B**: FSM pupils score 42 (average), non-FSM score 57 (well above average) — the gap is driven by **high non-disadvantaged attainment**, a fundamentally different situation.
+
+To capture this distinction, we compute a **gap driver index**:
+
+$$\text{gap\_driver\_index}_l = z\!\left(\overline{\text{ATT8}}_{l,\,\text{FSM}}\right) - z\!\left(\overline{\text{ATT8}}_{l,\,\text{non-FSM}}\right)$$
+
+where $z(\cdot)$ denotes standardisation to a z-score against the England LA-level mean and standard deviation. The index is interpreted as follows:
+
+| Value | Interpretation |
+|---|---|
+| Strongly negative (e.g. < −0.5) | Gap driven by **low disadvantaged attainment** — FSM pupils score well below the national average for FSM pupils, while non-FSM pupils are closer to their average |
+| Near zero | Both groups contribute symmetrically to the gap |
+| Strongly positive (e.g. > +0.5) | Gap driven by **high non-disadvantaged attainment** — non-FSM pupils score well above average, while FSM pupils perform closer to the national average |
+
+The `gap_driver_index` enters the clustering pipeline as a numeric indicator (subject to the standard collinearity and missing-data filters). It also appears in the bar chart, map, LA profile panel, data table, and cluster pen portraits, alongside the raw gap and both group-level ATT8 means.
+
+The radar chart now shows **FSM ATT8** directly (replacing the inverted raw gap axis), giving a clear picture of how disadvantaged pupils are actually performing in each cluster rather than just the gap size.
+
+---
+
+# Reproducibility
+
+The typology is fully reproducible. To regenerate it from scratch:
+
+```r
+# From the project root:
+source("R/07_la_typology.R")
+```
+
+This requires `data/panel_data.rds` (produced by `R/04_compute_derived.R`) to be present. The script uses `set.seed(42)` throughout and saves all outputs to `data/`. Key parameters:
+
+| Parameter | Value |
+|---|---|
+| Random seed | 42 |
+| k search range | 5 – 10 |
+| Final nstart | 200 |
+| Final iter.max | 500 |
+| Outlier threshold | < 5 schools |
+| Missing data threshold | > 30% missing |
+| Collinearity threshold | \|r\| > 0.97 |
+| Missing imputation | Column median |
+
+---
+
+*Report generated automatically from `la_typology_report.qmd`. Data: DfE 2021–22 to 2024–25.*

@@ -1,0 +1,1211 @@
+---
+title: "LA Typology: Cluster Data Explorer"
+subtitle: "Interactive exploration of the indicators and clustering behind the LA typology"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    number-sections: true
+    theme: flatly
+    embed-resources: true
+    code-fold: true
+    fig-width: 10
+    fig-height: 7
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(plotly)
+library(leaflet)
+library(sf)
+library(here)
+library(ggdist)
+library(htmltools)
+
+# ---- Load data ----
+la_ind   <- readRDS(here("data", "la_indicators.rds"))
+la_typ   <- readRDS(here("data", "la_typology.rds"))
+cl_sum   <- readRDS(here("data", "la_cluster_summary.rds"))
+cl_meta  <- readRDS(here("data", "cluster_meta.rds"))
+
+chosen_k     <- cl_meta$chosen_k
+cluster_labs <- cl_meta$cluster_labels
+cluster_sizes <- cl_meta$cluster_sizes
+
+# Cluster colour palette (same as Shiny app / main report)
+palette_cols <- c(
+  "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
+  "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+  "#bcbd22", "#17becf", "#aec7e8", "#ffbb78"
+)
+cluster_cols <- palette_cols[seq_len(chosen_k)]
+
+# Create a named cluster label map
+cluster_label_map <- setNames(cluster_labs, as.character(1:chosen_k))
+
+# Ensure la_ind has cluster_label
+if (!"cluster_label" %in% names(la_ind)) {
+  la_ind <- la_ind %>%
+    mutate(cluster_label = cluster_label_map[as.character(cluster)])
+}
+
+# ---- Replicate the variable-filtering pipeline from 07_la_typology.R ----
+# This identifies exactly which variables were used for clustering.
+cluster_input <- la_ind %>%
+  select(-LANAME, -gor_name, -any_of(c("cluster", "cluster_label"))) %>%
+  select(where(is.numeric))
+
+# Step 1: Remove >30% missing
+miss_pct <- colMeans(is.na(cluster_input))
+cluster_input <- cluster_input[, miss_pct <= 0.30]
+
+# Step 2: Remove near-zero variance
+col_sds <- sapply(cluster_input, function(x) sd(x, na.rm = TRUE))
+cluster_input <- cluster_input[, !is.na(col_sds) & col_sds > 1e-6]
+
+# Step 3: Remove highly correlated (|r| > 0.97)
+cor_mat_full <- cor(cluster_input, use = "pairwise.complete.obs")
+cor_mat_full[is.na(cor_mat_full)] <- 0
+high_cor <- which(abs(cor_mat_full) > 0.97 & upper.tri(cor_mat_full), arr.ind = TRUE)
+if (nrow(high_cor) > 0) {
+  cols_to_drop <- unique(high_cor[, 2])
+  cluster_input <- cluster_input[, -cols_to_drop]
+}
+
+clustering_vars <- names(cluster_input)
+n_cluster_vars  <- length(clustering_vars)
+
+# ---- Compute z-scores for ALL clustering variables (all LAs) ----
+# Impute NAs with column median, then z-score standardise
+cluster_imputed <- cluster_input %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), median(., na.rm = TRUE), .)))
+
+scale_center <- colMeans(cluster_imputed)
+scale_sd     <- apply(cluster_imputed, 2, sd)
+scale_sd[scale_sd == 0] <- 1
+
+cluster_z_all <- as.data.frame(scale(cluster_imputed, center = scale_center, scale = scale_sd))
+cluster_z_all$LANAME  <- la_ind$LANAME
+cluster_z_all$cluster <- la_ind$cluster
+cluster_z_all$cluster_label <- la_ind$cluster_label
+
+# Cluster-level mean z-scores for ALL clustering variables
+cluster_z_means <- cluster_z_all %>%
+  group_by(cluster, cluster_label) %>%
+  summarise(across(all_of(clustering_vars), ~ mean(.x, na.rm = TRUE)), .groups = "drop") %>%
+  arrange(cluster)
+
+# ---- Helper: hex colour -> rgba ----
+hex_to_rgba <- function(hex, alpha = 0.15) {
+  rgb <- col2rgb(hex)
+  sprintf("rgba(%d,%d,%d,%.2f)", rgb[1], rgb[2], rgb[3], alpha)
+}
+
+# ---- Reusable raincloud plot function for a single variable ----
+plot_raincloud <- function(data, var_name, var_label, ref_line = NULL) {
+  df <- data %>%
+    filter(!is.na(.data[[var_name]])) %>%
+    mutate(cluster_label = factor(cluster_label, levels = cluster_labs))
+
+  p <- ggplot(df, aes(x = .data[[var_name]], y = cluster_label,
+                       fill = cluster_label, colour = cluster_label)) +
+    ggdist::stat_halfeye(
+      adjust = 0.7, width = 0.6, .width = 0, justification = -0.15,
+      point_colour = NA, alpha = 0.6
+    ) +
+    geom_boxplot(
+      width = 0.15, outlier.shape = NA, alpha = 0.5
+    ) +
+    ggdist::stat_dots(
+      side = "left", dotsize = 0.6, justification = 1.1,
+      binwidth = NA, alpha = 0.7
+    ) +
+    scale_fill_manual(values = cluster_cols, name = "Cluster") +
+    scale_colour_manual(values = cluster_cols, name = "Cluster") +
+    labs(x = var_label, y = NULL, title = var_label) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "none",
+      panel.grid.major.y = element_blank()
+    )
+
+  if (!is.null(ref_line)) {
+    p <- p + geom_vline(xintercept = ref_line, linetype = "dashed",
+                        colour = "grey40", linewidth = 0.5)
+  }
+
+  p
+}
+```
+
+::: {.callout-tip}
+## Companion to the LA Typology Report
+
+This interactive data explorer is designed to be viewed alongside the
+[LA Typology Methodology Report](https://adamdennett.github.io/school_attainment_tool/la_typology_report.html).
+It provides deeper access to the **`r n_cluster_vars`** variables that survived filtering and went into the
+k-means clustering, as well as descriptive statistics for the core attainment indicators.
+:::
+
+```{r legend-block}
+#| label: fig-cluster-legend-wrapped
+#| fig-height: 3  # Increase height to accommodate taller tiles
+#| fig-width: 8
+
+library(stringr)
+
+# 1. Coordinate logic (same as before)
+n_clusters <- length(cluster_labs)
+n_cols <- ceiling(n_clusters / 2)
+
+legend_df <- tibble(
+  cluster_label = factor(cluster_labs, levels = cluster_labs),
+  # Apply text wrapping here
+  # width = 10 means it tries to wrap after 10 characters
+  wrapped_label = str_wrap(cluster_labs, width = 12),
+  x = (seq_along(cluster_labs) - 1) %% n_cols,
+  y = -((seq_along(cluster_labs) - 1) %/% n_cols)
+)
+
+ggplot(legend_df, aes(x = x, y = y, fill = cluster_label)) +
+  # Increased tile height to 0.9 to fit two lines of text
+  geom_tile(width = 0.9, height = 0.9) + 
+  geom_text(aes(label = wrapped_label), 
+            size = 3.2, 
+            lineheight = 0.9, # Tightens the space between the two lines of text
+            fontface = "bold", 
+            colour = "white") +
+  scale_fill_manual(values = cluster_cols) +
+  theme_void() +
+  theme(legend.position = "none") +
+  coord_fixed(ratio = 0.8) # Adjusted ratio for taller tiles
+```
+
+
+# Attainment Indicators {#sec-attainment}
+
+The attainment indicators below correspond to **Section 3.1** of the methodology report. These are the
+primary measures of school performance at LA level, covering Attainment 8 scores, disadvantage gaps,
+gender differences, subject breakdowns, and Progress 8 value-added measures.
+
+Each plot shows the distribution of a single variable across the `r nrow(la_ind)` Local Authorities,
+broken out by cluster. The half-violin shows the density, the box plot shows the IQR and median, and
+the dots show individual LA values.
+
+## Overall Attainment 8
+
+```{r}
+#| label: fig-att8-mean
+#| fig-cap: "Mean ATT8 score — average Attainment 8 score across schools in each LA."
+#| fig-height: 4
+plot_raincloud(la_ind, "att8_mean", "Mean ATT8 Score")
+```
+
+```{r}
+#| label: fig-att8-median
+#| fig-cap: "Median ATT8 score across schools in each LA."
+#| fig-height: 4
+if ("att8_median" %in% names(la_ind)) plot_raincloud(la_ind, "att8_median", "Median ATT8 Score")
+```
+
+```{r}
+#| label: fig-att8-sd
+#| fig-cap: "ATT8 standard deviation — within-LA spread of school performance."
+#| fig-height: 4
+if ("att8_sd" %in% names(la_ind)) plot_raincloud(la_ind, "att8_sd", "ATT8 Standard Deviation (within-LA)")
+```
+
+```{r}
+#| label: fig-att8-cv
+#| fig-cap: "ATT8 coefficient of variation — relative spread (SD/mean)."
+#| fig-height: 4
+if ("att8_cv" %in% names(la_ind)) plot_raincloud(la_ind, "att8_cv", "ATT8 Coefficient of Variation")
+```
+
+## Disadvantage Gap
+
+```{r}
+#| label: fig-att8-fsm
+#| fig-cap: "Mean ATT8 for disadvantaged (FSM6) pupils."
+#| fig-height: 4
+if ("att8_fsm_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_fsm_mean", "FSM ATT8 (Disadvantaged Pupils)")
+```
+
+```{r}
+#| label: fig-att8-nfsm
+#| fig-cap: "Mean ATT8 for non-disadvantaged pupils."
+#| fig-height: 4
+if ("att8_nfsm_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_nfsm_mean", "Non-FSM ATT8 (Non-Disadvantaged)")
+```
+
+```{r}
+#| label: fig-att8-gap
+#| fig-cap: "Disadvantage gap — mean difference between non-FSM and FSM ATT8 scores."
+#| fig-height: 4
+if ("att8_gap_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_gap_mean", "Disadvantage Gap (Non-FSM minus FSM)")
+```
+
+```{r}
+#| label: fig-att8-gap-sd
+#| fig-cap: "Within-LA variation in the disadvantage gap."
+#| fig-height: 4
+if ("att8_gap_sd" %in% names(la_ind)) plot_raincloud(la_ind, "att8_gap_sd", "Disadvantage Gap SD (within-LA)")
+```
+
+```{r}
+#| label: fig-gap-driver
+#| fig-cap: "Gap driver index — negative = gap driven by low FSM attainment; positive = driven by high non-FSM attainment."
+#| fig-height: 4
+if ("gap_driver_index" %in% names(la_ind)) plot_raincloud(la_ind, "gap_driver_index", "Gap Driver Index", ref_line = 0)
+```
+
+## Gender & Subject Breakdown
+
+```{r}
+#| label: fig-att8-girls
+#| fig-cap: "Mean ATT8 for girls."
+#| fig-height: 4
+if ("att8_girls_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_girls_mean", "Girls ATT8")
+```
+
+```{r}
+#| label: fig-att8-boys
+#| fig-cap: "Mean ATT8 for boys."
+#| fig-height: 4
+if ("att8_boys_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_boys_mean", "Boys ATT8")
+```
+
+```{r}
+#| label: fig-gender-gap
+#| fig-cap: "Gender gap in ATT8 (girls minus boys)."
+#| fig-height: 4
+if ("att8_gender_gap" %in% names(la_ind)) plot_raincloud(la_ind, "att8_gender_gap", "Gender Gap (Girls minus Boys)", ref_line = 0)
+```
+
+```{r}
+#| label: fig-att8-eng
+#| fig-cap: "Mean ATT8 in the English element."
+#| fig-height: 4
+if ("att8_eng_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_eng_mean", "English ATT8")
+```
+
+```{r}
+#| label: fig-att8-mat
+#| fig-cap: "Mean ATT8 in the Maths element."
+#| fig-height: 4
+if ("att8_mat_mean" %in% names(la_ind)) plot_raincloud(la_ind, "att8_mat_mean", "Maths ATT8")
+```
+
+```{r}
+#| label: fig-eng-mat-diff
+#| fig-cap: "English minus Maths ATT8 — relative subject performance within LAs."
+#| fig-height: 4
+if ("att8_eng_mat_diff" %in% names(la_ind)) plot_raincloud(la_ind, "att8_eng_mat_diff", "English-Maths Difference", ref_line = 0)
+```
+
+## Progress 8
+
+```{r}
+#| label: fig-p8-mean
+#| fig-cap: "Mean Progress 8 — value-added relative to prior attainment. Zero = national average."
+#| fig-height: 4
+if ("p8_mean" %in% names(la_ind)) plot_raincloud(la_ind, "p8_mean", "Mean Progress 8", ref_line = 0)
+```
+
+```{r}
+#| label: fig-p8-fsm
+#| fig-cap: "Progress 8 for disadvantaged (FSM) pupils."
+#| fig-height: 4
+if ("p8_fsm_mean" %in% names(la_ind)) plot_raincloud(la_ind, "p8_fsm_mean", "FSM Progress 8", ref_line = 0)
+```
+
+```{r}
+#| label: fig-p8-nfsm
+#| fig-cap: "Progress 8 for non-disadvantaged pupils."
+#| fig-height: 4
+if ("p8_nfsm_mean" %in% names(la_ind)) plot_raincloud(la_ind, "p8_nfsm_mean", "Non-FSM Progress 8", ref_line = 0)
+```
+
+```{r}
+#| label: fig-p8-gap
+#| fig-cap: "Gap in Progress 8 between non-FSM and FSM pupils."
+#| fig-height: 4
+if ("p8_gap_mean" %in% names(la_ind)) plot_raincloud(la_ind, "p8_gap_mean", "Progress 8 Gap", ref_line = 0)
+```
+
+## Attainment Trends
+
+```{r}
+#| label: fig-att8-trend
+#| fig-cap: "Annual change in mean ATT8 (points per year). Positive = improving."
+#| fig-height: 4
+if ("att8_trend_slope" %in% names(la_ind)) plot_raincloud(la_ind, "att8_trend_slope", "ATT8 Trend (pts/year)", ref_line = 0)
+```
+
+```{r}
+#| label: fig-att8-fsm-trend
+#| fig-cap: "Annual ATT8 trend for disadvantaged pupils."
+#| fig-height: 4
+if ("att8_fsm_trend_slope" %in% names(la_ind)) plot_raincloud(la_ind, "att8_fsm_trend_slope", "FSM ATT8 Trend (pts/year)", ref_line = 0)
+```
+
+```{r}
+#| label: fig-att8-nfsm-trend
+#| fig-cap: "Annual ATT8 trend for non-disadvantaged pupils."
+#| fig-height: 4
+if ("att8_nfsm_trend_slope" %in% names(la_ind)) plot_raincloud(la_ind, "att8_nfsm_trend_slope", "Non-FSM ATT8 Trend (pts/year)", ref_line = 0)
+```
+
+```{r}
+#| label: fig-p8-trend
+#| fig-cap: "Annual trend in Progress 8."
+#| fig-height: 4
+if ("p8_trend_slope" %in% names(la_ind)) plot_raincloud(la_ind, "p8_trend_slope", "Progress 8 Trend (pts/year)", ref_line = 0)
+```
+
+## Summary Statistics Table
+
+```{r}
+#| label: tbl-att8-summary
+#| tbl-cap: "Summary statistics for all attainment indicators."
+
+all_att_vars <- c(
+  "att8_mean", "att8_median", "att8_sd", "att8_cv",
+  "att8_fsm_mean", "att8_nfsm_mean", "att8_gap_mean", "att8_gap_sd",
+  "gap_driver_index",
+  "att8_girls_mean", "att8_boys_mean", "att8_gender_gap",
+  "att8_eng_mean", "att8_mat_mean", "att8_eng_mat_diff",
+  "p8_mean", "p8_fsm_mean", "p8_nfsm_mean", "p8_gap_mean",
+  "att8_trend_slope", "att8_fsm_trend_slope", "att8_nfsm_trend_slope", "p8_trend_slope"
+)
+all_att_vars <- intersect(all_att_vars, names(la_ind))
+
+all_att_labels <- c(
+  att8_mean = "Mean ATT8", att8_median = "Median ATT8",
+  att8_sd = "ATT8 SD", att8_cv = "ATT8 CV",
+  att8_fsm_mean = "FSM ATT8", att8_nfsm_mean = "Non-FSM ATT8",
+  att8_gap_mean = "Disadvantage Gap", att8_gap_sd = "Gap SD",
+  gap_driver_index = "Gap Driver Index",
+  att8_girls_mean = "Girls ATT8", att8_boys_mean = "Boys ATT8",
+  att8_gender_gap = "Gender Gap",
+  att8_eng_mean = "English ATT8", att8_mat_mean = "Maths ATT8",
+  att8_eng_mat_diff = "Eng-Maths Diff",
+  p8_mean = "Mean P8", p8_fsm_mean = "FSM P8",
+  p8_nfsm_mean = "Non-FSM P8", p8_gap_mean = "P8 Gap",
+  att8_trend_slope = "ATT8 Trend", att8_fsm_trend_slope = "FSM ATT8 Trend",
+  att8_nfsm_trend_slope = "Non-FSM ATT8 Trend", p8_trend_slope = "P8 Trend"
+)
+
+summary_tbl <- la_ind %>%
+  select(all_of(all_att_vars)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  mutate(var_label = all_att_labels[variable]) %>%
+  group_by(var_label) %>%
+  summarise(
+    N = n(),
+    Mean = mean(value, na.rm = TRUE),
+    SD = sd(value, na.rm = TRUE),
+    Min = min(value, na.rm = TRUE),
+    Q25 = quantile(value, 0.25, na.rm = TRUE),
+    Median = median(value, na.rm = TRUE),
+    Q75 = quantile(value, 0.75, na.rm = TRUE),
+    Max = max(value, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(across(where(is.numeric) & !c(N), ~ round(., 2)))
+
+kable(summary_tbl, align = "lrrrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = TRUE, font_size = 12) %>%
+  scroll_box(height = "450px")
+```
+
+
+# Interactive LA Variable Map {#sec-map}
+
+Select any of the **`r ncol(la_ind %>% select(where(is.numeric)))`** numeric variables in the
+LA indicators dataset to colour a choropleth map and view its distribution.
+
+```{r}
+#| label: map-data-prep
+
+# ---- Load LA boundaries (same approach as Shiny app global.R) ----
+la_boundary_cache <- here("app", "data", "la_boundaries.rds")
+
+# Fall back to data/ if app/data/ doesn't exist
+if (!file.exists(la_boundary_cache)) {
+  la_boundary_cache <- here("data", "la_boundaries.rds")
+}
+
+la_sf <- NULL
+if (file.exists(la_boundary_cache)) {
+  boundaries <- readRDS(la_boundary_cache)
+
+  # Identify the name column
+  name_col <- names(boundaries)[grepl("NM$|name", names(boundaries), ignore.case = TRUE)][1]
+
+  clean_name <- function(x) {
+    x %>%
+      tolower() %>%
+      str_replace_all("&", "and") %>%
+      str_remove_all("[^a-z0-9 ]") %>%
+      str_squish()
+  }
+
+  boundaries_join <- boundaries %>%
+    mutate(la_name_clean = clean_name(get(name_col)))
+
+  la_ind_join <- la_ind %>%
+    mutate(la_name_clean = clean_name(LANAME))
+
+  la_sf <- boundaries_join %>%
+    inner_join(la_ind_join, by = "la_name_clean")
+}
+
+# Build list of all numeric variable names (excluding identifiers)
+numeric_vars <- la_ind %>%
+  select(where(is.numeric), -any_of(c("cluster"))) %>%
+  names()
+
+# Create a pretty label mapping
+var_display <- tibble(
+  var = numeric_vars,
+  label = str_replace_all(var, "_", " ") %>%
+    str_to_title() %>%
+    str_replace("Att8", "ATT8") %>%
+    str_replace("Fsm", "FSM") %>%
+    str_replace("Nfsm", "Non-FSM") %>%
+    str_replace("Eal", "EAL") %>%
+    str_replace("P8", "P8") %>%
+    str_replace("Pct", "%") %>%
+    str_replace("Ptr", "PTR") %>%
+    str_replace("Sd$", "SD") %>%
+    str_replace("Cv$", "CV") %>%
+    str_replace("Iqr$", "IQR") %>%
+    str_replace("Sen", "SEN") %>%
+    str_replace("Ehcp", "EHCP") %>%
+    str_replace("Fte", "FTE")
+)
+
+# Diagnostic: check boundary join result
+if (is.null(la_sf) || nrow(la_sf) == 0) {
+  message("WARNING: la_sf is NULL or empty — boundary join produced no matches. ",
+          "Boundary cache: ", la_boundary_cache, " exists: ", file.exists(la_boundary_cache))
+} else {
+  message(sprintf("la_sf has %d rows — boundary data loaded OK", nrow(la_sf)))
+}
+```
+
+::: {.callout-note}
+## How to use
+Use the **dropdown** on the map to choose any variable. The **choropleth map** updates automatically
+to show the spatial pattern of the selected variable across all `r nrow(la_ind)` LAs. Hover over
+an LA to see its value; click for a popup with full details.
+:::
+
+```{r}
+#| label: fig-choropleth-map
+#| fig-cap: "Interactive choropleth map — use the dropdown to select a variable and explore spatial patterns across LAs."
+#| fig-height: 8
+
+library(htmlwidgets)
+
+if (!is.null(la_sf) && nrow(la_sf) > 0) {
+
+  # Sanitize numeric values: NaN/Inf → NA (required for valid JSON)
+  la_sf_map <- la_sf %>%
+    mutate(across(where(is.numeric), ~ ifelse(is.finite(.), ., NA_real_)))
+
+  # Keep only columns needed for the map
+  la_sf_map <- la_sf_map %>%
+    select(LANAME, cluster, cluster_label, all_of(numeric_vars))
+
+  # ---- Serialize sf → GeoJSON string in R ----
+  tmp_geojson <- tempfile(fileext = ".geojson")
+  sf::st_write(la_sf_map, tmp_geojson, driver = "GeoJSON", quiet = TRUE, delete_dsn = TRUE)
+  geojson_str <- paste(readLines(tmp_geojson, warn = FALSE), collapse = "\n")
+  unlink(tmp_geojson)
+
+  # Small metadata as JSON
+  var_json         <- jsonlite::toJSON(var_display, auto_unbox = TRUE)
+  cluster_cols_json <- jsonlite::toJSON(cluster_cols, auto_unbox = TRUE)
+
+  # ---- Bare leaflet map (tiles only — polygons created in JS) ----
+  m <- leaflet(options = leafletOptions(minZoom = 5, maxZoom = 14)) %>%
+    setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
+    addProviderTiles("CartoDB.Positron")
+
+  # ---- Embed GeoJSON in a <script> data tag, then build everything in onRender ----
+  geojson_tag <- htmltools::tags$script(
+    type = "application/json",
+    id   = "la-geojson-data",
+    htmltools::HTML(geojson_str)
+  )
+
+  m <- m %>% onRender(paste0('
+    function(el, x) {
+      var map = this;
+      var varOptions  = ', var_json, ';
+      var clusterCols = ', cluster_cols_json, ';
+      var nClusters   = clusterCols.length;
+      var defaultVar  = "att8_mean";
+
+      /* ---- Read GeoJSON from embedded <script> tag ---- */
+      var geojsonData = JSON.parse(
+        document.getElementById("la-geojson-data").textContent
+      );
+
+      /* ---- YlOrRd colour interpolator ---- */
+      function ylOrRd(t) {
+        var c = [[255,255,204],[255,237,160],[254,217,118],[254,178,76],
+                 [253,141,60],[252,78,42],[227,26,28],[189,0,38],[128,0,38]];
+        var i = Math.min(Math.floor(t * 8), 7);
+        var f = t * 8 - i;
+        return "rgb(" +
+          Math.round(c[i][0] + f * (c[i+1][0] - c[i][0])) + "," +
+          Math.round(c[i][1] + f * (c[i+1][1] - c[i][1])) + "," +
+          Math.round(c[i][2] + f * (c[i+1][2] - c[i][2])) + ")";
+      }
+
+      /* ---- Create GeoJSON layer (full JS control) ---- */
+      var geoLayer = L.geoJSON(geojsonData, {
+        style: {
+          fillColor: "#cccccc", fillOpacity: 0.75,
+          color: "white", weight: 1.2, opacity: 0.8
+        },
+        onEachFeature: function(feature, layer) {
+          layer.on("mouseover", function() {
+            this.setStyle({weight: 3, color: "#333", fillOpacity: 0.9});
+            this.bringToFront();
+          });
+          layer.on("mouseout", function() {
+            this.setStyle({weight: 1.2, color: "white", fillOpacity: 0.75});
+          });
+        }
+      }).addTo(map);
+
+      /* ---- Create histogram container above the map ---- */
+      var histDiv = document.createElement("div");
+      histDiv.style.cssText = "width:100%;margin-bottom:12px;padding:12px 10px;" +
+        "background:#fafafa;border:1px solid #ddd;border-radius:6px;";
+      el.parentNode.insertBefore(histDiv, el);
+
+      /* ---- Draw stacked histogram (SVG) ---- */
+      function drawHistogram(varName, varLabel) {
+        var data = [];
+        geoLayer.eachLayer(function(l) {
+          var p = l.feature.properties;
+          var v = p[varName];
+          if (v != null && !isNaN(v)) data.push({value: +v, cluster: +p.cluster});
+        });
+
+        if (data.length === 0) {
+          histDiv.innerHTML = "<p style=\\"color:#888;\\">No data for this variable.</p>";
+          return;
+        }
+
+        var values = data.map(function(d) { return d.value; });
+        var vMin  = Math.min.apply(null, values);
+        var vMax  = Math.max.apply(null, values);
+        var mean  = values.reduce(function(a,b){return a+b;},0) / values.length;
+        var nBins = 25;
+        var binW  = (vMax - vMin) / nBins || 1;
+
+        var bins = [];
+        for (var b = 0; b < nBins; b++) {
+          var obj = {total: 0};
+          for (var k = 1; k <= nClusters; k++) obj["c"+k] = 0;
+          bins.push(obj);
+        }
+        data.forEach(function(d) {
+          var idx = Math.min(Math.floor((d.value - vMin) / binW), nBins - 1);
+          if (idx >= 0) { bins[idx]["c"+d.cluster]++; bins[idx].total++; }
+        });
+        var maxCount = Math.max.apply(null, bins.map(function(b){return b.total;})) || 1;
+
+        var W=860, H=280, pad={l:50,r:15,t:20,b:45};
+        var pW=W-pad.l-pad.r, pH=H-pad.t-pad.b, barW=pW/nBins;
+
+        var svg = "<svg width=\\""+W+"\\" height=\\""+H+"\\" style=\\"font-family:sans-serif;font-size:11px;\\">";
+
+        for (var g=0;g<=5;g++) {
+          var gy=pad.t+pH-(g/5)*pH, gv=Math.round((g/5)*maxCount);
+          svg += "<line x1=\\""+pad.l+"\\" y1=\\""+gy+"\\" x2=\\""+(W-pad.r)+"\\" y2=\\""+gy+"\\" stroke=\\"#e0e0e0\\" stroke-width=\\"0.5\\"/>";
+          svg += "<text x=\\""+(pad.l-6)+"\\" y=\\""+(gy+4)+"\\" text-anchor=\\"end\\" fill=\\"#666\\">"+gv+"</text>";
+        }
+
+        bins.forEach(function(bin,i) {
+          var bx=pad.l+i*barW, cumH=0;
+          for (var k=1;k<=nClusters;k++) {
+            var cnt=bin["c"+k]||0; if(!cnt) continue;
+            var bh=(cnt/maxCount)*pH, by=pad.t+pH-cumH-bh;
+            svg += "<rect x=\\""+bx+"\\" y=\\""+by+"\\" width=\\""+Math.max(barW-1,1)+"\\" height=\\""+bh+"\\" fill=\\""+clusterCols[k-1]+"\\" opacity=\\"0.8\\"/>";
+            cumH += bh;
+          }
+        });
+
+        var meanX = pad.l+((mean-vMin)/(binW*nBins))*pW;
+        svg += "<line x1=\\""+meanX+"\\" y1=\\""+pad.t+"\\" x2=\\""+meanX+"\\" y2=\\""+(pad.t+pH)+"\\" stroke=\\"red\\" stroke-width=\\"2\\" stroke-dasharray=\\"5,3\\"/>";
+        svg += "<text x=\\""+meanX+"\\" y=\\""+(pad.t-4)+"\\" text-anchor=\\"middle\\" fill=\\"red\\" font-weight=\\"bold\\" font-size=\\"11\\">Mean: "+mean.toFixed(1)+"</text>";
+
+        for (var xi=0;xi<=4;xi++) {
+          var xv=vMin+(xi/4)*(vMax-vMin), xx=pad.l+(xi/4)*pW;
+          svg += "<text x=\\""+xx+"\\" y=\\""+(H-pad.b+18)+"\\" text-anchor=\\"middle\\" fill=\\"#666\\">"+xv.toFixed(1)+"</text>";
+        }
+        svg += "<text x=\\""+(pad.l+pW/2)+"\\" y=\\""+(H-4)+"\\" text-anchor=\\"middle\\" fill=\\"#333\\" font-size=\\"12\\">"+varLabel+"</text>";
+        svg += "</svg>";
+
+        var sd = Math.sqrt(values.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/(values.length-1));
+        histDiv.innerHTML =
+          "<p style=\\"margin:0 0 6px;font-size:13px;\\"><strong>"+varLabel+
+          "</strong> &mdash; N="+data.length+
+          ", Mean="+mean.toFixed(2)+", SD="+sd.toFixed(2)+
+          ", Range=["+vMin.toFixed(2)+", "+vMax.toFixed(2)+"]</p>"+svg;
+      }
+
+      /* ---- Legend control ---- */
+      var legendControl = L.control({position: "topright"});
+      var legendDiv = null;
+      legendControl.onAdd = function() {
+        legendDiv = L.DomUtil.create("div");
+        legendDiv.style.cssText = "background:white;padding:8px 12px;border-radius:5px;" +
+          "box-shadow:0 1px 5px rgba(0,0,0,.25);font-size:12px;line-height:1.6;";
+        return legendDiv;
+      };
+      legendControl.addTo(map);
+
+      function updateLegend(varLabel, vMin, vMax) {
+        if (!legendDiv) return;
+        var vRange = (vMax - vMin) || 1;
+        var html = "<strong>"+varLabel+"</strong><br>";
+        for (var i=0;i<=6;i++) {
+          var t=i/6, v=vMin+t*vRange;
+          html += "<i style=\\"background:"+ylOrRd(t)+";width:14px;height:14px;display:inline-block;margin-right:4px;border-radius:2px;vertical-align:middle;\\"></i>";
+          if (i===0||i===3||i===6) html += " "+v.toFixed(1);
+          html += "<br>";
+        }
+        legendDiv.innerHTML = html;
+      }
+
+      /* ---- Recolour polygons + update popups/tooltips ---- */
+      function updateAll(varName, varLabel) {
+        var vals = [];
+        geoLayer.eachLayer(function(l) {
+          var v = l.feature.properties[varName];
+          if (v != null && !isNaN(v)) vals.push(+v);
+        });
+        if (vals.length === 0) return;
+
+        var vMin = Math.min.apply(null, vals);
+        var vMax = Math.max.apply(null, vals);
+        var vRange = (vMax - vMin) || 1;
+
+        geoLayer.eachLayer(function(layer) {
+          var p = layer.feature.properties;
+          var v = p[varName];
+          var color = (v == null || isNaN(v)) ? "#cccccc" :
+            ylOrRd(Math.max(0, Math.min(1, (+v - vMin) / vRange)));
+          layer.setStyle({fillColor: color});
+
+          var valStr = (v != null && !isNaN(v)) ? (+v).toFixed(2) : "N/A";
+          layer.bindPopup("<strong>"+(p.LANAME||"")+"</strong><br>"+
+            "Cluster: "+(p.cluster_label||"")+"<br>"+varLabel+": "+valStr);
+          layer.bindTooltip((p.LANAME||"")+": "+valStr, {direction:"auto"});
+        });
+
+        updateLegend(varLabel, vMin, vMax);
+        drawHistogram(varName, varLabel);
+      }
+
+      /* ---- Variable selector (above histogram) ---- */
+      var selDiv = document.createElement("div");
+      selDiv.style.cssText = "margin-bottom:10px;font-size:14px;";
+      var selLabel = document.createElement("label");
+      selLabel.textContent = "Select variable: ";
+      selLabel.style.fontWeight = "bold";
+      selDiv.appendChild(selLabel);
+
+      var select = document.createElement("select");
+      select.style.cssText = "width:300px;padding:4px 6px;font-size:13px;";
+      varOptions.forEach(function(v) {
+        var opt = document.createElement("option");
+        opt.value = v["var"]; opt.textContent = v.label;
+        if (v["var"] === defaultVar) opt.selected = true;
+        select.appendChild(opt);
+      });
+      selDiv.appendChild(select);
+      el.parentNode.insertBefore(selDiv, histDiv);
+
+      select.addEventListener("change", function() {
+        var sel = varOptions.find(function(v){return v["var"]===select.value;});
+        updateAll(select.value, sel ? sel.label : select.value);
+      });
+
+      /* ---- Initial render ---- */
+      var def = varOptions.find(function(v){return v["var"]===defaultVar;});
+      updateAll(defaultVar, def ? def.label : defaultVar);
+    }
+  '))
+
+  # Combine: GeoJSON data tag + leaflet widget
+  htmltools::tagList(geojson_tag, m)
+
+} else {
+  htmltools::tags$p(
+    "Map unavailable \u2014 LA boundary data could not be loaded.",
+    style = "padding:2em;color:#888;"
+  )
+}
+```
+
+### Cluster Reference Map
+
+```{r}
+#| label: fig-cluster-ref-map
+#| fig-cap: "Reference map showing LA cluster assignments. Compare with the variable choropleth above to see how spatial patterns relate to cluster membership."
+#| fig-height: 7
+
+if (!is.null(la_sf) && nrow(la_sf) > 0) {
+
+  # Reuse la_sf_map and geojson_str from the chunk above (already sanitized)
+  # Cluster colours and labels as JSON
+  cluster_labs_json <- jsonlite::toJSON(cluster_labs, auto_unbox = TRUE)
+
+  # Bare leaflet map
+  m_clust <- leaflet(options = leafletOptions(minZoom = 5, maxZoom = 14)) %>%
+    setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
+    addProviderTiles("CartoDB.Positron")
+
+  # Embed GeoJSON in a separate <script> tag (different ID from the variable map)
+  geojson_tag_clust <- htmltools::tags$script(
+    type = "application/json",
+    id   = "la-geojson-cluster",
+    htmltools::HTML(geojson_str)
+  )
+
+  m_clust <- m_clust %>% onRender(paste0('
+    function(el, x) {
+      var map = this;
+      var clusterCols  = ', cluster_cols_json, ';
+      var clusterLabs  = ', cluster_labs_json, ';
+      var nClusters    = clusterCols.length;
+
+      var geojsonData = JSON.parse(
+        document.getElementById("la-geojson-cluster").textContent
+      );
+
+      /* ---- Colour each LA by cluster ---- */
+      var geoLayer = L.geoJSON(geojsonData, {
+        style: function(feature) {
+          var k = +feature.properties.cluster;
+          return {
+            fillColor: (k >= 1 && k <= nClusters) ? clusterCols[k - 1] : "#cccccc",
+            fillOpacity: 0.7,
+            color: "white",
+            weight: 1.2,
+            opacity: 0.8
+          };
+        },
+        onEachFeature: function(feature, layer) {
+          var p = feature.properties;
+          layer.bindPopup(
+            "<strong>" + (p.LANAME || "") + "</strong><br>" +
+            "Cluster " + p.cluster + ": " + (p.cluster_label || "")
+          );
+          layer.bindTooltip(
+            (p.LANAME || "") + " — " + (p.cluster_label || ""),
+            {direction: "auto"}
+          );
+          layer.on("mouseover", function() {
+            this.setStyle({weight: 3, color: "#333", fillOpacity: 0.9});
+            this.bringToFront();
+          });
+          layer.on("mouseout", function() {
+            var k = +p.cluster;
+            this.setStyle({
+              weight: 1.2, color: "white", fillOpacity: 0.7,
+              fillColor: (k >= 1 && k <= nClusters) ? clusterCols[k - 1] : "#cccccc"
+            });
+          });
+        }
+      }).addTo(map);
+
+      /* ---- Legend ---- */
+      var legend = L.control({position: "topright"});
+      legend.onAdd = function() {
+        var div = L.DomUtil.create("div");
+        div.style.cssText = "background:white;padding:8px 12px;border-radius:5px;" +
+          "box-shadow:0 1px 5px rgba(0,0,0,.25);font-size:12px;line-height:1.8;";
+        var html = "<strong>Cluster</strong><br>";
+        for (var k = 0; k < nClusters; k++) {
+          html += "<i style=\\"background:" + clusterCols[k] +
+            ";width:14px;height:14px;display:inline-block;margin-right:6px;" +
+            "border-radius:2px;vertical-align:middle;\\"></i>" +
+            clusterLabs[k] + "<br>";
+        }
+        div.innerHTML = html;
+        return div;
+      };
+      legend.addTo(map);
+    }
+  '))
+
+  htmltools::tagList(geojson_tag_clust, m_clust)
+
+} else {
+  htmltools::tags$p(
+    "Cluster reference map unavailable.",
+    style = "padding:2em;color:#888;"
+  )
+}
+```
+
+
+# Correlation Matrix {#sec-correlation}
+
+The correlation matrix below shows pairwise Pearson correlations across all **`r n_cluster_vars`**
+variables that survived the filtering pipeline and entered the k-means clustering.
+Variables with \>30% missing, near-zero variance, or \|r\| \> 0.97 redundancy were already removed.
+
+```{r}
+#| label: fig-correlation-matrix
+#| fig-cap: "Correlation heatmap of all clustering variables. Strong positive correlations in red, strong negative in blue."
+#| fig-height: 12
+#| fig-width: 12
+
+# Compute correlation matrix on the imputed clustering variables
+cor_clustering <- cor(cluster_imputed, use = "pairwise.complete.obs")
+
+# Group variables by theme for readability
+var_theme <- case_when(
+  str_detect(clustering_vars, "^att8|^p8|gap") ~ "Attainment",
+  str_detect(clustering_vars, "^pct_fsm|^pct_eal|^pct_prior|^pct_sen|^pct_fsm_ever|^totpups|prior_lo") ~ "Pupils",
+  str_detect(clustering_vars, "^abs_") ~ "Absence",
+  str_detect(clustering_vars, "^ofsted") ~ "Ofsted",
+  str_detect(clustering_vars, "^gorard") ~ "Segregation",
+  str_detect(clustering_vars, "^pct_sel|^pct_comp|^pct_acad|^pct_conv|^pct_spon|^pct_free|^pct_va|^pct_vc|^pct_comm|^pct_relig|^pct_ce|^pct_rc|school_type|^n_schools|^pct_schools") ~ "School Type",
+  str_detect(clustering_vars, "^retention|^sickness|^ptr|^pay|^fte|^leader|^pct_taking") ~ "Workforce",
+  TRUE ~ "Other"
+)
+
+# Order variables by theme
+var_order <- order(var_theme, clustering_vars)
+cor_ordered <- cor_clustering[var_order, var_order]
+theme_ordered <- var_theme[var_order]
+
+# Use plotly heatmap for interactivity
+plot_ly(
+  x = colnames(cor_ordered),
+  y = rownames(cor_ordered),
+  z = cor_ordered,
+  type = "heatmap",
+  colorscale = list(
+    list(0, "#2166ac"),
+    list(0.25, "#92c5de"),
+    list(0.5, "#f7f7f7"),
+    list(0.75, "#f4a582"),
+    list(1, "#b2182b")
+  ),
+  zmin = -1, zmax = 1,
+  hovertemplate = "<b>%{x}</b> vs <b>%{y}</b><br>r = %{z:.3f}<extra></extra>"
+) %>%
+  layout(
+    xaxis = list(tickangle = -90, tickfont = list(size = 7), title = ""),
+    yaxis = list(tickfont = list(size = 7), title = "", autorange = "reversed"),
+    margin = list(l = 120, b = 120, t = 30, r = 30),
+    width = 900,
+    height = 900
+  ) %>%
+  config(displayModeBar = TRUE)
+```
+
+```{r}
+#| label: tbl-cor-theme-summary
+#| tbl-cap: "Mean absolute correlation between variable themes — shows which indicator domains are most strongly interrelated."
+
+# Between-theme average absolute correlation
+themes_unique <- unique(theme_ordered)
+theme_cor_mat <- matrix(NA, length(themes_unique), length(themes_unique),
+                        dimnames = list(themes_unique, themes_unique))
+
+for (i in seq_along(themes_unique)) {
+  for (j in seq_along(themes_unique)) {
+    idx_i <- which(theme_ordered == themes_unique[i])
+    idx_j <- which(theme_ordered == themes_unique[j])
+    sub_cor <- cor_ordered[idx_i, idx_j, drop = FALSE]
+    if (i == j) {
+      # Within-theme: exclude diagonal
+      diag_mask <- matrix(TRUE, nrow(sub_cor), ncol(sub_cor))
+      if (nrow(sub_cor) == ncol(sub_cor)) diag(diag_mask) <- FALSE
+      theme_cor_mat[i, j] <- mean(abs(sub_cor[diag_mask]), na.rm = TRUE)
+    } else {
+      theme_cor_mat[i, j] <- mean(abs(sub_cor), na.rm = TRUE)
+    }
+  }
+}
+
+theme_cor_df <- as.data.frame(round(theme_cor_mat, 3))
+
+kable(theme_cor_df) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 12)
+```
+
+
+# Full Cluster Z-Score Profiles {#sec-zscore-bars}
+
+The radar charts in the methodology report show cluster profiles across 10 key variables. This section
+provides a **comprehensive view of all `r n_cluster_vars` variables** that went into the clustering,
+displaying the mean z-score for each cluster. This reveals which variables most strongly differentiate
+the clusters and which are relatively uniform.
+
+::: {.callout-tip}
+## Reading these charts
+Each bar represents a cluster's mean z-score on that variable. Values above zero indicate the cluster
+is above the England average; below zero means below average. Longer bars mean stronger differentiation.
+Variables are grouped by thematic domain.
+:::
+
+```{r}
+#| label: zscore-data-prep
+#| include: false
+
+# Reshape cluster z-scores for plotting
+z_long <- cluster_z_means %>%
+  pivot_longer(
+    cols = all_of(clustering_vars),
+    names_to = "variable",
+    values_to = "z_score"
+  ) %>%
+  mutate(
+    cluster_label = factor(cluster_label, levels = cluster_labs),
+    theme = case_when(
+      str_detect(variable, "^att8|^p8|gap") ~ "1. Attainment & Progress",
+      str_detect(variable, "^pct_fsm|^pct_eal|^pct_prior|^pct_sen|^pct_fsm_ever|^totpups|prior_lo") ~ "2. Pupil Composition",
+      str_detect(variable, "^abs_") ~ "3. Absence",
+      str_detect(variable, "^ofsted") ~ "4. Ofsted",
+      str_detect(variable, "^gorard") ~ "5. Segregation",
+      str_detect(variable, "^pct_sel|^pct_comp|^pct_acad|^pct_conv|^pct_spon|^pct_free|^pct_va|^pct_vc|^pct_comm|^pct_relig|^pct_ce|^pct_rc|school_type|^n_schools|^pct_schools") ~ "6. School Type",
+      str_detect(variable, "^retention|^sickness|^ptr|^pay|^fte|^leader|^pct_taking") ~ "7. Workforce",
+      TRUE ~ "8. Other / Derived"
+    )
+  )
+
+# Order variables within each theme by the range of z-scores across clusters
+# (most differentiating variables first)
+var_range <- z_long %>%
+  group_by(variable, theme) %>%
+  summarise(z_range = max(z_score) - min(z_score), .groups = "drop") %>%
+  arrange(theme, desc(z_range))
+
+z_long <- z_long %>%
+  mutate(variable = factor(variable, levels = rev(var_range$variable)))
+```
+
+```{r}
+#| label: fig-zscore-bars-all
+#| fig-cap: Mean z-score for each cluster across ALL clustering variables, grouped by theme.
+#| fig-height: 60
+#| fig-width: 11
+#| include: false
+
+ggplot(z_long, aes(x = z_score, y = variable, fill = cluster_label)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7, alpha = 0.85) +
+  geom_vline(xintercept = 0, colour = "grey30", linewidth = 0.5) +
+  scale_fill_manual(values = cluster_cols, name = "Cluster") +
+  facet_wrap(~ theme, scales = "free_y", ncol = 1) +
+  labs(
+    x = "Mean z-score (standard deviations from England average)",
+    y = NULL,
+    title = "Cluster Profiles: All Clustering Variables",
+    subtitle = paste0("Mean z-scores across ", n_cluster_vars,
+                      " variables for each of the ", chosen_k, " clusters")
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "top",
+    strip.text = element_text(face = "bold", size = 12, hjust = 0),
+    panel.grid.major.y = element_blank(),
+    panel.spacing = unit(1, "lines"),
+    axis.text.y = element_text(size = 8)
+  ) +
+  guides(fill = guide_legend(nrow = 1))
+```
+
+## Interactive Z-Score Explorer
+
+The static chart above gives an overview. For detailed exploration, the interactive version below
+allows zooming and hovering to inspect individual variable–cluster combinations.
+
+```{r}
+#| label: fig-zscore-interactive
+#| fig-cap: "Interactive z-score bar chart — hover over bars for exact values. Use the legend to toggle clusters on/off."
+#| fig-height: 12
+
+# Sort variables by theme then by max absolute z-score
+var_sorted <- z_long %>%
+  group_by(variable, theme) %>%
+  summarise(max_abs_z = max(abs(z_score)), .groups = "drop") %>%
+  arrange(theme, max_abs_z) %>%
+  pull(variable) %>%
+  as.character()
+
+p <- plot_ly()
+
+for (k in 1:chosen_k) {
+  k_data <- z_long %>%
+    filter(cluster == k) %>%
+    mutate(variable = factor(as.character(variable), levels = var_sorted))
+
+  p <- p %>%
+    add_trace(
+      data = k_data,
+      x = ~z_score, y = ~variable,
+      type = "bar",
+      orientation = "h",
+      name = cluster_labs[k],
+      marker = list(color = cluster_cols[k], opacity = 0.85),
+      hovertemplate = paste0(
+        "<b>%{y}</b><br>",
+        cluster_labs[k], "<br>",
+        "z-score: %{x:.3f}<extra></extra>"
+      )
+    )
+}
+
+p %>%
+  layout(
+    barmode = "group",
+    xaxis = list(title = "Mean z-score", zeroline = TRUE,
+                 zerolinecolor = "#333", zerolinewidth = 1.5),
+    yaxis = list(title = "", tickfont = list(size = 8),
+                 categoryorder = "array", categoryarray = var_sorted),
+    legend = list(orientation = "h", y = 1.02, font = list(size = 11)),
+    margin = list(l = 180, r = 30, t = 50, b = 50),
+    height = max(400, length(var_sorted) * 18),
+    title = list(
+      text = paste0("All ", n_cluster_vars, " Clustering Variables: Cluster Mean Z-Scores"),
+      font = list(size = 14)
+    )
+  ) %>%
+  config(displayModeBar = TRUE)
+```
+
+## Most Differentiating Variables
+
+Which variables show the greatest separation between clusters?
+Below are the top 30 variables ranked by the **range of cluster-mean z-scores**
+(i.e., the difference between the highest and lowest cluster averages).
+
+```{r}
+#| label: tbl-top-differentiating
+#| tbl-cap: "Top 30 most differentiating variables — ranked by the range of mean z-scores across clusters."
+
+top_diff <- z_long %>%
+  group_by(variable, theme) %>%
+  summarise(
+    z_range   = round(max(z_score) - min(z_score), 3),
+    max_z     = round(max(z_score), 3),
+    min_z     = round(min(z_score), 3),
+    best_cluster  = cluster_label[which.max(z_score)],
+    worst_cluster = cluster_label[which.min(z_score)],
+    .groups = "drop"
+  ) %>%
+  arrange(desc(z_range)) %>%
+  head(30) %>%
+  rename(
+    Variable = variable,
+    Theme = theme,
+    `Z-range` = z_range,
+    `Max z` = max_z,
+    `Min z` = min_z,
+    `Highest cluster` = best_cluster,
+    `Lowest cluster` = worst_cluster
+  )
+
+kable(top_diff, align = "llrrrrll") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = TRUE, font_size = 12) %>%
+  column_spec(3, bold = TRUE)
+```
+
+## Cluster Heatmap
+
+An alternative view — a heatmap of cluster-mean z-scores across all variables, with variables
+ordered by theme and within-theme by differentiating power.
+
+```{r}
+#| label: fig-cluster-heatmap
+#| fig-cap: "Heatmap of cluster-mean z-scores. Red = above England average, blue = below. Variables ordered by theme and differentiating power."
+
+# Create heatmap matrix
+heat_mat <- cluster_z_means %>%
+  arrange(cluster) %>%
+  select(cluster_label, all_of(var_range$variable)) %>%
+  tibble::column_to_rownames("cluster_label") %>%
+  as.matrix()
+
+# Transpose so variables are rows, clusters are columns
+heat_mat_t <- t(heat_mat)
+
+plot_ly(
+  x = colnames(heat_mat_t),
+  y = rownames(heat_mat_t),
+  z = heat_mat_t,
+  type = "heatmap",
+  colorscale = list(
+    list(0, "#2166ac"),
+    list(0.25, "#92c5de"),
+    list(0.5, "#f7f7f7"),
+    list(0.75, "#f4a582"),
+    list(1, "#b2182b")
+  ),
+  zmid = 0,
+  hovertemplate = "<b>%{y}</b><br>Cluster: %{x}<br>z-score: %{z:.3f}<extra></extra>"
+) %>%
+  layout(
+    xaxis = list(title = "", tickfont = list(size = 10)),
+    yaxis = list(title = "", tickfont = list(size = 7), autorange = "reversed"),
+    margin = list(l = 180, b = 50, t = 30, r = 30),
+    height = max(500, nrow(heat_mat_t) * 12),
+    width = 800
+  ) %>%
+  config(displayModeBar = TRUE)
+```
+
+
+# Appendix: Variable Inventory {#sec-inventory}
+
+Complete list of the **`r n_cluster_vars`** variables that passed through the filtering pipeline
+and entered the k-means clustering.
+
+```{r}
+#| label: tbl-variable-inventory
+#| tbl-cap: "All variables used in clustering, with theme assignment, missingness, and summary statistics."
+
+var_inventory <- tibble(
+  Variable = clustering_vars,
+  Theme = var_theme,
+  `N non-missing` = sapply(clustering_vars, function(v) sum(!is.na(la_ind[[v]]))),
+  Mean = sapply(clustering_vars, function(v) round(mean(la_ind[[v]], na.rm = TRUE), 3)),
+  SD = sapply(clustering_vars, function(v) round(sd(la_ind[[v]], na.rm = TRUE), 3)),
+  Min = sapply(clustering_vars, function(v) round(min(la_ind[[v]], na.rm = TRUE), 3)),
+  Max = sapply(clustering_vars, function(v) round(max(la_ind[[v]], na.rm = TRUE), 3))
+) %>%
+  arrange(Theme, Variable)
+
+kable(var_inventory, align = "llrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = TRUE, font_size = 11) %>%
+  scroll_box(height = "500px") %>%
+  pack_rows(index = table(var_inventory$Theme)[unique(var_inventory$Theme)])
+```
