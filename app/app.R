@@ -108,8 +108,8 @@ ui <- page_navbar(
           ),
           tags$a(
             href = "https://www.ukri.org/", target = "_blank",
-            tags$img(src = "ukri_logo.png", alt = "UKRI: UK Research and Innovation",
-                     style = "height: 45px; filter: brightness(0) invert(1);")
+            tags$img(src = "ukri_logo_white.png", alt = "UKRI: UK Research and Innovation",
+                     style = "height: 45px;")
           )
         )
       )
