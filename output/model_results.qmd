@@ -384,7 +384,7 @@ names(panel_fit)[2:8] <- c(
 )
 
 panel_fit %>%
-  kable(align = "lrrrrrrrrr", escape = FALSE) %>%
+  kable(format = "html", align = "lrrrrrrrrr", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11)
 ```
@@ -523,7 +523,7 @@ names(yearly_fit)[5:7] <- c(
 )
 
 yearly_fit %>%
-  kable(align = "llrrrr", escape = FALSE) %>%
+  kable(format = "html", align = "llrrrr", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11) %>%
   collapse_rows(columns = 1, valign = "top")
@@ -695,7 +695,7 @@ names(core_panel_fit)[2:8] <- c(
 )
 
 core_panel_fit %>%
-  kable(align = "lrrrrrrrrr", escape = FALSE) %>%
+  kable(format = "html", align = "lrrrrrrrrr", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11)
 ```
@@ -728,7 +728,7 @@ names(core_yearly_fit)[5:7] <- c(
 )
 
 core_yearly_fit %>%
-  kable(align = "llrrrr", escape = FALSE) %>%
+  kable(format = "html", align = "llrrrr", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11) %>%
   collapse_rows(columns = 1, valign = "top")
