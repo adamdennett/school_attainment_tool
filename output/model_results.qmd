@@ -516,7 +516,7 @@ yearly_fit <- map_dfr(names(yearly_diag), function(yr) {
   })
 })
 
-names(yearly_fit)[5:7] <- c(
+names(yearly_fit)[4:6] <- c(
   "R\u00b2<sub>m</sub>",
   "R\u00b2<sub>c</sub>",
   "\u03c3"
@@ -721,7 +721,7 @@ core_yearly_fit <- map_dfr(names(core_yearly_diag), function(yr) {
   })
 })
 
-names(core_yearly_fit)[5:7] <- c(
+names(core_yearly_fit)[4:6] <- c(
   "R\u00b2<sub>m</sub>",
   "R\u00b2<sub>c</sub>",
   "\u03c3"
