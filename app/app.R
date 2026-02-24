@@ -145,8 +145,8 @@ ui <- page_navbar(
             tags$strong("up to 85% of the variation"), " in Attainment 8 scores across state secondary ",
             "in England over four years."),
           tags$p("This is a very good model. And means that, on average, school-level attainment is both predictable and to some extent, controllable. The sliders in the policy simulator allow you to experiment with this control."),
-          tags$p("Where schools do better or worse than expected, this is attributable to other unobserved factors ",
-            "which might include things like leadership quality, teaching practice, culture, and ethos."
+          tags$p("Where schools do better or worse than expected, this is attributable to other unobserved factors at different levels - statistically this is usually termed model error, but in reality includes the things that are hard to measure",
+            "and which might include factors like leadership quality, teaching practice, culture, and ethos at the school-level, or random variation in individual pupil characteristics which aren't controlled for in a school-level model."
           ),
           tags$p(
             "Separate models are fitted for all pupils, disadvantaged pupils, and non-disadvantaged ",

@@ -61,6 +61,11 @@ core_diag        <- readRDS(here::here("data", "model_diagnostics_core.rds"))
 core_yearly_models <- readRDS(here::here("data", "models_yearly_core.rds"))
 core_yearly_diag <- readRDS(here::here("data", "model_diagnostics_yearly_core.rds"))
 
+# Imputed full models (Analysis E: 9 predictors, all 4 years with carry-forward imputed 2024-25)
+imputed_model_data <- readRDS(here::here("data", "model_data_imputed.rds"))
+imputed_models     <- readRDS(here::here("data", "models_imputed.rds"))
+imputed_diag       <- readRDS(here::here("data", "model_diagnostics_imputed.rds"))
+
 # Outcome configuration
 OUTCOMES <- list(
   all               = "ATT8SCR",
@@ -245,6 +250,285 @@ ggplot(cor_long, aes(x = var2, y = var1, fill = r)) +
   theme_pub +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
         axis.text.y = element_text(size = 8))
+```
+
+
+## Bivariate Relationship Plots
+
+The interactive scatter plot below allows exploration of the bivariate relationships between each Attainment 8 outcome and the predictor variables as they enter the multilevel model (log-transformed where applicable). Use the dropdowns to select the outcome variable (y-axis), predictor (x-axis), and filter by academic year.
+
+```{r fig-bivariate}
+#| label: fig-bivariate
+
+library(plotly)
+library(htmltools)
+library(jsonlite)
+
+# --- Prepare data with log-transformed predictors matching the model spec ---
+bivar_df <- model_data %>%
+  mutate(
+    `log(% Disadvantaged)` = log(PTFSM6CLA1A),
+    `log(% Absence)` = log(PERCTOT),
+    `log(% EAL)` = log(PNUMEAL),
+    `% Low Prior Attainment (KS2)` = PTPRIORLO,
+    `Gorard Segregation Index` = gorard_segregation,
+    `log(Teachers Remaining FTE)` = log(remained_in_the_same_school),
+    `% Teachers on Leadership Pay` = teachers_on_leadership_pay_range_percent,
+    `log(Avg. Teacher Sickness Days)` = log(average_number_of_days_taken)
+  ) %>%
+  filter(!is.na(ATT8SCR))
+
+# Hover label
+if ("SCHNAME" %in% names(bivar_df) && "LANAME" %in% names(bivar_df)) {
+  bivar_df$hover_label <- paste0(bivar_df$SCHNAME, " (", bivar_df$LANAME, ")")
+} else {
+  bivar_df$hover_label <- paste0("URN ", bivar_df$URN)
+}
+
+# Predictor columns (as they appear in the model formula)
+pred_cols <- c(
+  "log(% Disadvantaged)",
+  "log(% Absence)",
+  "log(% EAL)",
+  "% Low Prior Attainment (KS2)",
+  "Gorard Segregation Index",
+  "log(Teachers Remaining FTE)",
+  "% Teachers on Leadership Pay",
+  "log(Avg. Teacher Sickness Days)"
+)
+pred_cols <- pred_cols[vapply(pred_cols, function(pc) any(!is.na(bivar_df[[pc]])), logical(1))]
+
+# Outcome columns
+outcome_cols <- c(
+  ATT8SCR             = "Attainment 8 — All Pupils",
+  ATT8SCR_FSM6CLA1A   = "Attainment 8 — Disadvantaged",
+  ATT8SCR_NFSM6CLA1A  = "Attainment 8 — Non-Disadvantaged"
+)
+
+# Split by year
+years <- as.character(sort(unique(bivar_df$year_label)))
+year_dfs <- lapply(years, function(yr) bivar_df[bivar_df$year_label == yr, ])
+names(year_dfs) <- years
+
+yr_colours <- c("#1565c0", "#c62828", "#2e7d32", "#e65100")
+n_tr <- length(years)
+
+# --- Build base plotly figure (one trace per year, no updatemenus) ---
+fig <- plot_ly()
+for (i in seq_along(years)) {
+  df_i <- year_dfs[[i]]
+  fig <- fig %>%
+    add_markers(
+      x = df_i[["log(% Disadvantaged)"]],
+      y = df_i[["ATT8SCR"]],
+      text = df_i[["hover_label"]],
+      name = years[i],
+      marker = list(color = yr_colours[i], opacity = 0.35, size = 4),
+      hovertemplate = paste0(
+        "<b>%{text}</b><br>",
+        "x: %{x:.3f}<br>y: %{y:.2f}",
+        "<extra>", years[i], "</extra>"
+      )
+    )
+}
+
+# Regression line trace (initially hidden — JS computes OLS and shows on load)
+fig <- fig %>%
+  add_lines(
+    x = c(0, 1), y = c(0, 1),
+    name = "OLS fit",
+    line = list(color = "#c62828", width = 2),
+    showlegend = FALSE,
+    hoverinfo = "skip",
+    visible = FALSE
+  )
+
+fig <- fig %>%
+  layout(
+    xaxis  = list(title = pred_cols[1]),
+    yaxis  = list(title = unname(outcome_cols[1])),
+    legend = list(orientation = "h", x = 0.2, y = -0.12),
+    margin = list(t = 30, l = 80)
+  )
+
+fig$elementId <- "bivar-scatter"
+
+# --- Pack column data into JSON for the JS updater ---
+js_data <- list()
+for (yr in years) {
+  yr_list <- list()
+  df <- year_dfs[[yr]]
+  for (pc in pred_cols)          yr_list[[pc]] <- round(df[[pc]], 5)
+  for (oc in names(outcome_cols)) yr_list[[oc]] <- round(df[[oc]], 4)
+  js_data[[yr]] <- yr_list
+}
+
+# --- HTML dropdown controls (rendered above the plot) ---
+select_style <- paste0(
+  "padding:6px 10px; border:1px solid #bbb; border-radius:4px;",
+  "font-size:0.88em; background:#fff; cursor:pointer;"
+)
+label_style <- paste0(
+  "font-weight:600; font-size:0.82em; display:block;",
+  "margin-bottom:4px; color:#555;"
+)
+
+controls <- tags$div(
+  style = "display:flex; gap:24px; margin-bottom:14px; flex-wrap:wrap; align-items:end;",
+  tags$div(
+    tags$label("Outcome (y-axis):", `for` = "bivar-outcome", style = label_style),
+    tags$select(
+      id = "bivar-outcome", style = paste0(select_style, "min-width:230px;"),
+      lapply(seq_along(outcome_cols), function(k)
+        tags$option(value = names(outcome_cols)[k], unname(outcome_cols[k])))
+    )
+  ),
+  tags$div(
+    tags$label("Predictor (x-axis):", `for` = "bivar-predictor", style = label_style),
+    tags$select(
+      id = "bivar-predictor", style = paste0(select_style, "min-width:270px;"),
+      lapply(pred_cols, function(pc) tags$option(value = pc, pc))
+    )
+  ),
+  tags$div(
+    tags$label("Year:", `for` = "bivar-year", style = label_style),
+    tags$select(
+      id = "bivar-year", style = paste0(select_style, "min-width:140px;"),
+      tags$option(value = "all", "All Years"),
+      lapply(years, function(yr) tags$option(value = yr, yr))
+    )
+  )
+)
+
+# --- JavaScript: wire controls -> Plotly.restyle / relayout + live OLS ---
+js_block <- tags$script(HTML(sprintf('
+(function() {
+  var DATA  = %s;
+  var YEARS = %s;
+  var N     = YEARS.length;
+  var LINE  = N;  /* trace index of the OLS regression line */
+
+  /* ---- Ordinary Least Squares from two arrays ---- */
+  function fitOLS(xAll, yAll) {
+    var x = [], y = [];
+    for (var i = 0; i < xAll.length; i++) {
+      if (xAll[i] != null && yAll[i] != null &&
+          isFinite(xAll[i]) && isFinite(yAll[i])) {
+        x.push(xAll[i]); y.push(yAll[i]);
+      }
+    }
+    var n = x.length;
+    if (n < 3) return null;
+    var sx=0, sy=0, sxx=0, sxy=0, syy=0;
+    for (var i = 0; i < n; i++) {
+      sx += x[i]; sy += y[i];
+      sxx += x[i]*x[i]; sxy += x[i]*y[i]; syy += y[i]*y[i];
+    }
+    var xb = sx/n, yb = sy/n;
+    var Sxx = sxx - n*xb*xb, Sxy = sxy - n*xb*yb, Syy = syy - n*yb*yb;
+    if (Sxx === 0) return null;
+    var b1 = Sxy / Sxx, b0 = yb - b1 * xb;
+    var SSres = 0;
+    for (var i = 0; i < n; i++) {
+      var r = y[i] - (b0 + b1*x[i]); SSres += r*r;
+    }
+    var r2 = (Syy > 0) ? 1 - SSres/Syy : 0;
+    var xmin = x[0], xmax = x[0];
+    for (var i = 1; i < n; i++) {
+      if (x[i] < xmin) xmin = x[i];
+      if (x[i] > xmax) xmax = x[i];
+    }
+    return { b0:b0, b1:b1, r2:r2, n:n, xmin:xmin, xmax:xmax };
+  }
+
+  /* ---- Main update ---- */
+  function update() {
+    var gd = document.getElementById("bivar-scatter");
+    if (!gd || !gd._fullLayout) return;
+
+    var outVal  = document.getElementById("bivar-outcome").value;
+    var predVal = document.getElementById("bivar-predictor").value;
+    var yrVal   = document.getElementById("bivar-year").value;
+
+    var xArr = [], yArr = [], visArr = [];
+    var allX = [], allY = [];
+    for (var i = 0; i < N; i++) {
+      var yr = YEARS[i];
+      var xd = DATA[yr][predVal] || [];
+      var yd = DATA[yr][outVal]  || [];
+      xArr.push(xd); yArr.push(yd);
+      var vis = (yrVal === "all" || yr === yrVal);
+      visArr.push(vis);
+      if (vis) {
+        for (var j = 0; j < xd.length; j++) {
+          allX.push(xd[j]); allY.push(yd[j]);
+        }
+      }
+    }
+
+    /* update scatter traces (indices 0..N-1) */
+    var idx = []; for (var i = 0; i < N; i++) idx.push(i);
+    Plotly.restyle(gd, { x: xArr, y: yArr, visible: visArr }, idx);
+
+    /* compute OLS and update regression line + annotation */
+    var outLabel = document.getElementById("bivar-outcome")
+                     .selectedOptions[0].text;
+    var fit = fitOLS(allX, allY);
+
+    if (fit) {
+      Plotly.restyle(gd, {
+        x: [[ fit.xmin, fit.xmax ]],
+        y: [[ fit.b0 + fit.b1*fit.xmin, fit.b0 + fit.b1*fit.xmax ]],
+        visible: [true]
+      }, [LINE]);
+
+      var sign = (fit.b1 >= 0) ? " + " : " \\u2212 ";
+      var eqn  = "\\u0177 = " + fit.b0.toFixed(2) + sign +
+                 Math.abs(fit.b1).toFixed(3) + "x" +
+                 "\\u2003\\u2003R\\u00b2 = " + fit.r2.toFixed(3) +
+                 "\\u2003\\u2003n = " + fit.n.toLocaleString();
+
+      Plotly.relayout(gd, {
+        "xaxis.title": predVal,
+        "yaxis.title": outLabel,
+        annotations: [{
+          text: eqn,
+          xref: "paper", yref: "paper",
+          x: 0.02, y: 0.98,
+          xanchor: "left", yanchor: "top",
+          showarrow: false,
+          font: { size: 12.5, color: "#c62828", family: "monospace" },
+          bgcolor: "rgba(255,255,255,0.88)",
+          borderpad: 5
+        }]
+      });
+    } else {
+      Plotly.restyle(gd, { visible: [false] }, [LINE]);
+      Plotly.relayout(gd, {
+        "xaxis.title": predVal,
+        "yaxis.title": outLabel,
+        annotations: []
+      });
+    }
+  }
+
+  ["bivar-outcome","bivar-predictor","bivar-year"].forEach(function(id) {
+    document.getElementById(id).addEventListener("change", update);
+  });
+
+  /* poll until the plotly widget is initialised, then sync once */
+  var poll = setInterval(function() {
+    var gd = document.getElementById("bivar-scatter");
+    if (gd && gd._fullLayout) { clearInterval(poll); update(); }
+  }, 250);
+})();
+',
+  toJSON(js_data, digits = 5, na = "null", auto_unbox = FALSE),
+  toJSON(years)
+)))
+
+# --- Render: controls, then plot widget, then JS wiring ---
+htmltools::tagList(controls, fig, js_block)
 ```
 
 
@@ -811,15 +1095,185 @@ core_yearly_coef_wide %>%
 ```
 
 
+# Imputed Full Panel Models (Analysis E)
+
+The imputed full model uses the same 9-predictor specification as Analysis A, but extends coverage to all four academic years by carry-forward imputing the four variables unavailable for 2024-25 (`PTPRIORLO`, `remained_in_the_same_school`, `teachers_on_leadership_pay_range_percent`, `average_number_of_days_taken`). Each school's 2023-24 value is used (or the 3-year mean as a fallback). This is the model used in the Shiny app.
+
+$$
+\log(y_{ij}) = \mathbf{X}_{ij}\boldsymbol{\beta} + u_{\text{year}} + u_{\text{Ofsted}} + u_{\text{region}} + u_{\text{LA}} + \varepsilon_{ij}
+$$
+
+
+## Imputed Panel: Fixed Effects
+
+```{r tbl-imputed-panel-fixed}
+#| label: tbl-imputed-panel-fixed
+#| tbl-cap: "Fixed effect estimates from imputed full panel models (Analysis E: 9 predictors, all 4 years)"
+
+imputed_fe <- map_dfr(names(imputed_models), function(mn) {
+  m <- imputed_models[[mn]]
+  fe <- as.data.frame(summary(m)$coefficients)
+  fe$term <- rownames(fe)
+
+  fe %>%
+    transmute(
+      Model = outcome_labels[mn],
+      Term = sapply(term, function(t) {
+        raw <- gsub("^log\\((.+)\\)$", "\\1", t)
+        lbl <- var_label(raw)
+        if (grepl("^log\\(", t)) lbl <- paste0("log(", lbl, ")")
+        lbl
+      }),
+      Estimate = round(Estimate, 4),
+      `Std. Error` = round(`Std. Error`, 4),
+      `t value` = round(`t value`, 2),
+      `p value` = ifelse(`Pr(>|t|)` < 0.001, "< 0.001",
+                         ifelse(`Pr(>|t|)` < 0.01, "< 0.01",
+                                ifelse(`Pr(>|t|)` < 0.05, "< 0.05",
+                                       round(`Pr(>|t|)`, 3))))
+    )
+})
+
+imputed_fe %>%
+  kable(align = "llrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+
+## Imputed Panel: Coefficient Comparison Plot
+
+```{r fig-imputed-coefs}
+#| label: fig-imputed-coefs
+#| fig-cap: "Fixed effect estimates with 95% confidence intervals (imputed full panel models, Analysis E)"
+#| fig-height: 7
+
+imputed_coef_data <- map_dfr(names(imputed_models), function(mn) {
+  m <- imputed_models[[mn]]
+  fe <- as.data.frame(summary(m)$coefficients)
+  fe$term <- rownames(fe)
+
+  fe %>%
+    filter(term != "(Intercept)") %>%
+    transmute(
+      model = outcome_labels[mn],
+      term_raw = term,
+      term_label = sapply(term, function(t) {
+        raw <- gsub("^log\\((.+)\\)$", "\\1", t)
+        lbl <- var_label(raw)
+        if (grepl("^log\\(", t)) lbl <- paste0("log(", lbl, ")")
+        lbl
+      }),
+      estimate = Estimate,
+      se = `Std. Error`,
+      ci_lo = Estimate - 1.96 * `Std. Error`,
+      ci_hi = Estimate + 1.96 * `Std. Error`
+    )
+})
+
+ggplot(imputed_coef_data,
+       aes(x = estimate, y = reorder(term_label, estimate),
+           colour = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = ci_lo, xmax = ci_hi),
+                  position = position_dodge(width = 0.6), size = 0.4) +
+  scale_colour_manual(values = c("All Pupils" = "#1565c0",
+                                 "Disadvantaged" = "#c62828",
+                                 "Non-Disadvantaged" = "#2e7d32"),
+                      name = NULL) +
+  labs(x = "Estimate (log scale)", y = NULL,
+       subtitle = "Points = estimate; bars = 95% CI. Analysis E (imputed full, all 4 years)") +
+  theme_pub
+```
+
+
+## Imputed Panel: Random Effects & Model Fit
+
+```{r tbl-imputed-panel-random}
+#| label: tbl-imputed-panel-random
+#| tbl-cap: "Random effect variance components and model fit statistics (imputed full panel models, Analysis E)"
+
+imputed_fit <- map_dfr(names(imputed_models), function(mn) {
+  m <- imputed_models[[mn]]
+  d <- imputed_diag[[mn]]
+  vc <- as.data.frame(VarCorr(m))
+
+  var_year   <- vc$vcov[vc$grp == "year_label"]
+  var_ofsted <- vc$vcov[vc$grp == "OFSTEDRATING_1"]
+  var_la     <- vc$vcov[vc$grp == "LANAME:gor_name"]
+  var_region <- vc$vcov[vc$grp == "gor_name"]
+  var_resid  <- d$sigma^2
+
+  tibble(
+    Model = outcome_labels[mn],
+    var_year   = round(var_year, 6),
+    var_ofsted = round(var_ofsted, 6),
+    var_la     = round(var_la, 6),
+    var_region = round(var_region, 6),
+    var_resid  = round(var_resid, 6),
+    r2m = round(d$r2_marginal, 4),
+    r2c = round(d$r2_conditional, 4),
+    N = d$n_obs
+  )
+})
+
+names(imputed_fit)[2:8] <- c(
+  paste0("\u03c3\u00b2", "<sub>year</sub>"),
+  paste0("\u03c3\u00b2", "<sub>Ofsted</sub>"),
+  paste0("\u03c3\u00b2", "<sub>LA</sub>"),
+  paste0("\u03c3\u00b2", "<sub>region</sub>"),
+  paste0("\u03c3\u00b2", "<sub>resid</sub>"),
+  "R\u00b2<sub>m</sub>",
+  "R\u00b2<sub>c</sub>"
+)
+
+imputed_fit %>%
+  kable(format = "html", align = "lrrrrrrrrr", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11)
+```
+
+
+## Analysis A vs Analysis E: Coefficient Comparison
+
+Adding one year of carry-forward imputed data (Analysis E) produces coefficients that are very close to the original 3-year full model (Analysis A). This is reassuring: three-quarters of the data is identical, and the imputed fourth year uses conservative carry-forward values.
+
+```{r tbl-a-vs-e}
+#| label: tbl-a-vs-e
+#| tbl-cap: "Coefficient comparison: Analysis A (3-year full) vs Analysis E (4-year imputed full)"
+
+a_vs_e <- bind_rows(
+  tibble(Analysis = "A (Full, 3 yrs)",
+         Term = names(fixef(panel_models$all)),
+         `All Pupils` = fixef(panel_models$all),
+         Disadvantaged = fixef(panel_models$disadvantaged),
+         `Non-Disadvantaged` = fixef(panel_models$non_disadvantaged)),
+  tibble(Analysis = "E (Imputed, 4 yrs)",
+         Term = names(fixef(imputed_models$all)),
+         `All Pupils` = fixef(imputed_models$all),
+         Disadvantaged = fixef(imputed_models$disadvantaged),
+         `Non-Disadvantaged` = fixef(imputed_models$non_disadvantaged))
+) %>%
+  mutate(across(where(is.numeric), \(x) round(x, 5)))
+
+a_vs_e %>%
+  kable(align = "llrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+
 # Observed vs Predicted
 
-The scatter plots below show observed Attainment 8 scores against core-model fitted values for each of the four academic years. Schools in **Brighton and Hove** are highlighted in orange. A linear regression line (red) with R² is overlaid on each panel; the dashed grey line marks perfect prediction.
+The scatter plots below show observed Attainment 8 scores against imputed-full-model fitted values (Analysis E) for each of the four academic years. Schools in **Brighton and Hove** are highlighted in orange. A linear regression line (red) with R² is overlaid on each panel; the dashed grey line marks perfect prediction.
 
 ## All Pupils
 
 ```{r fig-obs-vs-pred-all}
 #| label: fig-obs-vs-pred-all
-#| fig-cap: "Observed vs predicted Attainment 8 — All Pupils (core model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — All Pupils (imputed full model, by year). Brighton and Hove schools in orange."
 #| fig-height: 8
 #| fig-width: 10
 
@@ -827,9 +1281,9 @@ HIGHLIGHT_LA <- "Brighton and Hove"
 
 # Prepare data with highlight flag
 pred_data <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_core), !is.na(ATT8SCR)) %>%
+  filter(!is.na(predicted_ATT8SCR_imputed), !is.na(ATT8SCR)) %>%
   mutate(
-    residual = ATT8SCR - predicted_ATT8SCR_core,
+    residual = ATT8SCR - predicted_ATT8SCR_imputed,
     abs_resid = abs(residual),
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA))
@@ -840,13 +1294,13 @@ pred_data <- panel_data %>%
 r2_labels <- pred_data %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR, predicted_ATT8SCR_core, use = "complete.obs")^2,
+    r2 = cor(ATT8SCR, predicted_ATT8SCR_imputed, use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R\u00b2 = ", round(r2, 3), "  (n = ", scales::comma(n), ")"))
 
-ggplot(pred_data, aes(x = predicted_ATT8SCR_core, y = ATT8SCR)) +
+ggplot(pred_data, aes(x = predicted_ATT8SCR_imputed, y = ATT8SCR)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight), size = 1) +
@@ -860,7 +1314,7 @@ ggplot(pred_data, aes(x = predicted_ATT8SCR_core, y = ATT8SCR)) +
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 (core model)", y = "Observed ATT8",
+  labs(x = "Predicted ATT8 (imputed full model)", y = "Observed ATT8",
        colour = NULL) +
   coord_equal() +
   theme_pub +
@@ -875,9 +1329,9 @@ library(scales)
 
 # 1. Prepare data (same as your original logic)
 pred_data <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_core), !is.na(ATT8SCR)) %>%
+  filter(!is.na(predicted_ATT8SCR_imputed), !is.na(ATT8SCR)) %>%
   mutate(
-    residual = ATT8SCR - predicted_ATT8SCR_core,
+    residual = ATT8SCR - predicted_ATT8SCR_imputed,
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA)),
     # Custom tooltip text
@@ -885,7 +1339,7 @@ pred_data <- panel_data %>%
       "LA: ", LANAME, 
       "<br>Sch:", SCHNAME,
       "<br>Observed: ", round(ATT8SCR, 2),
-      "<br>Predicted: ", round(predicted_ATT8SCR_core, 2),
+      "<br>Predicted: ", round(predicted_ATT8SCR_imputed, 2),
       "<br>Residual: ", round(residual, 2)
     )
   ) %>%
@@ -895,14 +1349,14 @@ pred_data <- panel_data %>%
 r2_labels <- pred_data %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR, predicted_ATT8SCR_core, use = "complete.obs")^2,
+    r2 = cor(ATT8SCR, predicted_ATT8SCR_imputed, use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R² = ", round(r2, 3), " (n = ", comma(n), ")"))
 
 # 3. Build the ggplot object
-p <- ggplot(pred_data, aes(x = predicted_ATT8SCR_core, y = ATT8SCR)) +
+p <- ggplot(pred_data, aes(x = predicted_ATT8SCR_imputed, y = ATT8SCR)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", 
               linewidth = 0.5, linetype = "dashed") +
   # We add 'text' aesthetic here for the Plotly tooltip
@@ -917,7 +1371,7 @@ p <- ggplot(pred_data, aes(x = predicted_ATT8SCR_core, y = ATT8SCR)) +
   scale_alpha_manual(values = c("Other" = 0.2, 
                                 "Brighton and Hove" = 0.9), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 (core model)", y = "Observed ATT8", colour = NULL) +
+  labs(x = "Predicted ATT8 (imputed full model)", y = "Observed ATT8", colour = NULL) +
   theme_minimal() + # Use minimal for cleaner plotly conversion
   theme(legend.position = "bottom")
 
@@ -936,12 +1390,12 @@ ggplotly(p, tooltip = "text") %>%
 
 ```{r fig-obs-vs-pred-disadv}
 #| label: fig-obs-vs-pred-disadv
-#| fig-cap: "Observed vs predicted Attainment 8 — Disadvantaged Pupils (core model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in orange."
 #| fig-height: 8
 #| fig-width: 10
 
 pred_disadv <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_FSM6CLA1A_core), !is.na(ATT8SCR_FSM6CLA1A)) %>%
+  filter(!is.na(predicted_ATT8SCR_FSM6CLA1A_imputed), !is.na(ATT8SCR_FSM6CLA1A)) %>%
   mutate(
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA))
@@ -951,14 +1405,14 @@ pred_disadv <- panel_data %>%
 r2_disadv <- pred_disadv %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_core,
+    r2 = cor(ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_imputed,
              use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R\u00b2 = ", round(r2, 3), "  (n = ", scales::comma(n), ")"))
 
-ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_core,
+ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_imputed,
                          y = ATT8SCR_FSM6CLA1A)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
@@ -973,7 +1427,7 @@ ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_core,
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 — Disadvantaged (core model)",
+  labs(x = "Predicted ATT8 — Disadvantaged (imputed full model)",
        y = "Observed ATT8 — Disadvantaged",
        colour = NULL) +
   coord_equal() +
@@ -989,9 +1443,9 @@ library(scales)
 
 # 1. Prepare data for Disadvantaged subset
 pred_disadv <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_FSM6CLA1A_core), !is.na(ATT8SCR_FSM6CLA1A)) %>%
+  filter(!is.na(predicted_ATT8SCR_FSM6CLA1A_imputed), !is.na(ATT8SCR_FSM6CLA1A)) %>%
   mutate(
-    residual = ATT8SCR_FSM6CLA1A - predicted_ATT8SCR_FSM6CLA1A_core,
+    residual = ATT8SCR_FSM6CLA1A - predicted_ATT8SCR_FSM6CLA1A_imputed,
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA)),
     # Enhanced tooltip for disadvantaged context
@@ -1000,7 +1454,7 @@ pred_disadv <- panel_data %>%
       "LA: ", LANAME, 
       "<br>Sch:", SCHNAME,
       "<br>Observed (Disadv): ", round(ATT8SCR_FSM6CLA1A, 2),
-      "<br>Predicted (Disadv): ", round(predicted_ATT8SCR_FSM6CLA1A_core, 2),
+      "<br>Predicted (Disadv): ", round(predicted_ATT8SCR_FSM6CLA1A_imputed, 2),
       "<br>Residual: ", round(residual, 2)
     )
   ) %>%
@@ -1010,14 +1464,14 @@ pred_disadv <- panel_data %>%
 r2_disadv_stats <- pred_disadv %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_core, use = "complete.obs")^2,
+    r2 = cor(ATT8SCR_FSM6CLA1A, predicted_ATT8SCR_FSM6CLA1A_imputed, use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R² = ", round(r2, 3), " (n = ", comma(n), ")"))
 
 # 3. Build the ggplot object
-p_disadv <- ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_core, 
+p_disadv <- ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_imputed, 
                                    y = ATT8SCR_FSM6CLA1A)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", 
               linewidth = 0.5, linetype = "dashed") +
@@ -1052,12 +1506,12 @@ ggplotly(p_disadv, tooltip = "text") %>%
 
 ```{r fig-obs-vs-pred-nondisadv}
 #| label: fig-obs-vs-pred-nondisadv
-#| fig-cap: "Observed vs predicted Attainment 8 — Non-Disadvantaged Pupils (core model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — Non-Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in orange."
 #| fig-height: 8
 #| fig-width: 10
 
 pred_nondisadv <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_NFSM6CLA1A_core), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
+  filter(!is.na(predicted_ATT8SCR_NFSM6CLA1A_imputed), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
   mutate(
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA))
@@ -1067,14 +1521,14 @@ pred_nondisadv <- panel_data %>%
 r2_nondisadv <- pred_nondisadv %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_core,
+    r2 = cor(ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_imputed,
              use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R\u00b2 = ", round(r2, 3), "  (n = ", scales::comma(n), ")"))
 
-ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_core,
+ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_imputed,
                             y = ATT8SCR_NFSM6CLA1A)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
@@ -1089,7 +1543,7 @@ ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_core,
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 — Non-Disadvantaged (core model)",
+  labs(x = "Predicted ATT8 — Non-Disadvantaged (imputed full model)",
        y = "Observed ATT8 — Non-Disadvantaged",
        colour = NULL) +
   coord_equal() +
@@ -1105,9 +1559,9 @@ library(scales)
 
 # 1. Prepare data for Non-Disadvantaged subset
 pred_nondisadv <- panel_data %>%
-  filter(!is.na(predicted_ATT8SCR_NFSM6CLA1A_core), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
+  filter(!is.na(predicted_ATT8SCR_NFSM6CLA1A_imputed), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
   mutate(
-    residual = ATT8SCR_NFSM6CLA1A - predicted_ATT8SCR_NFSM6CLA1A_core,
+    residual = ATT8SCR_NFSM6CLA1A - predicted_ATT8SCR_NFSM6CLA1A_imputed,
     highlight = ifelse(LANAME == HIGHLIGHT_LA, HIGHLIGHT_LA, "Other"),
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA)),
     # Custom tooltip
@@ -1116,7 +1570,7 @@ pred_nondisadv <- panel_data %>%
       "LA: ", LANAME, 
       "<br>Sch:", SCHNAME,
       "<br>Observed (Non-Disadv): ", round(ATT8SCR_NFSM6CLA1A, 2),
-      "<br>Predicted (Non-Disadv): ", round(predicted_ATT8SCR_NFSM6CLA1A_core, 2),
+      "<br>Predicted (Non-Disadv): ", round(predicted_ATT8SCR_NFSM6CLA1A_imputed, 2),
       "<br>Residual: ", round(residual, 2)
     )
   ) %>%
@@ -1126,14 +1580,14 @@ pred_nondisadv <- panel_data %>%
 r2_nondisadv_stats <- pred_nondisadv %>%
   group_by(year_label) %>%
   summarise(
-    r2 = cor(ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_core, use = "complete.obs")^2,
+    r2 = cor(ATT8SCR_NFSM6CLA1A, predicted_ATT8SCR_NFSM6CLA1A_imputed, use = "complete.obs")^2,
     n  = n(),
     .groups = "drop"
   ) %>%
   mutate(label = paste0("R² = ", round(r2, 3), " (n = ", comma(n), ")"))
 
 # 3. Build the ggplot object
-p_nondisadv <- ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_core, 
+p_nondisadv <- ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_imputed, 
                                          y = ATT8SCR_NFSM6CLA1A)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", 
               linewidth = 0.5, linetype = "dashed") +
@@ -1277,6 +1731,19 @@ Same 5 core fixed effects, separate model per year (no year term):
 log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   ADMPOL_PT + gorard_segregation +
   (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+```
+
+## Imputed Full Panel Model (Analysis E)
+
+Same 9-predictor specification as Analysis A, but covering all 4 years (2024-25 uses carry-forward imputed workforce and prior-attainment values). This is the model used in the Shiny app and for Observed vs Predicted plots.
+
+```
+log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  log(remained_in_the_same_school) +
+  teachers_on_leadership_pay_range_percent +
+  log(average_number_of_days_taken) +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
 ```
 
 ## Variable Definitions

@@ -228,8 +228,7 @@ variable_display_name <- function(var_name) {
     gorard_segregation = "LA Segregation Index",
     remained_in_the_same_school = "Teachers Remaining at School",
     teachers_on_leadership_pay_range_percent = "Leadership Pay Range (%)",
-    average_number_of_days_taken = "Teacher Sickness Days (avg)",
-    year_numeric = "Year (trend)"
+    average_number_of_days_taken = "Teacher Sickness Days (avg)"
   )
 
   ifelse(var_name %in% names(display_map), display_map[var_name], var_name)

@@ -262,17 +262,12 @@ mod_model_info_server <- function(id, selected_outcome) {
               tags$td("Teacher Sick Days"),
               tags$td("Average number of sick days taken per teacher"),
               tags$td("log(average_number_of_days_taken)")
-            ),
-            tags$tr(
-              tags$td("Year"),
-              tags$td("Academic year as a numeric trend (0 = 2021-22, 3 = 2024-25)"),
-              tags$td("year_numeric")
             )
           )
         ),
         tags$p(class = "text-muted mt-2",
                tags$em("Note: log() indicates natural logarithm transformation. ",
-                       "Random intercepts are fitted for Ofsted rating and ",
+                       "Random intercepts are fitted for academic year, Ofsted rating, and ",
                        "Local Authority (nested within Government Office Region)."))
       )
     })
