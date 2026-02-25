@@ -775,6 +775,244 @@ p_year / p_ofsted / p_region
 ```
 
 
+## Null Model: Variance Structure
+
+The violin and box plots below show the distribution of Attainment 8 scores across the random-effect grouping variables. These visualise the between-group variance that the null (intercept-only) multilevel model captures — the same structure shown in more detail in the variance components table above.
+
+```{r fig-null-violin-ofsted}
+#| label: fig-null-violin-ofsted
+#| fig-cap: "Distribution of Attainment 8 scores by Ofsted rating — visualising the null model variance structure"
+#| fig-height: 6
+
+# Fit null model: ATT8 with only Ofsted as random intercept
+null_ofsted <- lmer(log(ATT8SCR) ~ 1 + (1 | OFSTEDRATING_1), data = model_data)
+grand_mean_ofsted <- exp(fixef(null_ofsted)[1])
+
+# Extract shrunken group means (BLUPs)
+re_ofsted_null <- ranef(null_ofsted)$OFSTEDRATING_1 %>%
+  as.data.frame() %>%
+  rownames_to_column("OFSTEDRATING_1") %>%
+  rename(blup = `(Intercept)`) %>%
+  mutate(shrunken_mean = exp(fixef(null_ofsted)[1] + blup))
+
+# Raw group means
+raw_means_ofsted <- model_data %>%
+  filter(!is.na(OFSTEDRATING_1), !is.na(ATT8SCR)) %>%
+  group_by(OFSTEDRATING_1) %>%
+  summarise(raw_mean = mean(ATT8SCR, na.rm = TRUE), n = n(), .groups = "drop") %>%
+  left_join(re_ofsted_null, by = "OFSTEDRATING_1")
+
+model_data %>%
+  filter(!is.na(OFSTEDRATING_1), !is.na(ATT8SCR)) %>%
+  ggplot(aes(x = OFSTEDRATING_1, y = ATT8SCR, fill = OFSTEDRATING_1)) +
+  geom_violin(alpha = 0.3, colour = NA) +
+  geom_boxplot(width = 0.15, alpha = 0.7, outlier.size = 0.5, outlier.alpha = 0.3) +
+  geom_hline(yintercept = grand_mean_ofsted, linetype = "dashed",
+             colour = "black", linewidth = 0.8) +
+  geom_point(data = raw_means_ofsted, aes(y = raw_mean),
+             shape = 4, size = 3, colour = "#d62728", stroke = 1.2) +
+  geom_point(data = raw_means_ofsted, aes(y = shrunken_mean),
+             shape = 18, size = 4, colour = "#1565c0") +
+  annotate("text", x = 0.55, y = grand_mean_ofsted + 1.5,
+           label = paste0("Grand mean = ", round(grand_mean_ofsted, 1)),
+           hjust = 0, size = 3.2, colour = "grey30") +
+  labs(title = "ATT8 Distribution by Ofsted Rating (Null Model Structure)",
+       subtitle = "Dashed = grand mean | Blue diamond = shrunken mean (BLUP) | Red cross = raw mean",
+       x = "Ofsted Rating (harmonised)", y = "Attainment 8 Score") +
+  theme_pub +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r fig-null-violin-region}
+#| label: fig-null-violin-region
+#| fig-cap: "Distribution of Attainment 8 scores by Government Office Region — null model variance structure"
+#| fig-height: 6
+
+null_region <- lmer(log(ATT8SCR) ~ 1 + (1 | gor_name), data = model_data)
+grand_mean_region <- exp(fixef(null_region)[1])
+
+re_region_null <- ranef(null_region)$gor_name %>%
+  as.data.frame() %>%
+  rownames_to_column("gor_name") %>%
+  rename(blup = `(Intercept)`) %>%
+  mutate(shrunken_mean = exp(fixef(null_region)[1] + blup))
+
+raw_means_region <- model_data %>%
+  filter(!is.na(gor_name), !is.na(ATT8SCR)) %>%
+  group_by(gor_name) %>%
+  summarise(raw_mean = mean(ATT8SCR, na.rm = TRUE), n = n(), .groups = "drop") %>%
+  left_join(re_region_null, by = "gor_name")
+
+model_data %>%
+  filter(!is.na(gor_name), !is.na(ATT8SCR)) %>%
+  ggplot(aes(x = reorder(gor_name, ATT8SCR, FUN = median),
+             y = ATT8SCR, fill = gor_name)) +
+  geom_violin(alpha = 0.3, colour = NA) +
+  geom_boxplot(width = 0.15, alpha = 0.7, outlier.size = 0.5, outlier.alpha = 0.3) +
+  geom_hline(yintercept = grand_mean_region, linetype = "dashed",
+             colour = "black", linewidth = 0.8) +
+  geom_point(data = raw_means_region,
+             aes(x = reorder(gor_name, raw_mean), y = raw_mean),
+             shape = 4, size = 3, colour = "#d62728", stroke = 1.2) +
+  geom_point(data = raw_means_region,
+             aes(x = reorder(gor_name, raw_mean), y = shrunken_mean),
+             shape = 18, size = 4, colour = "#1565c0") +
+  coord_flip() +
+  labs(title = "ATT8 Distribution by Region (Null Model Structure)",
+       subtitle = "Dashed = grand mean | Blue diamond = shrunken mean (BLUP) | Red cross = raw mean",
+       x = NULL, y = "Attainment 8 Score") +
+  theme_pub +
+  theme(legend.position = "none")
+```
+
+```{r fig-null-violin-ofsted-year}
+#| label: fig-null-violin-ofsted-year
+#| fig-cap: "Distribution of Attainment 8 by Ofsted rating, faceted by academic year"
+#| fig-height: 8
+
+model_data %>%
+  filter(!is.na(OFSTEDRATING_1), !is.na(ATT8SCR)) %>%
+  ggplot(aes(x = OFSTEDRATING_1, y = ATT8SCR, fill = OFSTEDRATING_1)) +
+  geom_violin(alpha = 0.3, colour = NA) +
+  geom_boxplot(width = 0.15, alpha = 0.7, outlier.size = 0.3, outlier.alpha = 0.2) +
+  facet_wrap(~ year_label, ncol = 2) +
+  labs(title = "ATT8 by Ofsted Rating — by Academic Year",
+       subtitle = "Violin + boxplot shows the distributional shape within each Ofsted category",
+       x = "Ofsted Rating (harmonised)", y = "Attainment 8 Score") +
+  theme_pub +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+```
+
+
+## Caterpillar Plot: LA Random Intercepts
+
+The caterpillar plot below displays the estimated random intercepts for each local authority (nested within region), ordered by magnitude. Error bars show 95% confidence intervals (±1.96 posterior SE). Local authorities whose interval does not cross zero are meaningfully different from the overall mean, after accounting for fixed effects and other random effects. Brighton and Hove is highlighted in orange.
+
+```{r fig-caterpillar-la}
+#| label: fig-caterpillar-la
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, All Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in orange."
+#| fig-height: 8
+#| fig-width: 10
+
+library(ggrepel)
+
+# Extract LA random effects with conditional variances
+re_list_imp <- ranef(imputed_models$all, condVar = TRUE)
+re_la <- as.data.frame(re_list_imp$`LANAME:gor_name`)
+re_la$group <- rownames(re_list_imp$`LANAME:gor_name`)
+
+# Posterior standard errors
+se_la <- sqrt(attr(re_list_imp$`LANAME:gor_name`, "postVar")[1, 1, ])
+re_la$se <- se_la
+
+re_la <- re_la %>%
+  mutate(
+    la_name = sub(":.*$", "", group),
+    ci_lo = `(Intercept)` - 1.96 * se,
+    ci_hi = `(Intercept)` + 1.96 * se,
+    sig = ci_lo > 0 | ci_hi < 0,
+    highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
+  )
+
+# Top and bottom 10 for labelling (+ always include Brighton)
+extreme_la <- c(
+  head(re_la$la_name[order(re_la$`(Intercept)`)], 10),
+  tail(re_la$la_name[order(re_la$`(Intercept)`)], 10)
+)
+if (any(grepl("Brighton", re_la$la_name))) {
+  extreme_la <- unique(c(extreme_la,
+                          re_la$la_name[grepl("Brighton", re_la$la_name)]))
+}
+
+ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                width = 0, colour = "grey60", linewidth = 0.3) +
+  geom_point(aes(colour = highlight), size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_text_repel(
+    data = re_la %>% filter(la_name %in% extreme_la),
+    aes(label = la_name),
+    size = 2.5, max.overlaps = 25, force = 4, nudge_y = 0.005,
+    segment.colour = "grey60", segment.size = 0.3
+  ) +
+  scale_colour_manual(values = c("Other" = "steelblue",
+                                  "Brighton and Hove" = "#e65100"),
+                      guide = "none") +
+  labs(title = "LA Random Intercepts — Imputed Full Panel Model (All Pupils)",
+       subtitle = "Ordered by estimate; error bars = 95% CI. LAs whose CI excludes 0 differ meaningfully from average.",
+       x = "Local Authority (ordered by random intercept)",
+       y = "Random Intercept (log scale)") +
+  theme_pub +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+```{r fig-caterpillar-compare}
+#| label: fig-caterpillar-compare
+#| fig-cap: "Caterpillar plot of LA random intercepts compared across model specifications (All Pupils). Brighton and Hove highlighted in orange."
+#| fig-height: 12
+#| fig-width: 10
+
+# Helper: extract LA random effects from any model
+extract_la_re <- function(model, model_name) {
+  re_list <- ranef(model, condVar = TRUE)
+  re_df <- as.data.frame(re_list$`LANAME:gor_name`)
+  re_df$group <- rownames(re_list$`LANAME:gor_name`)
+  se <- sqrt(attr(re_list$`LANAME:gor_name`, "postVar")[1, 1, ])
+  re_df %>%
+    mutate(
+      model = model_name,
+      la_name = sub(":.*$", "", group),
+      se = se,
+      ci_lo = `(Intercept)` - 1.96 * se,
+      ci_hi = `(Intercept)` + 1.96 * se,
+      highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
+    )
+}
+
+# Extract for all three panel specifications
+re_compare <- bind_rows(
+  extract_la_re(panel_models$all, "Analysis A: Full Panel (3 yrs)"),
+  extract_la_re(core_models$all,  "Analysis C: Core Panel (4 yrs)"),
+  extract_la_re(imputed_models$all, "Analysis E: Imputed Full Panel (4 yrs)")
+)
+
+# Order LAs by the imputed model's estimate
+la_order <- re_compare %>%
+  filter(grepl("Analysis E", model)) %>%
+  arrange(`(Intercept)`) %>%
+  pull(group)
+
+re_compare <- re_compare %>%
+  mutate(
+    group = factor(group, levels = la_order),
+    model = factor(model, levels = c(
+      "Analysis A: Full Panel (3 yrs)",
+      "Analysis C: Core Panel (4 yrs)",
+      "Analysis E: Imputed Full Panel (4 yrs)"
+    ))
+  )
+
+ggplot(re_compare, aes(x = group, y = `(Intercept)`)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                width = 0, colour = "grey70", linewidth = 0.25) +
+  geom_point(aes(colour = highlight), size = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  facet_wrap(~ model, ncol = 1, scales = "free_y") +
+  scale_colour_manual(values = c("Other" = "steelblue",
+                                  "Brighton and Hove" = "#e65100"),
+                      guide = "none") +
+  labs(title = "LA Random Intercepts Compared Across Model Specifications (All Pupils)",
+       subtitle = "All panels ordered by Analysis E estimate; error bars = 95% CI",
+       x = "Local Authority (ordered)",
+       y = "Random Intercept (log scale)") +
+  theme_pub +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        strip.text = element_text(size = 10))
+```
+
+
 # Per-Year Models (Analysis B)
 
 Separate models are fitted for each academic year with the same fixed-effect specification but without a year term. This allows all coefficients to vary freely across years, revealing whether relationships between predictors and attainment are stable or shifting over time.
