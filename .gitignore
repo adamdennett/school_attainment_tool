@@ -46,6 +46,10 @@ data/model_diagnostics_yearly_core.rds
 data/school_lookup.rds
 data/la_lookup.rds
 
+# Data - financial returns (from 03a_add_finance.R)
+data/financial_returns.rds
+data/panel_with_finance.rds
+
 # Data - LA typology outputs (from 07_la_typology.R)
 data/la_typology.rds
 data/la_indicators.rds

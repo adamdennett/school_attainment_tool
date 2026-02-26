@@ -1489,7 +1489,7 @@ ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
     legend.text = element_text(size = 8),
     strip.text = element_text(face = "bold")
   ) +
-  guides(colour = guide_legend(nrow = 3))
+  guides(colour = guide_legend(nrow = 4))
 ```
 
 ### Interactive observed vs predicted
@@ -1559,7 +1559,7 @@ ggplot(bh_long, aes(x = Year, y = Residual, colour = School, group = School)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     strip.text = element_text(face = "bold")
   ) +
-  guides(colour = guide_legend(nrow = 3))
+  guides(colour = guide_legend(nrow = 4))
 ```
 
 ### Interactive residuals
@@ -2068,7 +2068,7 @@ context shifts the relative importance of predictors:
 - **% Disadvantaged (FSM):** Brighton & Hove schools span a wide FSM
   range (from under 10% to over 50%), which may amplify or dampen this
   variable's local importance relative to the national picture depending
-  on the SD of log(FSM) in the borough.
+  on the SD of log(FSM) in the Local Authority.
 
 - **Overall Absence:** If Brighton & Hove has a narrower spread of
   absence rates than the national distribution, absence will appear less
@@ -2155,12 +2155,12 @@ whether resources are diluted across the whole cohort.
 
 ### For Brighton & Hove Council and local authority
 
-**1. Tackle absence strategically across the borough.**
+**1. Tackle absence strategically across the Local Authority.**
 
 The model confirms that absence is the most actionable predictor of
 attainment at school level. The council can support schools through:
 
-- Borough-wide attendance campaigns and shared best practice
+- Local Authority-wide attendance campaigns and shared best practice
 - Coordinated data sharing to identify pupils with poor attendance
   across multiple schools (e.g. following managed moves)
 - Targeted outreach to communities with high persistent-absence rates
@@ -2201,7 +2201,7 @@ cohesion, equal access, community trust).
 Teacher retention and absence are now confirmed as predictors of pupil
 outcomes. The council and local partnerships can help by:
 
-- Facilitating borough-wide teacher recruitment and retention
+- Facilitating Local Authority-wide teacher recruitment and retention
   initiatives (e.g. housing support, shared CPD networks)
 - Monitoring teacher turnover and sickness across schools, identifying
   outliers that may need additional support

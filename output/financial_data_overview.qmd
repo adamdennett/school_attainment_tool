@@ -1,0 +1,520 @@
+---
+title: "School Financial Data Overview"
+subtitle: "CFR & AAR financial returns matched to the KS4 panel dataset"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 150
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(knitr)
+library(scales)
+library(patchwork)
+library(here)
+
+source(here::here("R", "helpers.R"))
+
+finance <- readRDS(here::here("data", "financial_returns.rds"))
+panel   <- readRDS(here::here("data", "panel_with_finance.rds"))
+
+# Panel rows with financial data
+panel_fin <- panel %>% filter(!is.na(fin_total_income))
+
+theme_set(theme_minimal(base_size = 13))
+```
+
+# Data Sources
+
+School financial data comes from the DfE [Financial Benchmarking and Insights Tool](https://financial-benchmarking-and-insights-tool.education.gov.uk/data-sources), which publishes two types of returns:
+
+- **CFR** (Consistent Financial Reporting) -- LA maintained schools
+- **AAR** (Academy Accounts Return) -- academies and free schools
+
+Both are published as Excel workbooks, one per academic year. The data covers income, expenditure, staffing costs, and balance sheet items for every state-funded school in England.
+
+# Standalone Financial Returns Dataset
+
+The full `financial_returns.rds` file contains **all** schools (primary, secondary, special), not just KS4 schools in the panel.
+
+```{r coverage-table}
+#| label: tbl-coverage
+#| tbl-cap: "Records by year and source"
+
+finance %>%
+  count(academic_year, source) %>%
+  pivot_wider(names_from = source, values_from = n, values_fill = 0) %>%
+  mutate(Total = CFR + AAR) %>%
+  kable(format.args = list(big.mark = ","))
+```
+
+```{r coverage-summary}
+#| label: tbl-summary
+#| tbl-cap: "Dataset summary"
+
+tibble(
+  Metric = c("Total records", "Unique schools (URNs)", "Years covered",
+             "Variables", "File size"),
+  Value = c(
+    comma(nrow(finance)),
+    comma(n_distinct(finance$URN)),
+    paste(sort(unique(finance$academic_year)), collapse = ", "),
+    as.character(ncol(finance)),
+    paste0(round(file.size(here::here("data", "financial_returns.rds")) / 1e6, 1), " MB")
+  )
+) %>% kable()
+```
+
+::: {.callout-note}
+AAR data for 2024-25 has not yet been published by the DfE, so only CFR (LA maintained) schools are available for that year.
+:::
+
+# Variables
+
+The harmonised dataset extracts comparable fields from both CFR and AAR returns.
+
+```{r variable-table}
+#| label: tbl-variables
+#| tbl-cap: "Financial variables in the dataset"
+
+var_info <- tribble(
+  ~Variable, ~Description, ~Type,
+  "URN", "School unique reference number", "Identifier",
+  "school_name", "School name", "Identifier",
+  "la_code / la_name", "Local authority code and name", "Identifier",
+  "academic_year", "Academic year (e.g. 2023-2024)", "Identifier",
+  "source", "Data source: CFR or AAR", "Identifier",
+  "phase", "School phase (Primary, Secondary, etc.)", "Characteristic",
+  "num_pupils", "Number of pupils (FTE)", "Characteristic",
+  "num_teachers", "Number of teachers (FTE)", "Characteristic",
+  "pct_fsm", "% pupils eligible for FSM", "Characteristic",
+  "total_income", "Total income (GBP)", "Income",
+  "grant_funding", "Grant funding from government", "Income",
+  "self_generated", "Self-generated income (lettings, catering, etc.)", "Income",
+  "pupil_premium", "Pupil premium income (CFR only)", "Income",
+  "total_expenditure", "Total expenditure (GBP)", "Expenditure",
+  "staff_costs", "Total staff costs", "Expenditure",
+  "teaching_staff", "Teaching staff costs", "Expenditure",
+  "premises_costs", "Premises costs", "Expenditure",
+  "energy", "Energy costs", "Expenditure",
+  "learning_resources", "Learning resources (not ICT)", "Expenditure",
+  "supply_staff", "Supply staff costs", "Expenditure",
+  "catering_costs", "Catering expenses", "Expenditure",
+  "educational_supplies", "Educational supplies total", "Expenditure",
+  "bought_in_professional", "Bought-in professional services", "Expenditure",
+  "in_year_balance", "In-year balance (income - expenditure)", "Balance",
+  "revenue_reserve", "Revenue reserve", "Balance",
+  "total_income_pp", "Total income per pupil", "Per-pupil",
+  "total_expenditure_pp", "Total expenditure per pupil", "Per-pupil",
+  "staff_costs_pp", "Staff costs per pupil", "Per-pupil",
+  "teaching_staff_pp", "Teaching staff costs per pupil", "Per-pupil",
+  "premises_costs_pp", "Premises costs per pupil", "Per-pupil",
+  "grant_funding_pp", "Grant funding per pupil", "Per-pupil",
+  "staff_income_ratio", "Staff costs / total income", "Ratio",
+  "teaching_expenditure_ratio", "Teaching staff / total expenditure", "Ratio",
+  "balance_income_ratio", "In-year balance / total income", "Ratio"
+)
+
+var_info %>% kable()
+```
+
+# Panel Match Rate
+
+When joined to the KS4 panel (secondary schools only), the match rate depends on whether both CFR and AAR data are available.
+
+```{r match-rate}
+#| label: tbl-match
+#| tbl-cap: "Financial data match rate by year"
+
+panel %>%
+  group_by(`Academic Year` = academic_year) %>%
+  summarise(
+    `Panel Schools` = n(),
+    `With Finance` = sum(!is.na(fin_total_income)),
+    `Missing` = sum(is.na(fin_total_income)),
+    `Match %` = percent(mean(!is.na(fin_total_income)), accuracy = 0.1),
+    .groups = "drop"
+  ) %>%
+  kable(format.args = list(big.mark = ","))
+```
+
+```{r match-by-source}
+#| label: fig-match-source
+#| fig-cap: "Panel match rate by year and financial data source"
+
+panel %>%
+  filter(!is.na(fin_total_income)) %>%
+  count(academic_year, fin_source) %>%
+  ggplot(aes(academic_year, n, fill = fin_source)) +
+  geom_col(position = "stack") +
+  scale_fill_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), name = "Source") +
+  labs(x = "Academic Year", y = "Schools matched",
+       title = "Panel schools with financial data") +
+  geom_text(aes(label = comma(n)), position = position_stack(vjust = 0.5),
+            size = 3.5, colour = "white", fontface = "bold")
+```
+
+# Descriptive Statistics
+
+## Income and Expenditure (KS4 Panel Schools)
+
+```{r descriptives}
+#| label: tbl-descriptives
+#| tbl-cap: "Summary statistics for key financial variables (KS4 panel schools with financial data)"
+
+panel_fin %>%
+  summarise(
+    across(
+      c(fin_total_income, fin_total_expenditure, fin_in_year_balance,
+        fin_grant_funding, fin_staff_costs, fin_teaching_staff,
+        fin_premises_costs, fin_energy),
+      list(
+        Median = ~median(.x, na.rm = TRUE),
+        Mean = ~mean(.x, na.rm = TRUE),
+        SD = ~sd(.x, na.rm = TRUE),
+        Min = ~min(.x, na.rm = TRUE),
+        Max = ~max(.x, na.rm = TRUE)
+      ),
+      .names = "{.col}|{.fn}"
+    )
+  ) %>%
+  pivot_longer(everything(), names_to = c("Variable", "Stat"), names_sep = "\\|") %>%
+  pivot_wider(names_from = Stat, values_from = value) %>%
+  mutate(
+    Variable = str_remove(Variable, "^fin_"),
+    across(Median:Max, ~comma(.x, accuracy = 1, prefix = "\u00A3"))
+  ) %>%
+  kable()
+```
+
+## Per-Pupil Metrics
+
+```{r per-pupil-stats}
+#| label: tbl-perpupil
+#| tbl-cap: "Per-pupil financial metrics (KS4 panel schools)"
+
+panel_fin %>%
+  summarise(
+    across(
+      c(fin_total_income_pp, fin_total_expenditure_pp, fin_staff_costs_pp,
+        fin_teaching_staff_pp, fin_grant_funding_pp),
+      list(
+        Median = ~median(.x, na.rm = TRUE),
+        Mean = ~mean(.x, na.rm = TRUE),
+        Q25 = ~quantile(.x, 0.25, na.rm = TRUE),
+        Q75 = ~quantile(.x, 0.75, na.rm = TRUE)
+      ),
+      .names = "{.col}|{.fn}"
+    )
+  ) %>%
+  pivot_longer(everything(), names_to = c("Variable", "Stat"), names_sep = "\\|") %>%
+  pivot_wider(names_from = Stat, values_from = value) %>%
+  mutate(
+    Variable = str_remove(Variable, "^fin_") %>% str_replace_all("_", " "),
+    across(Median:Q75, ~comma(.x, accuracy = 1, prefix = "\u00A3"))
+  ) %>%
+  kable()
+```
+
+# Distributions
+
+## Income Per Pupil by Year
+
+```{r income-pp-dist}
+#| label: fig-income-pp
+#| fig-cap: "Distribution of total income per pupil by academic year"
+#| fig-height: 5
+
+panel_fin %>%
+  filter(fin_total_income_pp > 0, fin_total_income_pp < 30000) %>%
+  ggplot(aes(fin_total_income_pp, fill = academic_year)) +
+  geom_density(alpha = 0.4) +
+  scale_x_continuous(labels = label_comma(prefix = "\u00A3")) +
+  scale_fill_brewer(palette = "Set2", name = "Year") +
+  labs(x = "Total income per pupil", y = "Density",
+       title = "Income per pupil has shifted upward over time") +
+  theme(legend.position = "bottom")
+```
+
+## Expenditure Per Pupil by Source
+
+```{r exp-pp-source}
+#| label: fig-exp-pp-source
+#| fig-cap: "Expenditure per pupil by data source (CFR vs AAR)"
+#| fig-height: 5
+
+panel_fin %>%
+  filter(fin_total_expenditure_pp > 0, fin_total_expenditure_pp < 30000) %>%
+  ggplot(aes(fin_source, fin_total_expenditure_pp, fill = fin_source)) +
+  geom_violin(alpha = 0.6, draw_quantiles = c(0.25, 0.5, 0.75)) +
+  scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
+  scale_fill_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), guide = "none") +
+  labs(x = "Financial return type", y = "Expenditure per pupil",
+       title = "Academies (AAR) and LA schools (CFR) have similar per-pupil spending")
+```
+
+## Spending Composition
+
+```{r spending-composition}
+#| label: fig-composition
+#| fig-cap: "Median expenditure composition for KS4 schools"
+#| fig-height: 5
+
+panel_fin %>%
+  filter(!is.na(fin_total_expenditure), fin_total_expenditure > 0) %>%
+  summarise(
+    `Teaching staff` = median(fin_teaching_staff / fin_total_expenditure, na.rm = TRUE),
+    `Other staff` = median((fin_staff_costs - fin_teaching_staff) / fin_total_expenditure, na.rm = TRUE),
+    `Premises` = median(fin_premises_costs / fin_total_expenditure, na.rm = TRUE),
+    `Energy` = median(fin_energy / fin_total_expenditure, na.rm = TRUE),
+    `Other` = 1 - median(fin_staff_costs / fin_total_expenditure, na.rm = TRUE) -
+      median(fin_premises_costs / fin_total_expenditure, na.rm = TRUE)
+  ) %>%
+  pivot_longer(everything(), names_to = "Category", values_to = "Share") %>%
+  mutate(
+    Category = fct_reorder(Category, Share),
+    label = percent(Share, accuracy = 0.1)
+  ) %>%
+  ggplot(aes(Share, Category, fill = Category)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = label), hjust = -0.1, size = 4) +
+  scale_x_continuous(labels = percent, limits = c(0, 0.65)) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(x = "Share of total expenditure", y = NULL,
+       title = "Teaching staff dominate school spending")
+```
+
+# Trends Over Time
+
+```{r trends}
+#| label: fig-trends
+#| fig-cap: "Median per-pupil metrics over time"
+#| fig-height: 7
+
+trends <- panel_fin %>%
+  group_by(academic_year) %>%
+  summarise(
+    `Income pp` = median(fin_total_income_pp, na.rm = TRUE),
+    `Expenditure pp` = median(fin_total_expenditure_pp, na.rm = TRUE),
+    `Staff costs pp` = median(fin_staff_costs_pp, na.rm = TRUE),
+    `Grant funding pp` = median(fin_grant_funding_pp, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(-academic_year, names_to = "Metric", values_to = "Value")
+
+ggplot(trends, aes(academic_year, Value, colour = Metric, group = Metric)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Academic Year", y = "Per pupil (median, GBP)",
+       title = "Per-pupil income and expenditure trends",
+       colour = NULL) +
+  theme(legend.position = "bottom")
+```
+
+# Financial Health Indicators
+
+## In-Year Balance Distribution
+
+```{r balance-dist}
+#| label: fig-balance
+#| fig-cap: "Distribution of in-year balance as % of income"
+#| fig-height: 5
+
+panel_fin %>%
+  filter(!is.na(fin_balance_income_ratio),
+         abs(fin_balance_income_ratio) < 0.5) %>%
+  ggplot(aes(fin_balance_income_ratio, fill = academic_year)) +
+  geom_histogram(bins = 50, alpha = 0.6, position = "identity") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "red") +
+  scale_x_continuous(labels = percent) +
+  scale_fill_brewer(palette = "Set2", name = "Year") +
+  labs(x = "In-year balance / total income",
+       y = "Number of schools",
+       title = "Most schools run a small surplus; some are in deficit") +
+  theme(legend.position = "bottom")
+```
+
+## Schools in Deficit
+
+```{r deficit-table}
+#| label: tbl-deficit
+#| tbl-cap: "Proportion of KS4 schools running a deficit (negative in-year balance)"
+
+panel_fin %>%
+  filter(!is.na(fin_in_year_balance)) %>%
+  group_by(`Academic Year` = academic_year) %>%
+  summarise(
+    Schools = n(),
+    `In Deficit` = sum(fin_in_year_balance < 0),
+    `% in Deficit` = percent(mean(fin_in_year_balance < 0), accuracy = 0.1),
+    `Median Deficit (GBP)` = comma(
+      median(fin_in_year_balance[fin_in_year_balance < 0]),
+      prefix = "\u00A3"
+    ),
+    .groups = "drop"
+  ) %>%
+  kable()
+```
+
+# Relationship with Attainment
+
+## Income Per Pupil vs Attainment 8
+
+```{r att8-income}
+#| label: fig-att8-income
+#| fig-cap: "Attainment 8 score vs total income per pupil (2023-24)"
+#| fig-height: 6
+
+panel_fin %>%
+  filter(academic_year == "2023-2024",
+         !is.na(ATT8SCR), ATT8SCR > 0,
+         fin_total_income_pp > 2000, fin_total_income_pp < 25000) %>%
+  ggplot(aes(fin_total_income_pp, ATT8SCR)) +
+  geom_point(aes(colour = fin_source), alpha = 0.3, size = 1.5) +
+  geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
+  scale_x_continuous(labels = label_comma(prefix = "\u00A3")) +
+  scale_colour_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), name = "Source") +
+  labs(x = "Total income per pupil", y = "Attainment 8 score",
+       title = "Weak relationship between per-pupil income and attainment") +
+  theme(legend.position = "bottom")
+```
+
+## Staff Spending Ratio vs Attainment 8
+
+```{r att8-staff}
+#| label: fig-att8-staff
+#| fig-cap: "Attainment 8 score vs staff costs as share of income (2023-24)"
+#| fig-height: 6
+
+panel_fin %>%
+  filter(academic_year == "2023-2024",
+         !is.na(ATT8SCR), ATT8SCR > 0,
+         fin_staff_income_ratio > 0.4, fin_staff_income_ratio < 1.1) %>%
+  ggplot(aes(fin_staff_income_ratio, ATT8SCR)) +
+  geom_point(alpha = 0.3, size = 1.5, colour = "steelblue") +
+  geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
+  scale_x_continuous(labels = percent) +
+  labs(x = "Staff costs / total income", y = "Attainment 8 score",
+       title = "Schools spending a higher share on staff tend to have lower attainment") +
+  theme(legend.position = "bottom")
+```
+
+## Disadvantage and Funding
+
+```{r fsm-funding}
+#| label: fig-fsm-funding
+#| fig-cap: "Per-pupil income by proportion of disadvantaged pupils (2023-24)"
+#| fig-height: 6
+
+panel_fin %>%
+  filter(academic_year == "2023-2024",
+         !is.na(PTFSM6CLA1A), !is.na(fin_total_income_pp),
+         fin_total_income_pp > 2000, fin_total_income_pp < 25000) %>%
+  mutate(PTFSM6CLA1A = as.numeric(PTFSM6CLA1A)) %>%
+  filter(!is.na(PTFSM6CLA1A)) %>%
+  ggplot(aes(PTFSM6CLA1A, fin_total_income_pp)) +
+  geom_point(alpha = 0.3, size = 1.5, colour = "darkorange") +
+  geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
+  scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
+  labs(x = "% disadvantaged pupils (FSM6CLA1A)",
+       y = "Total income per pupil",
+       title = "Schools with more disadvantaged pupils receive higher per-pupil funding") +
+  theme(legend.position = "bottom")
+```
+
+# Regional Variation
+
+```{r regional}
+#| label: fig-regional
+#| fig-cap: "Median income per pupil by region (2023-24)"
+#| fig-height: 6
+
+panel_fin %>%
+  filter(academic_year == "2023-2024", !is.na(gor_name),
+         !is.na(fin_total_income_pp)) %>%
+  group_by(Region = gor_name) %>%
+  summarise(
+    n = n(),
+    median_pp = median(fin_total_income_pp, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(n >= 10) %>%
+  mutate(Region = fct_reorder(Region, median_pp)) %>%
+  ggplot(aes(median_pp, Region)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = comma(median_pp, prefix = "\u00A3", accuracy = 1)),
+            hjust = -0.1, size = 3.5) +
+  scale_x_continuous(labels = label_comma(prefix = "\u00A3"),
+                     limits = c(0, NA), expand = expansion(mult = c(0, 0.15))) +
+  labs(x = "Median income per pupil", y = NULL,
+       title = "London schools receive significantly more per-pupil funding")
+```
+
+# Correlation Matrix
+
+```{r correlations}
+#| label: fig-corr
+#| fig-cap: "Correlations between key financial and attainment variables (2023-24)"
+#| fig-height: 8
+#| fig-width: 9
+
+cor_vars <- c("ATT8SCR", "PTFSM6CLA1A", "TOTPUPS",
+              "fin_total_income_pp", "fin_total_expenditure_pp",
+              "fin_staff_costs_pp", "fin_grant_funding_pp",
+              "fin_staff_income_ratio", "fin_balance_income_ratio")
+
+cor_data <- panel_fin %>%
+  filter(academic_year == "2023-2024") %>%
+  select(all_of(cor_vars)) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  drop_na()
+
+cor_labels <- c(
+  ATT8SCR = "Attainment 8",
+  PTFSM6CLA1A = "% Disadvantaged",
+  TOTPUPS = "Total Pupils",
+  fin_total_income_pp = "Income pp",
+  fin_total_expenditure_pp = "Expenditure pp",
+  fin_staff_costs_pp = "Staff costs pp",
+  fin_grant_funding_pp = "Grant funding pp",
+  fin_staff_income_ratio = "Staff/Income ratio",
+  fin_balance_income_ratio = "Balance/Income ratio"
+)
+
+cor_mat <- cor(cor_data, use = "pairwise.complete.obs")
+rownames(cor_mat) <- cor_labels[rownames(cor_mat)]
+colnames(cor_mat) <- cor_labels[colnames(cor_mat)]
+
+# Simple heatmap
+cor_df <- as.data.frame(as.table(cor_mat)) %>%
+  rename(Var1 = 1, Var2 = 2, Correlation = 3)
+
+ggplot(cor_df, aes(Var1, Var2, fill = Correlation)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = sprintf("%.2f", Correlation)), size = 3) +
+  scale_fill_gradient2(low = "#d7191c", mid = "white", high = "#2c7bb6",
+                       midpoint = 0, limits = c(-1, 1)) +
+  labs(x = NULL, y = NULL, title = "Correlation matrix: finance and attainment") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```

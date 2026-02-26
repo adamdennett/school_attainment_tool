@@ -6,7 +6,8 @@
 #   3. Creates the school lookup table (URN -> name, LA, region, coords)
 #   4. Saves the final panel_data.rds and school_lookup.rds
 #
-# Depends on: R/03_add_workforce.R (produces panel_with_workforce.rds)
+# Depends on: R/03a_add_finance.R (produces panel_with_finance.rds)
+#             Falls back to panel_with_workforce.rds if finance step was skipped
 # Run from project root: source("R/04_compute_derived.R")
 # -------------------------------------------------------------------------------
 
@@ -289,10 +290,14 @@ clean_panel <- function(panel) {
 
 if (sys.nframe() == 0) {
 
-  # Load the panel with workforce data
-  panel_path <- here::here("data", "panel_with_workforce.rds")
+  # Load the panel (prefer panel_with_finance, fall back to panel_with_workforce)
+  panel_path <- here::here("data", "panel_with_finance.rds")
   if (!file.exists(panel_path)) {
-    stop("panel_with_workforce.rds not found. Run 03_add_workforce.R first.")
+    panel_path <- here::here("data", "panel_with_workforce.rds")
+  }
+  if (!file.exists(panel_path)) {
+    stop("Neither panel_with_finance.rds nor panel_with_workforce.rds found. ",
+         "Run 03_add_workforce.R (and optionally 03a_add_finance.R) first.")
   }
 
   panel <- readRDS(panel_path)

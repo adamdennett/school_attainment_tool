@@ -65,6 +65,16 @@ PANEL_VARS <- c(
   "teachers_on_leadership_pay_range_percent",
   "average_number_of_days_taken",
   "teacher_fte_in_census_year",
+  # Financial (added in step 03a)
+  "fin_total_income", "fin_total_expenditure",
+  "fin_in_year_balance", "fin_revenue_reserve",
+  "fin_grant_funding", "fin_self_generated",
+  "fin_staff_costs", "fin_teaching_staff",
+  "fin_premises_costs", "fin_energy", "fin_pupil_premium",
+  "fin_total_income_pp", "fin_total_expenditure_pp",
+  "fin_staff_costs_pp", "fin_teaching_staff_pp", "fin_grant_funding_pp",
+  "fin_staff_income_ratio", "fin_teaching_expenditure_ratio",
+  "fin_balance_income_ratio", "fin_source",
   # Derived (computed later)
   "gorard_segregation",
   "has_imputed_predictors"
@@ -195,6 +205,28 @@ VAR_LABELS <- c(
   "fte_teaching_assistants"                  = "Teaching assistants (FTE)",
   "pupil_to_qual_teacher_ratio"              = "Pupil-to-qualified-teacher ratio",
   "pupil_to_adult_ratio"                     = "Pupil-to-adult ratio",
+
+  # --- Financial variables (CFR/AAR) ---
+  "fin_total_income"          = "Total income (£)",
+  "fin_total_expenditure"     = "Total expenditure (£)",
+  "fin_in_year_balance"       = "In-year balance (£)",
+  "fin_revenue_reserve"       = "Revenue reserve (£)",
+  "fin_grant_funding"         = "Grant funding (£)",
+  "fin_self_generated"        = "Self-generated income (£)",
+  "fin_staff_costs"           = "Total staff costs (£)",
+  "fin_teaching_staff"        = "Teaching staff costs (£)",
+  "fin_premises_costs"        = "Premises costs (£)",
+  "fin_energy"                = "Energy costs (£)",
+  "fin_pupil_premium"         = "Pupil premium income (£)",
+  "fin_total_income_pp"       = "Total income per pupil (£)",
+  "fin_total_expenditure_pp"  = "Total expenditure per pupil (£)",
+  "fin_staff_costs_pp"        = "Staff costs per pupil (£)",
+  "fin_teaching_staff_pp"     = "Teaching staff costs per pupil (£)",
+  "fin_grant_funding_pp"      = "Grant funding per pupil (£)",
+  "fin_staff_income_ratio"    = "Staff costs as % of income",
+  "fin_teaching_expenditure_ratio" = "Teaching staff as % of expenditure",
+  "fin_balance_income_ratio"  = "In-year balance as % of income",
+  "fin_source"                = "Financial data source (CFR/AAR)",
 
   # --- Derived variables ---
   "gorard_segregation"        = "Gorard segregation index",
