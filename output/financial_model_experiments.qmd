@@ -1,0 +1,811 @@
+---
+title: "Financial Model Experiments"
+subtitle: "Do school financial variables improve the attainment models?"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 150
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| label: setup
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(knitr)
+library(scales)
+library(patchwork)
+library(here)
+
+source(here::here("R", "helpers.R"))
+```
+
+# Overview
+
+This document takes the baseline multilevel models from `model_experiments.qmd`
+and systematically tests whether adding school-level financial variables
+(from CFR/AAR returns) improves model fit.
+
+The baseline model predicts `log(ATT8SCR)` using 9 fixed effects with
+nested random intercepts for year, Ofsted rating, and region/LA:
+
+$$\log(\text{ATT8}) \sim \text{9 predictors} + (1|\text{year}) + (1|\text{Ofsted}) + (1|\text{region/LA})$$
+
+We test financial variables one at a time, then in combination, comparing
+marginal and conditional $R^2$.
+
+
+# Data Preparation
+
+```{r data-prep}
+#| label: data-prep
+
+# Load the main panel (has gorard_segregation, OFSTEDRATING_1, etc.)
+panel <- readRDS(here::here("data", "panel_data.rds"))
+
+# Load financial returns and join key variables
+finance <- readRDS(here::here("data", "financial_returns.rds"))
+
+finance_slim <- finance %>%
+  select(URN, academic_year,
+         fin_total_income_pp       = total_income_pp,
+         fin_total_expenditure_pp  = total_expenditure_pp,
+         fin_staff_costs_pp        = staff_costs_pp,
+         fin_teaching_staff_pp     = teaching_staff_pp,
+         fin_grant_funding_pp      = grant_funding_pp,
+         fin_premises_costs_pp     = premises_costs_pp,
+         fin_staff_income_ratio    = staff_income_ratio,
+         fin_teaching_expenditure_ratio = teaching_expenditure_ratio,
+         fin_balance_income_ratio  = balance_income_ratio,
+         fin_source                = source)
+
+panel <- panel %>%
+  left_join(finance_slim, by = c("URN", "academic_year"))
+
+cat("Panel:", nrow(panel), "rows\n")
+cat("Financial match:", sum(!is.na(panel$fin_total_income_pp)), "/", nrow(panel), "\n")
+```
+
+## Model dataset
+
+The full model dataset requires workforce variables (so drops 2024-25)
+**and** financial data (which further reduces sample size).
+
+```{r model-data}
+#| label: model-data
+
+model_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(
+    !is.na(ATT8SCR), ATT8SCR > 0,
+    PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+    !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
+    remained_in_the_same_school > 0,
+    !is.na(teachers_on_leadership_pay_range_percent),
+    average_number_of_days_taken > 0,
+    !is.na(gorard_segregation)
+  ) %>%
+  mutate(
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name   = factor(gor_name),
+    LANAME     = factor(LANAME),
+    year_label = factor(year_label)
+  ) %>%
+  droplevels()
+
+contrasts(model_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(model_data$OFSTEDRATING_1))
+
+cat("Full model dataset:", nrow(model_data), "rows\n")
+cat("Years:", paste(levels(model_data$year_label), collapse = ", "), "\n")
+cat("With financial data:", sum(!is.na(model_data$fin_total_income_pp)), "\n")
+```
+
+To ensure fair comparison, all models (baseline and extended) are fitted
+on the **same rows** — only those with complete financial data.
+
+```{r model-data-fin}
+#| label: model-data-fin
+
+# Dataset with complete financial data for fair comparison
+d_fin <- model_data %>%
+  filter(
+    !is.na(fin_total_income_pp), fin_total_income_pp > 0,
+    !is.na(fin_staff_income_ratio),
+    !is.na(fin_balance_income_ratio)
+  ) %>%
+  droplevels()
+
+contrasts(d_fin$OFSTEDRATING_1) <-
+  contr.treatment(levels(d_fin$OFSTEDRATING_1))
+
+cat("Model dataset with financial data:", nrow(d_fin), "rows\n")
+cat("Years:", paste(sort(unique(as.character(d_fin$year_label))), collapse = ", "), "\n")
+cat("LAs:", n_distinct(d_fin$LANAME), "\n")
+```
+
+## Candidate financial variables
+
+```{r candidates}
+#| label: tbl-candidates
+#| tbl-cap: "Financial variables available for model experiments"
+
+d_fin %>%
+  summarise(
+    across(
+      starts_with("fin_") & where(is.numeric),
+      list(
+        n = ~sum(!is.na(.x)),
+        Median = ~median(.x, na.rm = TRUE),
+        SD = ~sd(.x, na.rm = TRUE)
+      ),
+      .names = "{.col}|{.fn}"
+    )
+  ) %>%
+  pivot_longer(everything(), names_to = c("Variable", "Stat"), names_sep = "\\|") %>%
+  pivot_wider(names_from = Stat, values_from = value) %>%
+  mutate(
+    Label = var_label(Variable),
+    Median = round(Median, 2),
+    SD = round(SD, 2),
+    n = comma(n)
+  ) %>%
+  select(Variable, Label, n, Median, SD) %>%
+  kable()
+```
+
+
+# Baseline Model (no financial variables)
+
+This exactly replicates Analysis A "All Pupils" from `model_experiments.qmd`,
+but fitted on the financial-data-complete subset for fair comparison.
+
+```{r baseline}
+#| label: baseline
+
+mod_baseline <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d_fin,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+r2_baseline <- r2(mod_baseline)
+cat("Baseline R² (marginal):", round(r2_baseline$R2_marginal, 4), "\n")
+cat("Baseline R² (conditional):", round(r2_baseline$R2_conditional, 4), "\n")
+cat("Singular?", isSingular(mod_baseline), "\n")
+```
+
+
+# Single-Variable Additions
+
+Each financial variable is added one at a time to the baseline model.
+We compare the change in marginal and conditional $R^2$.
+
+```{r single-vars}
+#| label: single-vars
+
+# Define candidate additions
+# Per-pupil vars are log-transformed; ratios are left linear
+candidates <- list(
+  "log(fin_total_income_pp)"          = "Total income pp (log)",
+  "log(fin_total_expenditure_pp)"     = "Total expenditure pp (log)",
+  "log(fin_staff_costs_pp)"           = "Staff costs pp (log)",
+  "log(fin_teaching_staff_pp)"        = "Teaching staff pp (log)",
+  "log(fin_grant_funding_pp)"         = "Grant funding pp (log)",
+  "log(fin_premises_costs_pp)"        = "Premises costs pp (log)",
+  "fin_staff_income_ratio"            = "Staff/income ratio",
+  "fin_teaching_expenditure_ratio"    = "Teaching/expenditure ratio",
+  "fin_balance_income_ratio"          = "Balance/income ratio"
+)
+
+base_formula <- log(ATT8SCR) ~
+  log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  log(remained_in_the_same_school) +
+  teachers_on_leadership_pay_range_percent +
+  log(average_number_of_days_taken) +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+
+results <- tibble(
+  term = character(),
+  label = character(),
+  r2_marginal = numeric(),
+  r2_conditional = numeric(),
+  delta_marginal = numeric(),
+  delta_conditional = numeric(),
+  coef = numeric(),
+  se = numeric(),
+  p_value = numeric(),
+  singular = logical()
+)
+
+# Fit each candidate
+for (term in names(candidates)) {
+
+  # Build extended formula
+  ext_formula <- update(base_formula, paste("~ . +", term))
+
+  # Filter for valid values of the candidate
+  # (log-transformed vars need > 0)
+  d_sub <- d_fin
+  if (grepl("^log\\(", term)) {
+    inner_var <- gsub("^log\\((.+)\\)$", "\\1", term)
+    d_sub <- d_sub %>% filter(!is.na(.data[[inner_var]]), .data[[inner_var]] > 0)
+  } else {
+    d_sub <- d_sub %>% filter(!is.na(.data[[term]]), is.finite(.data[[term]]))
+  }
+  d_sub <- droplevels(d_sub)
+  contrasts(d_sub$OFSTEDRATING_1) <- contr.treatment(levels(d_sub$OFSTEDRATING_1))
+
+  tryCatch({
+    mod <- lmer(
+      ext_formula, data = d_sub, REML = TRUE, na.action = na.exclude,
+      control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+    )
+
+    r2_ext <- r2(mod)
+    coefs <- summary(mod)$coefficients
+
+    # Find the row for our added term
+    term_clean <- term
+    row_match <- grep(gsub("[()]", "", term), rownames(coefs), fixed = FALSE)
+    if (length(row_match) == 0) row_match <- nrow(coefs)
+
+    results <- bind_rows(results, tibble(
+      term = term,
+      label = candidates[[term]],
+      r2_marginal = r2_ext$R2_marginal,
+      r2_conditional = r2_ext$R2_conditional,
+      delta_marginal = r2_ext$R2_marginal - r2_baseline$R2_marginal,
+      delta_conditional = r2_ext$R2_conditional - r2_baseline$R2_conditional,
+      coef = coefs[row_match[1], "Estimate"],
+      se = coefs[row_match[1], "Std. Error"],
+      p_value = coefs[row_match[1], "Pr(>|t|)"],
+      singular = isSingular(mod)
+    ))
+
+  }, error = function(e) {
+    message("  Failed: ", term, " — ", e$message)
+  })
+}
+```
+
+## Results
+
+```{r single-results}
+#| label: tbl-single
+#| tbl-cap: "Effect of adding each financial variable to the baseline model"
+
+results %>%
+  mutate(
+    `R² (m)` = sprintf("%.4f", r2_marginal),
+    `R² (c)` = sprintf("%.4f", r2_conditional),
+    `ΔR² (m)` = sprintf("%+.4f", delta_marginal),
+    `ΔR² (c)` = sprintf("%+.4f", delta_conditional),
+    Coef = sprintf("%.4f", coef),
+    SE = sprintf("%.4f", se),
+    p = case_when(
+      p_value < 0.001 ~ "< 0.001",
+      p_value < 0.01  ~ sprintf("%.3f", p_value),
+      p_value < 0.05  ~ sprintf("%.3f", p_value),
+      TRUE            ~ sprintf("%.3f", p_value)
+    ),
+    Sig = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE            ~ ""
+    )
+  ) %>%
+  select(Variable = label, `R² (m)`, `R² (c)`, `ΔR² (m)`, `ΔR² (c)`,
+         Coef, SE, p, Sig) %>%
+  kable()
+```
+
+```{r single-plot}
+#| label: fig-single
+#| fig-cap: "Change in marginal R² from adding each financial variable"
+#| fig-height: 5
+
+results %>%
+  mutate(label = fct_reorder(label, delta_marginal)) %>%
+  ggplot(aes(delta_marginal, label)) +
+  geom_col(aes(fill = delta_marginal > 0), show.legend = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c(`TRUE` = "steelblue", `FALSE` = "tomato")) +
+  scale_x_continuous(labels = label_number(accuracy = 0.0001)) +
+  labs(x = expression(Delta * R^2 ~ "(marginal)"),
+       y = NULL,
+       title = "Change in marginal R² from adding each financial variable")
+```
+
+```{r single-coef-plot}
+#| label: fig-coefs
+#| fig-cap: "Coefficient estimates and 95% CIs for financial variable additions"
+#| fig-height: 5
+
+results %>%
+  filter(p_value < 0.1) %>%
+  mutate(
+    label = fct_reorder(label, coef),
+    lower = coef - 1.96 * se,
+    upper = coef + 1.96 * se
+  ) %>%
+  ggplot(aes(coef, label)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = lower, xmax = upper), colour = "steelblue",
+                  linewidth = 0.8, size = 0.8) +
+  labs(x = "Coefficient estimate (95% CI)", y = NULL,
+       title = "Significant or marginally significant financial predictors")
+```
+
+
+# Multi-Variable Models
+
+Based on the single-variable results, we test combinations of the most
+promising financial variables.
+
+```{r multi-select}
+#| label: multi-select
+
+# Select variables that improved marginal R² or were significant
+sig_vars <- results %>%
+  filter(p_value < 0.05, delta_marginal > 0) %>%
+  arrange(desc(delta_marginal))
+
+cat("Significant improvers (p < 0.05, positive ΔR²):\n")
+for (i in seq_len(nrow(sig_vars))) {
+  cat(sprintf("  %s: ΔR²(m) = %+.4f, coef = %.4f, p = %.4f\n",
+              sig_vars$label[i], sig_vars$delta_marginal[i],
+              sig_vars$coef[i], sig_vars$p_value[i]))
+}
+```
+
+## Model with all significant financial variables
+
+```{r multi-all-sig}
+#| label: multi-all-sig
+
+if (nrow(sig_vars) > 0) {
+  # Build formula with all significant vars
+  fin_terms <- paste(sig_vars$term, collapse = " + ")
+  multi_formula <- update(base_formula, paste("~ . +", fin_terms))
+
+  # Filter data
+  d_multi <- d_fin
+  for (term in sig_vars$term) {
+    if (grepl("^log\\(", term)) {
+      inner_var <- gsub("^log\\((.+)\\)$", "\\1", term)
+      d_multi <- d_multi %>% filter(!is.na(.data[[inner_var]]), .data[[inner_var]] > 0)
+    } else {
+      d_multi <- d_multi %>% filter(!is.na(.data[[term]]), is.finite(.data[[term]]))
+    }
+  }
+  d_multi <- droplevels(d_multi)
+  contrasts(d_multi$OFSTEDRATING_1) <- contr.treatment(levels(d_multi$OFSTEDRATING_1))
+
+  mod_multi <- lmer(
+    multi_formula, data = d_multi, REML = TRUE, na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  r2_multi <- r2(mod_multi)
+  cat("Combined model R² (marginal):", round(r2_multi$R2_marginal, 4), "\n")
+  cat("Combined model R² (conditional):", round(r2_multi$R2_conditional, 4), "\n")
+  cat("Baseline R² (marginal):", round(r2_baseline$R2_marginal, 4), "\n")
+  cat("Improvement:", sprintf("%+.4f", r2_multi$R2_marginal - r2_baseline$R2_marginal), "\n")
+  cat("Singular?", isSingular(mod_multi), "\n")
+  cat("Observations:", nrow(d_multi), "\n\n")
+
+  summary(mod_multi)
+} else {
+  cat("No financial variables significantly improved the baseline model.\n")
+}
+```
+
+
+# Disadvantaged Pupils
+
+Do financial variables help predict outcomes for **disadvantaged** pupils
+specifically?
+
+```{r disadv-baseline}
+#| label: disadv-baseline
+
+d_disadv <- d_fin %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  droplevels()
+contrasts(d_disadv$OFSTEDRATING_1) <- contr.treatment(levels(d_disadv$OFSTEDRATING_1))
+
+mod_disadv_base <- lmer(
+  log(ATT8SCR_FSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d_disadv, REML = TRUE, na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+r2_disadv_base <- r2(mod_disadv_base)
+cat("Disadvantaged baseline R² (m):", round(r2_disadv_base$R2_marginal, 4), "\n")
+cat("Disadvantaged baseline R² (c):", round(r2_disadv_base$R2_conditional, 4), "\n")
+```
+
+```{r disadv-tests}
+#| label: disadv-tests
+
+results_disadv <- tibble(
+  term = character(), label = character(),
+  r2_marginal = numeric(), r2_conditional = numeric(),
+  delta_marginal = numeric(), delta_conditional = numeric(),
+  coef = numeric(), se = numeric(), p_value = numeric()
+)
+
+disadv_base_formula <- log(ATT8SCR_FSM6CLA1A) ~
+  log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  log(remained_in_the_same_school) +
+  teachers_on_leadership_pay_range_percent +
+  log(average_number_of_days_taken) +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+
+for (term in names(candidates)) {
+  ext_formula <- update(disadv_base_formula, paste("~ . +", term))
+
+  d_sub <- d_disadv
+  if (grepl("^log\\(", term)) {
+    inner_var <- gsub("^log\\((.+)\\)$", "\\1", term)
+    d_sub <- d_sub %>% filter(!is.na(.data[[inner_var]]), .data[[inner_var]] > 0)
+  } else {
+    d_sub <- d_sub %>% filter(!is.na(.data[[term]]), is.finite(.data[[term]]))
+  }
+  d_sub <- droplevels(d_sub)
+  contrasts(d_sub$OFSTEDRATING_1) <- contr.treatment(levels(d_sub$OFSTEDRATING_1))
+
+  tryCatch({
+    mod <- lmer(
+      ext_formula, data = d_sub, REML = TRUE, na.action = na.exclude,
+      control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+    )
+    r2_ext <- r2(mod)
+    coefs <- summary(mod)$coefficients
+    row_match <- grep(gsub("[()]", "", term), rownames(coefs), fixed = FALSE)
+    if (length(row_match) == 0) row_match <- nrow(coefs)
+
+    results_disadv <- bind_rows(results_disadv, tibble(
+      term = term, label = candidates[[term]],
+      r2_marginal = r2_ext$R2_marginal, r2_conditional = r2_ext$R2_conditional,
+      delta_marginal = r2_ext$R2_marginal - r2_disadv_base$R2_marginal,
+      delta_conditional = r2_ext$R2_conditional - r2_disadv_base$R2_conditional,
+      coef = coefs[row_match[1], "Estimate"],
+      se = coefs[row_match[1], "Std. Error"],
+      p_value = coefs[row_match[1], "Pr(>|t|)"]
+    ))
+  }, error = function(e) message("  Failed: ", term))
+}
+```
+
+```{r disadv-results}
+#| label: tbl-disadv
+#| tbl-cap: "Financial variable effects on disadvantaged pupil attainment"
+
+results_disadv %>%
+  mutate(
+    `R² (m)` = sprintf("%.4f", r2_marginal),
+    `ΔR² (m)` = sprintf("%+.4f", delta_marginal),
+    Coef = sprintf("%.4f", coef),
+    p = case_when(
+      p_value < 0.001 ~ "< 0.001",
+      TRUE ~ sprintf("%.3f", p_value)
+    ),
+    Sig = case_when(
+      p_value < 0.001 ~ "***", p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*", p_value < 0.1 ~ ".", TRUE ~ ""
+    )
+  ) %>%
+  select(Variable = label, `R² (m)`, `ΔR² (m)`, Coef, p, Sig) %>%
+  kable()
+```
+
+
+# Non-Disadvantaged Pupils
+
+```{r nondisadv-baseline}
+#| label: nondisadv-baseline
+
+d_nondisadv <- d_fin %>%
+  filter(!is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+contrasts(d_nondisadv$OFSTEDRATING_1) <- contr.treatment(levels(d_nondisadv$OFSTEDRATING_1))
+
+mod_nondisadv_base <- lmer(
+  log(ATT8SCR_NFSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(remained_in_the_same_school) +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d_nondisadv, REML = TRUE, na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+r2_nondisadv_base <- r2(mod_nondisadv_base)
+cat("Non-disadvantaged baseline R² (m):", round(r2_nondisadv_base$R2_marginal, 4), "\n")
+cat("Non-disadvantaged baseline R² (c):", round(r2_nondisadv_base$R2_conditional, 4), "\n")
+```
+
+```{r nondisadv-tests}
+#| label: nondisadv-tests
+
+results_nondisadv <- tibble(
+  term = character(), label = character(),
+  r2_marginal = numeric(), r2_conditional = numeric(),
+  delta_marginal = numeric(), delta_conditional = numeric(),
+  coef = numeric(), se = numeric(), p_value = numeric()
+)
+
+nondisadv_base_formula <- log(ATT8SCR_NFSM6CLA1A) ~
+  log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  log(remained_in_the_same_school) +
+  teachers_on_leadership_pay_range_percent +
+  log(average_number_of_days_taken) +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+
+for (term in names(candidates)) {
+  ext_formula <- update(nondisadv_base_formula, paste("~ . +", term))
+
+  d_sub <- d_nondisadv
+  if (grepl("^log\\(", term)) {
+    inner_var <- gsub("^log\\((.+)\\)$", "\\1", term)
+    d_sub <- d_sub %>% filter(!is.na(.data[[inner_var]]), .data[[inner_var]] > 0)
+  } else {
+    d_sub <- d_sub %>% filter(!is.na(.data[[term]]), is.finite(.data[[term]]))
+  }
+  d_sub <- droplevels(d_sub)
+  contrasts(d_sub$OFSTEDRATING_1) <- contr.treatment(levels(d_sub$OFSTEDRATING_1))
+
+  tryCatch({
+    mod <- lmer(
+      ext_formula, data = d_sub, REML = TRUE, na.action = na.exclude,
+      control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+    )
+    r2_ext <- r2(mod)
+    coefs <- summary(mod)$coefficients
+    row_match <- grep(gsub("[()]", "", term), rownames(coefs), fixed = FALSE)
+    if (length(row_match) == 0) row_match <- nrow(coefs)
+
+    results_nondisadv <- bind_rows(results_nondisadv, tibble(
+      term = term, label = candidates[[term]],
+      r2_marginal = r2_ext$R2_marginal, r2_conditional = r2_ext$R2_conditional,
+      delta_marginal = r2_ext$R2_marginal - r2_nondisadv_base$R2_marginal,
+      delta_conditional = r2_ext$R2_conditional - r2_nondisadv_base$R2_conditional,
+      coef = coefs[row_match[1], "Estimate"],
+      se = coefs[row_match[1], "Std. Error"],
+      p_value = coefs[row_match[1], "Pr(>|t|)"]
+    ))
+  }, error = function(e) message("  Failed: ", term))
+}
+```
+
+```{r nondisadv-results}
+#| label: tbl-nondisadv
+#| tbl-cap: "Financial variable effects on non-disadvantaged pupil attainment"
+
+results_nondisadv %>%
+  mutate(
+    `R² (m)` = sprintf("%.4f", r2_marginal),
+    `ΔR² (m)` = sprintf("%+.4f", delta_marginal),
+    Coef = sprintf("%.4f", coef),
+    p = case_when(
+      p_value < 0.001 ~ "< 0.001",
+      TRUE ~ sprintf("%.3f", p_value)
+    ),
+    Sig = case_when(
+      p_value < 0.001 ~ "***", p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*", p_value < 0.1 ~ ".", TRUE ~ ""
+    )
+  ) %>%
+  select(Variable = label, `R² (m)`, `ΔR² (m)`, Coef, p, Sig) %>%
+  kable()
+```
+
+
+# Comparison Across Outcomes
+
+```{r comparison}
+#| label: fig-comparison
+#| fig-cap: "Change in marginal R² by outcome group"
+#| fig-height: 7
+
+all_results <- bind_rows(
+  results %>% mutate(outcome = "All Pupils"),
+  results_disadv %>% mutate(outcome = "Disadvantaged"),
+  results_nondisadv %>% mutate(outcome = "Non-Disadvantaged")
+)
+
+all_results %>%
+  mutate(label = fct_reorder(label, delta_marginal, .fun = mean)) %>%
+  ggplot(aes(delta_marginal, label, colour = outcome)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(size = 3, position = position_dodge(width = 0.5)) +
+  scale_colour_brewer(palette = "Set1", name = "Outcome") +
+  scale_x_continuous(labels = label_number(accuracy = 0.0001)) +
+  labs(x = expression(Delta * R^2 ~ "(marginal)"), y = NULL,
+       title = "Financial variable impact varies by pupil group") +
+  theme(legend.position = "bottom")
+```
+
+```{r sig-comparison}
+#| label: tbl-sig-comparison
+#| tbl-cap: "Significance of financial variables across all three outcomes"
+
+all_results %>%
+  mutate(
+    sig = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE            ~ ""
+    ),
+    cell = paste0(sprintf("%+.4f", delta_marginal), " ", sig)
+  ) %>%
+  select(Variable = label, outcome, cell) %>%
+  pivot_wider(names_from = outcome, values_from = cell) %>%
+  kable()
+```
+
+
+# Best Combined Model (if improvements found)
+
+```{r best-model}
+#| label: best-model
+
+# Collect all significant improvers across all outcomes
+all_sig <- all_results %>%
+  filter(p_value < 0.05, delta_marginal > 0)
+
+if (nrow(all_sig) > 0) {
+  best_terms <- all_sig %>%
+    group_by(term, label) %>%
+    summarise(
+      mean_delta = mean(delta_marginal),
+      n_outcomes = n(),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(n_outcomes), desc(mean_delta))
+
+  cat("Financial variables that significantly improved at least one outcome:\n\n")
+  for (i in seq_len(nrow(best_terms))) {
+    cat(sprintf("  %s: improved %d/3 outcomes, mean ΔR²(m) = %+.4f\n",
+                best_terms$label[i], best_terms$n_outcomes[i],
+                best_terms$mean_delta[i]))
+  }
+
+  # Fit the best combined model for All Pupils
+  cat("\n\n--- Best combined model for All Pupils ---\n\n")
+
+  best_fin_terms <- paste(best_terms$term, collapse = " + ")
+  best_formula <- update(base_formula, paste("~ . +", best_fin_terms))
+
+  d_best <- d_fin
+  for (term in best_terms$term) {
+    if (grepl("^log\\(", term)) {
+      inner_var <- gsub("^log\\((.+)\\)$", "\\1", term)
+      d_best <- d_best %>% filter(!is.na(.data[[inner_var]]), .data[[inner_var]] > 0)
+    } else {
+      d_best <- d_best %>% filter(!is.na(.data[[term]]), is.finite(.data[[term]]))
+    }
+  }
+  d_best <- droplevels(d_best)
+  contrasts(d_best$OFSTEDRATING_1) <- contr.treatment(levels(d_best$OFSTEDRATING_1))
+
+  mod_best <- lmer(
+    best_formula, data = d_best, REML = TRUE, na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  r2_best <- r2(mod_best)
+  cat("Best model R² (marginal):", round(r2_best$R2_marginal, 4), "\n")
+  cat("Best model R² (conditional):", round(r2_best$R2_conditional, 4), "\n")
+  cat("Baseline R² (marginal):", round(r2_baseline$R2_marginal, 4), "\n")
+  cat("Total improvement:", sprintf("%+.4f", r2_best$R2_marginal - r2_baseline$R2_marginal), "\n")
+  cat("Observations:", nrow(d_best), "\n")
+  cat("Singular?", isSingular(mod_best), "\n\n")
+
+  summary(mod_best)
+} else {
+  cat("No financial variables significantly improved any of the three baseline models.\n")
+  cat("This suggests that school-level financial characteristics are largely\n")
+  cat("orthogonal to attainment outcomes once the existing predictors\n")
+  cat("(deprivation, absence, prior attainment, workforce, segregation)\n")
+  cat("are accounted for.\n")
+}
+```
+
+
+# Summary
+
+```{r summary-table}
+#| label: tbl-summary
+#| tbl-cap: "R² comparison: baseline vs best financial model"
+
+summary_rows <- tibble(
+  Model = c("Baseline (no finance)", "Best financial model"),
+  `R² marginal` = c(
+    round(r2_baseline$R2_marginal, 4),
+    if (exists("mod_best")) round(r2_best$R2_marginal, 4) else NA
+  ),
+  `R² conditional` = c(
+    round(r2_baseline$R2_conditional, 4),
+    if (exists("mod_best")) round(r2_best$R2_conditional, 4) else NA
+  )
+)
+
+if (exists("mod_multi") && nrow(sig_vars) > 0) {
+  summary_rows <- bind_rows(
+    summary_rows[1, ],
+    tibble(
+      Model = "All significant financial vars",
+      `R² marginal` = round(r2_multi$R2_marginal, 4),
+      `R² conditional` = round(r2_multi$R2_conditional, 4)
+    ),
+    summary_rows[2, ]
+  )
+}
+
+summary_rows %>%
+  filter(!is.na(`R² marginal`)) %>%
+  kable()
+```
+
+::: {.callout-note}
+## Interpretation notes
+
+- **Marginal R²** captures variance explained by fixed effects only.
+  This is the main comparison metric since financial variables enter as
+  fixed effects.
+- **Conditional R²** includes random effects (Ofsted, region/LA, year).
+  Changes here indicate whether financial data absorbs variance that was
+  previously captured by the random structure.
+- Even small R² improvements can be substantively interesting if the
+  coefficient is interpretable and policy-relevant.
+- Financial variables may be collinear with existing predictors
+  (e.g. deprivation drives both FSM% and per-pupil funding via the
+  National Funding Formula), so null results don't mean finance is
+  unimportant — just that its signal is already captured.
+:::
