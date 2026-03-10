@@ -14,6 +14,7 @@ source("modules/mod_la_overview.R")
 source("modules/mod_model_info.R")
 source("modules/mod_obs_vs_pred.R")
 source("modules/mod_la_typology.R")
+source("modules/mod_school_twin.R")
 
 
 # ---- UI ----
@@ -192,6 +193,14 @@ ui <- page_navbar(
                   )
                 ),
                 tags$tr(
+                  tags$td(icon("users"), " Find My Twin"),
+                  tags$td(
+                    "Select a school and find its 'twin' \u2014 another school with the most similar ",
+                    "contextual characteristics (pupil intake, absence, workforce, school type). ",
+                    "Attainment outcomes are shown for comparison but excluded from the matching."
+                  )
+                ),
+                tags$tr(
                   tags$td(icon("braille"), " Observed vs Predicted"),
                   tags$td(
                     "An interactive scatter plot comparing every school's actual attainment ",
@@ -293,7 +302,14 @@ ui <- page_navbar(
     mod_school_selector_ui("school_finder")
   ),
 
-  # ---- Tab 2: Observed vs Predicted ----
+  # ---- Tab 2: Find My Twin ----
+  nav_panel(
+    title = "Find My Twin",
+    icon = icon("users"),
+    mod_school_twin_ui("school_twin")
+  ),
+
+  # ---- Tab 3: Observed vs Predicted ----
   nav_panel(
     title = "Observed vs Predicted",
     icon = icon("braille"),
@@ -394,6 +410,12 @@ server <- function(input, output, session) {
 
   go_simulator <- mod_school_selector_server(
     "school_finder",
+    selected_outcome = selected_outcome,
+    selected_school_urn = selected_school_urn
+  )
+
+  mod_school_twin_server(
+    "school_twin",
     selected_outcome = selected_outcome,
     selected_school_urn = selected_school_urn
   )

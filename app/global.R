@@ -27,6 +27,7 @@ library(scales)
 library(stringr)
 library(purrr)
 library(glue)
+library(cluster)   # Gower distance for school twin matching
 
 # Source self-contained helper functions (predict_slim, slider config, etc.)
 source("R/app_helpers.R")
