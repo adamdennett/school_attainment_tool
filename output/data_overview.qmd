@@ -82,6 +82,10 @@ year_cols <- c("2021-22" = "#1b9e77", "2022-23" = "#d95f02",
 fig_dir <- here::here("output", "figures")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
+# Output directory for saved tables
+tbl_dir <- here::here("output", "tables")
+dir.create(tbl_dir, showWarnings = FALSE, recursive = TRUE)
+
 # Helper: save a ggplot as both PDF and JPEG
 save_fig <- function(p, name, width = 7, height = 5) {
   ggsave(file.path(fig_dir, paste0(name, ".pdf")),  p,
@@ -89,6 +93,13 @@ save_fig <- function(p, name, width = 7, height = 5) {
   ggsave(file.path(fig_dir, paste0(name, ".jpeg")), p,
          width = width, height = height, dpi = 300)
   invisible(p)
+}
+
+# Helper: save a kableExtra table as a standalone HTML file
+save_tbl <- function(tbl, name) {
+  save_kable(tbl, file = file.path(tbl_dir, paste0(name, ".html")),
+             self_contained = TRUE)
+  tbl
 }
 ```
 
@@ -130,7 +141,8 @@ tibble::tribble(
 ) %>%
   kable(align = "llll") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 11)
+                full_width = FALSE, font_size = 11) %>%
+  save_tbl("data_sources")
 ```
 
 
@@ -160,7 +172,8 @@ tibble::tribble(
   kable(align = "clllll") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 10) %>%
-  column_spec(5, width = "25em")
+  column_spec(5, width = "25em") %>%
+  save_tbl("pipeline_steps")
 ```
 
 
@@ -194,7 +207,8 @@ bind_rows(sample_tbl, totals) %>%
   kable(align = "lrrrr", format.args = list(big.mark = ",")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>%
-  row_spec(nrow(sample_tbl) + 1, bold = TRUE)
+  row_spec(nrow(sample_tbl) + 1, bold = TRUE) %>%
+  save_tbl("panel_dimensions")
 ```
 
 
@@ -283,7 +297,8 @@ outcome_stats %>%
   kable(align = "llrrrrrr") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11) %>%
-  collapse_rows(columns = 1, valign = "top")
+  collapse_rows(columns = 1, valign = "top") %>%
+  save_tbl("outcome_statistics")
 ```
 
 Mean Attainment 8 scores for all pupils sit in the mid-to-high 40s and have edged upward over the four-year window. The disadvantaged subgroup consistently scores around 10 points below the non-disadvantaged subgroup, and its standard deviation is slightly wider, reflecting greater heterogeneity in outcomes for this group. Scores for all three measures are approximately normally distributed, so the log transformation applied to the outcome in the multilevel model serves primarily to stabilise variance across the fitted-value range rather than to correct severe skew.
@@ -401,7 +416,8 @@ pred_table %>%
                 full_width = FALSE, font_size = 11) %>%
   pack_rows("School composition", 1, 5) %>%
   pack_rows("Segregation (LA-level)", 6, 6) %>%
-  pack_rows("Workforce", 7, nrow(pred_table))
+  pack_rows("Workforce", 7, nrow(pred_table)) %>%
+  save_tbl("predictor_statistics")
 ```
 
 There is wide variation across schools in most composition variables. The proportion of disadvantaged pupils (PTFSM6CLA1A) averages around 30% but ranges from near-zero to over 90%, reflecting the substantial segregation that exists within the English school system. Overall absence rates (PERCTOT) are tightly clustered for most schools but exhibit a long right tail of high-absence outliers. The workforce variables --- teacher retention, leadership pay share, and average sickness days --- have somewhat lower coverage (particularly for 2024--25, which relies on carry-forward imputation; see @tbl-imputation).
@@ -511,7 +527,8 @@ type_summary %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>%
   row_spec(which(type_summary$Status == "Excluded"),
-           color = "#c62828", italic = TRUE)
+           color = "#c62828", italic = TRUE) %>%
+  save_tbl("school_type_filter")
 ```
 
 ```{r tbl-model-sample}
@@ -538,7 +555,8 @@ bind_rows(model_summary, totals) %>%
   kable(align = "lrrr", format.args = list(big.mark = ",")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>%
-  row_spec(nrow(model_summary) + 1, bold = TRUE)
+  row_spec(nrow(model_summary) + 1, bold = TRUE) %>%
+  save_tbl("analysis_sample_dimensions")
 ```
 
 All descriptive statistics and figures from this point forward are based on the **analysis sample** (`r format(nrow(model_panel), big.mark = ",")` school-year observations from `r n_distinct(model_panel$URN)` mainstream state-funded schools).
@@ -644,7 +662,8 @@ completeness <- model_panel %>%
 completeness %>%
   kable(align = "lrrrr") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 11)
+                full_width = FALSE, font_size = 11) %>%
+  save_tbl("data_completeness")
 ```
 
 Core attainment and composition variables (Attainment 8, FSM eligibility, absence, EAL) enjoy near-complete coverage across all four years. The notable exception is the workforce block --- teacher retention, leadership pay share, and sickness absence --- which drops to 0% availability in 2024--25 because the School Workforce Census for that year had not been published at the time of data extraction. KS2 prior attainment (PTPRIORLO) is also missing for 2024--25 due to the lingering effects of COVID-era assessment cancellations.
@@ -732,7 +751,8 @@ imputation_summary %>%
                 full_width = FALSE) %>%
   footnote(general = paste0(flagged, " of ", n_2425,
                             " 2024-25 rows flagged as having imputed predictors (",
-                            round(flagged / n_2425 * 100, 1), "%)."))
+                            round(flagged / n_2425 * 100, 1), "%).")) %>%
+  save_tbl("imputation_summary")
 ```
 
 
@@ -999,7 +1019,8 @@ tibble(
   pack_rows("Fixed-effect predictors", 4, 10) %>%
   pack_rows("Random-effect grouping", 11, 13) %>%
   pack_rows("Workforce predictors", 14, 16) %>%
-  pack_rows("Metadata", 17, 17)
+  pack_rows("Metadata", 17, 17) %>%
+  save_tbl("variable_definitions")
 ```
 
 
