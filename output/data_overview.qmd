@@ -220,6 +220,7 @@ save_fig(p_region, "region_counts", width = 8, height = 5)
 p_region
 ```
 
+The South East, North West, and London contribute the largest number of schools, consistent with their population sizes. School counts are highly stable across years, reflecting the fact that the panel tracks the same institutions over time with minimal entry or exit.
 
 ## School Type Composition
 
@@ -246,8 +247,14 @@ save_fig(p_types, "school_types", width = 7, height = 4)
 p_types
 ```
 
+Academies form the largest group in the full panel, followed by Maintained schools and then Independent schools. The Independent school share --- while non-trivial in the raw data --- is excluded from the analysis sample for the reasons described in the callout below.
 
 # Outcome Variables
+
+::: {.callout-note}
+## Analysis sample
+From this section onward, all statistics, figures, and tables are based on the **analysis sample** of mainstream state-funded schools only --- Academies and Maintained schools. Independent schools (`r format(sum(panel_data$MINORGROUP == "Independent school", na.rm = TRUE), big.mark = ",")` observations), colleges (`r sum(panel_data$MINORGROUP == "College", na.rm = TRUE)`), and special schools (`r sum(panel_data$MINORGROUP == "Special school", na.rm = TRUE)`) are excluded because they operate under different funding, governance, and accountability frameworks that make direct comparison with the mainstream sector inappropriate. This reduces the panel from `r format(nrow(panel_data), big.mark = ",")` to **`r format(nrow(model_panel), big.mark = ",")`** school-year observations. Full details of the restriction are given in @tbl-school-type-filter.
+:::
 
 ## Descriptive Statistics
 
@@ -279,6 +286,7 @@ outcome_stats %>%
   collapse_rows(columns = 1, valign = "top")
 ```
 
+Mean Attainment 8 scores for all pupils sit in the mid-to-high 40s and have edged upward over the four-year window. The disadvantaged subgroup consistently scores around 10 points below the non-disadvantaged subgroup, and its standard deviation is slightly wider, reflecting greater heterogeneity in outcomes for this group. Scores for all three measures are approximately normally distributed, so the log transformation applied to the outcome in the multilevel model serves primarily to stabilise variance across the fitted-value range rather than to correct severe skew.
 
 ## Outcome Distributions
 
@@ -313,6 +321,7 @@ save_fig(p_density, "outcome_density", width = 8, height = 7)
 p_density
 ```
 
+The density plots confirm that all three Attainment 8 measures are unimodal and broadly symmetric. The disadvantaged subgroup distribution is shifted noticeably to the left, with a slight positive tail. Year-on-year shapes are highly stable, suggesting that the national distribution of school-level attainment has not shifted dramatically over the period.
 
 ## Disadvantage Gap Over Time
 
@@ -351,8 +360,11 @@ save_fig(p_gap, "disadvantage_gap_trend", width = 7, height = 4.5)
 p_gap
 ```
 
+The school-level disadvantage gap is remarkably persistent, with median values of around 13--14 Attainment 8 points across all four years. The interquartile range is wide, indicating that some schools narrow the gap far more effectively than others --- a key motivation for the multilevel modelling approach. A small number of schools show negative gaps (i.e. disadvantaged pupils outperforming their non-disadvantaged peers), visible as outliers below zero.
 
 # Predictor Variables
+
+The multilevel model includes nine fixed-effect predictors capturing school composition, pupil characteristics, and workforce conditions. This section summarises their distributions and motivates the log transformations applied to the most heavily skewed variables.
 
 ## Descriptive Statistics
 
@@ -392,6 +404,7 @@ pred_table %>%
   pack_rows("Workforce", 7, nrow(pred_table))
 ```
 
+There is wide variation across schools in most composition variables. The proportion of disadvantaged pupils (PTFSM6CLA1A) averages around 30% but ranges from near-zero to over 90%, reflecting the substantial segregation that exists within the English school system. Overall absence rates (PERCTOT) are tightly clustered for most schools but exhibit a long right tail of high-absence outliers. The workforce variables --- teacher retention, leadership pay share, and average sickness days --- have somewhat lower coverage (particularly for 2024--25, which relies on carry-forward imputation; see @tbl-imputation).
 
 ## Predictor Distributions
 
@@ -420,6 +433,7 @@ save_fig(p_hist, "predictor_distributions", width = 10, height = 8)
 p_hist
 ```
 
+Several predictors exhibit clear right skew --- notably the proportion of pupils with English as an additional language (PNUMEAL) and average teacher sickness days. The FSM eligibility rate and overall absence rate are also right-skewed, though less severely. By contrast, the Gorard segregation index and teacher retention FTE are approximately symmetric. These distributional differences motivate the selective log-transformation strategy described below.
 
 ## Log-Transformed Predictors
 
@@ -466,6 +480,7 @@ save_fig(p_log, "log_transform_comparison", width = 8, height = 7)
 p_log
 ```
 
+The side-by-side comparison confirms that the log transformation substantially reduces skewness for all four treated variables. After transformation, the distributions are much closer to the normal shape assumed by the linear mixed-effects model, improving the reliability of coefficient estimates and standard errors.
 
 # Analysis Sample Restriction
 
@@ -531,6 +546,8 @@ All descriptive statistics and figures from this point forward are based on the 
 
 # Categorical Variables
 
+Two categorical variables enter the model as fixed effects: the school's most recent Ofsted rating and its admissions policy type. Both vary over time as schools are re-inspected or change status.
+
 ## Ofsted Rating Distribution
 
 ```{r fig-ofsted-dist}
@@ -561,6 +578,7 @@ save_fig(p_ofsted, "ofsted_distribution", width = 7, height = 4.5)
 p_ofsted
 ```
 
+The vast majority of schools in the analysis sample are rated Good, followed by Outstanding. The proportion rated Requires Improvement or Inadequate is small and relatively stable across years. Because Ofsted ratings are carried forward until a school is re-inspected, the year-to-year changes are modest and reflect the pace of the inspection cycle rather than rapid shifts in school quality.
 
 ## Admissions Policy
 
@@ -588,8 +606,11 @@ if ("ADMPOL_PT" %in% names(model_panel)) {
 }
 ```
 
+The admissions policy variable captures whether a school selects pupils on academic ability. The overwhelming majority of mainstream state-funded schools operate non-selective admissions; the small selective share is concentrated in areas that retain grammar schools. This variable is included in the model to control for the compositional advantage that selective schools enjoy.
 
 # Missing Data
+
+Understanding the pattern of missing data is important for assessing whether the analysis sample is representative and whether the imputation strategy (described in the next section) is appropriate.
 
 ## Completeness by Variable and Year
 
@@ -626,6 +647,7 @@ completeness %>%
                 full_width = FALSE, font_size = 11)
 ```
 
+Core attainment and composition variables (Attainment 8, FSM eligibility, absence, EAL) enjoy near-complete coverage across all four years. The notable exception is the workforce block --- teacher retention, leadership pay share, and sickness absence --- which drops to 0% availability in 2024--25 because the School Workforce Census for that year had not been published at the time of data extraction. KS2 prior attainment (PTPRIORLO) is also missing for 2024--25 due to the lingering effects of COVID-era assessment cancellations.
 
 ## Missing Data Heatmap
 
@@ -660,6 +682,7 @@ save_fig(p_miss, "missing_heatmap", width = 8, height = 5)
 p_miss
 ```
 
+The heatmap makes the pattern stark: missingness is concentrated almost entirely in the workforce and prior attainment variables for the 2024--25 year. For the earlier three years, data completeness is consistently high across all variables. This structured, year-specific pattern supports the use of a carry-forward imputation strategy rather than more complex multiple imputation approaches.
 
 # Imputation: 2024--25 Carry-Forward
 
@@ -743,6 +766,7 @@ if (length(impute_vars) > 0) {
 }
 ```
 
+The density overlays show that the carried-forward 2024--25 distributions closely match the observed 2023--24 distributions, as expected. This provides reassurance that the imputation does not introduce systematic bias into the predictor values. The assumption underpinning this approach is that school-level workforce characteristics are slow-moving and unlikely to change dramatically within a single year.
 
 # Derived Variables
 
@@ -775,6 +799,7 @@ save_fig(p_gorard, "gorard_segregation", width = 7, height = 4)
 p_gorard
 ```
 
+Most Local Authorities have segregation index values between 0.10 and 0.35, indicating moderate unevenness in the distribution of disadvantaged pupils across schools. A small number of LAs show notably high segregation (above 0.40), often corresponding to areas with grammar schools or other selective provision. The distribution is fairly stable across years, consistent with the view that school-level segregation is a structural feature that changes slowly.
 
 # Correlation Structure
 
@@ -829,6 +854,7 @@ save_fig(p_cor, "correlation_matrix", width = 9, height = 7)
 p_cor
 ```
 
+Several expected patterns emerge. The proportion of disadvantaged pupils (PTFSM6CLA1A) has a strong negative correlation with Attainment 8, confirming that school-level deprivation is the dominant compositional predictor. Absence (PERCTOT) is positively correlated with deprivation and negatively with attainment. The EAL proportion shows a modest positive association with attainment, likely reflecting the concentration of EAL pupils in London schools which tend to perform above the national average. Among the workforce variables, teacher retention shows a positive correlation with attainment, while sickness absence is negatively associated. Importantly, no pair of predictors is so highly correlated as to raise serious multicollinearity concerns for the multilevel model.
 
 # Regional Variation
 
@@ -852,6 +878,8 @@ save_fig(p_regional, "att8_by_region", width = 8, height = 5)
 p_regional
 ```
 
+London stands out as the highest-performing region, with a median Attainment 8 score noticeably above all other regions. This is a well-documented pattern in the English education system, often attributed to the high concentration of EAL pupils, the "London effect" of sustained investment, and demographic factors. The North East and Yorkshire & The Humber tend to cluster at the lower end, though the overlap between regions is substantial.
+
 ```{r fig-deprivation-region}
 #| label: fig-deprivation-region
 #| fig-cap: "Proportion of disadvantaged pupils by region"
@@ -871,6 +899,7 @@ save_fig(p_fsm_region, "deprivation_by_region", width = 8, height = 5)
 p_fsm_region
 ```
 
+Regional deprivation patterns partially mirror the attainment picture but are not its simple inverse. London has among the highest median disadvantage rates yet achieves the highest attainment --- highlighting why the multilevel model conditions on deprivation rather than treating it as a fixed regional effect. The North East shows both high deprivation and low attainment, while the South East combines low deprivation with moderate attainment. These cross-cutting patterns underline the importance of school-level modelling over simple regional comparisons.
 
 # Variable Definitions
 
