@@ -59,6 +59,11 @@ panel_data <- panel_data %>%
     gor_name = factor(gor_name)
   )
 
+# Analysis sample: restrict to Academies and Maintained schools only
+# (matches the filter in 05_fit_model.R prepare_model_data())
+model_panel <- panel_data %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"))
+
 # Publication theme
 theme_pub <- theme_minimal(base_size = 11) +
   theme(
@@ -252,7 +257,7 @@ p_types
 
 outcome_vars <- c("ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A")
 
-outcome_stats <- panel_data %>%
+outcome_stats <- model_panel %>%
   pivot_longer(all_of(outcome_vars), names_to = "Variable", values_to = "value") %>%
   filter(!is.na(value)) %>%
   group_by(Variable, `Year` = year_label) %>%
@@ -282,7 +287,7 @@ outcome_stats %>%
 #| fig-cap: "Density plots of Attainment 8 scores by pupil group and year"
 #| fig-height: 6
 
-outcome_long <- panel_data %>%
+outcome_long <- model_panel %>%
   select(year_label, all_of(outcome_vars)) %>%
   pivot_longer(-year_label, names_to = "outcome", values_to = "score") %>%
   filter(!is.na(score)) %>%
@@ -316,7 +321,7 @@ p_density
 #| fig-cap: "Attainment gap between non-disadvantaged and disadvantaged pupils by year"
 #| fig-height: 4.5
 
-gap_data <- panel_data %>%
+gap_data <- model_panel %>%
   filter(!is.na(ATT8SCR_FSM6CLA1A), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
   mutate(gap = ATT8SCR_NFSM6CLA1A - ATT8SCR_FSM6CLA1A)
 
@@ -362,14 +367,14 @@ pred_vars <- c(
   "teachers_on_leadership_pay_range_percent",
   "average_number_of_days_taken"
 )
-pred_vars <- intersect(pred_vars, names(panel_data))
+pred_vars <- intersect(pred_vars, names(model_panel))
 
 pred_table <- map_dfr(pred_vars, function(v) {
-  x <- panel_data[[v]]
+  x <- model_panel[[v]]
   tibble(
     Variable = var_label(v),
     N        = sum(!is.na(x)),
-    `% available` = round(sum(!is.na(x)) / nrow(panel_data) * 100, 1),
+    `% available` = round(sum(!is.na(x)) / nrow(model_panel) * 100, 1),
     Mean     = round(mean(x, na.rm = TRUE), 2),
     SD       = round(sd(x, na.rm = TRUE), 2),
     Min      = round(min(x, na.rm = TRUE), 2),
@@ -395,7 +400,7 @@ pred_table %>%
 #| fig-cap: "Distributions of key predictor variables (raw scale)"
 #| fig-height: 8
 
-pred_long <- panel_data %>%
+pred_long <- model_panel %>%
   select(year_label, all_of(pred_vars)) %>%
   pivot_longer(-year_label, names_to = "variable", values_to = "value") %>%
   filter(!is.na(value)) %>%
@@ -427,15 +432,15 @@ Predictors with |skewness| > 1 are log-transformed for the multilevel model. `re
 
 log_vars <- c("PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
               "average_number_of_days_taken")
-log_vars <- intersect(log_vars, names(panel_data))
+log_vars <- intersect(log_vars, names(model_panel))
 
-raw_long <- panel_data %>%
+raw_long <- model_panel %>%
   select(all_of(log_vars)) %>%
   pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
   filter(!is.na(value), value > 0) %>%
   mutate(scale = "Raw")
 
-log_long <- panel_data %>%
+log_long <- model_panel %>%
   select(all_of(log_vars)) %>%
   mutate(across(everything(), safe_log)) %>%
   pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
@@ -462,6 +467,68 @@ p_log
 ```
 
 
+# Analysis Sample Restriction
+
+The multilevel models are fitted to **mainstream state-funded schools only** (Academies and Maintained schools). Independent schools, colleges, and special schools are excluded because they operate under different funding, governance, and admissions structures that make direct comparison inappropriate.
+
+@tbl-school-type-filter shows the effect of this restriction.
+
+```{r tbl-school-type-filter}
+#| label: tbl-school-type-filter
+#| tbl-cap: "Sample restriction by school type (MINORGROUP)"
+
+type_summary <- panel_data %>%
+  mutate(
+    in_model = MINORGROUP %in% c("Academy", "Maintained school"),
+    MINORGROUP = ifelse(is.na(MINORGROUP), "(Missing)", MINORGROUP)
+  ) %>%
+  count(MINORGROUP, in_model) %>%
+  arrange(desc(n)) %>%
+  mutate(
+    `% of panel` = round(n / sum(n) * 100, 1),
+    Status = ifelse(in_model, "Included", "Excluded")
+  ) %>%
+  select(`School type` = MINORGROUP, `School-year obs.` = n,
+         `% of panel`, Status)
+
+type_summary %>%
+  kable(align = "lrrl") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(which(type_summary$Status == "Excluded"),
+           color = "#c62828", italic = TRUE)
+```
+
+```{r tbl-model-sample}
+#| label: tbl-model-sample
+#| tbl-cap: "Analysis sample dimensions after excluding non-mainstream schools"
+
+model_summary <- model_panel %>%
+  group_by(`Academic year` = year_label) %>%
+  summarise(
+    Schools = n_distinct(URN),
+    `School-year obs.` = n(),
+    LAs = n_distinct(LANAME),
+    .groups = "drop"
+  )
+
+totals <- tibble(
+  `Academic year` = "Total / Overall",
+  Schools = n_distinct(model_panel$URN),
+  `School-year obs.` = nrow(model_panel),
+  LAs = n_distinct(model_panel$LANAME)
+)
+
+bind_rows(model_summary, totals) %>%
+  kable(align = "lrrr", format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(nrow(model_summary) + 1, bold = TRUE)
+```
+
+All descriptive statistics and figures from this point forward are based on the **analysis sample** (`r format(nrow(model_panel), big.mark = ",")` school-year observations from `r n_distinct(model_panel$URN)` mainstream state-funded schools).
+
+
 # Categorical Variables
 
 ## Ofsted Rating Distribution
@@ -471,7 +538,7 @@ p_log
 #| fig-cap: "Ofsted rating distribution by academic year"
 #| fig-height: 4.5
 
-p_ofsted <- panel_data %>%
+p_ofsted <- model_panel %>%
   filter(!is.na(OFSTEDRATING_1)) %>%
   count(year_label, OFSTEDRATING_1) %>%
   group_by(year_label) %>%
@@ -502,8 +569,8 @@ p_ofsted
 #| fig-cap: "Admissions policy distribution"
 #| fig-height: 3.5
 
-if ("ADMPOL_PT" %in% names(panel_data)) {
-  p_adm <- panel_data %>%
+if ("ADMPOL_PT" %in% names(model_panel)) {
+  p_adm <- model_panel %>%
     filter(!is.na(ADMPOL_PT)) %>%
     mutate(ADMPOL_PT = factor(ADMPOL_PT)) %>%
     count(year_label, ADMPOL_PT) %>%
@@ -539,9 +606,9 @@ all_model_vars <- c(
   "average_number_of_days_taken",
   "gor_name", "LANAME"
 )
-all_model_vars <- intersect(all_model_vars, names(panel_data))
+all_model_vars <- intersect(all_model_vars, names(model_panel))
 
-completeness <- panel_data %>%
+completeness <- model_panel %>%
   group_by(year_label) %>%
   summarise(
     across(all_of(all_model_vars),
@@ -567,7 +634,7 @@ completeness %>%
 #| fig-cap: "Missing data pattern across model variables by academic year"
 #| fig-height: 5
 
-miss_long <- panel_data %>%
+miss_long <- model_panel %>%
   select(year_label, all_of(all_model_vars)) %>%
   group_by(year_label) %>%
   summarise(
@@ -617,9 +684,9 @@ A flag variable `has_imputed_predictors` is set to `TRUE` for any 2024--25 row t
 impute_vars <- c("PTPRIORLO", "remained_in_the_same_school",
                  "teachers_on_leadership_pay_range_percent",
                  "average_number_of_days_taken")
-impute_vars <- intersect(impute_vars, names(panel_data))
+impute_vars <- intersect(impute_vars, names(model_panel))
 
-rows_2425 <- panel_data %>% filter(year_label == "2024-25")
+rows_2425 <- model_panel %>% filter(year_label == "2024-25")
 n_2425 <- nrow(rows_2425)
 
 imputation_summary <- map_dfr(impute_vars, function(v) {
@@ -652,7 +719,7 @@ imputation_summary %>%
 #| fig-height: 6
 
 if (length(impute_vars) > 0) {
-  compare_df <- panel_data %>%
+  compare_df <- model_panel %>%
     filter(year_label %in% c("2023-24", "2024-25")) %>%
     select(year_label, all_of(impute_vars)) %>%
     pivot_longer(-year_label, names_to = "variable", values_to = "value") %>%
@@ -692,7 +759,7 @@ where $F_i$ is the number of disadvantaged pupils in school $i$, $F_{\text{total
 #| fig-cap: "Distribution of Gorard segregation index across LAs by year"
 #| fig-height: 4
 
-gorard_la <- panel_data %>%
+gorard_la <- model_panel %>%
   filter(!is.na(gorard_segregation)) %>%
   distinct(LANAME, year_label, gorard_segregation)
 
@@ -722,9 +789,9 @@ cor_vars <- c("ATT8SCR", "PTFSM6CLA1A", "PERCTOT", "PPERSABS10", "PNUMEAL",
               "remained_in_the_same_school",
               "teachers_on_leadership_pay_range_percent",
               "average_number_of_days_taken")
-cor_vars <- intersect(cor_vars, names(panel_data))
+cor_vars <- intersect(cor_vars, names(model_panel))
 
-cor_data <- panel_data %>%
+cor_data <- model_panel %>%
   select(all_of(cor_vars)) %>%
   drop_na()
 
@@ -770,7 +837,7 @@ p_cor
 #| fig-cap: "Attainment 8 score distributions by region"
 #| fig-height: 5
 
-p_regional <- panel_data %>%
+p_regional <- model_panel %>%
   filter(!is.na(gor_name)) %>%
   ggplot(aes(x = fct_reorder(gor_name, ATT8SCR, .fun = median),
              y = ATT8SCR, fill = gor_name)) +
@@ -790,7 +857,7 @@ p_regional
 #| fig-cap: "Proportion of disadvantaged pupils by region"
 #| fig-height: 5
 
-p_fsm_region <- panel_data %>%
+p_fsm_region <- model_panel %>%
   filter(!is.na(gor_name), !is.na(PTFSM6CLA1A)) %>%
   ggplot(aes(x = fct_reorder(gor_name, PTFSM6CLA1A, .fun = median),
              y = PTFSM6CLA1A, fill = gor_name)) +
@@ -844,9 +911,10 @@ tibble(
 
 # Summary
 
-The final panel dataset contains **`r format(nrow(panel_data), big.mark = ",")`** school-year observations from **`r n_distinct(panel_data$URN)`** unique schools across **`r n_distinct(panel_data$LANAME)`** Local Authorities and **4 academic years** (2021--22 to 2024--25). Key features:
+The full panel dataset contains **`r format(nrow(panel_data), big.mark = ",")`** school-year observations from **`r n_distinct(panel_data$URN)`** unique schools. After restricting to mainstream state-funded schools (Academies and Maintained schools), the **analysis sample** comprises **`r format(nrow(model_panel), big.mark = ",")`** school-year observations from **`r n_distinct(model_panel$URN)`** schools across **`r n_distinct(model_panel$LANAME)`** Local Authorities and **4 academic years** (2021--22 to 2024--25). Key features:
 
-- **Outcome completeness**: Attainment 8 scores (all pupils) are available for 100% of observations by construction (rows without ATT8SCR are dropped during cleaning).
+- **Sample restriction**: Independent schools (`r format(sum(panel_data$MINORGROUP == "Independent school", na.rm = TRUE), big.mark = ",")` obs.), colleges, and special schools are excluded from the analysis.
+- **Outcome completeness**: Attainment 8 scores (all pupils) are available for 100% of analysis sample observations by construction.
 - **Predictor completeness**: Core predictors (disadvantage, absence, EAL) exceed 95% availability across all years. Workforce variables are unavailable for 2024--25 and are carry-forward imputed.
-- **Imputation scope**: `r round(sum(panel_data$has_imputed_predictors, na.rm = TRUE) / nrow(panel_data) * 100, 1)`% of all observations (confined to 2024--25) contain at least one imputed predictor.
+- **Imputation scope**: `r round(sum(model_panel$has_imputed_predictors, na.rm = TRUE) / nrow(model_panel) * 100, 1)`% of analysis sample observations (confined to 2024--25) contain at least one imputed predictor.
 - **Transformations**: Four right-skewed predictors are log-transformed; the Gorard segregation index is computed at the LA-year level.
