@@ -768,6 +768,71 @@ if (length(impute_vars) > 0) {
 
 The density overlays show that the carried-forward 2024--25 distributions closely match the observed 2023--24 distributions, as expected. This provides reassurance that the imputation does not introduce systematic bias into the predictor values. The assumption underpinning this approach is that school-level workforce characteristics are slow-moving and unlikely to change dramatically within a single year.
 
+## Year-on-Year Stability of KS2 Prior Attainment
+
+A key question for the carry-forward strategy is whether imputed variables are sufficiently stable from one year to the next at the school level. @fig-ptpriorlo-scatter addresses this for PTPRIORLO (the percentage of pupils entering with low KS2 prior attainment) by plotting each school's value in one year against its value in the next. If the variable were perfectly stable, all points would fall on the 45-degree line.
+
+```{r fig-ptpriorlo-scatter}
+#| label: fig-ptpriorlo-scatter
+#| fig-cap: "Year-on-year stability of KS2 prior attainment (% low prior) at the school level"
+#| fig-height: 5
+#| fig-width: 10
+
+# Build wide data: one row per school with each year's PTPRIORLO
+prior_wide <- model_panel %>%
+  filter(!is.na(PTPRIORLO)) %>%
+  select(URN, year_label, PTPRIORLO) %>%
+  pivot_wider(names_from = year_label, values_from = PTPRIORLO,
+              names_prefix = "y_")
+
+# Pair 1: 2021-22 vs 2022-23
+pair1 <- prior_wide %>%
+  filter(!is.na(`y_2021-22`), !is.na(`y_2022-23`))
+r1 <- cor(pair1$`y_2021-22`, pair1$`y_2022-23`)
+
+# Pair 2: 2022-23 vs 2023-24
+pair2 <- prior_wide %>%
+  filter(!is.na(`y_2022-23`), !is.na(`y_2023-24`))
+r2 <- cor(pair2$`y_2022-23`, pair2$`y_2023-24`)
+
+p_scatter1 <- ggplot(pair1, aes(x = `y_2021-22`, y = `y_2022-23`)) +
+  geom_point(alpha = 0.25, size = 1, colour = "#1b9e77") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey30") +
+  annotate("text", x = Inf, y = -Inf,
+           label = paste0("r = ", sprintf("%.3f", r1), "\nn = ", format(nrow(pair1), big.mark = ",")),
+           hjust = 1.1, vjust = -0.5, size = 3.5, colour = "grey30") +
+  labs(x = "% low prior attainment (2021-22)",
+       y = "% low prior attainment (2022-23)",
+       title = "2021-22 vs 2022-23") +
+  coord_equal() +
+  theme_pub
+
+p_scatter2 <- ggplot(pair2, aes(x = `y_2022-23`, y = `y_2023-24`)) +
+  geom_point(alpha = 0.25, size = 1, colour = "#d95f02") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey30") +
+  annotate("text", x = Inf, y = -Inf,
+           label = paste0("r = ", sprintf("%.3f", r2), "\nn = ", format(nrow(pair2), big.mark = ",")),
+           hjust = 1.1, vjust = -0.5, size = 3.5, colour = "grey30") +
+  labs(x = "% low prior attainment (2022-23)",
+       y = "% low prior attainment (2023-24)",
+       title = "2022-23 vs 2023-24") +
+  coord_equal() +
+  theme_pub
+
+p_prior_scatter <- p_scatter1 + p_scatter2 +
+  plot_annotation(
+    title = "Year-on-year stability of PTPRIORLO at the school level",
+    subtitle = "Dashed line = perfect carry-forward (y = x)",
+    theme = theme(plot.title = element_text(face = "bold", size = 12),
+                  plot.subtitle = element_text(colour = "grey40", size = 10))
+  )
+
+save_fig(p_prior_scatter, "ptpriorlo_year_scatter", width = 10, height = 5)
+p_prior_scatter
+```
+
+Both panels show a tight clustering of schools along the 45-degree line, with high year-on-year correlations. This confirms that the proportion of pupils entering with low KS2 prior attainment is a stable, slow-moving school characteristic. The degree of scatter is modest and symmetric around the diagonal, indicating no systematic drift. This pattern provides strong support for the carry-forward imputation of PTPRIORLO into 2024--25: if a school's value barely changes from 2021--22 to 2022--23 or from 2022--23 to 2023--24, it is reasonable to assume a similar level of stability into the following year.
+
 # Derived Variables
 
 ## Gorard Segregation Index
