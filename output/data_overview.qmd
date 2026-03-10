@@ -1,0 +1,852 @@
+---
+title: "Data Overview: School Attainment Analysis"
+subtitle: "Sources, construction, and descriptive statistics for the KS4 panel dataset"
+author: ""
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 300
+    df-print: kable
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+    fig-width: 7
+    fig-height: 5
+    geometry: margin=2.5cm
+    keep-tex: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(patchwork)
+library(here)
+library(naniar)
+
+source(here::here("R", "helpers.R"))
+
+# Load final panel and intermediate data
+panel_data <- readRDS(here::here("data", "panel_data.rds"))
+
+# Ensure factor ordering
+panel_data <- panel_data %>%
+  mutate(
+    year_label = factor(year_label,
+                        levels = c("2021-22", "2022-23", "2023-24", "2024-25")),
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name = factor(gor_name)
+  )
+
+# Publication theme
+theme_pub <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(colour = "grey40", size = 10),
+    strip.text    = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+# Colour palette
+year_cols <- c("2021-22" = "#1b9e77", "2022-23" = "#d95f02",
+               "2023-24" = "#7570b3", "2024-25" = "#e7298a")
+
+# Output directory for saved figures
+fig_dir <- here::here("output", "figures")
+dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Helper: save a ggplot as both PDF and JPEG
+save_fig <- function(p, name, width = 7, height = 5) {
+  ggsave(file.path(fig_dir, paste0(name, ".pdf")),  p,
+         width = width, height = height, device = "pdf")
+  ggsave(file.path(fig_dir, paste0(name, ".jpeg")), p,
+         width = width, height = height, dpi = 300)
+  invisible(p)
+}
+```
+
+
+# Introduction
+
+This document describes the construction and characteristics of the school-level panel dataset used in the multilevel regression analysis of KS4 Attainment 8 scores. It covers:
+
+1. **Data sources** — where each variable originates
+2. **Panel construction** — how per-year data are harmonised and linked
+3. **Cleaning and imputation** — handling of missing values and the 2024--25 carry-forward strategy
+4. **Descriptive statistics** — distributions, correlations, and completeness of the analysis variables
+
+All figures are saved as publication-ready PDF and JPEG files in `output/data_overview_files/`.
+
+
+# Data Sources
+
+@tbl-sources summarises the six primary data feeds that are combined into the final panel.
+
+```{r tbl-sources}
+#| label: tbl-sources
+#| tbl-cap: "Primary data sources and their contribution to the panel"
+
+tibble::tribble(
+  ~Source, ~Provider, ~Coverage, ~`Key variables`,
+  "KS4 Performance Tables", "DfE", "4 years (2021-22 to 2024-25)",
+    "ATT8SCR, P8MEA, PTFSM6CLA1A, PTPRIORLO, ADMPOL_PT, TOTPUPS",
+  "School Census", "DfE", "4 years (matched to KS4)",
+    "PNUMEAL, PNUMENGFL, TPUP, TFSM6CLA1A",
+  "Absence (perf. tables + API)", "DfE / EES", "4 years",
+    "PERCTOT, PPERSABS10",
+  "Ofsted Ratings", "Ofsted Official Statistics", "As at 31 Aug 2024",
+    "OFSTEDRATING_1 (harmonised 1\u20134)",
+  "Edubase", "DfE", "Oct 2024 snapshot",
+    "gor_name (region), easting, northing",
+  "School Workforce Census", "DfE / EES", "4 years (2024-25 delayed)",
+    "Teacher retention, leadership pay %, sickness days"
+) %>%
+  kable(align = "llll") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11)
+```
+
+
+# Panel Construction Pipeline
+
+The panel is assembled through four sequential scripts, each adding data and producing an intermediate `.rds` file.
+
+```{r tbl-pipeline}
+#| label: tbl-pipeline
+#| tbl-cap: "Data pipeline steps from raw ZIP files to the final analysis panel"
+
+tibble::tribble(
+  ~Step, ~Script, ~`Input`, ~`Output`, ~Description,
+  "1", "01_extract_data.R",
+    "Raw DfE ZIPs", "year_data_list.rds",
+    "Unzip, read KS4 + census + absence + school info per year; join by URN; filter RECTYPE=1 (mainstream)",
+  "2", "02_build_panel.R",
+    "year_data_list.rds", "panel_raw.rds",
+    "Download Edubase (region/coords), Ofsted ratings, absence API; join to each year; harmonise Ofsted text/numeric; stack into panel",
+  "3", "03_add_workforce.R",
+    "panel_raw.rds", "panel_with_workforce.rds",
+    "Download 5 workforce datasets from EES (turnover, pay, sickness, size, ratios); join by URN + time_period",
+  "4", "04_compute_derived.R",
+    "panel_with_workforce.rds", "panel_data.rds",
+    "Gorard segregation index; impute 2024-25 missing predictors; log transforms; final cleaning"
+) %>%
+  kable(align = "clllll") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 10) %>%
+  column_spec(5, width = "25em")
+```
+
+
+# Sample Overview
+
+## Panel Dimensions
+
+```{r tbl-sample-summary}
+#| label: tbl-sample-summary
+#| tbl-cap: "Panel dimensions by academic year"
+
+sample_tbl <- panel_data %>%
+  group_by(`Academic year` = year_label) %>%
+  summarise(
+    Schools = n_distinct(URN),
+    `School-year obs.` = n(),
+    LAs = n_distinct(LANAME),
+    Regions = n_distinct(gor_name),
+    .groups = "drop"
+  )
+
+totals <- tibble(
+  `Academic year` = "Total / Overall",
+  Schools = n_distinct(panel_data$URN),
+  `School-year obs.` = nrow(panel_data),
+  LAs = n_distinct(panel_data$LANAME),
+  Regions = n_distinct(panel_data$gor_name)
+)
+
+bind_rows(sample_tbl, totals) %>%
+  kable(align = "lrrrr", format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(nrow(sample_tbl) + 1, bold = TRUE)
+```
+
+
+## Geographic Distribution
+
+```{r fig-region-counts}
+#| label: fig-region-counts
+#| fig-cap: "Number of schools per region and academic year"
+#| fig-height: 5
+
+p_region <- panel_data %>%
+  filter(!is.na(gor_name)) %>%
+  count(gor_name, year_label) %>%
+  ggplot(aes(x = fct_reorder(gor_name, n, .fun = sum), y = n, fill = year_label)) +
+  geom_col(position = "dodge", width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(values = year_cols, name = "Academic year") +
+  labs(x = NULL, y = "Number of schools",
+       title = "Schools per region by academic year") +
+  theme_pub
+
+save_fig(p_region, "region_counts", width = 8, height = 5)
+p_region
+```
+
+
+## School Type Composition
+
+```{r fig-school-types}
+#| label: fig-school-types
+#| fig-cap: "School type composition across the panel"
+#| fig-height: 4
+
+p_types <- panel_data %>%
+  filter(!is.na(MINORGROUP)) %>%
+  count(MINORGROUP) %>%
+  mutate(pct = n / sum(n) * 100,
+         MINORGROUP = fct_reorder(MINORGROUP, n)) %>%
+  ggplot(aes(x = MINORGROUP, y = pct)) +
+  geom_col(fill = "#3575b5", width = 0.7) +
+  geom_text(aes(label = sprintf("%.1f%%", pct)), hjust = -0.1, size = 3) +
+  coord_flip() +
+  labs(x = NULL, y = "% of school-year observations",
+       title = "School type composition (all years pooled)") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme_pub
+
+save_fig(p_types, "school_types", width = 7, height = 4)
+p_types
+```
+
+
+# Outcome Variables
+
+## Descriptive Statistics
+
+```{r tbl-outcome-stats}
+#| label: tbl-outcome-stats
+#| tbl-cap: "Descriptive statistics for Attainment 8 outcome variables by academic year"
+
+outcome_vars <- c("ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A")
+
+outcome_stats <- panel_data %>%
+  pivot_longer(all_of(outcome_vars), names_to = "Variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(Variable, `Year` = year_label) %>%
+  summarise(
+    N     = n(),
+    Mean  = round(mean(value), 1),
+    SD    = round(sd(value), 1),
+    Min   = round(min(value), 1),
+    Median = round(median(value), 1),
+    Max   = round(max(value), 1),
+    .groups = "drop"
+  ) %>%
+  mutate(Variable = var_label(Variable))
+
+outcome_stats %>%
+  kable(align = "llrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+
+## Outcome Distributions
+
+```{r fig-outcome-density}
+#| label: fig-outcome-density
+#| fig-cap: "Density plots of Attainment 8 scores by pupil group and year"
+#| fig-height: 6
+
+outcome_long <- panel_data %>%
+  select(year_label, all_of(outcome_vars)) %>%
+  pivot_longer(-year_label, names_to = "outcome", values_to = "score") %>%
+  filter(!is.na(score)) %>%
+  mutate(
+    outcome = recode(outcome,
+      ATT8SCR               = "All pupils",
+      ATT8SCR_FSM6CLA1A     = "Disadvantaged",
+      ATT8SCR_NFSM6CLA1A    = "Non-disadvantaged"
+    ),
+    outcome = factor(outcome,
+                     levels = c("All pupils", "Disadvantaged", "Non-disadvantaged"))
+  )
+
+p_density <- ggplot(outcome_long, aes(x = score, fill = year_label)) +
+  geom_density(alpha = 0.45, colour = NA) +
+  facet_wrap(~ outcome, ncol = 1, scales = "free_y") +
+  scale_fill_manual(values = year_cols, name = "Academic year") +
+  labs(x = "Attainment 8 score", y = "Density",
+       title = "Distribution of Attainment 8 scores") +
+  theme_pub
+
+save_fig(p_density, "outcome_density", width = 8, height = 7)
+p_density
+```
+
+
+## Disadvantage Gap Over Time
+
+```{r fig-gap-trend}
+#| label: fig-gap-trend
+#| fig-cap: "Attainment gap between non-disadvantaged and disadvantaged pupils by year"
+#| fig-height: 4.5
+
+gap_data <- panel_data %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), !is.na(ATT8SCR_NFSM6CLA1A)) %>%
+  mutate(gap = ATT8SCR_NFSM6CLA1A - ATT8SCR_FSM6CLA1A)
+
+gap_summary <- gap_data %>%
+  group_by(year_label) %>%
+  summarise(
+    mean_gap   = mean(gap, na.rm = TRUE),
+    median_gap = median(gap, na.rm = TRUE),
+    sd_gap     = sd(gap, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+p_gap <- ggplot(gap_data, aes(x = year_label, y = gap)) +
+  geom_boxplot(aes(fill = year_label), alpha = 0.6, outlier.size = 0.5,
+               show.legend = FALSE) +
+  geom_point(data = gap_summary, aes(y = mean_gap),
+             shape = 18, size = 3, colour = "red") +
+  scale_fill_manual(values = year_cols) +
+  labs(x = "Academic year",
+       y = "ATT8 gap (non-disadvantaged \u2013 disadvantaged)",
+       title = "School-level disadvantage gap in Attainment 8",
+       subtitle = "Red diamond = annual mean") +
+  theme_pub
+
+save_fig(p_gap, "disadvantage_gap_trend", width = 7, height = 4.5)
+p_gap
+```
+
+
+# Predictor Variables
+
+## Descriptive Statistics
+
+```{r tbl-predictor-stats}
+#| label: tbl-predictor-stats
+#| tbl-cap: "Descriptive statistics for predictor variables used in the multilevel model"
+
+pred_vars <- c(
+  "PTFSM6CLA1A", "PERCTOT", "PPERSABS10", "PNUMEAL", "PTPRIORLO",
+  "gorard_segregation",
+  "remained_in_the_same_school",
+  "teachers_on_leadership_pay_range_percent",
+  "average_number_of_days_taken"
+)
+pred_vars <- intersect(pred_vars, names(panel_data))
+
+pred_table <- map_dfr(pred_vars, function(v) {
+  x <- panel_data[[v]]
+  tibble(
+    Variable = var_label(v),
+    N        = sum(!is.na(x)),
+    `% available` = round(sum(!is.na(x)) / nrow(panel_data) * 100, 1),
+    Mean     = round(mean(x, na.rm = TRUE), 2),
+    SD       = round(sd(x, na.rm = TRUE), 2),
+    Min      = round(min(x, na.rm = TRUE), 2),
+    Median   = round(median(x, na.rm = TRUE), 2),
+    Max      = round(max(x, na.rm = TRUE), 2)
+  )
+})
+
+pred_table %>%
+  kable(align = "lrrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  pack_rows("School composition", 1, 5) %>%
+  pack_rows("Segregation (LA-level)", 6, 6) %>%
+  pack_rows("Workforce", 7, nrow(pred_table))
+```
+
+
+## Predictor Distributions
+
+```{r fig-predictor-hist}
+#| label: fig-predictor-hist
+#| fig-cap: "Distributions of key predictor variables (raw scale)"
+#| fig-height: 8
+
+pred_long <- panel_data %>%
+  select(year_label, all_of(pred_vars)) %>%
+  pivot_longer(-year_label, names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  mutate(variable = var_label(variable))
+
+p_hist <- ggplot(pred_long, aes(x = value)) +
+  geom_histogram(aes(fill = year_label), bins = 40, alpha = 0.65,
+                 position = "identity", colour = NA) +
+  facet_wrap(~ variable, scales = "free", ncol = 3) +
+  scale_fill_manual(values = year_cols, name = "Academic year") +
+  labs(x = NULL, y = "Frequency",
+       title = "Predictor variable distributions") +
+  theme_pub +
+  theme(strip.text = element_text(size = 8))
+
+save_fig(p_hist, "predictor_distributions", width = 10, height = 8)
+p_hist
+```
+
+
+## Log-Transformed Predictors
+
+Predictors with |skewness| > 1 are log-transformed for the multilevel model. `remained_in_the_same_school` (skewness = 0.47) is entered on the raw scale as it is near-symmetric. @fig-log-compare shows the raw and log-transformed distributions for the variables that undergo this transformation.
+
+```{r fig-log-compare}
+#| label: fig-log-compare
+#| fig-cap: "Raw vs. log-transformed distributions for skewed predictor variables"
+#| fig-height: 7
+
+log_vars <- c("PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
+              "average_number_of_days_taken")
+log_vars <- intersect(log_vars, names(panel_data))
+
+raw_long <- panel_data %>%
+  select(all_of(log_vars)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value), value > 0) %>%
+  mutate(scale = "Raw")
+
+log_long <- panel_data %>%
+  select(all_of(log_vars)) %>%
+  mutate(across(everything(), safe_log)) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  mutate(scale = "Log-transformed")
+
+compare_long <- bind_rows(raw_long, log_long) %>%
+  mutate(
+    variable = var_label(variable),
+    scale = factor(scale, levels = c("Raw", "Log-transformed"))
+  )
+
+p_log <- ggplot(compare_long, aes(x = value)) +
+  geom_histogram(bins = 40, fill = "#3575b5", alpha = 0.7, colour = "white",
+                 linewidth = 0.2) +
+  facet_grid(variable ~ scale, scales = "free") +
+  labs(x = NULL, y = "Frequency",
+       title = "Effect of log transformation on skewed predictors") +
+  theme_pub +
+  theme(strip.text = element_text(size = 9))
+
+save_fig(p_log, "log_transform_comparison", width = 8, height = 7)
+p_log
+```
+
+
+# Categorical Variables
+
+## Ofsted Rating Distribution
+
+```{r fig-ofsted-dist}
+#| label: fig-ofsted-dist
+#| fig-cap: "Ofsted rating distribution by academic year"
+#| fig-height: 4.5
+
+p_ofsted <- panel_data %>%
+  filter(!is.na(OFSTEDRATING_1)) %>%
+  count(year_label, OFSTEDRATING_1) %>%
+  group_by(year_label) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  ungroup() %>%
+  ggplot(aes(x = year_label, y = pct, fill = OFSTEDRATING_1)) +
+  geom_col(position = "stack", width = 0.65) +
+  geom_text(aes(label = sprintf("%.0f%%", pct)),
+            position = position_stack(vjust = 0.5), size = 3, colour = "white") +
+  scale_fill_manual(
+    values = c("Outstanding" = "#1a9641", "Good" = "#a6d96a",
+               "Requires Improvement" = "#fdae61", "Inadequate" = "#d7191c"),
+    name = "Ofsted rating"
+  ) +
+  labs(x = "Academic year", y = "% of schools",
+       title = "Distribution of Ofsted ratings by year") +
+  theme_pub
+
+save_fig(p_ofsted, "ofsted_distribution", width = 7, height = 4.5)
+p_ofsted
+```
+
+
+## Admissions Policy
+
+```{r fig-admissions}
+#| label: fig-admissions
+#| fig-cap: "Admissions policy distribution"
+#| fig-height: 3.5
+
+if ("ADMPOL_PT" %in% names(panel_data)) {
+  p_adm <- panel_data %>%
+    filter(!is.na(ADMPOL_PT)) %>%
+    mutate(ADMPOL_PT = factor(ADMPOL_PT)) %>%
+    count(year_label, ADMPOL_PT) %>%
+    group_by(year_label) %>%
+    mutate(pct = n / sum(n) * 100) %>%
+    ggplot(aes(x = year_label, y = pct, fill = ADMPOL_PT)) +
+    geom_col(position = "stack", width = 0.65) +
+    scale_fill_brewer(palette = "Set2", name = "Admissions policy") +
+    labs(x = "Academic year", y = "% of schools",
+         title = "Admissions policy composition by year") +
+    theme_pub
+
+  save_fig(p_adm, "admissions_policy", width = 7, height = 3.5)
+  p_adm
+}
+```
+
+
+# Missing Data
+
+## Completeness by Variable and Year
+
+```{r tbl-completeness}
+#| label: tbl-completeness
+#| tbl-cap: "Data completeness (% non-missing) by variable and academic year"
+
+all_model_vars <- c(
+  "ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A",
+  "PTFSM6CLA1A", "PERCTOT", "PPERSABS10", "PNUMEAL", "PTPRIORLO",
+  "ADMPOL_PT", "gorard_segregation", "OFSTEDRATING_1",
+  "remained_in_the_same_school",
+  "teachers_on_leadership_pay_range_percent",
+  "average_number_of_days_taken",
+  "gor_name", "LANAME"
+)
+all_model_vars <- intersect(all_model_vars, names(panel_data))
+
+completeness <- panel_data %>%
+  group_by(year_label) %>%
+  summarise(
+    across(all_of(all_model_vars),
+           ~ round(sum(!is.na(.)) / n() * 100, 1),
+           .names = "{.col}"),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(-year_label, names_to = "Variable", values_to = "pct") %>%
+  pivot_wider(names_from = year_label, values_from = pct) %>%
+  mutate(Variable = var_label(Variable))
+
+completeness %>%
+  kable(align = "lrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11)
+```
+
+
+## Missing Data Heatmap
+
+```{r fig-missing-heatmap}
+#| label: fig-missing-heatmap
+#| fig-cap: "Missing data pattern across model variables by academic year"
+#| fig-height: 5
+
+miss_long <- panel_data %>%
+  select(year_label, all_of(all_model_vars)) %>%
+  group_by(year_label) %>%
+  summarise(
+    across(everything(), ~ sum(is.na(.)) / n() * 100),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(-year_label, names_to = "variable", values_to = "pct_missing") %>%
+  mutate(variable = var_label(variable))
+
+p_miss <- ggplot(miss_long, aes(x = year_label,
+                                 y = fct_reorder(variable, pct_missing, .fun = max),
+                                 fill = pct_missing)) +
+  geom_tile(colour = "white", linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%.0f%%", pct_missing)), size = 3) +
+  scale_fill_gradient(low = "#f7fbff", high = "#c62828",
+                      name = "% missing", limits = c(0, 100)) +
+  labs(x = "Academic year", y = NULL,
+       title = "Missing data by variable and year") +
+  theme_pub +
+  theme(panel.grid = element_blank())
+
+save_fig(p_miss, "missing_heatmap", width = 8, height = 5)
+p_miss
+```
+
+
+# Imputation: 2024--25 Carry-Forward
+
+Four predictor variables are unavailable for the 2024--25 academic year:
+
+- **PTPRIORLO** — KS2 prior attainment was cancelled due to the lingering effects of COVID-19 disruption
+- **remained_in_the_same_school** — workforce turnover data not yet published
+- **teachers_on_leadership_pay_range_percent** — workforce pay data not yet published
+- **average_number_of_days_taken** — workforce sickness data not yet published
+
+These are imputed using a two-step approach:
+
+1. **Carry-forward**: use the school's 2023--24 value
+2. **Fallback**: if no 2023--24 value exists, use the school-level mean across all available years
+
+A flag variable `has_imputed_predictors` is set to `TRUE` for any 2024--25 row that received at least one imputed value.
+
+```{r tbl-imputation}
+#| label: tbl-imputation
+#| tbl-cap: "Imputation summary for 2024-25 rows"
+
+impute_vars <- c("PTPRIORLO", "remained_in_the_same_school",
+                 "teachers_on_leadership_pay_range_percent",
+                 "average_number_of_days_taken")
+impute_vars <- intersect(impute_vars, names(panel_data))
+
+rows_2425 <- panel_data %>% filter(year_label == "2024-25")
+n_2425 <- nrow(rows_2425)
+
+imputation_summary <- map_dfr(impute_vars, function(v) {
+  n_available <- sum(!is.na(rows_2425[[v]]))
+  n_missing   <- n_2425 - n_available
+  tibble(
+    Variable          = var_label(v),
+    `2024-25 rows`    = n_2425,
+    `Non-missing`     = n_available,
+    `Still missing`   = n_missing,
+    `% imputed/available` = round(n_available / n_2425 * 100, 1)
+  )
+})
+
+flagged <- sum(rows_2425$has_imputed_predictors, na.rm = TRUE)
+
+imputation_summary %>%
+  kable(align = "lrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  footnote(general = paste0(flagged, " of ", n_2425,
+                            " 2024-25 rows flagged as having imputed predictors (",
+                            round(flagged / n_2425 * 100, 1), "%)."))
+```
+
+
+```{r fig-imputed-vs-observed}
+#| label: fig-imputed-vs-observed
+#| fig-cap: "Comparison of observed (2023-24) vs. carried-forward (2024-25) values for imputed variables"
+#| fig-height: 6
+
+if (length(impute_vars) > 0) {
+  compare_df <- panel_data %>%
+    filter(year_label %in% c("2023-24", "2024-25")) %>%
+    select(year_label, all_of(impute_vars)) %>%
+    pivot_longer(-year_label, names_to = "variable", values_to = "value") %>%
+    filter(!is.na(value)) %>%
+    mutate(variable = var_label(variable))
+
+  p_impute <- ggplot(compare_df, aes(x = value, fill = year_label)) +
+    geom_density(alpha = 0.5, colour = NA) +
+    facet_wrap(~ variable, scales = "free", ncol = 2) +
+    scale_fill_manual(
+      values = c("2023-24" = "#7570b3", "2024-25" = "#e7298a"),
+      name = "Academic year"
+    ) +
+    labs(x = NULL, y = "Density",
+         title = "Observed (2023-24) vs. imputed (2024-25) distributions",
+         subtitle = "2024-25 values are carry-forwards from 2023-24 or school-level means") +
+    theme_pub
+
+  save_fig(p_impute, "imputed_vs_observed", width = 8, height = 6)
+  p_impute
+}
+```
+
+
+# Derived Variables
+
+## Gorard Segregation Index
+
+The Gorard segregation index measures how unevenly disadvantaged pupils are distributed across schools within each Local Authority. It is computed per LA per year as:
+
+$$G_s = \frac{1}{2} \sum_{i=1}^{n} \left| \frac{F_i}{F_{\text{total}}} - \frac{T_i}{T_{\text{total}}} \right|$$
+
+where $F_i$ is the number of disadvantaged pupils in school $i$, $F_{\text{total}}$ the LA total, and $T_i$, $T_{\text{total}}$ the corresponding all-pupil totals.
+
+```{r fig-gorard}
+#| label: fig-gorard
+#| fig-cap: "Distribution of Gorard segregation index across LAs by year"
+#| fig-height: 4
+
+gorard_la <- panel_data %>%
+  filter(!is.na(gorard_segregation)) %>%
+  distinct(LANAME, year_label, gorard_segregation)
+
+p_gorard <- ggplot(gorard_la, aes(x = gorard_segregation, fill = year_label)) +
+  geom_histogram(bins = 30, alpha = 0.65, position = "identity", colour = "white",
+                 linewidth = 0.2) +
+  scale_fill_manual(values = year_cols, name = "Academic year") +
+  labs(x = "Gorard segregation index", y = "Number of LAs",
+       title = "Distribution of LA-level segregation index") +
+  theme_pub
+
+save_fig(p_gorard, "gorard_segregation", width = 7, height = 4)
+p_gorard
+```
+
+
+# Correlation Structure
+
+```{r fig-correlation-matrix}
+#| label: fig-correlation-matrix
+#| fig-cap: "Pairwise Pearson correlations among the outcome and all fixed-effect predictors"
+#| fig-height: 7
+#| fig-width: 8
+
+cor_vars <- c("ATT8SCR", "PTFSM6CLA1A", "PERCTOT", "PPERSABS10", "PNUMEAL",
+              "PTPRIORLO", "gorard_segregation",
+              "remained_in_the_same_school",
+              "teachers_on_leadership_pay_range_percent",
+              "average_number_of_days_taken")
+cor_vars <- intersect(cor_vars, names(panel_data))
+
+cor_data <- panel_data %>%
+  select(all_of(cor_vars)) %>%
+  drop_na()
+
+cor_mat <- cor(cor_data)
+
+# Apply labels
+labs_vec <- var_labels(cor_vars, wrap_width = 20)
+rownames(cor_mat) <- labs_vec
+colnames(cor_mat) <- labs_vec
+
+cor_long <- cor_mat %>%
+  as.data.frame() %>%
+  rownames_to_column("var1") %>%
+  pivot_longer(-var1, names_to = "var2", values_to = "r") %>%
+  mutate(
+    var1 = factor(var1, levels = rev(labs_vec)),
+    var2 = factor(var2, levels = labs_vec)
+  )
+
+p_cor <- ggplot(cor_long, aes(x = var2, y = var1, fill = r)) +
+  geom_tile(colour = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.2f", r)), size = 2.2) +
+  scale_fill_gradient2(low = "#c62828", mid = "white", high = "#1565c0",
+                       midpoint = 0, limits = c(-1, 1), name = "Pearson r") +
+  labs(x = NULL, y = NULL,
+       title = "Correlation matrix: outcome and predictors") +
+  theme_pub +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.text.y = element_text(size = 8),
+    panel.grid = element_blank()
+  )
+
+save_fig(p_cor, "correlation_matrix", width = 9, height = 7)
+p_cor
+```
+
+
+# Regional Variation
+
+```{r fig-att8-region}
+#| label: fig-att8-region
+#| fig-cap: "Attainment 8 score distributions by region"
+#| fig-height: 5
+
+p_regional <- panel_data %>%
+  filter(!is.na(gor_name)) %>%
+  ggplot(aes(x = fct_reorder(gor_name, ATT8SCR, .fun = median),
+             y = ATT8SCR, fill = gor_name)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.5, show.legend = FALSE) +
+  coord_flip() +
+  labs(x = NULL, y = "Attainment 8 score",
+       title = "Regional variation in Attainment 8 scores",
+       subtitle = "All years pooled") +
+  theme_pub
+
+save_fig(p_regional, "att8_by_region", width = 8, height = 5)
+p_regional
+```
+
+```{r fig-deprivation-region}
+#| label: fig-deprivation-region
+#| fig-cap: "Proportion of disadvantaged pupils by region"
+#| fig-height: 5
+
+p_fsm_region <- panel_data %>%
+  filter(!is.na(gor_name), !is.na(PTFSM6CLA1A)) %>%
+  ggplot(aes(x = fct_reorder(gor_name, PTFSM6CLA1A, .fun = median),
+             y = PTFSM6CLA1A, fill = gor_name)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.5, show.legend = FALSE) +
+  coord_flip() +
+  labs(x = NULL, y = "% pupils disadvantaged (FSM6CLA1A)",
+       title = "Deprivation levels by region") +
+  theme_pub
+
+save_fig(p_fsm_region, "deprivation_by_region", width = 8, height = 5)
+p_fsm_region
+```
+
+
+# Variable Definitions
+
+```{r tbl-var-definitions}
+#| label: tbl-var-definitions
+#| tbl-cap: "Definitions of all variables used in the multilevel model"
+
+model_vars_def <- c(
+  "ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A",
+  "PTFSM6CLA1A", "PERCTOT", "PPERSABS10", "PNUMEAL", "PTPRIORLO",
+  "ADMPOL_PT", "gorard_segregation",
+  "OFSTEDRATING_1", "gor_name", "LANAME",
+  "remained_in_the_same_school",
+  "teachers_on_leadership_pay_range_percent",
+  "average_number_of_days_taken",
+  "has_imputed_predictors"
+)
+
+tibble(
+  Variable = model_vars_def,
+  Label = var_labels(model_vars_def),
+  Role = c(rep("Outcome", 3),
+           rep("Fixed effect", 7),
+           rep("Random intercept", 3),
+           rep("Fixed effect", 3),
+           "Flag")
+) %>%
+  kable(align = "lll") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  pack_rows("Outcomes", 1, 3) %>%
+  pack_rows("Fixed-effect predictors", 4, 10) %>%
+  pack_rows("Random-effect grouping", 11, 13) %>%
+  pack_rows("Workforce predictors", 14, 16) %>%
+  pack_rows("Metadata", 17, 17)
+```
+
+
+# Summary
+
+The final panel dataset contains **`r format(nrow(panel_data), big.mark = ",")`** school-year observations from **`r n_distinct(panel_data$URN)`** unique schools across **`r n_distinct(panel_data$LANAME)`** Local Authorities and **4 academic years** (2021--22 to 2024--25). Key features:
+
+- **Outcome completeness**: Attainment 8 scores (all pupils) are available for 100% of observations by construction (rows without ATT8SCR are dropped during cleaning).
+- **Predictor completeness**: Core predictors (disadvantage, absence, EAL) exceed 95% availability across all years. Workforce variables are unavailable for 2024--25 and are carry-forward imputed.
+- **Imputation scope**: `r round(sum(panel_data$has_imputed_predictors, na.rm = TRUE) / nrow(panel_data) * 100, 1)`% of all observations (confined to 2024--25) contain at least one imputed predictor.
+- **Transformations**: Four right-skewed predictors are log-transformed; the Gorard segregation index is computed at the LA-year level.

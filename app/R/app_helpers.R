@@ -122,7 +122,7 @@ get_slider_config <- function() {
 # The imputed full model formula (Analysis E) is:
 #   log(Y) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
 #            PTPRIORLO + ADMPOL_PT + gorard_segregation +
-#            log(remained_in_the_same_school) +
+#            remained_in_the_same_school +
 #            teachers_on_leadership_pay_range_percent +
 #            log(average_number_of_days_taken) +
 #            (1|year_label) + (1|OFSTEDRATING_1) + (1|gor_name/LANAME)
@@ -152,11 +152,10 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
   log_pred <- rep(beta[["(Intercept)"]], n)
 
   # Continuous log-transformed predictors
-  # Includes the 3 original core predictors + 2 workforce variables
+  # Only variables with |skewness| > 1 are log-transformed
   log_vars <- c("PTFSM6CLA1A"              = "log(PTFSM6CLA1A)",
                 "PERCTOT"                   = "log(PERCTOT)",
                 "PNUMEAL"                   = "log(PNUMEAL)",
-                "remained_in_the_same_school" = "log(remained_in_the_same_school)",
                 "average_number_of_days_taken" = "log(average_number_of_days_taken)")
 
   for (raw_name in names(log_vars)) {
@@ -169,10 +168,11 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
     }
   }
 
-  # Linear continuous predictors (gorard_segregation, PTPRIORLO,
-  # teachers_on_leadership_pay_range_percent)
+  # Linear continuous predictors (entered on raw scale)
+  # remained_in_the_same_school moved here (skewness 0.47, near-symmetric)
   linear_vars <- c("gorard_segregation", "PTPRIORLO",
-                    "teachers_on_leadership_pay_range_percent")
+                    "teachers_on_leadership_pay_range_percent",
+                    "remained_in_the_same_school")
   for (v in linear_vars) {
     if (v %in% names(beta) && v %in% names(newdata)) {
       log_pred <- log_pred + beta[[v]] * as.numeric(newdata[[v]])

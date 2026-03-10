@@ -97,7 +97,7 @@ model_data <- panel %>%
     !is.na(ATT8SCR), ATT8SCR > 0,
     PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
     !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
-    remained_in_the_same_school > 0,
+    !is.na(remained_in_the_same_school),
     !is.na(teachers_on_leadership_pay_range_percent),
     average_number_of_days_taken > 0,
     !is.na(gorard_segregation)
@@ -187,7 +187,7 @@ mod_baseline <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -229,7 +229,7 @@ candidates <- list(
 base_formula <- log(ATT8SCR) ~
   log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
@@ -450,7 +450,7 @@ mod_disadv_base <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -476,7 +476,7 @@ results_disadv <- tibble(
 disadv_base_formula <- log(ATT8SCR_FSM6CLA1A) ~
   log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
@@ -554,7 +554,7 @@ mod_nondisadv_base <- lmer(
   log(ATT8SCR_NFSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -580,7 +580,7 @@ results_nondisadv <- tibble(
 nondisadv_base_formula <- log(ATT8SCR_NFSM6CLA1A) ~
   log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)

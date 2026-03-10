@@ -78,7 +78,7 @@ model_data <- panel %>%
   ) %>%
   # Workforce + Gorard variables (drops 2024-25)
   filter(
-    remained_in_the_same_school > 0,
+    !is.na(remained_in_the_same_school),
     !is.na(teachers_on_leadership_pay_range_percent),
     average_number_of_days_taken > 0,
     !is.na(gorard_segregation)
@@ -165,7 +165,7 @@ mod_a_all <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -212,7 +212,7 @@ mod_a_disadv <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -253,7 +253,7 @@ mod_a_nondisadv <- lmer(
   log(ATT8SCR_NFSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -313,7 +313,7 @@ for (yr in year_levels) {
     log(ATT8SCR) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
       PTPRIORLO + ADMPOL_PT + gorard_segregation +
-      log(remained_in_the_same_school) +
+      remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
       (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -354,7 +354,7 @@ for (yr in year_levels) {
     log(ATT8SCR_FSM6CLA1A) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
       PTPRIORLO + ADMPOL_PT + gorard_segregation +
-      log(remained_in_the_same_school) +
+      remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
       (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -395,7 +395,7 @@ for (yr in year_levels) {
     log(ATT8SCR_NFSM6CLA1A) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
       PTPRIORLO + ADMPOL_PT + gorard_segregation +
-      log(remained_in_the_same_school) +
+      remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
       (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -681,7 +681,7 @@ imputed_2425 <- panel %>%
          !is.na(ATT8SCR), ATT8SCR > 0,
          PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
          !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
-         remained_in_the_same_school > 0,
+         !is.na(remained_in_the_same_school),
          !is.na(teachers_on_leadership_pay_range_percent),
          average_number_of_days_taken > 0,
          !is.na(gorard_segregation)) %>%
@@ -732,7 +732,7 @@ mod_e_all <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -773,7 +773,7 @@ mod_e_disadv <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -814,7 +814,7 @@ mod_e_nondisadv <- lmer(
   log(ATT8SCR_NFSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    log(remained_in_the_same_school) +
+    remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
@@ -1013,7 +1013,7 @@ for (yr in year_levels) {
           "log(", outcome_var, ") ~ ",
           "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
           "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
-          "log(remained_in_the_same_school) + ",
+          "remained_in_the_same_school + ",
           "teachers_on_leadership_pay_range_percent + ",
           "log(average_number_of_days_taken) + ",
           "(1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
@@ -1081,7 +1081,7 @@ yearly_coefs_plotly <- yearly_coefs_df %>%
       Term == "gorard_segregation" ~ "Gorard Segregation",
       Term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other Non-Sel",
       Term == "ADMPOL_PTSEL" ~ "Admissions: Selective",
-      Term == "log(remained_in_the_same_school)" ~ "log(Teacher Retention)",
+      Term == "remained_in_the_same_school" ~ "Teacher Retention",
       Term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
       Term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
       TRUE ~ Term
@@ -1294,7 +1294,7 @@ and often non-significant coefficient.
 In the imputed full model, the three workforce variables add useful
 context:
 
-- **Teacher retention** (`log(remained_in_the_same_school)`): Positive
+- **Teacher retention** (`remained_in_the_same_school`): Positive
   coefficient — higher staff stability is associated with higher
   attainment. The per-year plots show this is consistent across years.
 - **Leadership pay** (`teachers_on_leadership_pay_range_percent`):
@@ -1755,7 +1755,7 @@ standardised_importance <- function(model, data, outcome_var, group_label) {
     "log(PNUMEAL)",                            "PNUMEAL",                                  "log",
     "PTPRIORLO",                               "PTPRIORLO",                                "none",
     "gorard_segregation",                      "gorard_segregation",                       "none",
-    "log(remained_in_the_same_school)",         "remained_in_the_same_school",              "log",
+    "remained_in_the_same_school",         "remained_in_the_same_school",              "none",
     "teachers_on_leadership_pay_range_percent", "teachers_on_leadership_pay_range_percent", "none",
     "log(average_number_of_days_taken)",        "average_number_of_days_taken",             "log"
   )
@@ -1797,7 +1797,7 @@ display_names <- c(
   "log(PNUMEAL)" = "% EAL",
   "PTPRIORLO" = "% Low Prior Attainment",
   "gorard_segregation" = "Gorard Segregation Index",
-  "log(remained_in_the_same_school)" = "Teacher Retention",
+  "remained_in_the_same_school" = "Teacher Retention",
   "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
   "log(average_number_of_days_taken)" = "Teacher Sickness Days"
 )
@@ -2294,7 +2294,7 @@ policy lever on the basis of this model.
 | `PTPRIORLO` | `PTPRIORLO` | % low KS2 prior attainment |
 | `ADMPOL_PT` | `ADMPOL_PT` | Admissions policy indicator |
 | `gorard_segregation` | `gorard_segregation` | Gorard segregation index |
-| `remained_in_the_same_school` | `log(remained_in_the_same_school)` | Teacher retention (%) |
+| `remained_in_the_same_school` | `remained_in_the_same_school` | Teacher retention (%) |
 | `teachers_on_leadership_pay_range_percent` | as-is | % teachers on leadership pay |
 | `average_number_of_days_taken` | `log(average_number_of_days_taken)` | Average teacher absence days |
 | `OFSTEDRATING_1` | `(1\|OFSTEDRATING_1)` | Ofsted rating (random intercept) |

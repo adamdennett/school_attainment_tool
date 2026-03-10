@@ -251,7 +251,7 @@ mod_model_info_server <- function(id, selected_outcome) {
             tags$tr(
               tags$td("Teacher Retention"),
               tags$td("Number of teachers who remained in the same school between census years"),
-              tags$td("log(remained_in_the_same_school)")
+              tags$td("remained_in_the_same_school")
             ),
             tags$tr(
               tags$td("Leadership Pay %"),

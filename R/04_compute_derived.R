@@ -157,18 +157,45 @@ impute_missing_predictors <- function(panel) {
 
 #' Add log transforms for model variables
 #'
+#' Only log-transforms variables with |skewness| > 1 (substantially skewed).
 #' Guards against zero/negative values by setting to NA before log transform.
-#' Uses natural log (base e) consistent with lme11 model specification.
+#' Uses natural log (base e) consistent with the model specification.
+#'
+#' Outcomes (ATT8SCR variants) are always log-transformed as a modelling choice
+#' (log-linear specification), independent of skewness.
 add_log_transforms <- function(panel) {
 
   message("Adding log transforms ...")
 
-  # Variables that need log transformation in the model
-  log_vars <- c(
-    "ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A",
+  # Outcome variables: always log-transformed (modelling choice, not skewness)
+  outcome_log_vars <- c("ATT8SCR", "ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A")
+
+  # Predictor candidates: only log if |skewness| > 1
+  predictor_candidates <- c(
     "PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
     "remained_in_the_same_school", "average_number_of_days_taken"
   )
+
+  skew_threshold <- 1.0
+  predictor_log_vars <- character(0)
+
+  message("  Checking predictor skewness (threshold = ", skew_threshold, "):")
+  for (v in predictor_candidates) {
+    if (!v %in% names(panel)) {
+      message("    ", v, ": NOT FOUND — skipping")
+      next
+    }
+    x <- panel[[v]][!is.na(panel[[v]])]
+    if (length(x) < 3) next
+    sk <- (sum((x - mean(x))^3) / length(x)) / (sd(x)^3)
+    message(sprintf("    %-45s skew = %6.3f  %s",
+                    v, sk, ifelse(abs(sk) > skew_threshold, "-> LOG", "-> raw")))
+    if (abs(sk) > skew_threshold) {
+      predictor_log_vars <- c(predictor_log_vars, v)
+    }
+  }
+
+  log_vars <- c(outcome_log_vars, predictor_log_vars)
 
   for (v in log_vars) {
     if (v %in% names(panel)) {
@@ -177,8 +204,6 @@ add_log_transforms <- function(panel) {
       n_valid <- sum(!is.na(panel[[new_name]]))
       n_total <- nrow(panel)
       message("  log_", v, ": ", n_valid, "/", n_total, " valid")
-    } else {
-      message("  WARNING: ", v, " not found in panel - skipping log transform")
     }
   }
 

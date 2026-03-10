@@ -272,7 +272,7 @@ bivar_df <- model_data %>%
     `log(% EAL)` = log(PNUMEAL),
     `% Low Prior Attainment (KS2)` = PTPRIORLO,
     `Gorard Segregation Index` = gorard_segregation,
-    `log(Teachers Remaining FTE)` = log(remained_in_the_same_school),
+    `Teachers Remaining FTE` = remained_in_the_same_school,
     `% Teachers on Leadership Pay` = teachers_on_leadership_pay_range_percent,
     `log(Avg. Teacher Sickness Days)` = log(average_number_of_days_taken)
   ) %>%
@@ -1932,7 +1932,7 @@ All four years pooled with `year_label` as a random intercept:
 ```
 log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
@@ -1945,7 +1945,7 @@ Separate model for each academic year (no year term):
 ```
 log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
@@ -1978,7 +1978,7 @@ Same 9-predictor specification as Analysis A, but covering all 4 years (2024-25 
 ```
 log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
   PTPRIORLO + ADMPOL_PT + gorard_segregation +
-  log(remained_in_the_same_school) +
+  remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
   (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)

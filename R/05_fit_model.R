@@ -8,10 +8,15 @@
 #      - Formula:
 #        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
 #          PTPRIORLO + ADMPOL_PT + gorard_segregation +
-#          log(remained_in_the_same_school) +
+#          remained_in_the_same_school +
 #          teachers_on_leadership_pay_range_percent +
 #          log(average_number_of_days_taken) +
 #          (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+#
+#      Note: remained_in_the_same_school enters on the raw scale
+#      (skewness = 0.47, near-symmetric). Other skewed predictors
+#      (PNUMEAL, average_number_of_days_taken, PTFSM6CLA1A, PERCTOT)
+#      are log-transformed.
 #
 #   B. FULL PER-YEAR MODELS (separate model for each year with complete data)
 #      - Same fixed effects but no year term
@@ -49,7 +54,10 @@ OUTCOMES <- list(
   non_disadvantaged = "ATT8SCR_NFSM6CLA1A"
 )
 
-# Common fixed-effect predictors (log transforms applied in the formula)
+# Common fixed-effect predictors
+# Log-transformed in formula: PTFSM6CLA1A, PERCTOT, PNUMEAL,
+# average_number_of_days_taken. remained_in_the_same_school enters raw
+# (skewness 0.47, near-symmetric).
 FIXED_PREDICTORS <- c(
   "PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
   "PTPRIORLO", "ADMPOL_PT", "gorard_segregation",
@@ -65,7 +73,7 @@ MODEL_GROUPING <- c("OFSTEDRATING_1", "gor_name", "LANAME")
 FIXED_FORMULA_RHS <- paste0(
   "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
   "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
-  "log(remained_in_the_same_school) + ",
+  "remained_in_the_same_school + ",
   "teachers_on_leadership_pay_range_percent + ",
   "log(average_number_of_days_taken)"
 )
@@ -149,9 +157,10 @@ prepare_model_data <- function(panel) {
   message("  After filtering for core model variables: ", nrow(model_data), " rows")
 
   # Further filter for workforce variables (may reduce sample size)
+  # remained_in_the_same_school is not log-transformed so only needs !is.na
   model_data_full <- model_data %>%
     filter(
-      remained_in_the_same_school > 0,
+      !is.na(remained_in_the_same_school),
       !is.na(teachers_on_leadership_pay_range_percent),
       average_number_of_days_taken > 0,
       !is.na(gorard_segregation)
