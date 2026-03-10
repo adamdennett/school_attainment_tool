@@ -95,10 +95,12 @@ save_fig <- function(p, name, width = 7, height = 5) {
   invisible(p)
 }
 
-# Helper: save a kableExtra table as a standalone HTML file
+# Helper: save a kableExtra table as standalone HTML and PNG
 save_tbl <- function(tbl, name) {
   save_kable(tbl, file = file.path(tbl_dir, paste0(name, ".html")),
              self_contained = TRUE)
+  save_kable(tbl, file = file.path(tbl_dir, paste0(name, ".png")),
+             zoom = 2, density = 300)
   tbl
 }
 ```
