@@ -419,6 +419,97 @@ p_gap
 
 The school-level disadvantage gap is remarkably persistent, with median values of around 13--14 Attainment 8 points across all four years. The interquartile range is wide, indicating that some schools narrow the gap far more effectively than others --- a key motivation for the multilevel modelling approach. A small number of schools show negative gaps (i.e. disadvantaged pupils outperforming their non-disadvantaged peers), visible as outliers below zero.
 
+## Outcomes by Region
+
+```{r fig-outcome-region}
+#| label: fig-outcome-region
+#| fig-cap: "Attainment 8 distributions by region — the grouping variable for the multilevel model's regional random intercept"
+#| fig-height: 6
+
+p_outcome_region <- model_panel %>%
+  filter(!is.na(gor_name)) %>%
+  select(gor_name, all_of(outcome_vars)) %>%
+  pivot_longer(-gor_name, names_to = "outcome", values_to = "score") %>%
+  filter(!is.na(score)) %>%
+  mutate(
+    outcome = recode(outcome,
+      ATT8SCR            = "All pupils",
+      ATT8SCR_FSM6CLA1A  = "Disadvantaged",
+      ATT8SCR_NFSM6CLA1A = "Non-disadvantaged"
+    ),
+    outcome = factor(outcome,
+                     levels = c("All pupils", "Disadvantaged", "Non-disadvantaged")),
+    gor_name = fct_reorder(gor_name, score, .fun = median)
+  )
+
+p_out_reg <- ggplot(p_outcome_region, aes(x = gor_name, y = score, fill = gor_name)) +
+  geom_violin(alpha = 0.6, colour = NA, scale = "width") +
+  geom_boxplot(width = 0.15, alpha = 0.8, outlier.size = 0.3, show.legend = FALSE) +
+  facet_wrap(~ outcome, ncol = 3) +
+  coord_flip() +
+  labs(x = NULL, y = "Attainment 8 score",
+       title = "Attainment 8 by region and pupil group",
+       subtitle = "All years pooled") +
+  theme_pub +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 9))
+
+save_fig(p_out_reg, "outcome_by_region", width = 11, height = 6)
+p_out_reg
+```
+
+London stands out with the highest median scores across all three pupil groups --- a well-documented feature of the English school system. The North East and Yorkshire & The Humber cluster at the lower end, though there is substantial overlap between regions. Notably, regional rankings are broadly consistent across the three outcome groups, suggesting that the "London effect" benefits disadvantaged and non-disadvantaged pupils alike.
+
+## Outcomes by Ofsted Rating
+
+```{r fig-outcome-ofsted}
+#| label: fig-outcome-ofsted
+#| fig-cap: "Attainment 8 distributions by Ofsted rating — the grouping variable for the multilevel model's Ofsted random intercept"
+#| fig-height: 5
+
+p_outcome_ofsted <- model_panel %>%
+  filter(!is.na(OFSTEDRATING_1)) %>%
+  select(OFSTEDRATING_1, all_of(outcome_vars)) %>%
+  pivot_longer(-OFSTEDRATING_1, names_to = "outcome", values_to = "score") %>%
+  filter(!is.na(score)) %>%
+  mutate(
+    outcome = recode(outcome,
+      ATT8SCR            = "All pupils",
+      ATT8SCR_FSM6CLA1A  = "Disadvantaged",
+      ATT8SCR_NFSM6CLA1A = "Non-disadvantaged"
+    ),
+    outcome = factor(outcome,
+                     levels = c("All pupils", "Disadvantaged", "Non-disadvantaged"))
+  )
+
+ofsted_cols <- c("Outstanding" = "#1b7e2e", "Good" = "#6aaa47",
+                 "Requires Improvement" = "#e8a838", "Inadequate" = "#c62828")
+
+p_out_ofs <- ggplot(p_outcome_ofsted,
+                    aes(x = OFSTEDRATING_1, y = score, fill = OFSTEDRATING_1)) +
+  geom_violin(alpha = 0.6, colour = NA, scale = "width") +
+  geom_boxplot(width = 0.15, alpha = 0.8, outlier.size = 0.3, show.legend = FALSE) +
+  facet_wrap(~ outcome, ncol = 3) +
+  scale_fill_manual(values = ofsted_cols) +
+  labs(x = NULL, y = "Attainment 8 score",
+       title = "Attainment 8 by Ofsted rating and pupil group",
+       subtitle = "All years pooled") +
+  theme_pub +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 30, hjust = 1, size = 8),
+        strip.text = element_text(size = 9))
+
+save_fig(p_out_ofs, "outcome_by_ofsted", width = 10, height = 5)
+p_out_ofs
+```
+
+There is a clear gradient in attainment across Ofsted categories: Outstanding schools have the highest median scores and the tightest distributions, while Inadequate schools sit noticeably lower with wider spread. The step from Good to Requires Improvement is the sharpest for all three pupil groups.
+
+::: {.callout-tip}
+## Relation to the multilevel null model
+These two plots illustrate the structure captured by the **random intercepts** in the multilevel model. Region (`gor_name`) and Ofsted rating (`OFSTEDRATING_1`) each enter as grouping variables, allowing the model to estimate a separate baseline (intercept) for each level. Before any school-level predictors are added, these group-level intercepts absorb the systematic variation visible in the violin plots above --- effectively representing a **null model** that accounts only for which region and Ofsted category a school belongs to. The fixed-effect predictors (deprivation, absence, EAL, etc.) then explain the remaining within-group variation around these baselines.
+:::
+
 # Predictor Variables
 
 The multilevel model includes eight fixed-effect predictors capturing school composition, pupil characteristics, and workforce conditions. This section summarises their distributions and motivates the log transformations applied to the most heavily skewed variables.
@@ -991,51 +1082,6 @@ p_cor
 ```
 
 Correlations are computed on the model scale --- i.e. the four log-transformed predictors are shown after transformation, matching the scale on which they enter the multilevel model. Several expected patterns emerge. The proportion of disadvantaged pupils has a strong negative correlation with Attainment 8, confirming that school-level deprivation is the dominant compositional predictor. Absence is positively correlated with deprivation and negatively with attainment. The EAL proportion shows a modest positive association with attainment, likely reflecting the concentration of EAL pupils in London schools which tend to perform above the national average. Among the workforce variables, teacher retention shows a positive correlation with attainment, while sickness absence is negatively associated. Importantly, no pair of predictors is so highly correlated as to raise serious multicollinearity concerns for the multilevel model.
-
-# Regional Variation
-
-```{r fig-att8-region}
-#| label: fig-att8-region
-#| fig-cap: "Attainment 8 score distributions by region"
-#| fig-height: 5
-
-p_regional <- model_panel %>%
-  filter(!is.na(gor_name)) %>%
-  ggplot(aes(x = fct_reorder(gor_name, ATT8SCR, .fun = median),
-             y = ATT8SCR, fill = gor_name)) +
-  geom_boxplot(alpha = 0.7, outlier.size = 0.5, show.legend = FALSE) +
-  coord_flip() +
-  labs(x = NULL, y = "Attainment 8 score",
-       title = "Regional variation in Attainment 8 scores",
-       subtitle = "All years pooled") +
-  theme_pub
-
-save_fig(p_regional, "att8_by_region", width = 8, height = 5)
-p_regional
-```
-
-London stands out as the highest-performing region, with a median Attainment 8 score noticeably above all other regions. This is a well-documented pattern in the English education system, often attributed to the high concentration of EAL pupils, the "London effect" of sustained investment, and demographic factors. The North East and Yorkshire & The Humber tend to cluster at the lower end, though the overlap between regions is substantial.
-
-```{r fig-deprivation-region}
-#| label: fig-deprivation-region
-#| fig-cap: "Proportion of disadvantaged pupils by region"
-#| fig-height: 5
-
-p_fsm_region <- model_panel %>%
-  filter(!is.na(gor_name), !is.na(PTFSM6CLA1A)) %>%
-  ggplot(aes(x = fct_reorder(gor_name, PTFSM6CLA1A, .fun = median),
-             y = PTFSM6CLA1A, fill = gor_name)) +
-  geom_boxplot(alpha = 0.7, outlier.size = 0.5, show.legend = FALSE) +
-  coord_flip() +
-  labs(x = NULL, y = "% pupils disadvantaged (FSM6CLA1A)",
-       title = "Deprivation levels by region") +
-  theme_pub
-
-save_fig(p_fsm_region, "deprivation_by_region", width = 8, height = 5)
-p_fsm_region
-```
-
-Regional deprivation patterns partially mirror the attainment picture but are not its simple inverse. London has among the highest median disadvantage rates yet achieves the highest attainment --- highlighting why the multilevel model conditions on deprivation rather than treating it as a fixed regional effect. The North East shows both high deprivation and low attainment, while the South East combines low deprivation with moderate attainment. These cross-cutting patterns underline the importance of school-level modelling over simple regional comparisons.
 
 # Summary
 
