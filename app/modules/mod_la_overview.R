@@ -236,8 +236,15 @@ mod_la_overview_server <- function(id, selected_outcome) {
           Actual = actual,
           Predicted = predicted,
           Residual = residual,
-          `% Disadvantaged` = PTFSM6CLA1A,
+          `% Disadv.` = PTFSM6CLA1A,
           `Absence (%)` = PERCTOT,
+          `% EAL` = PNUMEAL,
+          `% Low Prior` = PTPRIORLO,
+          `Adm. Policy` = ADMPOL_PT,
+          `Segregation` = gorard_segregation,
+          `Teacher Retention` = remained_in_the_same_school,
+          `% Leadership Pay` = teachers_on_leadership_pay_range_percent,
+          `Avg. Sick Days` = average_number_of_days_taken,
           Pupils = TOTPUPS,
           Ofsted = OFSTEDRATING_1
         ) %>%
@@ -247,6 +254,7 @@ mod_la_overview_server <- function(id, selected_outcome) {
         table_data,
         options = list(
           pageLength = 20,
+          scrollX = TRUE,
           order = list(list(3, "desc"))
         ),
         rownames = FALSE,

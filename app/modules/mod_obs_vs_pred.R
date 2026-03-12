@@ -28,20 +28,8 @@ mod_obs_vs_pred_ui <- function(id) {
       radioButtons(
         ns("highlight_mode"), "Highlight by",
         choices = c("None" = "none",
-                    "Local Authority" = "la",
                     "LA Cluster" = "cluster"),
         selected = "none", inline = TRUE
-      ),
-
-      # LA selector — shown when highlight_mode == "la"
-      conditionalPanel(
-        condition = sprintf("input['%s'] == 'la'", ns("highlight_mode")),
-        selectInput(
-          ns("la_select"),
-          label = NULL,
-          choices = NULL,
-          selected = NULL
-        )
       ),
 
       # Cluster selector — shown when highlight_mode == "cluster"
@@ -62,6 +50,9 @@ mod_obs_vs_pred_ui <- function(id) {
           label = NULL,
           choices = NULL,
           selected = NULL
+        ),
+        checkboxInput(
+          ns("show_school_names"), "Show school names", value = FALSE
         )
       ),
 
@@ -69,14 +60,15 @@ mod_obs_vs_pred_ui <- function(id) {
       tags$p(class = "text-muted small",
              "Highlight by LA to show one authority in orange, ",
              "or by cluster to colour schools by their LA typology group. ",
-             "Use 'Overlay Local Authority' to ring schools in a specific LA ",
-             "on top of any colouring mode. ",
+             "Use 'Overlay Local Authority' to mark schools in a specific LA ",
+             "with black dots and dotted residual lines, plus a ",
+             "residual bar chart panel on the right. ",
              "Grey dashed line = perfect prediction; ",
              "red line = linear regression fit.")
     ),
     card(
       card_header(textOutput(ns("scatter_title"))),
-      plotlyOutput(ns("scatter_plot"), height = "550px")
+      uiOutput(ns("scatter_with_residual_panel"))
     )
   )
 }
@@ -163,7 +155,8 @@ mod_obs_vs_pred_server <- function(id, selected_outcome) {
     # ---- Helper: build the scatter plot ----
     make_scatter <- function(obs_var, pred_var, highlight_mode,
                              la_name = NULL, cluster_sel = NULL,
-                             la_overlay_name = NULL) {
+                             la_overlay_name = NULL,
+                             show_school_names = FALSE) {
 
       d <- year_data() %>%
         filter(!is.na(!!sym(obs_var)), !is.na(!!sym(pred_var)))
@@ -278,25 +271,57 @@ mod_obs_vs_pred_server <- function(id, selected_outcome) {
           plot.title = element_text(size = 10, colour = "grey40")
         )
 
-      # LA overlay: add black rings around schools in the selected LA
+      # LA overlay: add black dots + residual lines for schools in the selected LA
       if (!is.null(la_overlay_name) && nzchar(la_overlay_name)) {
         overlay_d <- d %>% filter(as.character(LANAME) == la_overlay_name)
         if (nrow(overlay_d) > 0) {
+          # Dotted vertical residual lines (predicted → observed)
           p <- p +
+            geom_segment(
+              data = overlay_d,
+              aes(x = .data[[pred_var]], xend = .data[[pred_var]],
+                  y = .data[[pred_var]], yend = .data[[obs_var]]),
+              colour = "black", alpha = 0.5,
+              linetype = "dotted", linewidth = 0.4,
+              inherit.aes = FALSE,
+              show.legend = FALSE
+            ) +
             geom_point(
               data = overlay_d,
               aes(x = .data[[pred_var]], y = .data[[obs_var]]),
-              shape = 1, size = 4, stroke = 1.3,
-              colour = "black", alpha = 0.9,
+              shape = 16, size = 2.5,
+              colour = "black", alpha = 0.85,
               inherit.aes = FALSE,
               show.legend = FALSE
             )
         }
       }
 
-      ggplotly(p, tooltip = "text") %>%
+      plt <- ggplotly(p, tooltip = "text") %>%
         layout(legend = list(orientation = "h", x = 0.5,
                              xanchor = "center", y = -0.15))
+
+      # Add school name annotations via plotly (ggrepel doesn't survive ggplotly)
+      if (show_school_names && !is.null(la_overlay_name) && nzchar(la_overlay_name)) {
+        overlay_d <- d %>% filter(as.character(LANAME) == la_overlay_name)
+        if (nrow(overlay_d) > 0) {
+          annotations <- lapply(seq_len(nrow(overlay_d)), function(i) {
+            list(
+              x = overlay_d[[pred_var]][i],
+              y = overlay_d[[obs_var]][i],
+              text = as.character(overlay_d$SCHNAME[i]),
+              xanchor = "left",
+              yanchor = "middle",
+              xshift = 8,
+              showarrow = FALSE,
+              font = list(size = 9, color = "black")
+            )
+          })
+          plt <- plt %>% layout(annotations = annotations)
+        }
+      }
+
+      plt
     }
 
     # ---- Get config for the selected outcome ----
@@ -310,27 +335,104 @@ mod_obs_vs_pred_server <- function(id, selected_outcome) {
       paste0(outcome_cfg()$label, ": Observed vs Predicted ATT8")
     })
 
+    # ---- Reactive: current LA overlay name ----
+    la_overlay_name_r <- reactive({
+      if (isTRUE(input$la_overlay) &&
+          !is.null(input$la_overlay_select) &&
+          nzchar(input$la_overlay_select)) {
+        input$la_overlay_select
+      } else {
+        NULL
+      }
+    })
+
+    # ---- Dynamic layout: scatter + optional residual panel ----
+    output$scatter_with_residual_panel <- renderUI({
+      la_ovl <- la_overlay_name_r()
+      if (!is.null(la_ovl)) {
+        fluidRow(
+          column(8, plotlyOutput(ns("scatter_plot"), height = "550px")),
+          column(4,
+            plotlyOutput(ns("residual_panel"), height = "480px"),
+            tags$div(
+              style = "padding: 4px 8px; font-size: 11px; color: #555; line-height: 1.4;",
+              tags$strong("Residuals"),
+              " show how much better (", tags$span(style = "color:#2e7d32;", "green"),
+              ") or worse (", tags$span(style = "color:#c62828;", "red"),
+              ") a school performs compared to its model prediction, ",
+              "in raw Attainment 8 / GCSE points. ",
+              "A residual of +5 means the school's results are 5 points above ",
+              "what the model expects for schools with similar characteristics. ",
+              "This contextualises each school's performance against ",
+              "the national pattern."
+            )
+          )
+        )
+      } else {
+        plotlyOutput(ns("scatter_plot"), height = "550px")
+      }
+    })
+
     # ---- Render the scatter plot ----
     output$scatter_plot <- renderPlotly({
       cfg  <- outcome_cfg()
       mode <- input$highlight_mode %||% "none"
 
-      # LA overlay (works on top of any highlight mode)
-      la_overlay_name <- NULL
-      if (isTRUE(input$la_overlay) &&
-          !is.null(input$la_overlay_select) &&
-          nzchar(input$la_overlay_select)) {
-        la_overlay_name <- input$la_overlay_select
-      }
-
       make_scatter(
-        obs_var         = cfg$var,
-        pred_var        = cfg$pred_var,
-        highlight_mode  = mode,
-        la_name         = if (mode == "la") input$la_select else NULL,
-        cluster_sel     = if (mode == "cluster") input$cluster_select else NULL,
-        la_overlay_name = la_overlay_name
+        obs_var          = cfg$var,
+        pred_var         = cfg$pred_var,
+        highlight_mode   = mode,
+        la_name          = if (mode == "la") input$la_select else NULL,
+        cluster_sel      = if (mode == "cluster") input$cluster_select else NULL,
+        la_overlay_name  = la_overlay_name_r(),
+        show_school_names = isTRUE(input$show_school_names) && !is.null(la_overlay_name_r())
       )
+    })
+
+    # ---- Render the residual side panel ----
+    output$residual_panel <- renderPlotly({
+      la_ovl <- la_overlay_name_r()
+      req(la_ovl)
+      cfg <- outcome_cfg()
+      obs_var  <- cfg$var
+      pred_var <- cfg$pred_var
+
+      d <- year_data() %>%
+        filter(!is.na(!!sym(obs_var)), !is.na(!!sym(pred_var)),
+               as.character(LANAME) == la_ovl) %>%
+        mutate(
+          residual = .data[[obs_var]] - .data[[pred_var]],
+          resid_col = ifelse(residual >= 0, "#2e7d32", "#c62828"),
+          short_name = ifelse(nchar(as.character(SCHNAME)) > 30,
+                              paste0(substr(as.character(SCHNAME), 1, 28), "\u2026"),
+                              as.character(SCHNAME)),
+          tooltip = paste0(ifelse(residual >= 0, "+", ""),
+                           round(residual, 1), " pts")
+        ) %>%
+        arrange(residual)
+
+      if (nrow(d) == 0) return(plotly_empty() %>% layout(title = "No data"))
+
+      # Order factor for horizontal bar chart
+      d$short_name <- factor(d$short_name, levels = d$short_name)
+
+      plot_ly(d, y = ~short_name, x = ~residual, type = "bar",
+              orientation = "h",
+              marker = list(color = d$resid_col),
+              hovertext = ~tooltip,
+              hoverinfo = "text",
+              textposition = "none") %>%
+        layout(
+          title = list(text = paste0(la_ovl, " — Residuals"),
+                       font = list(size = 12)),
+          xaxis = list(title = "Residual (ATT8 pts)", zeroline = TRUE,
+                       zerolinecolor = "grey60", zerolinewidth = 1),
+          yaxis = list(title = "", tickfont = list(size = 9)),
+          margin = list(l = 140, r = 10, t = 35, b = 40),
+          plot_bgcolor = "white",
+          paper_bgcolor = "white"
+        ) %>%
+        config(displayModeBar = FALSE)
     })
   })
 }
