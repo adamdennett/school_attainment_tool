@@ -631,6 +631,336 @@ p_log
 
 The side-by-side comparison confirms that the log transformation substantially reduces skewness for all four treated variables. After transformation, the distributions are much closer to the normal shape assumed by the linear mixed-effects model, improving the reliability of coefficient estimates and standard errors.
 
+# Bivariate Relationships
+
+The interactive scatter plot below allows exploration of the bivariate relationships between each Attainment 8 outcome and the predictor variables. Use the dropdowns to select the outcome (y-axis) and predictor (x-axis), and the checkboxes to independently toggle log-transformation on each axis. This lets you compare the raw-scale relationship with the model-scale relationship (where several variables enter as logs). The OLS regression line and R² update in real time.
+
+```{r fig-bivariate-overview}
+#| label: fig-bivariate-overview
+
+library(plotly)
+library(htmltools)
+library(jsonlite)
+
+# --- Build a clean data frame with both raw and log versions ---
+bivar_df <- model_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  mutate(
+    log_ATT8SCR            = safe_log(ATT8SCR),
+    log_ATT8SCR_FSM6CLA1A  = safe_log(ATT8SCR_FSM6CLA1A),
+    log_ATT8SCR_NFSM6CLA1A = safe_log(ATT8SCR_NFSM6CLA1A),
+    log_PTFSM6CLA1A        = safe_log(PTFSM6CLA1A),
+    log_PERCTOT             = safe_log(PERCTOT),
+    log_PNUMEAL             = safe_log(PNUMEAL),
+    log_PTPRIORLO           = safe_log(PTPRIORLO),
+    log_gorard_segregation  = safe_log(gorard_segregation),
+    log_remained            = safe_log(remained_in_the_same_school),
+    log_leadership_pay      = safe_log(teachers_on_leadership_pay_range_percent),
+    log_sickness_days       = safe_log(average_number_of_days_taken)
+  )
+
+# Hover label
+bivar_df$hover_label <- if ("SCHNAME" %in% names(bivar_df) && "LANAME" %in% names(bivar_df)) {
+  paste0(bivar_df$SCHNAME, " (", bivar_df$LANAME, ")")
+} else {
+  paste0("URN ", bivar_df$URN)
+}
+
+# --- Define variable metadata ---
+# Each entry: raw column, log column, display label
+outcome_meta <- list(
+  list(raw = "ATT8SCR",             log = "log_ATT8SCR",
+       label = "Attainment 8 — All Pupils"),
+  list(raw = "ATT8SCR_FSM6CLA1A",   log = "log_ATT8SCR_FSM6CLA1A",
+       label = "Attainment 8 — Disadvantaged"),
+  list(raw = "ATT8SCR_NFSM6CLA1A",  log = "log_ATT8SCR_NFSM6CLA1A",
+       label = "Attainment 8 — Non-Disadvantaged")
+)
+
+pred_meta <- list(
+  list(raw = "PTFSM6CLA1A", log = "log_PTFSM6CLA1A",
+       label = "% Disadvantaged (FSM)"),
+  list(raw = "PERCTOT", log = "log_PERCTOT",
+       label = "% Overall Absence"),
+  list(raw = "PNUMEAL", log = "log_PNUMEAL",
+       label = "% EAL"),
+  list(raw = "PTPRIORLO", log = "log_PTPRIORLO",
+       label = "% Low Prior Attainment (KS2)"),
+  list(raw = "gorard_segregation", log = "log_gorard_segregation",
+       label = "Gorard Segregation Index"),
+  list(raw = "remained_in_the_same_school", log = "log_remained",
+       label = "Teachers Remaining (FTE)"),
+  list(raw = "teachers_on_leadership_pay_range_percent",
+       log = "log_leadership_pay",
+       label = "% Teachers on Leadership Pay"),
+  list(raw = "average_number_of_days_taken", log = "log_sickness_days",
+       label = "Avg. Teacher Sickness Days")
+)
+
+# Filter out predictors with no data
+pred_meta <- Filter(function(p) any(!is.na(bivar_df[[p$raw]])), pred_meta)
+
+# Split by year
+years <- as.character(sort(unique(bivar_df$year_label)))
+year_dfs <- lapply(years, function(yr) bivar_df[bivar_df$year_label == yr, ])
+names(year_dfs) <- years
+
+yr_colours <- c("#1565c0", "#c62828", "#2e7d32", "#e65100")
+n_tr <- length(years)
+
+# --- Build base plotly (one trace per year + one OLS line) ---
+fig <- plot_ly()
+for (i in seq_along(years)) {
+  df_i <- year_dfs[[i]]
+  fig <- fig %>%
+    add_markers(
+      x = df_i[[pred_meta[[1]]$raw]],
+      y = df_i[[outcome_meta[[1]]$raw]],
+      text = df_i[["hover_label"]],
+      name = years[i],
+      marker = list(color = yr_colours[i], opacity = 0.35, size = 4),
+      hovertemplate = paste0(
+        "<b>%{text}</b><br>x: %{x:.3f}<br>y: %{y:.2f}",
+        "<extra>", years[i], "</extra>"
+      )
+    )
+}
+
+# Regression line trace (hidden until JS computes OLS)
+fig <- fig %>%
+  add_lines(
+    x = c(0, 1), y = c(0, 1),
+    name = "OLS fit",
+    line = list(color = "#c62828", width = 2),
+    showlegend = FALSE, hoverinfo = "skip", visible = FALSE
+  )
+
+fig <- fig %>%
+  layout(
+    xaxis  = list(title = pred_meta[[1]]$label),
+    yaxis  = list(title = outcome_meta[[1]]$label),
+    legend = list(orientation = "h", x = 0.2, y = -0.12),
+    margin = list(t = 30, l = 80)
+  )
+
+fig$elementId <- "bivar-overview"
+
+# --- Pack ALL column data (raw + log) into JSON ---
+all_cols <- c(
+  unlist(lapply(outcome_meta, function(o) c(o$raw, o$log))),
+  unlist(lapply(pred_meta, function(p) c(p$raw, p$log)))
+)
+
+js_data <- list()
+for (yr in years) {
+  yr_list <- list()
+  df <- year_dfs[[yr]]
+  for (col in all_cols) {
+    if (col %in% names(df)) {
+      yr_list[[col]] <- round(df[[col]], 5)
+    }
+  }
+  js_data[[yr]] <- yr_list
+}
+
+# --- HTML dropdown + checkbox controls ---
+select_style <- paste0(
+  "padding:6px 10px; border:1px solid #bbb; border-radius:4px;",
+  "font-size:0.88em; background:#fff; cursor:pointer;"
+)
+label_style <- paste0(
+  "font-weight:600; font-size:0.82em; display:block;",
+  "margin-bottom:4px; color:#555;"
+)
+cb_style <- paste0(
+  "display:flex; align-items:center; gap:6px; margin-top:6px;",
+  "font-size:0.82em; color:#555;"
+)
+
+controls <- tags$div(
+  style = "display:flex; gap:24px; margin-bottom:14px; flex-wrap:wrap; align-items:end;",
+  tags$div(
+    tags$label("Outcome (y-axis):", `for` = "bvo-outcome", style = label_style),
+    tags$select(
+      id = "bvo-outcome", style = paste0(select_style, "min-width:230px;"),
+      lapply(seq_along(outcome_meta), function(k)
+        tags$option(value = k, outcome_meta[[k]]$label))
+    ),
+    tags$div(style = cb_style,
+      tags$input(type = "checkbox", id = "bvo-log-y"),
+      tags$label("Log scale", `for` = "bvo-log-y")
+    )
+  ),
+  tags$div(
+    tags$label("Predictor (x-axis):", `for` = "bvo-predictor", style = label_style),
+    tags$select(
+      id = "bvo-predictor", style = paste0(select_style, "min-width:270px;"),
+      lapply(seq_along(pred_meta), function(k)
+        tags$option(value = k, pred_meta[[k]]$label))
+    ),
+    tags$div(style = cb_style,
+      tags$input(type = "checkbox", id = "bvo-log-x"),
+      tags$label("Log scale", `for` = "bvo-log-x")
+    )
+  ),
+  tags$div(
+    tags$label("Year:", `for` = "bvo-year", style = label_style),
+    tags$select(
+      id = "bvo-year", style = paste0(select_style, "min-width:140px;"),
+      tags$option(value = "all", "All Years"),
+      lapply(years, function(yr) tags$option(value = yr, yr))
+    )
+  )
+)
+
+# --- Metadata arrays for JS ---
+outcome_js <- lapply(outcome_meta, function(o)
+  list(raw = o$raw, log = o$log, label = o$label))
+pred_js <- lapply(pred_meta, function(p)
+  list(raw = p$raw, log = p$log, label = p$label))
+
+# --- JavaScript: wire controls -> Plotly.restyle / relayout + live OLS ---
+js_block <- tags$script(HTML(sprintf('
+(function() {
+  var DATA  = %s;
+  var YEARS = %s;
+  var N     = YEARS.length;
+  var LINE  = N;
+
+  var OUTCOMES   = %s;
+  var PREDICTORS = %s;
+
+  function fitOLS(xAll, yAll) {
+    var x = [], y = [];
+    for (var i = 0; i < xAll.length; i++) {
+      if (xAll[i] != null && yAll[i] != null &&
+          isFinite(xAll[i]) && isFinite(yAll[i])) {
+        x.push(xAll[i]); y.push(yAll[i]);
+      }
+    }
+    var n = x.length;
+    if (n < 3) return null;
+    var sx=0, sy=0, sxx=0, sxy=0, syy=0;
+    for (var i = 0; i < n; i++) {
+      sx += x[i]; sy += y[i];
+      sxx += x[i]*x[i]; sxy += x[i]*y[i]; syy += y[i]*y[i];
+    }
+    var xb = sx/n, yb = sy/n;
+    var Sxx = sxx - n*xb*xb, Sxy = sxy - n*xb*yb, Syy = syy - n*yb*yb;
+    if (Sxx === 0) return null;
+    var b1 = Sxy / Sxx, b0 = yb - b1 * xb;
+    var SSres = 0;
+    for (var i = 0; i < n; i++) {
+      var r = y[i] - (b0 + b1*x[i]); SSres += r*r;
+    }
+    var r2 = (Syy > 0) ? 1 - SSres/Syy : 0;
+    var xmin = x[0], xmax = x[0];
+    for (var i = 1; i < n; i++) {
+      if (x[i] < xmin) xmin = x[i];
+      if (x[i] > xmax) xmax = x[i];
+    }
+    return { b0:b0, b1:b1, r2:r2, n:n, xmin:xmin, xmax:xmax };
+  }
+
+  function update() {
+    var gd = document.getElementById("bivar-overview");
+    if (!gd || !gd._fullLayout) return;
+
+    var outIdx  = parseInt(document.getElementById("bvo-outcome").value) - 1;
+    var predIdx = parseInt(document.getElementById("bvo-predictor").value) - 1;
+    var yrVal   = document.getElementById("bvo-year").value;
+    var logX    = document.getElementById("bvo-log-x").checked;
+    var logY    = document.getElementById("bvo-log-y").checked;
+
+    var outMeta  = OUTCOMES[outIdx];
+    var predMeta = PREDICTORS[predIdx];
+    var xCol = logX ? predMeta.log : predMeta.raw;
+    var yCol = logY ? outMeta.log  : outMeta.raw;
+    var xLabel = (logX ? "log(" : "") + predMeta.label + (logX ? ")" : "");
+    var yLabel = (logY ? "log(" : "") + outMeta.label  + (logY ? ")" : "");
+
+    var xArr = [], yArr = [], visArr = [];
+    var allX = [], allY = [];
+    for (var i = 0; i < N; i++) {
+      var yr = YEARS[i];
+      var xd = DATA[yr][xCol] || [];
+      var yd = DATA[yr][yCol] || [];
+      xArr.push(xd); yArr.push(yd);
+      var vis = (yrVal === "all" || yr === yrVal);
+      visArr.push(vis);
+      if (vis) {
+        for (var j = 0; j < xd.length; j++) {
+          allX.push(xd[j]); allY.push(yd[j]);
+        }
+      }
+    }
+
+    var idx = []; for (var i = 0; i < N; i++) idx.push(i);
+    Plotly.restyle(gd, { x: xArr, y: yArr, visible: visArr }, idx);
+
+    var fit = fitOLS(allX, allY);
+    if (fit) {
+      Plotly.restyle(gd, {
+        x: [[ fit.xmin, fit.xmax ]],
+        y: [[ fit.b0 + fit.b1*fit.xmin, fit.b0 + fit.b1*fit.xmax ]],
+        visible: [true]
+      }, [LINE]);
+
+      var sign = (fit.b1 >= 0) ? " + " : " \\u2212 ";
+      var eqn  = "\\u0177 = " + fit.b0.toFixed(2) + sign +
+                 Math.abs(fit.b1).toFixed(3) + "x" +
+                 "\\u2003\\u2003R\\u00b2 = " + fit.r2.toFixed(3) +
+                 "\\u2003\\u2003n = " + fit.n.toLocaleString();
+
+      Plotly.relayout(gd, {
+        "xaxis.title": xLabel,
+        "yaxis.title": yLabel,
+        annotations: [{
+          text: eqn,
+          xref: "paper", yref: "paper",
+          x: 0.02, y: 0.98,
+          xanchor: "left", yanchor: "top",
+          showarrow: false,
+          font: { size: 12.5, color: "#c62828", family: "monospace" },
+          bgcolor: "rgba(255,255,255,0.88)",
+          borderpad: 5
+        }]
+      });
+    } else {
+      Plotly.restyle(gd, { visible: [false] }, [LINE]);
+      Plotly.relayout(gd, {
+        "xaxis.title": xLabel,
+        "yaxis.title": yLabel,
+        annotations: []
+      });
+    }
+  }
+
+  ["bvo-outcome","bvo-predictor","bvo-year"].forEach(function(id) {
+    document.getElementById(id).addEventListener("change", update);
+  });
+  ["bvo-log-x","bvo-log-y"].forEach(function(id) {
+    document.getElementById(id).addEventListener("change", update);
+  });
+
+  var poll = setInterval(function() {
+    var gd = document.getElementById("bivar-overview");
+    if (gd && gd._fullLayout) { clearInterval(poll); update(); }
+  }, 250);
+})();
+',
+  toJSON(js_data, digits = 5, na = "null", auto_unbox = FALSE),
+  toJSON(years),
+  toJSON(outcome_js, auto_unbox = TRUE),
+  toJSON(pred_js, auto_unbox = TRUE)
+)))
+
+htmltools::tagList(controls, fig, js_block)
+```
+
+Toggling the log checkboxes reveals how the transformation reshapes each relationship. For example, the raw `% Disadvantaged` vs raw `Attainment 8` plot shows a curved, heteroscedastic pattern; switching both axes to log scale linearises the relationship and stabilises the variance --- illustrating why the model uses `log(y) ~ log(x)` for these variables.
+
+
 # Analysis Sample Restriction
 
 The multilevel models are fitted to **mainstream state-funded schools only** (Academies and Maintained schools). Independent schools, colleges, and special schools are excluded because they operate under different funding, governance, and admissions structures that make direct comparison inappropriate.
