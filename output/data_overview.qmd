@@ -1,7 +1,7 @@
 ---
 title: "Data Overview: School Attainment Analysis"
 subtitle: "Sources, construction, and descriptive statistics for the KS4 panel dataset"
-author: ""
+author: "Adam Dennett with some assistance from Claude Code"
 date: today
 format:
   html:
