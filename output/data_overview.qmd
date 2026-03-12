@@ -305,6 +305,66 @@ p_types
 
 Academies form the largest group in the full panel, followed by Maintained schools and then Independent schools. The Independent school share --- while non-trivial in the raw data --- is excluded from the analysis sample for the reasons described in the callout below.
 
+## Ofsted Rating Distribution
+
+```{r fig-ofsted-dist}
+#| label: fig-ofsted-dist
+#| fig-cap: "Ofsted rating distribution by academic year"
+#| fig-height: 4.5
+
+p_ofsted <- model_panel %>%
+  filter(!is.na(OFSTEDRATING_1)) %>%
+  count(year_label, OFSTEDRATING_1) %>%
+  group_by(year_label) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  ungroup() %>%
+  ggplot(aes(x = year_label, y = pct, fill = OFSTEDRATING_1)) +
+  geom_col(position = "stack", width = 0.65) +
+  geom_text(aes(label = sprintf("%.0f%%", pct)),
+            position = position_stack(vjust = 0.5), size = 3, colour = "white") +
+  scale_fill_manual(
+    values = c("Outstanding" = "#1a9641", "Good" = "#a6d96a",
+               "Requires Improvement" = "#fdae61", "Inadequate" = "#d7191c"),
+    name = "Ofsted rating"
+  ) +
+  labs(x = "Academic year", y = "% of schools",
+       title = "Distribution of Ofsted ratings by year") +
+  theme_pub
+
+save_fig(p_ofsted, "ofsted_distribution", width = 7, height = 4.5)
+p_ofsted
+```
+
+The vast majority of schools in the analysis sample are rated Good, followed by Outstanding. The proportion rated Requires Improvement or Inadequate is small and relatively stable across years. Because Ofsted ratings are carried forward until a school is re-inspected, the year-to-year changes are modest and reflect the pace of the inspection cycle rather than rapid shifts in school quality.
+
+## Admissions Policy
+
+```{r fig-admissions}
+#| label: fig-admissions
+#| fig-cap: "Admissions policy distribution"
+#| fig-height: 3.5
+
+if ("ADMPOL_PT" %in% names(model_panel)) {
+  p_adm <- model_panel %>%
+    filter(!is.na(ADMPOL_PT)) %>%
+    mutate(ADMPOL_PT = factor(ADMPOL_PT)) %>%
+    count(year_label, ADMPOL_PT) %>%
+    group_by(year_label) %>%
+    mutate(pct = n / sum(n) * 100) %>%
+    ggplot(aes(x = year_label, y = pct, fill = ADMPOL_PT)) +
+    geom_col(position = "stack", width = 0.65) +
+    scale_fill_brewer(palette = "Set2", name = "Admissions policy") +
+    labs(x = "Academic year", y = "% of schools",
+         title = "Admissions policy composition by year") +
+    theme_pub
+
+  save_fig(p_adm, "admissions_policy", width = 7, height = 3.5)
+  p_adm
+}
+```
+
+The admissions policy variable captures whether a school selects pupils on academic ability. The overwhelming majority of mainstream state-funded schools operate non-selective admissions; the small selective share is concentrated in areas that retain grammar schools. This variable is included in the model to control for the compositional advantage that selective schools enjoy.
+
 # Outcome Variables
 
 ::: {.callout-note}
@@ -1024,70 +1084,6 @@ bind_rows(model_summary, totals) %>%
 
 All descriptive statistics and figures from this point forward are based on the **analysis sample** (`r format(nrow(model_panel), big.mark = ",")` school-year observations from `r n_distinct(model_panel$URN)` mainstream state-funded schools).
 
-
-# Categorical Variables
-
-Two categorical variables enter the model as fixed effects: the school's most recent Ofsted rating and its admissions policy type. Both vary over time as schools are re-inspected or change status.
-
-## Ofsted Rating Distribution
-
-```{r fig-ofsted-dist}
-#| label: fig-ofsted-dist
-#| fig-cap: "Ofsted rating distribution by academic year"
-#| fig-height: 4.5
-
-p_ofsted <- model_panel %>%
-  filter(!is.na(OFSTEDRATING_1)) %>%
-  count(year_label, OFSTEDRATING_1) %>%
-  group_by(year_label) %>%
-  mutate(pct = n / sum(n) * 100) %>%
-  ungroup() %>%
-  ggplot(aes(x = year_label, y = pct, fill = OFSTEDRATING_1)) +
-  geom_col(position = "stack", width = 0.65) +
-  geom_text(aes(label = sprintf("%.0f%%", pct)),
-            position = position_stack(vjust = 0.5), size = 3, colour = "white") +
-  scale_fill_manual(
-    values = c("Outstanding" = "#1a9641", "Good" = "#a6d96a",
-               "Requires Improvement" = "#fdae61", "Inadequate" = "#d7191c"),
-    name = "Ofsted rating"
-  ) +
-  labs(x = "Academic year", y = "% of schools",
-       title = "Distribution of Ofsted ratings by year") +
-  theme_pub
-
-save_fig(p_ofsted, "ofsted_distribution", width = 7, height = 4.5)
-p_ofsted
-```
-
-The vast majority of schools in the analysis sample are rated Good, followed by Outstanding. The proportion rated Requires Improvement or Inadequate is small and relatively stable across years. Because Ofsted ratings are carried forward until a school is re-inspected, the year-to-year changes are modest and reflect the pace of the inspection cycle rather than rapid shifts in school quality.
-
-## Admissions Policy
-
-```{r fig-admissions}
-#| label: fig-admissions
-#| fig-cap: "Admissions policy distribution"
-#| fig-height: 3.5
-
-if ("ADMPOL_PT" %in% names(model_panel)) {
-  p_adm <- model_panel %>%
-    filter(!is.na(ADMPOL_PT)) %>%
-    mutate(ADMPOL_PT = factor(ADMPOL_PT)) %>%
-    count(year_label, ADMPOL_PT) %>%
-    group_by(year_label) %>%
-    mutate(pct = n / sum(n) * 100) %>%
-    ggplot(aes(x = year_label, y = pct, fill = ADMPOL_PT)) +
-    geom_col(position = "stack", width = 0.65) +
-    scale_fill_brewer(palette = "Set2", name = "Admissions policy") +
-    labs(x = "Academic year", y = "% of schools",
-         title = "Admissions policy composition by year") +
-    theme_pub
-
-  save_fig(p_adm, "admissions_policy", width = 7, height = 3.5)
-  p_adm
-}
-```
-
-The admissions policy variable captures whether a school selects pupils on academic ability. The overwhelming majority of mainstream state-funded schools operate non-selective admissions; the small selective share is concentrated in areas that retain grammar schools. This variable is included in the model to control for the compositional advantage that selective schools enjoy.
 
 # Missing Data
 
