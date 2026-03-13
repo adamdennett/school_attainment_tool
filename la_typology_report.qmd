@@ -8,7 +8,7 @@ format:
     toc-depth: 3
     toc-title: "Contents"
     number-sections: true
-    theme: flatly
+    theme: ucl-theme.scss
     embed-resources: true
     code-fold: true
     fig-width: 9

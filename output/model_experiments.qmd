@@ -9,7 +9,7 @@ format:
     toc-location: left
     number-sections: true
     code-fold: false
-    theme: flatly
+    theme: ucl-theme.scss
     df-print: kable
     embed-resources: true
 execute:

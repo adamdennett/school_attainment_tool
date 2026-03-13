@@ -11,7 +11,7 @@ format:
     number-sections: true
     code-fold: true
     code-summary: "Show code"
-    theme: flatly
+    theme: ucl-theme.scss
     fig-width: 9
     fig-height: 6
     fig-dpi: 150

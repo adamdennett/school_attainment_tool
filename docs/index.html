@@ -5,57 +5,272 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>School Attainment Tool — Reports</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      max-width: 700px;
-      margin: 60px auto;
-      padding: 0 20px;
-      color: #2c3e50;
-      line-height: 1.6;
+    @font-face {
+      font-family: "UCL Sans";
+      src: url("fonts/UCLSans-Regular.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
     }
-    h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
-    p.subtitle { color: #6c757d; margin-top: 0; font-size: 1.05rem; }
-    ul { list-style: none; padding: 0; margin-top: 2rem; }
-    li { margin-bottom: 1.2rem; }
-    a {
+    @font-face {
+      font-family: "UCL Sans";
+      src: url("fonts/UCLSans-Italic.otf") format("opentype");
+      font-weight: 400;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "UCL Sans";
+      src: url("fonts/UCLSans-SemiBold.otf") format("opentype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "UCL Sans";
+      src: url("fonts/UCLSans-ExtraLight.ttf") format("truetype");
+      font-weight: 200;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "UCL Sans", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #ffffff;
+      color: #1a1a2e;
+      line-height: 1.4;
+    }
+
+    /* Header bar */
+    .header {
+      background: #361a54;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .header .logo {
+      height: 48px;
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .header .header-text {
+      color: #ffffff;
+    }
+
+    .header h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      color: #ffffff;
+      margin-bottom: 0.15rem;
+    }
+
+    .header .subtitle {
+      font-weight: 200;
+      font-size: 0.95rem;
+      color: #ddbdff;
+      letter-spacing: -0.01em;
+    }
+
+    /* Accent bar */
+    .accent-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #993bff, #30d6ff);
+    }
+
+    /* Main content */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 4rem;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #993bff;
+      margin-bottom: 1.2rem;
+    }
+
+    /* Report cards */
+    .reports {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+
+    .report-card {
+      display: block;
+      padding: 1.4rem 1.6rem;
+      border-bottom: 1px solid #eedeff;
       text-decoration: none;
-      color: #0d6efd;
+      transition: background-color 0.2s ease, border-left-color 0.2s ease;
+      border-left: 4px solid transparent;
+    }
+
+    .report-card:first-child {
+      border-top: 1px solid #eedeff;
+    }
+
+    .report-card:hover {
+      background-color: #faf5ff;
+      border-left-color: #993bff;
+    }
+
+    .report-card .title {
       font-weight: 600;
       font-size: 1.1rem;
+      color: #361a54;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+      transition: color 0.2s ease;
     }
-    a:hover { text-decoration: underline; }
-    .desc { color: #6c757d; font-size: 0.9rem; margin-top: 0.2rem; }
+
+    .report-card:hover .title {
+      color: #993bff;
+    }
+
+    .report-card .desc {
+      font-size: 0.88rem;
+      color: #5a5a7a;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+
+    /* Tag pills */
+    .tags {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 100px;
+      background: #eedeff;
+      color: #361a54;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.78rem;
+      color: #8a8aaa;
+      border-top: 1px solid #eedeff;
+    }
+
+    .footer a {
+      color: #993bff;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .header {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.8rem;
+      }
+      .container {
+        padding: 1.5rem 1rem 3rem;
+      }
+      .report-card {
+        padding: 1.2rem 1rem;
+      }
+    }
+
+    /* Selection */
+    ::selection {
+      background-color: rgba(153, 59, 255, 0.2);
+      color: #361a54;
+    }
   </style>
 </head>
 <body>
-  <h1>School Attainment Tool</h1>
-  <p class="subtitle">Multilevel modelling of KS4 Attainment 8 scores across English secondary schools</p>
+  <div class="header">
+    <svg class="logo" viewBox="0 0 1658.29 634.39" xmlns="http://www.w3.org/2000/svg" overflow="hidden">
+      <path d="M999.42 379.18 999.42 132.56 866.85 132.56 866.85 257.65 866.82 257.65C847.26 185.49 781.12 122.02 686.3 122.02 591.48 122.02 514.26 186.92 494.23 268.94L494.2 268.94 494.2 132.56 362.47 132.56 362.47 328.43C362.47 347.73 359.95 359.47 349.88 370.38 339.81 381.29 326.39 385.48 313.8 385.48 301.21 385.48 287.79 381.28 277.72 370.38 267.65 359.47 265.13 347.73 265.13 328.43L265.13 132.56 132.56 132.56 132.56 329.27C132.56 382.13 143.47 424.92 178.71 460.16 206.4 487.85 250.87 513.02 311.28 513.02 364.14 513.02 410.29 494.56 443.85 458.48 472.29 428.37 487.33 390.95 492.21 357.5L492.24 357.5C509.7 444.27 587.28 513.02 686.29 513.02 773.57 513.02 844.46 456.28 866.84 377.32L866.84 501.81 1113.52 501.81 1113.52 379.17 999.41 379.17ZM744.83 347.74C736.44 370.39 713.16 385.5 686.31 385.5 648.55 385.5 620.65 356.13 620.65 317.54 620.65 278.95 648.55 249.58 686.31 249.58 713.16 249.58 736.44 264.68 744.83 287.34L866.85 287.34 866.85 347.75 744.83 347.75Z" fill="#FAFAFA"/>
+      <path d="M1525.71 379.18 1482.78 379.18 1482.78 501.82 1525.71 501.82 1525.71 379.18ZM1457.01 379.18 1417.52 379.18 1417.52 501.82 1457.01 501.82 1457.01 379.18ZM1388.31 379.18 1352.25 379.18 1352.25 501.82 1388.31 501.82 1388.31 379.18ZM1319.61 379.18 1286.99 379.18 1286.99 501.82 1319.61 501.82 1319.61 379.18ZM1250.91 379.18 1221.72 379.18 1221.72 501.82 1250.91 501.82 1250.91 379.18ZM1182.22 379.18 1156.46 379.18 1156.46 501.82 1182.22 501.82 1182.22 379.18ZM1327.57 199.89C1305.16 205.7 1288.45 225.62 1287.45 249.61L1287.39 249.61 1287.39 264.06 1277.47 264.06 1277.47 287.33 1156.46 326.65 1156.46 132.57 1525.71 132.57 1525.71 326.65 1404.7 287.33 1404.7 264.06 1394.78 264.06 1394.78 249.61 1394.72 249.61C1393.72 225.63 1377.01 205.71 1354.6 199.89L1345.3 165.19 1336.85 165.19 1327.55 199.89Z" fill="#993BFF"/>
+    </svg>
+    <div class="header-text">
+      <h1>School Attainment Tool</h1>
+      <div class="subtitle">Multilevel modelling of KS4 Attainment 8 scores across English secondary schools</div>
+    </div>
+  </div>
+  <div class="accent-bar"></div>
 
-  <ul>
-    <li>
-      <a href="data_overview.html">Data Overview</a>
-      <div class="desc">Sources, panel construction, descriptive statistics, missing data patterns, imputation strategy, and variable definitions for the KS4 analysis dataset.</div>
-    </li>
-    <li>
-      <a href="model_results.html">Model Results</a>
-      <div class="desc">Full analysis report: panel &amp; per-year models, diagnostics, observed vs predicted, residual geography, and disadvantage gap.</div>
-    </li>
-    <li>
-      <a href="model_experiments.html">Model Experiments</a>
-      <div class="desc">Human-readable lmer implementations for manual inspection, with coefficient commentary and variable importance analysis.</div>
-    </li>
-    <li>
-      <a href="brighton_case_study.html">Brighton &amp; Hove Case Study</a>
-      <div class="desc">Detailed application of the multilevel model to Brighton &amp; Hove: interactive maps, non-linear effect interpretation, school-level residuals, and policy recommendations.</div>
-    </li>
-    <li>
-      <a href="financial_data_overview.html">Financial Data Overview</a>
-      <div class="desc">Overview of school financial returns (CFR &amp; AAR): coverage, descriptive statistics, spending composition, trends, and relationships with attainment.</div>
-    </li>
-    <li>
-      <a href="financial_model_experiments.html">Financial Model Experiments</a>
-      <div class="desc">Systematic test of whether school financial variables (income, spending ratios, balance) improve the baseline attainment models.</div>
-    </li>
-  </ul>
+  <div class="container">
+    <div class="section-label">Analysis Reports</div>
+
+    <div class="reports">
+      <a class="report-card" href="data_overview.html">
+        <div class="title">Data Overview</div>
+        <div class="desc">Sources, panel construction, descriptive statistics, missing data patterns, imputation strategy, and variable definitions for the KS4 analysis dataset.</div>
+        <div class="tags"><span class="tag">Data</span><span class="tag">Panel</span><span class="tag">Descriptive</span></div>
+      </a>
+
+      <a class="report-card" href="model_results.html">
+        <div class="title">Model Results</div>
+        <div class="desc">Full analysis report: panel and per-year multilevel models, diagnostics, observed vs predicted plots, residual geography, and the disadvantage gap.</div>
+        <div class="tags"><span class="tag">Models</span><span class="tag">Diagnostics</span><span class="tag">Results</span></div>
+      </a>
+
+      <a class="report-card" href="model_experiments.html">
+        <div class="title">Model Experiments</div>
+        <div class="desc">Human-readable lmer implementations for manual inspection, with coefficient commentary and variable importance analysis.</div>
+        <div class="tags"><span class="tag">lmer</span><span class="tag">Coefficients</span></div>
+      </a>
+
+      <a class="report-card" href="brighton_case_study.html">
+        <div class="title">Brighton &amp; Hove Case Study</div>
+        <div class="desc">Detailed application of the multilevel model to Brighton &amp; Hove: interactive maps, non-linear effect interpretation, school-level residuals, and policy recommendations.</div>
+        <div class="tags"><span class="tag">Case Study</span><span class="tag">Maps</span><span class="tag">Policy</span></div>
+      </a>
+
+      <a class="report-card" href="financial_data_overview.html">
+        <div class="title">Financial Data Overview</div>
+        <div class="desc">Overview of school financial returns (CFR &amp; AAR): coverage, descriptive statistics, spending composition, trends, and relationships with attainment.</div>
+        <div class="tags"><span class="tag">Finance</span><span class="tag">CFR</span><span class="tag">AAR</span></div>
+      </a>
+
+      <a class="report-card" href="financial_model_experiments.html">
+        <div class="title">Financial Model Experiments</div>
+        <div class="desc">Systematic test of whether school financial variables (income, spending ratios, balance) improve the baseline attainment models.</div>
+        <div class="tags"><span class="tag">Finance</span><span class="tag">Models</span></div>
+      </a>
+
+      <a class="report-card" href="la_typology_report.html">
+        <div class="title">LA Typology Report</div>
+        <div class="desc">Local authority clustering analysis: methodology, cluster profiles, pen portraits, and typology maps across English LAs.</div>
+        <div class="tags"><span class="tag">Clustering</span><span class="tag">Typology</span><span class="tag">LA</span></div>
+      </a>
+    </div>
+  </div>
+
+  <div class="footer">
+    UCL Centre for Advanced Spatial Analysis &middot; School Attainment Tool
+  </div>
 </body>
 </html>
