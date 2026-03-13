@@ -142,6 +142,190 @@ cat("Core model dataset:", nrow(core_model_data), "rows\n")
 cat("Years:", paste(levels(core_model_data$year_label), collapse = ", "), "\n")
 ```
 
+## Dropped-rows diagnostic
+
+Which school-year observations in the raw panel were excluded from the
+**full** model dataset, and why? The filters are applied sequentially
+below so we can attribute each dropped row to the *first* filter that
+removes it.
+
+```{r dropped-rows}
+#| label: dropped-rows
+#| code-fold: true
+#| code-summary: "Show diagnostic code"
+
+# Start from the same mainstream filter used above
+mainstream <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"))
+
+cat("Starting mainstream rows:", nrow(mainstream), "\n\n")
+
+# Apply filters sequentially and tag each row with the reason it was dropped
+d_diag <- mainstream %>%
+  mutate(
+    # Step 1: Outcome missing or zero
+    fail_outcome = is.na(ATT8SCR) | ATT8SCR <= 0,
+    # Step 2: FSM missing or zero (can't log-transform)
+    fail_fsm = !fail_outcome & (is.na(PTFSM6CLA1A) | PTFSM6CLA1A <= 0),
+    # Step 3: Absence missing or zero
+    fail_absence = !fail_outcome & !fail_fsm & (is.na(PERCTOT) | PERCTOT <= 0),
+    # Step 4: EAL missing or zero
+    fail_eal = !fail_outcome & !fail_fsm & !fail_absence & (is.na(PNUMEAL) | PNUMEAL <= 0),
+    # Step 5: Ofsted rating missing
+    fail_ofsted = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal & is.na(OFSTEDRATING_1),
+    # Step 6: Region or LA missing
+    fail_geo = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal & !fail_ofsted &
+               (is.na(gor_name) | is.na(LANAME)),
+    # Step 7: Teacher retention missing (workforce — drops 2024-25)
+    fail_retention = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal &
+                     !fail_ofsted & !fail_geo & is.na(remained_in_the_same_school),
+    # Step 8: Leadership pay missing
+    fail_leadership = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal &
+                      !fail_ofsted & !fail_geo & !fail_retention &
+                      is.na(teachers_on_leadership_pay_range_percent),
+    # Step 9: Teacher sickness days missing or zero
+    fail_sickness = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal &
+                    !fail_ofsted & !fail_geo & !fail_retention & !fail_leadership &
+                    (is.na(average_number_of_days_taken) | average_number_of_days_taken <= 0),
+    # Step 10: Gorard segregation index missing
+    fail_gorard = !fail_outcome & !fail_fsm & !fail_absence & !fail_eal &
+                  !fail_ofsted & !fail_geo & !fail_retention & !fail_leadership &
+                  !fail_sickness & is.na(gorard_segregation),
+    # Assign first reason
+    drop_reason = case_when(
+      fail_outcome    ~ "ATT8SCR missing/zero",
+      fail_fsm        ~ "PTFSM6CLA1A missing/zero",
+      fail_absence    ~ "PERCTOT missing/zero",
+      fail_eal        ~ "PNUMEAL missing/zero",
+      fail_ofsted     ~ "OFSTEDRATING missing",
+      fail_geo        ~ "Region/LA missing",
+      fail_retention  ~ "Teacher retention missing",
+      fail_leadership ~ "Leadership pay missing",
+      fail_sickness   ~ "Sickness days missing/zero",
+      fail_gorard     ~ "Gorard index missing",
+      TRUE            ~ "Retained"
+    )
+  )
+
+# Summary table of drop reasons
+reason_summary <- d_diag %>%
+  count(drop_reason) %>%
+  arrange(desc(n)) %>%
+  mutate(pct = round(100 * n / sum(n), 1))
+
+knitr::kable(reason_summary,
+             col.names = c("Reason", "Rows", "% of mainstream"),
+             caption = "Row attrition: first filter that removes each school-year observation")
+```
+
+```{r dropped-detail}
+#| label: dropped-detail
+#| code-fold: true
+#| code-summary: "Show dropped-rows detail code"
+
+dropped <- d_diag %>%
+  filter(drop_reason != "Retained")
+
+cat(nrow(dropped), "rows dropped from", n_distinct(dropped$SCHNAME),
+    "unique schools across", n_distinct(dropped$LANAME), "LAs\n\n")
+
+# Which years are most affected?
+cat("Dropped rows by year:\n")
+dropped %>% count(year_label, drop_reason) %>%
+  pivot_wider(names_from = year_label, values_from = n, values_fill = 0) %>%
+  arrange(drop_reason) %>%
+  as.data.frame() %>%
+  print()
+cat("\n")
+
+# Top LAs losing the most rows
+la_drops <- dropped %>%
+  count(LANAME, drop_reason) %>%
+  group_by(LANAME) %>%
+  summarise(
+    total_dropped = sum(n),
+    reasons = paste(sprintf("%s (%d)", drop_reason, n), collapse = "; "),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(total_dropped))
+
+cat("Top 20 LAs by rows dropped:\n")
+knitr::kable(head(la_drops, 20),
+             col.names = c("LA", "Rows dropped", "Reasons (count)"),
+             caption = "Local authorities losing the most observations")
+```
+
+```{r dropped-schools}
+#| label: dropped-schools
+#| code-fold: true
+#| code-summary: "Show dropped-schools detail code"
+
+# Schools that are *entirely* absent from the final model dataset
+retained_schools <- d_diag %>% filter(drop_reason == "Retained") %>%
+  distinct(SCHNAME) %>% pull(SCHNAME)
+
+fully_dropped <- dropped %>%
+  filter(!SCHNAME %in% retained_schools) %>%
+  group_by(SCHNAME, LANAME) %>%
+  summarise(
+    years_present = paste(sort(unique(year_label)), collapse = ", "),
+    n_rows = n(),
+    reasons = paste(unique(drop_reason), collapse = "; "),
+    mean_att8 = if (any(!is.na(ATT8SCR))) round(mean(ATT8SCR, na.rm = TRUE), 1) else NA,
+    has_workforce = any(!is.na(remained_in_the_same_school)),
+    has_gorard = any(!is.na(gorard_segregation)),
+    ofsted = first(na.omit(OFSTEDRATING_1)),
+    .groups = "drop"
+  ) %>%
+  arrange(LANAME, SCHNAME)
+
+cat(nrow(fully_dropped), "schools are entirely excluded from the full model dataset:\n\n")
+
+knitr::kable(fully_dropped,
+             col.names = c("School", "LA", "Years in panel", "Rows", "Drop reasons",
+                           "Mean ATT8", "Has workforce", "Has Gorard", "Ofsted"),
+             caption = "Schools with zero rows in the final model dataset — entirely excluded from modelling")
+```
+
+```{r dropped-characteristics}
+#| label: dropped-characteristics
+#| code-fold: true
+#| code-summary: "Show characteristics comparison"
+#| fig-height: 5
+#| fig-width: 9
+#| fig-cap: "Comparison of key characteristics between retained and dropped observations. Dropped rows tend to have more missing data and different school profiles."
+
+# Compare characteristics of retained vs dropped
+compare <- d_diag %>%
+  mutate(status = if_else(drop_reason == "Retained", "Retained", "Dropped")) %>%
+  select(status, ATT8SCR, PTFSM6CLA1A, PERCTOT, PNUMEAL, TPUP,
+         MINORGROUP, year_label) %>%
+  pivot_longer(c(ATT8SCR, PTFSM6CLA1A, PERCTOT, PNUMEAL, TPUP),
+               names_to = "variable", values_to = "value") %>%
+  filter(!is.na(value))
+
+var_labels <- c(
+  ATT8SCR = "Attainment 8",
+  PTFSM6CLA1A = "% FSM Eligible",
+  PERCTOT = "% Overall Absence",
+  PNUMEAL = "% EAL",
+  TPUP = "Total Pupils"
+)
+
+compare <- compare %>%
+  mutate(variable = factor(variable, levels = names(var_labels), labels = var_labels))
+
+ggplot(compare, aes(x = status, y = value, fill = status)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+  facet_wrap(~ variable, scales = "free_y", ncol = 5) +
+  scale_fill_manual(values = c("Retained" = "#2e6260", "Dropped" = "#7b132b")) +
+  labs(x = NULL, y = NULL, fill = NULL,
+       title = "Retained vs Dropped observations: key characteristics") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        strip.text = element_text(face = "bold"))
+```
+
 
 # Analysis A: Full Panel Models
 
