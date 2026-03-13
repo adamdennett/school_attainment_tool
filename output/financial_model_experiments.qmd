@@ -809,3 +809,333 @@ summary_rows %>%
   National Funding Formula), so null results don't mean finance is
   unimportant — just that its signal is already captured.
 :::
+
+
+# SEN / EHCP Experiments {#sen-experiments}
+
+Do special educational needs (SEN) and Education, Health and Care Plan
+(EHCP) variables add predictive power beyond the 9-variable baseline?
+
+The panel data includes four school-level SEN variables from the school
+census:
+
+| Variable | Description |
+|----------|-------------|
+| `PSENELSE` | % pupils with an EHC plan |
+| `TSENELSE` | Number of pupils with an EHC plan |
+| `PSENELK` | % pupils with SEN support (but no EHC plan) |
+| `TSENELK` | Number of pupils with SEN support |
+
+We test each variable as a single addition to the baseline model,
+following the same methodology as the financial experiments above. The
+baseline here uses `average_number_of_days_taken` (raw, not
+log-transformed) to align with the main model specification.
+
+## SEN data availability
+
+```{r sen-availability}
+#| label: tbl-sen-availability
+#| tbl-cap: "SEN variable availability in the model dataset"
+
+sen_vars <- c("PSENELSE", "TSENELSE", "PSENELK", "TSENELK")
+
+model_data %>%
+  summarise(
+    across(
+      all_of(sen_vars),
+      list(
+        n_valid = ~sum(!is.na(.x)),
+        pct_valid = ~round(mean(!is.na(.x)) * 100, 1),
+        Median = ~median(.x, na.rm = TRUE),
+        SD = ~sd(.x, na.rm = TRUE)
+      ),
+      .names = "{.col}|{.fn}"
+    )
+  ) %>%
+  pivot_longer(everything(), names_to = c("Variable", "Stat"), names_sep = "\\|") %>%
+  pivot_wider(names_from = Stat, values_from = value) %>%
+  mutate(
+    Label = var_label(Variable),
+    Median = round(Median, 2),
+    SD = round(SD, 2),
+    n_valid = comma(n_valid)
+  ) %>%
+  select(Variable, Label, n_valid, pct_valid, Median, SD) %>%
+  kable()
+```
+
+## SEN dataset
+
+We create a dataset with complete SEN data for fair comparison. The
+baseline is re-fitted on this same subset using the raw (not
+log-transformed) `average_number_of_days_taken`.
+
+```{r sen-data}
+#| label: sen-data
+
+d_sen <- model_data %>%
+  filter(
+    !is.na(PSENELSE), !is.na(PSENELK),
+    !is.na(TSENELSE), !is.na(TSENELK)
+  ) %>%
+  droplevels()
+
+contrasts(d_sen$OFSTEDRATING_1) <-
+  contr.treatment(levels(d_sen$OFSTEDRATING_1))
+
+cat("SEN-complete dataset:", nrow(d_sen), "rows\n")
+cat("Years:", paste(sort(unique(as.character(d_sen$year_label))), collapse = ", "), "\n")
+cat("LAs:", n_distinct(d_sen$LANAME), "\n")
+cat("Schools:", n_distinct(d_sen$URN), "\n")
+```
+
+## Baseline model (SEN subset)
+
+```{r sen-baseline}
+#| label: sen-baseline
+
+mod_sen_baseline <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    remained_in_the_same_school +
+    teachers_on_leadership_pay_range_percent +
+    average_number_of_days_taken +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = d_sen,
+  REML = TRUE,
+  na.action = na.exclude,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+r2_sen_baseline <- r2(mod_sen_baseline)
+cat("SEN baseline R² (marginal):", round(r2_sen_baseline$R2_marginal, 4), "\n")
+cat("SEN baseline R² (conditional):", round(r2_sen_baseline$R2_conditional, 4), "\n")
+cat("Singular?", isSingular(mod_sen_baseline), "\n")
+```
+
+## Single-variable SEN additions
+
+```{r sen-single}
+#| label: sen-single
+
+sen_candidates <- c("PSENELSE", "TSENELSE", "PSENELK", "TSENELK")
+
+base_formula_sen <- log(ATT8SCR) ~
+  log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  remained_in_the_same_school +
+  teachers_on_leadership_pay_range_percent +
+  average_number_of_days_taken +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+
+sen_results <- map_dfr(sen_candidates, function(term) {
+  fml <- update(base_formula_sen, paste("~ . +", term))
+
+  mod <- tryCatch(
+    lmer(fml, data = d_sen, REML = TRUE, na.action = na.exclude,
+         control = lmerControl(optimizer = "bobyqa",
+                               optCtrl = list(maxfun = 20000))),
+    error = function(e) NULL
+  )
+
+  if (is.null(mod)) {
+    return(tibble(term = term, label = var_label(term),
+                  coef = NA, se = NA, t_value = NA, p_value = NA,
+                  r2_marginal = NA, r2_conditional = NA,
+                  delta_marginal = NA, delta_conditional = NA,
+                  singular = NA))
+  }
+
+  r2_ext <- r2(mod)
+  coefs <- summary(mod)$coefficients
+  row <- which(rownames(coefs) == term)
+
+  tibble(
+    term           = term,
+    label          = var_label(term),
+    coef           = coefs[row, "Estimate"],
+    se             = coefs[row, "Std. Error"],
+    t_value        = coefs[row, "t value"],
+    p_value        = coefs[row, "Pr(>|t|)"],
+    r2_marginal    = r2_ext$R2_marginal,
+    r2_conditional = r2_ext$R2_conditional,
+    delta_marginal    = r2_ext$R2_marginal - r2_sen_baseline$R2_marginal,
+    delta_conditional = r2_ext$R2_conditional - r2_sen_baseline$R2_conditional,
+    singular       = isSingular(mod)
+  )
+})
+```
+
+### Results table
+
+```{r sen-results-table}
+#| label: tbl-sen-results
+#| tbl-cap: "Effect of adding SEN/EHCP variables to the baseline model"
+
+sen_results %>%
+  mutate(
+    coef  = round(coef, 5),
+    se    = round(se, 5),
+    t_value = round(t_value, 2),
+    p_value = round(p_value, 4),
+    r2_marginal    = round(r2_marginal, 4),
+    r2_conditional = round(r2_conditional, 4),
+    delta_marginal    = round(delta_marginal, 5),
+    delta_conditional = round(delta_conditional, 5),
+    sig = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE            ~ ""
+    )
+  ) %>%
+  select(Variable = term, Label = label, Coef = coef, SE = se,
+         `t` = t_value, `p` = p_value, Sig = sig,
+         `R² marg.` = r2_marginal, `ΔR² marg.` = delta_marginal) %>%
+  kable()
+```
+
+### R² improvement plot
+
+```{r sen-delta-plot}
+#| label: fig-sen-delta
+#| fig-cap: "Change in marginal R² from adding each SEN/EHCP variable"
+#| fig-height: 4
+
+sen_results %>%
+  filter(!is.na(delta_marginal)) %>%
+  mutate(label = fct_reorder(label, delta_marginal)) %>%
+  ggplot(aes(delta_marginal, label)) +
+  geom_col(aes(fill = delta_marginal > 0), show.legend = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c(`TRUE` = "#2e6260", `FALSE` = "#7b132b")) +
+  scale_x_continuous(labels = label_number(accuracy = 0.0001)) +
+  labs(x = expression(Delta * R^2 ~ "(marginal)"),
+       y = NULL,
+       title = "Change in marginal R² from adding each SEN/EHCP variable")
+```
+
+### Coefficient estimates
+
+```{r sen-coef-plot}
+#| label: fig-sen-coefs
+#| fig-cap: "Coefficient estimates and 95% CIs for SEN/EHCP variable additions"
+#| fig-height: 4
+
+sen_results %>%
+  filter(!is.na(coef)) %>%
+  mutate(
+    label = fct_reorder(label, coef),
+    lower = coef - 1.96 * se,
+    upper = coef + 1.96 * se
+  ) %>%
+  ggplot(aes(coef, label)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = lower, xmax = upper), colour = "#2e6260",
+                  linewidth = 0.8, size = 0.8) +
+  labs(x = "Coefficient estimate (95% CI)", y = NULL,
+       title = "SEN/EHCP variable coefficients")
+```
+
+## Multi-variable SEN model
+
+If any SEN variables are significant (p < 0.05) and improve marginal R²,
+we fit them together.
+
+```{r sen-multi}
+#| label: sen-multi
+
+sen_sig <- sen_results %>%
+  filter(p_value < 0.05, delta_marginal > 0)
+
+cat("Significant SEN improvers:", nrow(sen_sig), "\n")
+if (nrow(sen_sig) > 0) {
+  cat("Variables:", paste(sen_sig$term, collapse = ", "), "\n")
+}
+
+if (nrow(sen_sig) > 1) {
+  multi_terms <- paste(sen_sig$term, collapse = " + ")
+  fml_multi <- update(base_formula_sen, paste("~ . +", multi_terms))
+
+  mod_sen_multi <- lmer(
+    fml_multi, data = d_sen, REML = TRUE, na.action = na.exclude,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  )
+
+  r2_sen_multi <- r2(mod_sen_multi)
+  cat("Multi-SEN model R² (marginal):",
+      round(r2_sen_multi$R2_marginal, 4), "\n")
+  cat("Multi-SEN model R² (conditional):",
+      round(r2_sen_multi$R2_conditional, 4), "\n")
+  cat("ΔR² marginal:",
+      round(r2_sen_multi$R2_marginal - r2_sen_baseline$R2_marginal, 5), "\n")
+
+  cat("\nCoefficients:\n")
+  print(summary(mod_sen_multi)$coefficients[sen_sig$term, , drop = FALSE])
+} else if (nrow(sen_sig) == 1) {
+  cat("\nOnly one significant SEN variable — no multi-variable model needed.\n")
+  cat("The single-variable result above is the best SEN model.\n")
+} else {
+  cat("\nNo SEN variables significantly improve the baseline model.\n")
+}
+```
+
+## SEN summary
+
+```{r sen-summary-table}
+#| label: tbl-sen-summary
+#| tbl-cap: "R² comparison: baseline vs SEN-augmented models"
+
+sen_summary <- tibble(
+  Model = "Baseline (no SEN)",
+  `R² marginal` = round(r2_sen_baseline$R2_marginal, 4),
+  `R² conditional` = round(r2_sen_baseline$R2_conditional, 4)
+)
+
+# Add best single-variable result
+best_single <- sen_results %>% filter(!is.na(delta_marginal)) %>%
+  slice_max(delta_marginal, n = 1)
+
+if (nrow(best_single) > 0 && best_single$delta_marginal > 0) {
+  sen_summary <- bind_rows(
+    sen_summary,
+    tibble(
+      Model = paste0("+ ", best_single$label, " (best single)"),
+      `R² marginal` = round(best_single$r2_marginal, 4),
+      `R² conditional` = round(best_single$r2_conditional, 4)
+    )
+  )
+}
+
+if (exists("mod_sen_multi") && nrow(sen_sig) > 1) {
+  sen_summary <- bind_rows(
+    sen_summary,
+    tibble(
+      Model = paste0("+ all significant SEN vars (",
+                     paste(sen_sig$term, collapse = " + "), ")"),
+      `R² marginal` = round(r2_sen_multi$R2_marginal, 4),
+      `R² conditional` = round(r2_sen_multi$R2_conditional, 4)
+    )
+  )
+}
+
+sen_summary %>% kable()
+```
+
+::: {.callout-note}
+## SEN interpretation notes
+
+- The **percentage** variables (`PSENELSE`, `PSENELK`) are more
+  interpretable than counts because they adjust for school size.
+- SEN prevalence is strongly correlated with deprivation (`PTFSM6CLA1A`),
+  so these variables may not add much beyond what FSM% already captures.
+- A significant negative coefficient on `PSENELSE` (% with EHCP) would
+  suggest that schools with more EHCP pupils have lower attainment *even
+  after controlling for* deprivation, absence, prior attainment, and other
+  predictors — potentially reflecting the severity of need rather than
+  school effectiveness.
+- Count variables (`TSENELSE`, `TSENELK`) may partly proxy for school
+  size and should be interpreted with caution.
+:::
