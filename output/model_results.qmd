@@ -99,6 +99,11 @@ theme_pub <- theme_minimal(base_size = 11) +
 
 For full details on data sources, panel construction, variable definitions, descriptive statistics, distributions, and bivariate relationships, see the [Data Overview report](https://adamdennett.github.io/school_attainment_tool/data_overview.html).
 
+::: {.callout-tip}
+## Model code & case study
+The full `lmer()` code for all model specifications (Analyses A–E) is available in the [Model Experiments report](https://adamdennett.github.io/school_attainment_tool/model_experiments.html), which provides human-readable, self-contained implementations for manual inspection and reproducibility. A detailed application of the model to a single local authority — including maps, non-linear effect interpretation, and policy recommendations — is presented in the [Brighton & Hove Case Study](https://adamdennett.github.io/school_attainment_tool/brighton_case_study.html).
+:::
+
 
 # Panel Models (Analysis A)
 
