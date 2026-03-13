@@ -189,9 +189,9 @@ ggplot(panel_coef_data,
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   geom_pointrange(aes(xmin = ci_lo, xmax = ci_hi),
                   position = position_dodge(width = 0.6), size = 0.4) +
-  scale_colour_manual(values = c("All Pupils" = "#1565c0",
-                                 "Disadvantaged" = "#c62828",
-                                 "Non-Disadvantaged" = "#2e7d32"),
+  scale_colour_manual(values = c("All Pupils" = "#2e6260",
+                                 "Disadvantaged" = "#4e3c56",
+                                 "Non-Disadvantaged" = "#abc766"),
                       name = NULL) +
   labs(x = "Estimate (log scale)", y = NULL,
        subtitle = "Points = estimate; bars = 95% CI") +
@@ -263,27 +263,27 @@ resid_data <- tibble(
 )
 
 p1 <- ggplot(resid_data, aes(x = fitted, y = resid)) +
-  geom_point(alpha = 0.1, size = 0.5, colour = "#1565c0") +
-  geom_hline(yintercept = 0, colour = "red", linetype = "dashed") +
-  geom_smooth(method = "loess", se = FALSE, colour = "red", linewidth = 0.7) +
+  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  geom_hline(yintercept = 0, colour = "#7b132b", linetype = "dashed") +
+  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
   labs(title = "Residuals vs Fitted", x = "Fitted values (log scale)", y = "Pearson residuals") +
   theme_pub
 
 p2 <- ggplot(resid_data, aes(sample = resid_std)) +
-  stat_qq(alpha = 0.1, size = 0.5, colour = "#1565c0") +
-  stat_qq_line(colour = "red", linewidth = 0.7) +
+  stat_qq(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  stat_qq_line(colour = "#7b132b", linewidth = 0.7) +
   labs(title = "Normal Q-Q", x = "Theoretical quantiles", y = "Standardised residuals") +
   theme_pub
 
 p3 <- ggplot(resid_data, aes(x = resid)) +
-  geom_histogram(bins = 80, fill = "#1565c0", alpha = 0.7, colour = "white") +
-  geom_vline(xintercept = 0, colour = "red", linetype = "dashed") +
+  geom_histogram(bins = 80, fill = "#2e6260", alpha = 0.7, colour = "white") +
+  geom_vline(xintercept = 0, colour = "#7b132b", linetype = "dashed") +
   labs(title = "Residual Distribution", x = "Pearson residuals", y = "Frequency") +
   theme_pub
 
 p4 <- ggplot(resid_data, aes(x = fitted, y = sqrt(abs(resid_std)))) +
-  geom_point(alpha = 0.1, size = 0.5, colour = "#1565c0") +
-  geom_smooth(method = "loess", se = FALSE, colour = "red", linewidth = 0.7) +
+  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
   labs(title = "Scale-Location", x = "Fitted values (log scale)",
        y = expression(sqrt("|Standardised residuals|"))) +
   theme_pub
@@ -312,7 +312,7 @@ re_year <- tibble(
 )
 
 p_year <- ggplot(re_year, aes(x = reorder(year, intercept), y = intercept)) +
-  geom_col(fill = "#1565c0", alpha = 0.8) +
+  geom_col(fill = "#2e6260", alpha = 0.8) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   coord_flip() +
   labs(title = "Year Random Intercepts", x = NULL, y = "Intercept (log scale)") +
@@ -325,7 +325,7 @@ re_ofsted <- tibble(
 )
 
 p_ofsted <- ggplot(re_ofsted, aes(x = reorder(rating, -intercept), y = intercept)) +
-  geom_col(fill = "#2e7d32", alpha = 0.8) +
+  geom_col(fill = "#abc766", alpha = 0.8) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   coord_flip() +
   labs(title = "Ofsted Rating Random Intercepts (harmonised)", x = NULL, y = "Intercept (log scale)") +
@@ -338,7 +338,7 @@ re_region <- tibble(
 )
 
 p_region <- ggplot(re_region, aes(x = reorder(region, intercept), y = intercept)) +
-  geom_col(fill = "#c62828", alpha = 0.8) +
+  geom_col(fill = "#4e3c56", alpha = 0.8) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   coord_flip() +
   labs(title = "Region Random Intercepts", x = NULL, y = "Intercept (log scale)") +
@@ -383,14 +383,14 @@ model_data %>%
   geom_hline(yintercept = grand_mean_ofsted, linetype = "dashed",
              colour = "black", linewidth = 0.8) +
   geom_point(data = raw_means_ofsted, aes(y = raw_mean),
-             shape = 4, size = 3, colour = "#d62728", stroke = 1.2) +
+             shape = 4, size = 3, colour = "#7b132b", stroke = 1.2) +
   geom_point(data = raw_means_ofsted, aes(y = shrunken_mean),
-             shape = 18, size = 4, colour = "#1565c0") +
+             shape = 18, size = 4, colour = "#2e6260") +
   annotate("text", x = 0.55, y = grand_mean_ofsted + 1.5,
            label = paste0("Grand mean = ", round(grand_mean_ofsted, 1)),
            hjust = 0, size = 3.2, colour = "grey30") +
   labs(title = "ATT8 Distribution by Ofsted Rating (Null Model Structure)",
-       subtitle = "Dashed = grand mean | Blue diamond = shrunken mean (BLUP) | Red cross = raw mean",
+       subtitle = "Dashed = grand mean | Teal diamond = shrunken mean (BLUP) | Dark red cross = raw mean",
        x = "Ofsted Rating (harmonised)", y = "Attainment 8 Score") +
   theme_pub +
   theme(legend.position = "none",
@@ -427,13 +427,13 @@ model_data %>%
              colour = "black", linewidth = 0.8) +
   geom_point(data = raw_means_region,
              aes(x = reorder(gor_name, raw_mean), y = raw_mean),
-             shape = 4, size = 3, colour = "#d62728", stroke = 1.2) +
+             shape = 4, size = 3, colour = "#7b132b", stroke = 1.2) +
   geom_point(data = raw_means_region,
              aes(x = reorder(gor_name, raw_mean), y = shrunken_mean),
-             shape = 18, size = 4, colour = "#1565c0") +
+             shape = 18, size = 4, colour = "#2e6260") +
   coord_flip() +
   labs(title = "ATT8 Distribution by Region (Null Model Structure)",
-       subtitle = "Dashed = grand mean | Blue diamond = shrunken mean (BLUP) | Red cross = raw mean",
+       subtitle = "Dashed = grand mean | Teal diamond = shrunken mean (BLUP) | Dark red cross = raw mean",
        x = NULL, y = "Attainment 8 Score") +
   theme_pub +
   theme(legend.position = "none")
@@ -461,11 +461,11 @@ model_data %>%
 
 ## Caterpillar Plot: LA Random Intercepts
 
-The caterpillar plot below displays the estimated random intercepts for each local authority (nested within region), ordered by magnitude. Error bars show 95% confidence intervals (±1.96 posterior SE). Local authorities whose interval does not cross zero are meaningfully different from the overall mean, after accounting for fixed effects and other random effects. Brighton and Hove is highlighted in orange.
+The caterpillar plot below displays the estimated random intercepts for each local authority (nested within region), ordered by magnitude. Error bars show 95% confidence intervals (±1.96 posterior SE). Local authorities whose interval does not cross zero are meaningfully different from the overall mean, after accounting for fixed effects and other random effects. Brighton and Hove is highlighted in pink.
 
 ```{r fig-caterpillar-la}
 #| label: fig-caterpillar-la
-#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, All Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in orange."
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, All Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
 #| fig-height: 8
 #| fig-width: 10
 
@@ -510,8 +510,8 @@ ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
     size = 2.5, max.overlaps = 25, force = 4, nudge_y = 0.005,
     segment.colour = "grey60", segment.size = 0.3
   ) +
-  scale_colour_manual(values = c("Other" = "steelblue",
-                                  "Brighton and Hove" = "#e65100"),
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca"),
                       guide = "none") +
   labs(title = "LA Random Intercepts — Imputed Full Panel Model (All Pupils)",
        subtitle = "Ordered by estimate; error bars = 95% CI. LAs whose CI excludes 0 differ meaningfully from average.",
@@ -523,7 +523,7 @@ ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
 
 ```{r fig-caterpillar-compare}
 #| label: fig-caterpillar-compare
-#| fig-cap: "Caterpillar plot of LA random intercepts compared across model specifications (All Pupils). Brighton and Hove highlighted in orange."
+#| fig-cap: "Caterpillar plot of LA random intercepts compared across model specifications (All Pupils). Brighton and Hove highlighted in pink."
 #| fig-height: 12
 #| fig-width: 10
 
@@ -573,8 +573,8 @@ ggplot(re_compare, aes(x = group, y = `(Intercept)`)) +
   geom_point(aes(colour = highlight), size = 1) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   facet_wrap(~ model, ncol = 1, scales = "free_y") +
-  scale_colour_manual(values = c("Other" = "steelblue",
-                                  "Brighton and Hove" = "#e65100"),
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca"),
                       guide = "none") +
   labs(title = "LA Random Intercepts Compared Across Model Specifications (All Pupils)",
        subtitle = "All panels ordered by Analysis E estimate; error bars = 95% CI",
@@ -661,9 +661,9 @@ if (nrow(yearly_coef_data) > 0) {
   ggplot(yearly_coef_data,
          aes(x = year, y = estimate, group = 1)) +
     geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
-    geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#1565c0") +
-    geom_line(colour = "#1565c0", linewidth = 0.7) +
-    geom_point(colour = "#1565c0", size = 2) +
+    geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#2e6260") +
+    geom_line(colour = "#2e6260", linewidth = 0.7) +
+    geom_point(colour = "#2e6260", size = 2) +
     facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
     labs(x = "Academic Year", y = "Estimate (log scale)",
          subtitle = "Shaded band = 95% CI") +
@@ -866,9 +866,9 @@ if (nrow(core_yearly_coef_data) > 0) {
   ggplot(core_yearly_coef_data,
          aes(x = year, y = estimate, group = 1)) +
     geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
-    geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#e65100") +
-    geom_line(colour = "#e65100", linewidth = 0.7) +
-    geom_point(colour = "#e65100", size = 2) +
+    geom_ribbon(aes(ymin = ci_lo, ymax = ci_hi), alpha = 0.15, fill = "#e16fca") +
+    geom_line(colour = "#e16fca", linewidth = 0.7) +
+    geom_point(colour = "#e16fca", size = 2) +
     facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
     labs(x = "Academic Year", y = "Estimate (log scale)",
          subtitle = "Shaded band = 95% CI — core specification (5 predictors)") +
@@ -989,9 +989,9 @@ ggplot(imputed_coef_data,
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
   geom_pointrange(aes(xmin = ci_lo, xmax = ci_hi),
                   position = position_dodge(width = 0.6), size = 0.4) +
-  scale_colour_manual(values = c("All Pupils" = "#1565c0",
-                                 "Disadvantaged" = "#c62828",
-                                 "Non-Disadvantaged" = "#2e7d32"),
+  scale_colour_manual(values = c("All Pupils" = "#2e6260",
+                                 "Disadvantaged" = "#4e3c56",
+                                 "Non-Disadvantaged" = "#abc766"),
                       name = NULL) +
   labs(x = "Estimate (log scale)", y = NULL,
        subtitle = "Points = estimate; bars = 95% CI. Analysis E (imputed full, all 4 years)") +
@@ -1078,13 +1078,13 @@ a_vs_e %>%
 
 # Observed vs Predicted
 
-The scatter plots below show observed Attainment 8 scores against imputed-full-model fitted values (Analysis E) for each of the four academic years. Schools in **Brighton and Hove** are highlighted in orange. A linear regression line (red) with R² is overlaid on each panel; the dashed grey line marks perfect prediction.
+The scatter plots below show observed Attainment 8 scores against imputed-full-model fitted values (Analysis E) for each of the four academic years. Schools in **Brighton and Hove** are highlighted in pink. A linear regression line with R² is overlaid on each panel; the dashed grey line marks perfect prediction.
 
 ## All Pupils
 
 ```{r fig-obs-vs-pred-all}
 #| label: fig-obs-vs-pred-all
-#| fig-cap: "Observed vs predicted Attainment 8 — All Pupils (imputed full model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — All Pupils (imputed full model, by year). Brighton and Hove schools in pink."
 #| fig-height: 8
 #| fig-width: 10
 
@@ -1115,13 +1115,13 @@ ggplot(pred_data, aes(x = predicted_ATT8SCR_imputed, y = ATT8SCR)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight), size = 1) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   geom_text(data = r2_labels,
             aes(x = -Inf, y = Inf, label = label),
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.4,
             size = 3.3, colour = "grey30") +
-  scale_colour_manual(values = c("Other" = "#1565c0",
-                                  "Brighton and Hove" = "#e65100")) +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca")) +
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
@@ -1147,7 +1147,7 @@ pred_data <- panel_data %>%
     highlight = factor(highlight, levels = c("Other", HIGHLIGHT_LA)),
     # Custom tooltip text
     tooltip_text = paste0(
-      "LA: ", LANAME, 
+      "LA: ", LANAME,
       "<br>Sch:", SCHNAME,
       "<br>Observed: ", round(ATT8SCR, 2),
       "<br>Predicted: ", round(predicted_ATT8SCR_imputed, 2),
@@ -1168,18 +1168,18 @@ r2_labels <- pred_data %>%
 
 # 3. Build the ggplot object
 p <- ggplot(pred_data, aes(x = predicted_ATT8SCR_imputed, y = ATT8SCR)) +
-  geom_abline(slope = 1, intercept = 0, colour = "grey60", 
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   # We add 'text' aesthetic here for the Plotly tooltip
   geom_point(aes(colour = highlight, alpha = highlight, text = tooltip_text), size = 1) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   # Note: geom_text can be finicky in ggplotly; using explicit coordinates helps
   geom_text(data = r2_labels,
-            aes(x = 20, y = 85, label = label), 
+            aes(x = 20, y = 85, label = label),
             inherit.aes = FALSE, size = 3, colour = "grey30") +
-  scale_colour_manual(values = c("Other" = "#1565c0", 
-                                 "Brighton and Hove" = "#e65100")) +
-  scale_alpha_manual(values = c("Other" = 0.2, 
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                 "Brighton and Hove" = "#e16fca")) +
+  scale_alpha_manual(values = c("Other" = 0.2,
                                 "Brighton and Hove" = 0.9), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
   labs(x = "Predicted ATT8 (imputed full model)", y = "Observed ATT8", colour = NULL) +
@@ -1201,7 +1201,7 @@ ggplotly(p, tooltip = "text") %>%
 
 ```{r fig-obs-vs-pred-disadv}
 #| label: fig-obs-vs-pred-disadv
-#| fig-cap: "Observed vs predicted Attainment 8 — Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in pink."
 #| fig-height: 8
 #| fig-width: 10
 
@@ -1228,13 +1228,13 @@ ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_imputed,
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight), size = 1) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   geom_text(data = r2_disadv,
             aes(x = -Inf, y = Inf, label = label),
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.4,
             size = 3.3, colour = "grey30") +
-  scale_colour_manual(values = c("Other" = "#1565c0",
-                                  "Brighton and Hove" = "#e65100")) +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca")) +
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
@@ -1262,7 +1262,7 @@ pred_disadv <- panel_data %>%
     # Enhanced tooltip for disadvantaged context
     tooltip_text = paste0(
       "<b>", SCHNAME, "</b><br>",  # Assumes SCHNAME exists in your data
-      "LA: ", LANAME, 
+      "LA: ", LANAME,
       "<br>Sch:", SCHNAME,
       "<br>Observed (Disadv): ", round(ATT8SCR_FSM6CLA1A, 2),
       "<br>Predicted (Disadv): ", round(predicted_ATT8SCR_FSM6CLA1A_imputed, 2),
@@ -1282,23 +1282,23 @@ r2_disadv_stats <- pred_disadv %>%
   mutate(label = paste0("R² = ", round(r2, 3), " (n = ", comma(n), ")"))
 
 # 3. Build the ggplot object
-p_disadv <- ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_imputed, 
+p_disadv <- ggplot(pred_disadv, aes(x = predicted_ATT8SCR_FSM6CLA1A_imputed,
                                    y = ATT8SCR_FSM6CLA1A)) +
-  geom_abline(slope = 1, intercept = 0, colour = "grey60", 
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight, text = tooltip_text), size = 1.2) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   # Positioning labels at safe numeric coordinates (e.g., x=10, y=85)
   geom_text(data = r2_disadv_stats,
-            aes(x = 10, y = 85, label = label), 
+            aes(x = 10, y = 85, label = label),
             inherit.aes = FALSE, size = 3, colour = "grey30", hjust = 0) +
-  scale_colour_manual(values = c("Other" = "#1565c0", 
-                                 "Brighton and Hove" = "#e65100")) +
-  scale_alpha_manual(values = c("Other" = 0.15, 
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                 "Brighton and Hove" = "#e16fca")) +
+  scale_alpha_manual(values = c("Other" = 0.15,
                                 "Brighton and Hove" = 0.9), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 — Disadvantaged", 
-       y = "Observed ATT8 — Disadvantaged", 
+  labs(x = "Predicted ATT8 — Disadvantaged",
+       y = "Observed ATT8 — Disadvantaged",
        colour = NULL) +
   theme_minimal() +
   theme(legend.position = "bottom",
@@ -1317,7 +1317,7 @@ ggplotly(p_disadv, tooltip = "text") %>%
 
 ```{r fig-obs-vs-pred-nondisadv}
 #| label: fig-obs-vs-pred-nondisadv
-#| fig-cap: "Observed vs predicted Attainment 8 — Non-Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in orange."
+#| fig-cap: "Observed vs predicted Attainment 8 — Non-Disadvantaged Pupils (imputed full model, by year). Brighton and Hove schools in pink."
 #| fig-height: 8
 #| fig-width: 10
 
@@ -1344,13 +1344,13 @@ ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_imputed,
   geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight), size = 1) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   geom_text(data = r2_nondisadv,
             aes(x = -Inf, y = Inf, label = label),
             inherit.aes = FALSE, hjust = -0.05, vjust = 1.4,
             size = 3.3, colour = "grey30") +
-  scale_colour_manual(values = c("Other" = "#1565c0",
-                                  "Brighton and Hove" = "#e65100")) +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca")) +
   scale_alpha_manual(values = c("Other" = 0.12,
                                  "Brighton and Hove" = 0.85), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
@@ -1378,7 +1378,7 @@ pred_nondisadv <- panel_data %>%
     # Custom tooltip
     tooltip_text = paste0(
       "<b>", SCHNAME, "</b><br>",
-      "LA: ", LANAME, 
+      "LA: ", LANAME,
       "<br>Sch:", SCHNAME,
       "<br>Observed (Non-Disadv): ", round(ATT8SCR_NFSM6CLA1A, 2),
       "<br>Predicted (Non-Disadv): ", round(predicted_ATT8SCR_NFSM6CLA1A_imputed, 2),
@@ -1398,23 +1398,23 @@ r2_nondisadv_stats <- pred_nondisadv %>%
   mutate(label = paste0("R² = ", round(r2, 3), " (n = ", comma(n), ")"))
 
 # 3. Build the ggplot object
-p_nondisadv <- ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_imputed, 
+p_nondisadv <- ggplot(pred_nondisadv, aes(x = predicted_ATT8SCR_NFSM6CLA1A_imputed,
                                          y = ATT8SCR_NFSM6CLA1A)) +
-  geom_abline(slope = 1, intercept = 0, colour = "grey60", 
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
               linewidth = 0.5, linetype = "dashed") +
   geom_point(aes(colour = highlight, alpha = highlight, text = tooltip_text), size = 1.2) +
-  geom_smooth(method = "lm", se = FALSE, colour = "#c62828", linewidth = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#7b132b", linewidth = 0.6) +
   # Placed at higher coordinates as Non-Disadv scores are typically higher
   geom_text(data = r2_nondisadv_stats,
-            aes(x = 20, y = 88, label = label), 
+            aes(x = 20, y = 88, label = label),
             inherit.aes = FALSE, size = 3, colour = "grey30", hjust = 0) +
-  scale_colour_manual(values = c("Other" = "#1565c0", 
-                                 "Brighton and Hove" = "#e65100")) +
-  scale_alpha_manual(values = c("Other" = 0.15, 
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                 "Brighton and Hove" = "#e16fca")) +
+  scale_alpha_manual(values = c("Other" = 0.15,
                                 "Brighton and Hove" = 0.9), guide = "none") +
   facet_wrap(~ year_label, ncol = 2) +
-  labs(x = "Predicted ATT8 — Non-Disadvantaged", 
-       y = "Observed ATT8 — Non-Disadvantaged", 
+  labs(x = "Predicted ATT8 — Non-Disadvantaged",
+       y = "Observed ATT8 — Non-Disadvantaged",
        colour = NULL) +
   theme_minimal() +
   theme(legend.position = "bottom",
@@ -1452,7 +1452,7 @@ if ("gor_name" %in% names(pred_data) && sum(!is.na(pred_data$gor_name)) > 0) {
   ggplot(pred_data %>% filter(!is.na(gor_name)),
          aes(x = reorder(gor_name, residual, FUN = median), y = residual)) +
     geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-    geom_boxplot(fill = "#1565c0", alpha = 0.3, outlier.size = 0.3, outlier.alpha = 0.2) +
+    geom_boxplot(fill = "#2e6260", alpha = 0.3, outlier.size = 0.3, outlier.alpha = 0.2) +
     coord_flip() +
     labs(x = NULL, y = "Residual (Observed - Predicted ATT8)",
          subtitle = "Positive = outperforming model; Negative = underperforming") +
@@ -1484,9 +1484,9 @@ if (all(c("ATT8SCR_FSM6CLA1A", "ATT8SCR_NFSM6CLA1A") %in% names(model_data))) {
     )
 
   ggplot(gap_data, aes(x = year_label, y = gap)) +
-    geom_boxplot(fill = "#c62828", alpha = 0.3, outlier.size = 0.3, outlier.alpha = 0.2) +
+    geom_boxplot(fill = "#4e3c56", alpha = 0.3, outlier.size = 0.3, outlier.alpha = 0.2) +
     geom_point(data = gap_summary, aes(y = mean_gap),
-               colour = "#c62828", size = 3, shape = 18) +
+               colour = "#4e3c56", size = 3, shape = 18) +
     geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
     labs(x = "Academic Year",
          y = "ATT8 Gap (Non-Disadvantaged - Disadvantaged)",

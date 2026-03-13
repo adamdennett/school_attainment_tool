@@ -166,7 +166,7 @@ panel %>%
   count(academic_year, fin_source) %>%
   ggplot(aes(academic_year, n, fill = fin_source)) +
   geom_col(position = "stack") +
-  scale_fill_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), name = "Source") +
+  scale_fill_manual(values = c(AAR = "#2e6260", CFR = "#e16fca"), name = "Source") +
   labs(x = "Academic Year", y = "Schools matched",
        title = "Panel schools with financial data") +
   geom_text(aes(label = comma(n)), position = position_stack(vjust = 0.5),
@@ -249,7 +249,7 @@ panel_fin %>%
   ggplot(aes(fin_total_income_pp, fill = academic_year)) +
   geom_density(alpha = 0.4) +
   scale_x_continuous(labels = label_comma(prefix = "\u00A3")) +
-  scale_fill_brewer(palette = "Set2", name = "Year") +
+  scale_fill_manual(values = c("#2e6260", "#abc766", "#f9dd73", "#e16fca", "#4e3c56", "#49a0c4", "#ff7f89"), name = "Year") +
   labs(x = "Total income per pupil", y = "Density",
        title = "Income per pupil has shifted upward over time") +
   theme(legend.position = "bottom")
@@ -267,7 +267,7 @@ panel_fin %>%
   ggplot(aes(fin_source, fin_total_expenditure_pp, fill = fin_source)) +
   geom_violin(alpha = 0.6, draw_quantiles = c(0.25, 0.5, 0.75)) +
   scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
-  scale_fill_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), guide = "none") +
+  scale_fill_manual(values = c(AAR = "#2e6260", CFR = "#e16fca"), guide = "none") +
   labs(x = "Financial return type", y = "Expenditure per pupil",
        title = "Academies (AAR) and LA schools (CFR) have similar per-pupil spending")
 ```
@@ -298,7 +298,7 @@ panel_fin %>%
   geom_col(show.legend = FALSE) +
   geom_text(aes(label = label), hjust = -0.1, size = 4) +
   scale_x_continuous(labels = percent, limits = c(0, 0.65)) +
-  scale_fill_brewer(palette = "Set2") +
+  scale_fill_manual(values = c("#2e6260", "#abc766", "#f9dd73", "#e16fca", "#4e3c56", "#49a0c4", "#ff7f89")) +
   labs(x = "Share of total expenditure", y = NULL,
        title = "Teaching staff dominate school spending")
 ```
@@ -325,7 +325,7 @@ ggplot(trends, aes(academic_year, Value, colour = Metric, group = Metric)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 3) +
   scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
-  scale_colour_brewer(palette = "Dark2") +
+  scale_colour_manual(values = c("#2e6260", "#abc766", "#f9dd73", "#e16fca", "#4e3c56", "#49a0c4", "#ff7f89")) +
   labs(x = "Academic Year", y = "Per pupil (median, GBP)",
        title = "Per-pupil income and expenditure trends",
        colour = NULL) +
@@ -348,7 +348,7 @@ panel_fin %>%
   geom_histogram(bins = 50, alpha = 0.6, position = "identity") +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "red") +
   scale_x_continuous(labels = percent) +
-  scale_fill_brewer(palette = "Set2", name = "Year") +
+  scale_fill_manual(values = c("#2e6260", "#abc766", "#f9dd73", "#e16fca", "#4e3c56", "#49a0c4", "#ff7f89"), name = "Year") +
   labs(x = "In-year balance / total income",
        y = "Number of schools",
        title = "Most schools run a small surplus; some are in deficit") +
@@ -394,7 +394,7 @@ panel_fin %>%
   geom_point(aes(colour = fin_source), alpha = 0.3, size = 1.5) +
   geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
   scale_x_continuous(labels = label_comma(prefix = "\u00A3")) +
-  scale_colour_manual(values = c(AAR = "#2c7bb6", CFR = "#d7191c"), name = "Source") +
+  scale_colour_manual(values = c(AAR = "#2e6260", CFR = "#e16fca"), name = "Source") +
   labs(x = "Total income per pupil", y = "Attainment 8 score",
        title = "Weak relationship between per-pupil income and attainment") +
   theme(legend.position = "bottom")
@@ -412,7 +412,7 @@ panel_fin %>%
          !is.na(ATT8SCR), ATT8SCR > 0,
          fin_staff_income_ratio > 0.4, fin_staff_income_ratio < 1.1) %>%
   ggplot(aes(fin_staff_income_ratio, ATT8SCR)) +
-  geom_point(alpha = 0.3, size = 1.5, colour = "steelblue") +
+  geom_point(alpha = 0.3, size = 1.5, colour = "#49a0c4") +
   geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
   scale_x_continuous(labels = percent) +
   labs(x = "Staff costs / total income", y = "Attainment 8 score",
@@ -434,7 +434,7 @@ panel_fin %>%
   mutate(PTFSM6CLA1A = as.numeric(PTFSM6CLA1A)) %>%
   filter(!is.na(PTFSM6CLA1A)) %>%
   ggplot(aes(PTFSM6CLA1A, fin_total_income_pp)) +
-  geom_point(alpha = 0.3, size = 1.5, colour = "darkorange") +
+  geom_point(alpha = 0.3, size = 1.5, colour = "#e16fca") +
   geom_smooth(method = "loess", se = TRUE, colour = "black", linewidth = 1) +
   scale_y_continuous(labels = label_comma(prefix = "\u00A3")) +
   labs(x = "% disadvantaged pupils (FSM6CLA1A)",
@@ -462,7 +462,7 @@ panel_fin %>%
   filter(n >= 10) %>%
   mutate(Region = fct_reorder(Region, median_pp)) %>%
   ggplot(aes(median_pp, Region)) +
-  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_col(fill = "#49a0c4", alpha = 0.8) +
   geom_text(aes(label = comma(median_pp, prefix = "\u00A3", accuracy = 1)),
             hjust = -0.1, size = 3.5) +
   scale_x_continuous(labels = label_comma(prefix = "\u00A3"),
@@ -513,7 +513,7 @@ cor_df <- as.data.frame(as.table(cor_mat)) %>%
 ggplot(cor_df, aes(Var1, Var2, fill = Correlation)) +
   geom_tile(colour = "white") +
   geom_text(aes(label = sprintf("%.2f", Correlation)), size = 3) +
-  scale_fill_gradient2(low = "#d7191c", mid = "white", high = "#2c7bb6",
+  scale_fill_gradient2(low = "#7b132b", mid = "#f3f3f3", high = "#2e6260",
                        midpoint = 0, limits = c(-1, 1)) +
   labs(x = NULL, y = NULL, title = "Correlation matrix: finance and attainment") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))

@@ -75,8 +75,8 @@ theme_pub <- theme_minimal(base_size = 11) +
   )
 
 # Colour palette
-year_cols <- c("2021-22" = "#1b9e77", "2022-23" = "#d95f02",
-               "2023-24" = "#7570b3", "2024-25" = "#e7298a")
+year_cols <- c("2021-22" = "#2e6260", "2022-23" = "#abc766",
+               "2023-24" = "#e16fca", "2024-25" = "#4e3c56")
 
 # Output directory for saved figures
 fig_dir <- here::here("output", "figures")
@@ -291,7 +291,7 @@ p_types <- panel_data %>%
   mutate(pct = n / sum(n) * 100,
          MINORGROUP = fct_reorder(MINORGROUP, n)) %>%
   ggplot(aes(x = MINORGROUP, y = pct)) +
-  geom_col(fill = "#3575b5", width = 0.7) +
+  geom_col(fill = "#2e6260", width = 0.7) +
   geom_text(aes(label = sprintf("%.1f%%", pct)), hjust = -0.1, size = 3) +
   coord_flip() +
   labs(x = NULL, y = "% of school-year observations",
@@ -323,8 +323,8 @@ p_ofsted <- model_panel %>%
   geom_text(aes(label = sprintf("%.0f%%", pct)),
             position = position_stack(vjust = 0.5), size = 3, colour = "white") +
   scale_fill_manual(
-    values = c("Outstanding" = "#1a9641", "Good" = "#a6d96a",
-               "Requires Improvement" = "#fdae61", "Inadequate" = "#d7191c"),
+    values = c("Outstanding" = "#2e6260", "Good" = "#abc766",
+               "Requires Improvement" = "#f9dd73", "Inadequate" = "#4e3c56"),
     name = "Ofsted rating"
   ) +
   labs(x = "Academic year", y = "% of schools",
@@ -353,7 +353,7 @@ if ("ADMPOL_PT" %in% names(model_panel)) {
     mutate(pct = n / sum(n) * 100) %>%
     ggplot(aes(x = year_label, y = pct, fill = ADMPOL_PT)) +
     geom_col(position = "stack", width = 0.65) +
-    scale_fill_brewer(palette = "Set2", name = "Admissions policy") +
+    scale_fill_manual(values = c("#2e6260", "#abc766", "#f9dd73", "#e16fca", "#4e3c56", "#49a0c4", "#ff7f89"), name = "Admissions policy") +
     labs(x = "Academic year", y = "% of schools",
          title = "Admissions policy composition by year") +
     theme_pub
@@ -542,8 +542,8 @@ p_outcome_ofsted <- model_panel %>%
                      levels = c("All pupils", "Disadvantaged", "Non-disadvantaged"))
   )
 
-ofsted_cols <- c("Outstanding" = "#1b7e2e", "Good" = "#6aaa47",
-                 "Requires Improvement" = "#e8a838", "Inadequate" = "#c62828")
+ofsted_cols <- c("Outstanding" = "#2e6260", "Good" = "#abc766",
+                 "Requires Improvement" = "#f9dd73", "Inadequate" = "#4e3c56")
 
 p_out_ofs <- ggplot(p_outcome_ofsted,
                     aes(x = OFSTEDRATING_1, y = score, fill = OFSTEDRATING_1)) +
@@ -677,7 +677,7 @@ compare_long <- bind_rows(raw_long, log_long) %>%
   )
 
 p_log <- ggplot(compare_long, aes(x = value)) +
-  geom_histogram(bins = 40, fill = "#3575b5", alpha = 0.7, colour = "white",
+  geom_histogram(bins = 40, fill = "#2e6260", alpha = 0.7, colour = "white",
                  linewidth = 0.2) +
   facet_grid(variable ~ scale, scales = "free") +
   labs(x = NULL, y = "Frequency",
@@ -765,7 +765,7 @@ years <- as.character(sort(unique(bivar_df$year_label)))
 year_dfs <- lapply(years, function(yr) bivar_df[bivar_df$year_label == yr, ])
 names(year_dfs) <- years
 
-yr_colours <- c("#1565c0", "#c62828", "#2e7d32", "#e65100")
+yr_colours <- c("#2e6260", "#abc766", "#e16fca", "#4e3c56")
 n_tr <- length(years)
 
 # --- Build base plotly (one trace per year + one OLS line) ---
@@ -791,7 +791,7 @@ fig <- fig %>%
   add_lines(
     x = c(0, 1), y = c(0, 1),
     name = "OLS fit",
-    line = list(color = "#c62828", width = 2),
+    line = list(color = "#7b132b", width = 2),
     showlegend = FALSE, hoverinfo = "skip", visible = FALSE
   )
 
@@ -982,7 +982,7 @@ js_block <- tags$script(HTML(sprintf('
           x: 0.02, y: 0.98,
           xanchor: "left", yanchor: "top",
           showarrow: false,
-          font: { size: 12.5, color: "#c62828", family: "monospace" },
+          font: { size: 12.5, color: "#4e3c56", family: "monospace" },
           bgcolor: "rgba(255,255,255,0.88)",
           borderpad: 5
         }]
@@ -1051,7 +1051,7 @@ type_summary %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE) %>%
   row_spec(which(type_summary$Status == "Excluded"),
-           color = "#c62828", italic = TRUE) %>%
+           color = "#4e3c56", italic = TRUE) %>%
   save_tbl("school_type_filter")
 ```
 
@@ -1150,7 +1150,7 @@ p_miss <- ggplot(miss_long, aes(x = year_label,
                                  fill = pct_missing)) +
   geom_tile(colour = "white", linewidth = 0.8) +
   geom_text(aes(label = sprintf("%.0f%%", pct_missing)), size = 3) +
-  scale_fill_gradient(low = "#f7fbff", high = "#c62828",
+  scale_fill_gradient(low = "#bbd2f0", high = "#7b132b",
                       name = "% missing", limits = c(0, 100)) +
   labs(x = "Academic year", y = NULL,
        title = "Missing data by variable and year") +
@@ -1233,7 +1233,7 @@ if (length(impute_vars) > 0) {
     geom_density(alpha = 0.5, colour = NA) +
     facet_wrap(~ variable, scales = "free", ncol = 2) +
     scale_fill_manual(
-      values = c("2023-24" = "#7570b3", "2024-25" = "#e7298a"),
+      values = c("2023-24" = "#e16fca", "2024-25" = "#4e3c56"),
       name = "Academic year"
     ) +
     labs(x = NULL, y = "Density",
@@ -1276,7 +1276,7 @@ pair2 <- prior_wide %>%
 r2 <- cor(pair2$`y_2022-23`, pair2$`y_2023-24`)
 
 p_scatter1 <- ggplot(pair1, aes(x = `y_2021-22`, y = `y_2022-23`)) +
-  geom_point(alpha = 0.25, size = 1, colour = "#1b9e77") +
+  geom_point(alpha = 0.25, size = 1, colour = "#2e6260") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey30") +
   annotate("text", x = Inf, y = -Inf,
            label = paste0("r = ", sprintf("%.3f", r1), "\nn = ", format(nrow(pair1), big.mark = ",")),
@@ -1288,7 +1288,7 @@ p_scatter1 <- ggplot(pair1, aes(x = `y_2021-22`, y = `y_2022-23`)) +
   theme_pub
 
 p_scatter2 <- ggplot(pair2, aes(x = `y_2022-23`, y = `y_2023-24`)) +
-  geom_point(alpha = 0.25, size = 1, colour = "#d95f02") +
+  geom_point(alpha = 0.25, size = 1, colour = "#abc766") +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey30") +
   annotate("text", x = Inf, y = -Inf,
            label = paste0("r = ", sprintf("%.3f", r2), "\nn = ", format(nrow(pair2), big.mark = ",")),
@@ -1393,7 +1393,7 @@ cor_long <- cor_mat %>%
 p_cor <- ggplot(cor_long, aes(x = var2, y = var1, fill = r)) +
   geom_tile(colour = "white", linewidth = 0.5) +
   geom_text(aes(label = sprintf("%.2f", r)), size = 2.2) +
-  scale_fill_gradient2(low = "#c62828", mid = "white", high = "#1565c0",
+  scale_fill_gradient2(low = "#7b132b", mid = "#f3f3f3", high = "#2e6260",
                        midpoint = 0, limits = c(-1, 1), name = "Pearson r") +
   labs(x = NULL, y = NULL,
        title = "Correlation matrix: outcome and predictors") +

@@ -1050,9 +1050,9 @@ ggplot(yearly_coefs_df,
   geom_line(linewidth = 0.6) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   facet_wrap(~ Term, scales = "free_y", ncol = 2) +
-  scale_colour_manual(values = c("All Pupils" = "#1565c0",
-                                  "Disadvantaged" = "#c62828",
-                                  "Non-Disadvantaged" = "#2e7d32")) +
+  scale_colour_manual(values = c("All Pupils" = "#2e6260",
+                                  "Disadvantaged" = "#4e3c56",
+                                  "Non-Disadvantaged" = "#abc766")) +
   labs(y = "Coefficient estimate", x = "Academic year", colour = NULL,
        title = "Full per-year coefficient trajectories (Analysis B)") +
   theme_minimal(base_size = 11) +
@@ -1101,9 +1101,9 @@ p_yearly <- ggplot(yearly_coefs_plotly,
   geom_line(linewidth = 0.6) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   facet_wrap(~ Term, scales = "free_y", ncol = 2) +
-  scale_colour_manual(values = c("All Pupils" = "#1565c0",
-                                  "Disadvantaged" = "#c62828",
-                                  "Non-Disadvantaged" = "#2e7d32")) +
+  scale_colour_manual(values = c("All Pupils" = "#2e6260",
+                                  "Disadvantaged" = "#4e3c56",
+                                  "Non-Disadvantaged" = "#abc766")) +
   labs(y = "Coefficient estimate", x = "Academic year", colour = NULL) +
   theme_minimal(base_size = 10) +
   theme(
@@ -1500,9 +1500,9 @@ p_imp <- ggplot(importance_chart_data,
            text = tooltip_text)) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   coord_flip() +
-  scale_fill_manual(values = c("All Pupils" = "#1565c0",
-                                "Disadvantaged" = "#c62828",
-                                "Non-Disadvantaged" = "#2e7d32")) +
+  scale_fill_manual(values = c("All Pupils" = "#2e6260",
+                                "Disadvantaged" = "#4e3c56",
+                                "Non-Disadvantaged" = "#abc766")) +
   labs(x = NULL, y = "|Standardised Coefficient|",
        title = "Variable Importance: National (Analysis E)",
        fill = NULL) +
@@ -1531,9 +1531,9 @@ p_dir <- ggplot(importance_chart_data,
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   coord_flip() +
-  scale_fill_manual(values = c("All Pupils" = "#1565c0",
-                                "Disadvantaged" = "#c62828",
-                                "Non-Disadvantaged" = "#2e7d32")) +
+  scale_fill_manual(values = c("All Pupils" = "#2e6260",
+                                "Disadvantaged" = "#4e3c56",
+                                "Non-Disadvantaged" = "#abc766")) +
   labs(x = NULL, y = "Standardised Coefficient (signed)",
        title = "Direction & Magnitude of Effect: National",
        fill = NULL) +
@@ -1629,9 +1629,9 @@ p_bh <- ggplot(bh_chart_data,
            text = tooltip_text)) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   coord_flip() +
-  scale_fill_manual(values = c("All Pupils" = "#1565c0",
-                                "Disadvantaged" = "#c62828",
-                                "Non-Disadvantaged" = "#2e7d32")) +
+  scale_fill_manual(values = c("All Pupils" = "#2e6260",
+                                "Disadvantaged" = "#4e3c56",
+                                "Non-Disadvantaged" = "#abc766")) +
   labs(x = NULL, y = "|Standardised Coefficient|",
        title = "Variable Importance: Brighton & Hove",
        fill = NULL) +

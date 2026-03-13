@@ -43,16 +43,15 @@ la_typ  <- readRDS(here("data", "la_typology.rds"))
 chosen_k     <- cl_meta$chosen_k
 cluster_labs <- cl_meta$cluster_labels
 
-# Generate cluster colours from the same palette used in global.R
-# (colours are not stored in cluster_meta.rds — they are assigned at app startup)
+# Generate cluster colours using CASA casaviz palette
 palette_cols <- c(
-  "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-  "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
-  "#bcbd22", "#17becf", "#aec7e8", "#ffbb78"
+  "#2e6260", "#abc766", "#f9dd73", "#e16fca",
+  "#4e3c56", "#49a0c4", "#ff7f89", "#7b132b",
+  "#bbd2f0", "#4eaf81", "#2e6260", "#abc766"
 )
 cluster_cols <- palette_cols[seq_len(chosen_k)]
 
-# Helper: hex colour → rgba string (plotly-compatible fill with alpha)
+# Helper: hex colour -> rgba string (plotly-compatible fill with alpha)
 hex_to_rgba <- function(hex, alpha = 0.15) {
   rgb <- col2rgb(hex)
   sprintf("rgba(%d,%d,%d,%.2f)", rgb[1], rgb[2], rgb[3], alpha)
@@ -546,7 +545,7 @@ tibble(
   kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE) |>
   column_spec(3, color = ifelse(
     c(TRUE,FALSE,FALSE,TRUE,TRUE,TRUE,TRUE,FALSE,FALSE,FALSE),
-    "#27ae60", "#c0392b"
+    "#4eaf81", "#7b132b"
   ))
 ```
 
