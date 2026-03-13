@@ -324,13 +324,17 @@ cat(sprintf("In practical terms, this translates to roughly **+%.1f%%** on the A
 
 This is not a raw league table position. A high random intercept does not mean Brighton & Hove has the highest *raw* attainment — it means the authority is doing better *than expected* given the challenges its schools face. The confidence interval excludes zero, confirming this is a statistically meaningful effect.
 
-Possible explanations for this positive "Brighton effect" **could** include a range of different factors: 
+Possible explanations for this positive "Brighton effect" ***could*** include a range of different factors: 
 
--   strong local authority support (not strong evidence of this in Brighton and Hove)
--   school improvement structures (again, not strong evidence of this in the city)
--   effective school-to-school collaboration networks
--   community factors not captured by the model (parental engagement, cultural attitudes to education)
+-   community factors not captured by the model (parental engagement, cultural attitudes to education, strong school-home ties)
 -   consistently effective school leadership and governance across most of the schools in the authority.
+-   local authority governance
+-   school improvement programmes
+-   effective school-to-school collaboration networks
+
+While all of these are examples of local authority or school-level factors that could account for the residual variance not captured by the model, new data or additional qualitative work would be required to establish potential causal pathways. 
+
+It is also worth noting that we have kept the number of explanatory variables as few as possible and selected just those which have most effect and contribute most to the story. In other associated files on this page, we experimented with other financial variables and those associated with special educational needs. While both added a very small amount of additional explanatory power, most of the their effect was bound up in other variables so we left out in the name of parsimony. Including them will have added an additional 1-2% of explanatory power. 
 :::
 
 
@@ -2266,6 +2270,20 @@ ggplotly(p_heat, tooltip = "text") %>%
 #| label: school-commentary
 #| output: asis
 
+# School logo URLs (from smarteruniforms.org)
+school_logos <- c(
+  "Blatchington Mill School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/84/20c97926ca075b37626a8f4b37cbc38cf4442f",
+  "Brighton Aldridge Community Academy" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/d4/1c7bb2737c00949d80b04ea702b62f91b60b55",
+  "Cardinal Newman Catholic School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/34/bd58b63c78d4f40f2c256838468a3f490089d8",
+  "Dorothy Stringer School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/86/1aeb47fa78fecf6577e9d4a370f172e72a2023",
+  "Hove Park School and Sixth Form Centre" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/ef/1987aa2f37fe73e945889df8f2e516a413e079",
+  "King's School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/1f/5992fbe3a6adba3c056cc2eaaaef2ca9d6332d",
+  "Longhill High School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/24/9c6351def3c0b1c22f2012daa8252f0d520090",
+  "Patcham High School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/ca/3611f540a4886f60db76e9d690570115e25d00",
+  "Portslade Aldridge Community Academy" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/e5/edb871bea78133e694113c5ab4f7a1a4423aa5",
+  "Varndean School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/cc/a34faea80de81d4ea34ce81fbb3dda5b7a8f10"
+)
+
 # Generate automated commentary for each school
 school_summaries <- panel_residuals %>%
   group_by(School, Group) %>%
@@ -2363,7 +2381,16 @@ for (sch in school_order_commentary) {
     }
   }
 
-  cat(sprintf("\n### %s\n\n", sch))
+  # School logo (if available)
+  logo_url <- school_logos[sch]
+  if (!is.na(logo_url)) {
+    cat(sprintf('\n<div style="display:flex;align-items:center;gap:16px;margin-top:1.2em;margin-bottom:0.4em;">\n'))
+    cat(sprintf('<img src="%s" alt="%s logo" style="height:60px;width:auto;object-fit:contain;border-radius:4px;">\n', logo_url, sch))
+    cat(sprintf('<h3 style="margin:0;">%s</h3>\n', sch))
+    cat('</div>\n\n')
+  } else {
+    cat(sprintf("\n### %s\n\n", sch))
+  }
 
   if (nrow(ctx) > 0) {
     cat(sprintf("*%s-rated school | Mean ATT8: %.1f | Mean %% FSM: %.1f%% | Mean %% Absence: %.1f%%*\n\n",
