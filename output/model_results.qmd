@@ -105,6 +105,22 @@ The full `lmer()` code for all model specifications (Analyses A–E) is availabl
 :::
 
 
+::: {.callout-note}
+## Sample size note
+
+The full 9-predictor models (Analyses A, B, and E) are fitted on
+approximately 12,200 school-year observations from ~13,000 mainstream
+(Academy + Maintained) school-year records. The main source of attrition
+is the `average_number_of_days_taken` (teacher sickness absence) variable,
+which drops ~570 observations — predominantly in 2021-22 and 2022-23
+where the workforce census sickness data was patchier (likely due to
+COVID-era reporting disruption). Around 420 of these are NA values and
+~150 are zeros excluded by the `> 0` requirement for log transformation.
+Academies account for ~80% of the losses. See the
+[dropped-rows diagnostic](model_experiments.html#dropped-rows-diagnostic)
+in the Model Experiments report for a full breakdown.
+:::
+
 # Panel Models (Analysis A)
 
 The panel models pool all four academic years, with `year_label` entering as a random intercept alongside Ofsted rating and local authority (nested within region). This specification treats year-to-year variation as a variance component rather than a fixed trend.

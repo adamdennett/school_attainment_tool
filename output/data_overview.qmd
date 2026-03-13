@@ -1173,6 +1173,12 @@ p_miss
 
 The heatmap makes the pattern stark: missingness is concentrated almost entirely in the workforce and prior attainment variables for the 2024--25 year. For the earlier three years, data completeness is consistently high across all variables. This structured, year-specific pattern supports the use of a carry-forward imputation strategy rather than more complex multiple imputation approaches.
 
+::: {.callout-note}
+## Teacher sickness absence: a notable gap in 2021--22 and 2022--23
+
+Although the heatmap shows high overall completeness for the earlier years, one variable — `average_number_of_days_taken` (teacher sickness absence) — has a less visible but consequential pattern of missingness. Approximately 570 school-year observations pass all other filters but fail on this variable: ~250 in 2021-22 and ~244 in 2022-23, falling to ~54 in 2023-24 and ~22 in 2024-25. Around 420 of these are genuinely missing (NA) and ~150 are reported as zero (excluded because the log transform requires strictly positive values). Academies account for roughly 80% of the affected schools, suggesting patchier sickness absence reporting in the early post-COVID workforce census returns. Because the model uses `log(average_number_of_days_taken)`, these cases cannot be retained without either imputation or removing the variable from the model specification.
+:::
+
 # Imputation: 2024--25 Carry-Forward
 
 Four predictor variables are unavailable for the 2024--25 academic year:

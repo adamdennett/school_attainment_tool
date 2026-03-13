@@ -134,6 +134,23 @@ cat("LAs:", n_distinct(model_data$LANAME), "\n")
 cat("Ofsted levels:", paste(levels(model_data$OFSTEDRATING_1), collapse = ", "), "\n")
 ```
 
+::: {.callout-note}
+## Sample attrition: teacher sickness days
+
+The full model dataset loses approximately 570 school-year observations
+due to the `average_number_of_days_taken > 0` filter. This variable is
+required to be strictly positive for the log transform used in the model.
+The losses are concentrated in 2021-22 (250 rows) and 2022-23 (244 rows),
+with far fewer in 2023-24 (54) and 2024-25 (22). Around 420 of these are
+NA values — schools where the workforce census returned retention and
+leadership data but not sickness absence — and the remaining ~150 are
+genuine zeros. Academies are disproportionately affected (80% of losses),
+likely reflecting patchier sickness absence reporting in the early
+post-COVID workforce census returns. This is a known data limitation;
+the dropped schools are spread across all regions and LAs rather than
+concentrated in particular areas.
+:::
+
 ## Core model dataset
 
 ```{r data-core}
