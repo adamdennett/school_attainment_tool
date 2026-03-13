@@ -1583,60 +1583,252 @@ ggplotly(p_resid, tooltip = "text") %>%
 
 ```{r bh-residual-map}
 #| label: bh-residual-map
-#| fig-cap: "Brighton & Hove schools coloured by model residual (most recent year, All Pupils). Green = outperforming, red = underperforming."
+#| fig-cap: "Brighton & Hove schools coloured by mean model residual across all panel years. Use the dropdown to switch between outcome groups. Green = outperforming, red = underperforming."
 
-if (exists("bh_sf")) {
-  # Compute residuals directly on bh_sf (which already has ATT8SCR and predicted_all)
-  bh_map_resid <- bh_sf %>%
-    filter(!is.na(predicted_all), !is.na(ATT8SCR)) %>%
-    mutate(
-      Predicted_ATT8 = exp(predicted_all),
-      Residual = ATT8SCR - Predicted_ATT8
+if (exists("bh_sf") && exists("bh_long")) {
+  # Compute mean residuals per school per outcome group (same as league tables 11.1-11.3)
+  mean_resids <- bh_long %>%
+    group_by(School, Group) %>%
+    summarise(
+      mean_resid = mean(Residual, na.rm = TRUE),
+      mean_obs = mean(Observed, na.rm = TRUE),
+      mean_pred = mean(Predicted, na.rm = TRUE),
+      n_years = n(),
+      .groups = "drop"
     )
 
-  if (nrow(bh_map_resid) > 0) {
-    resid_abs_max <- max(abs(bh_map_resid$Residual), na.rm = TRUE)
-    pal_resid <- colorNumeric(
-      palette = c("#7b132b", "#ff7f89", "#f3f3f3", "#abc766", "#4eaf81"),
-      domain = c(-resid_abs_max, resid_abs_max),
-      na.color = "transparent"
+  # Pivot so each school has one row with residuals for all three groups
+  resid_wide <- mean_resids %>%
+    pivot_wider(
+      id_cols = School,
+      names_from = Group,
+      values_from = c(mean_resid, mean_obs, mean_pred, n_years),
+      names_glue = "{Group}_{.value}"
     )
 
-    leaflet(bh_map_resid, width = "100%", height = 500) %>%
+  # Clean column names (remove spaces)
+  names(resid_wide) <- gsub(" ", "_", names(resid_wide))
+  names(resid_wide) <- gsub("-", "_", names(resid_wide))
+
+  # Join to bh_sf for coordinates
+  bh_resid_map <- bh_sf %>%
+    sf::st_drop_geometry() %>%
+    select(SCHNAME, lon, lat, PTFSM6CLA1A, PERCTOT, PNUMEAL,
+           OFSTEDRATING_1, year_label) %>%
+    left_join(resid_wide, by = c("SCHNAME" = "School")) %>%
+    filter(!is.na(All_Pupils_mean_resid))
+
+  if (nrow(bh_resid_map) > 0) {
+    # Variable metadata for the dropdown
+    resid_var_meta <- list(
+      list(var = "All_Pupils_mean_resid", obs = "All_Pupils_mean_obs",
+           pred = "All_Pupils_mean_pred", n = "All_Pupils_n_years",
+           label = "All Pupils"),
+      list(var = "Disadvantaged_mean_resid", obs = "Disadvantaged_mean_obs",
+           pred = "Disadvantaged_mean_pred", n = "Disadvantaged_n_years",
+           label = "Disadvantaged"),
+      list(var = "Non_Disadvantaged_mean_resid", obs = "Non_Disadvantaged_mean_obs",
+           pred = "Non_Disadvantaged_mean_pred", n = "Non_Disadvantaged_n_years",
+           label = "Non-Disadvantaged")
+    )
+
+    resid_var_json <- toJSON(resid_var_meta, auto_unbox = TRUE)
+    resid_data_json <- toJSON(bh_resid_map, na = "null")
+
+    # Create bare leaflet
+    m_resid <- leaflet(width = "100%", height = 500) %>%
       addProviderTiles(providers$CartoDB.Positron) %>%
-      addCircleMarkers(
-        lng = ~lon, lat = ~lat,
-        radius = 10,
-        fillColor = ~pal_resid(Residual),
-        fillOpacity = 0.85,
-        color = "white",
-        weight = 1.5,
-        popup = ~paste0(
-          "<b>", SCHNAME, "</b><br>",
-          "Year: ", year_label, "<br>",
-          "Observed ATT8: ", round(ATT8SCR, 1), "<br>",
-          "Predicted ATT8: ", round(Predicted_ATT8, 1), "<br>",
-          "Residual: ", sprintf("%+.1f", Residual), "<br>",
-          "% FSM: ", round(PTFSM6CLA1A, 1), "%<br>",
-          "% Absence: ", round(PERCTOT, 1), "%"
-        )
-      ) %>%
-      addLegend(
-        position = "bottomright",
-        pal = pal_resid,
-        values = ~Residual,
-        title = "Residual",
-        opacity = 0.85
-      )
+      setView(lng = mean(bh_resid_map$lon, na.rm = TRUE),
+              lat = mean(bh_resid_map$lat, na.rm = TRUE), zoom = 13)
+
+    # Embed data as hidden JSON
+    resid_data_tag <- htmltools::tags$script(
+      type = "application/json",
+      id = "school-resid-data",
+      htmltools::HTML(resid_data_json)
+    )
+
+    resid_meta_tag <- htmltools::tags$script(
+      type = "application/json",
+      id = "resid-var-meta",
+      htmltools::HTML(resid_var_json)
+    )
+
+    # JavaScript for interactive residual map
+    resid_js <- "
+function(el, x) {
+  var map = this;
+  var schoolData = JSON.parse(document.getElementById('school-resid-data').textContent);
+  var varMeta = JSON.parse(document.getElementById('resid-var-meta').textContent);
+  var markers = [];
+  var legend = null;
+
+  // Build dropdown
+  var selectDiv = document.createElement('div');
+  selectDiv.style.cssText = 'margin-bottom:10px;font-family:Arial,sans-serif;';
+  selectDiv.innerHTML = '<label style=\"font-weight:bold;margin-right:8px;\">Outcome group:</label>';
+  var sel = document.createElement('select');
+  sel.style.cssText = 'padding:6px 12px;border-radius:4px;border:1px solid #ccc;font-size:14px;background:#fff;';
+  varMeta.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v.var;
+    opt.textContent = v.label;
+    sel.appendChild(opt);
+  });
+  selectDiv.appendChild(sel);
+  el.parentNode.insertBefore(selectDiv, el);
+
+  // Diverging colour function: red (#7b132b) -> pink (#ff7f89) -> white (#f3f3f3) -> lime (#abc766) -> green (#4eaf81)
+  function interpolateColor(t) {
+    // t ranges from 0 (most negative) to 1 (most positive), 0.5 = zero
+    var stops = [
+      {pos: 0.0, r: 123, g: 19, b: 43},
+      {pos: 0.25, r: 255, g: 127, b: 137},
+      {pos: 0.5, r: 243, g: 243, b: 243},
+      {pos: 0.75, r: 171, g: 199, b: 102},
+      {pos: 1.0, r: 78, g: 175, b: 129}
+    ];
+    t = Math.max(0, Math.min(1, t));
+    for (var i = 0; i < stops.length - 1; i++) {
+      if (t >= stops[i].pos && t <= stops[i+1].pos) {
+        var f = (t - stops[i].pos) / (stops[i+1].pos - stops[i].pos);
+        var r = Math.round(stops[i].r + f * (stops[i+1].r - stops[i].r));
+        var g = Math.round(stops[i].g + f * (stops[i+1].g - stops[i].g));
+        var b = Math.round(stops[i].b + f * (stops[i+1].b - stops[i].b));
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+      }
+    }
+    return 'rgb(243,243,243)';
+  }
+
+  function updateMap(varName) {
+    // Find metadata for this variable
+    var meta = varMeta.find(function(v) { return v.var === varName; });
+
+    // Clear existing markers
+    markers.forEach(function(m) { map.removeLayer(m); });
+    markers = [];
+
+    // Remove existing legend
+    if (legend) { map.removeControl(legend); }
+
+    // Get valid values
+    var vals = schoolData.filter(function(d) { return d[varName] !== null; })
+                         .map(function(d) { return d[varName]; });
+    if (vals.length === 0) return;
+
+    var absMax = Math.max.apply(null, vals.map(function(v) { return Math.abs(v); }));
+    if (absMax === 0) absMax = 1;
+
+    // Draw markers
+    schoolData.forEach(function(d) {
+      var val = d[varName];
+      if (val === null || d.lon === null || d.lat === null) return;
+
+      // Map value to 0-1 where 0.5 is zero
+      var t = (val + absMax) / (2 * absMax);
+      var col = interpolateColor(t);
+
+      // Radius: larger absolute residuals get bigger circles
+      var radius = 6 + (Math.abs(val) / absMax) * 10;
+
+      // Popup with all three groups
+      var popup = '<b>' + d.SCHNAME + '</b><br>' +
+        '<span style=\"color:#888\">Year shown: ' + d.year_label + ' (latest)</span><br>' +
+        '<hr style=\"margin:4px 0\">';
+
+      // Add each outcome group residual
+      varMeta.forEach(function(vm) {
+        var rv = d[vm.var];
+        var ov = d[vm.obs];
+        var pv = d[vm.pred];
+        var nv = d[vm.n];
+        var isCurrent = (vm.var === varName);
+        var style = isCurrent ? 'font-weight:bold;' : 'color:#666;';
+        var arrow = isCurrent ? ' ◀' : '';
+        if (rv !== null) {
+          var col2 = rv > 0 ? '#4eaf81' : '#7b132b';
+          popup += '<span style=\"' + style + '\">' + vm.label + ': ' +
+            '<span style=\"color:' + col2 + ';font-weight:bold\">' + (rv > 0 ? '+' : '') + rv.toFixed(1) + '</span>' +
+            ' (obs ' + (ov !== null ? ov.toFixed(1) : '—') +
+            ', pred ' + (pv !== null ? pv.toFixed(1) : '—') +
+            ', ' + (nv !== null ? nv : '?') + ' yrs)' + arrow + '</span><br>';
+        } else {
+          popup += '<span style=\"' + style + '\">' + vm.label + ': —</span><br>';
+        }
+      });
+
+      popup += '<hr style=\"margin:4px 0\">' +
+        '% FSM: ' + (d.PTFSM6CLA1A !== null ? d.PTFSM6CLA1A.toFixed(1) + '%' : '—') + '<br>' +
+        '% Absence: ' + (d.PERCTOT !== null ? d.PERCTOT.toFixed(1) + '%' : '—') + '<br>' +
+        'Ofsted: ' + (d.OFSTEDRATING_1 || '—');
+
+      var marker = L.circleMarker([d.lat, d.lon], {
+        radius: radius,
+        fillColor: col,
+        fillOpacity: 0.85,
+        color: 'white',
+        weight: 1.5
+      }).bindPopup(popup);
+      marker.addTo(map);
+      markers.push(marker);
+    });
+
+    // Add legend
+    legend = L.control({position: 'bottomright'});
+    legend.onAdd = function() {
+      var div = L.DomUtil.create('div', 'info legend');
+      div.style.cssText = 'background:white;padding:8px 12px;border-radius:4px;' +
+        'box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:Arial,sans-serif;font-size:12px;line-height:1.6;';
+      div.innerHTML = '<b>Mean Residual: ' + meta.label + '</b><br>';
+
+      // Gradient bar
+      var nSteps = 5;
+      var stepVals = [];
+      for (var i = 0; i <= nSteps; i++) {
+        stepVals.push(-absMax + (2 * absMax * i / nSteps));
+      }
+      var gradientHtml = '<div style=\"display:flex;height:14px;margin:4px 0;border-radius:2px;overflow:hidden;\">';
+      for (var i = 0; i < 20; i++) {
+        var t = i / 19;
+        gradientHtml += '<div style=\"flex:1;background:' + interpolateColor(t) + '\"></div>';
+      }
+      gradientHtml += '</div>';
+      div.innerHTML += gradientHtml;
+
+      div.innerHTML += '<div style=\"display:flex;justify-content:space-between;font-size:10px;\">' +
+        '<span>' + (-absMax).toFixed(1) + '</span>' +
+        '<span>0</span>' +
+        '<span>+' + absMax.toFixed(1) + '</span></div>';
+      div.innerHTML += '<div style=\"font-size:10px;color:#666;margin-top:2px;\">' +
+        vals.length + ' schools</div>';
+
+      return div;
+    };
+    legend.addTo(map);
+  }
+
+  // Initial render
+  updateMap(varMeta[0].var);
+
+  // Dropdown change handler
+  sel.addEventListener('change', function() {
+    updateMap(this.value);
+  });
+}
+"
+
+    m_resid <- m_resid %>% onRender(resid_js)
+    htmltools::browsable(htmltools::tagList(resid_data_tag, resid_meta_tag, m_resid))
   } else {
     cat("No schools with both coordinates and valid model predictions available for mapping.")
   }
 } else {
-  cat("Coordinate data not available for mapping.")
+  cat("Coordinate or residual data not available for mapping.")
 }
 ```
 
-The residual map shows the geographic pattern of model over- and under-prediction across Brighton & Hove. Schools shown in green are outperforming the model's expectations given their intake, context, and workforce characteristics, while schools in red are underperforming. The spatial pattern can reveal whether there are area-level factors — community resources, transport links, local employment conditions — that the model does not capture.
+Use the dropdown above the map to switch between outcome groups: **All Pupils**, **Disadvantaged**, and **Non-Disadvantaged**. The residuals shown are *mean values across all panel years* — the same figures used to rank schools in the value-added league tables in @sec-league-table below. Schools shown in green are outperforming the model's expectations given their intake, context, and workforce characteristics, while schools in red are underperforming. Circle size reflects the magnitude of the residual. Click any marker to see the full breakdown of residuals across all three groups, including observed and predicted scores and the number of years contributing to the average. The spatial pattern can reveal whether there are area-level factors — community resources, transport links, local employment conditions — that the model does not capture.
 
 
 # Brighton & Hove in National Context
