@@ -57,27 +57,16 @@ marginal and conditional $R^2$.
 ```{r data-prep}
 #| label: data-prep
 
-# Load the main panel (has gorard_segregation, OFSTEDRATING_1, etc.)
+# Load the main panel (has gorard_segregation, OFSTEDRATING_1, fin_* cols, etc.)
 panel <- readRDS(here::here("data", "panel_data.rds"))
 
-# Load financial returns and join key variables
+# Supplement with per-pupil columns not carried by 03a_add_finance.R
 finance <- readRDS(here::here("data", "financial_returns.rds"))
-
-finance_slim <- finance %>%
-  select(URN, academic_year,
-         fin_total_income_pp       = total_income_pp,
-         fin_total_expenditure_pp  = total_expenditure_pp,
-         fin_staff_costs_pp        = staff_costs_pp,
-         fin_teaching_staff_pp     = teaching_staff_pp,
-         fin_grant_funding_pp      = grant_funding_pp,
-         fin_premises_costs_pp     = premises_costs_pp,
-         fin_staff_income_ratio    = staff_income_ratio,
-         fin_teaching_expenditure_ratio = teaching_expenditure_ratio,
-         fin_balance_income_ratio  = balance_income_ratio,
-         fin_source                = source)
-
+finance_extra <- finance %>%
+  transmute(URN, academic_year,
+            fin_premises_costs_pp = premises_costs_pp)
 panel <- panel %>%
-  left_join(finance_slim, by = c("URN", "academic_year"))
+  left_join(finance_extra, by = c("URN", "academic_year"))
 
 cat("Panel:", nrow(panel), "rows\n")
 cat("Financial match:", sum(!is.na(panel$fin_total_income_pp)), "/", nrow(panel), "\n")

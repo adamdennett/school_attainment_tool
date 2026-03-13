@@ -251,6 +251,49 @@ build_panel <- function(year_data_list, force_download = FALSE) {
     n_with_region <- sum(!is.na(df$gor_name))
     message("  Edubase join: ", n_with_region, "/", nrow(df), " schools matched (gor_name)")
 
+    # --- Backfill missing gor_name from LA/region lookup ---
+    # Some schools (especially newer academies) are missing from Edubase.
+    # Use the DfE performance tables LA-to-region lookup to fill gaps via LEA code.
+    if (any(is.na(df$gor_name)) && "LEA" %in% names(df)) {
+      la_region_lookup <- read.csv(
+        here::here("data", "meta", "Performancetables_130249",
+                   "2022-2023", "la_and_region_codes_meta.csv"),
+        stringsAsFactors = FALSE
+      )
+      # Map sub-region names to the broad gor_name categories used in Edubase
+      la_region_lookup <- la_region_lookup %>%
+        mutate(
+          gor_name_broad = case_when(
+            grepl("^North East",   REGION.NAME) ~ "North East",
+            grepl("^North West",   REGION.NAME) ~ "North West",
+            grepl("^North Yorkshire|^South and West Yorkshire", REGION.NAME) ~ "Yorkshire and the Humber",
+            grepl("^East Midlands", REGION.NAME) ~ "East Midlands",
+            grepl("^West Midlands", REGION.NAME) ~ "West Midlands",
+            grepl("^East of England", REGION.NAME) ~ "East of England",
+            grepl("^London",       REGION.NAME) ~ "London",
+            grepl("^South East",   REGION.NAME) ~ "South East",
+            grepl("^South West",   REGION.NAME) ~ "South West",
+            TRUE ~ NA_character_
+          )
+        )
+
+      n_before <- sum(is.na(df$gor_name))
+      df <- df %>%
+        left_join(
+          la_region_lookup %>% select(LEA, gor_name_broad),
+          by = "LEA"
+        ) %>%
+        mutate(
+          gor_name = coalesce(gor_name, gor_name_broad)
+        ) %>%
+        select(-gor_name_broad)
+
+      n_after <- sum(is.na(df$gor_name))
+      message("  Region backfill: fixed ", n_before - n_after, " of ",
+              n_before, " missing gor_name via LA lookup (",
+              n_after, " still missing)")
+    }
+
     # --- Join Ofsted ratings ---
     # Use OFSTEDRATING from school_information if available, else from external source
     # Coerce both to character first to avoid type mismatch in coalesce

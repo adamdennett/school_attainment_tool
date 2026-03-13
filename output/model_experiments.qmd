@@ -31,7 +31,35 @@ library(here)
 # Load the raw panel data (same starting point as 05_fit_model.R)
 panel <- readRDS(here::here("data", "panel_data.rds"))
 
+# Backfill missing gor_name from DfE LA/region lookup (belt-and-braces)
+la_region_lookup <- read.csv(
+  here::here("data", "meta", "Performancetables_130249",
+             "2022-2023", "la_and_region_codes_meta.csv"),
+  stringsAsFactors = FALSE
+) %>%
+  mutate(gor_name_broad = case_when(
+    grepl("^North East",   REGION.NAME) ~ "North East",
+    grepl("^North West",   REGION.NAME) ~ "North West",
+    grepl("^North Yorkshire|^South and West Yorkshire", REGION.NAME) ~ "Yorkshire and the Humber",
+    grepl("^East Midlands", REGION.NAME) ~ "East Midlands",
+    grepl("^West Midlands", REGION.NAME) ~ "West Midlands",
+    grepl("^East of England", REGION.NAME) ~ "East of England",
+    grepl("^London",       REGION.NAME) ~ "London",
+    grepl("^South East",   REGION.NAME) ~ "South East",
+    grepl("^South West",   REGION.NAME) ~ "South West",
+    TRUE ~ NA_character_
+  ))
+
+n_missing_before <- sum(is.na(panel$gor_name))
+panel <- panel %>%
+  left_join(la_region_lookup %>% select(LEA, gor_name_broad), by = "LEA") %>%
+  mutate(gor_name = coalesce(gor_name, gor_name_broad)) %>%
+  select(-gor_name_broad)
+n_missing_after <- sum(is.na(panel$gor_name))
+
 cat("Panel loaded:", nrow(panel), "rows,", ncol(panel), "columns\n")
+cat("Region backfill: fixed", n_missing_before - n_missing_after, "of",
+    n_missing_before, "missing gor_name\n")
 ```
 
 
