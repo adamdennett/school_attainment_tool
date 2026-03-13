@@ -171,10 +171,44 @@
     /* Footer */
     .footer {
       text-align: center;
-      padding: 2rem;
+      padding: 2.5rem 2rem;
       font-size: 0.78rem;
       color: #8a8aaa;
       border-top: 1px solid #eedeff;
+    }
+
+    .footer-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.8rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .footer-logos a {
+      display: flex;
+      align-items: center;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    }
+
+    .footer-logos a:hover {
+      opacity: 1;
+    }
+
+    .footer-logos img {
+      height: 50px;
+      width: auto;
+    }
+
+    .footer-logos .ai4ci-logo {
+      height: 40px;
+    }
+
+    .footer-divider {
+      width: 1px;
+      height: 36px;
+      background: #ddbdff;
     }
 
     .footer a {
@@ -198,6 +232,15 @@
       }
       .report-card {
         padding: 1.2rem 1rem;
+      }
+      .footer-logos {
+        gap: 1.2rem;
+      }
+      .footer-logos img {
+        height: 40px;
+      }
+      .footer-logos .ai4ci-logo {
+        height: 32px;
       }
     }
 
@@ -270,7 +313,16 @@
   </div>
 
   <div class="footer">
-    UCL Centre for Advanced Spatial Analysis &middot; School Attainment Tool
+    <div class="footer-logos">
+      <a href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
+        <img src="fonts/casa-logo-square.png" alt="CASA logo">
+      </a>
+      <div class="footer-divider"></div>
+      <a href="https://ai4ci.uk" target="_blank" rel="noopener" title="AI4CI — AI for Collective Intelligence">
+        <img class="ai4ci-logo" src="fonts/ai4ci-logo.svg" alt="AI4CI logo">
+      </a>
+    </div>
+    <a href="https://www.ucl.ac.uk/bartlett/casa">UCL Centre for Advanced Spatial Analysis</a> &middot; School Attainment Tool
   </div>
 </body>
 </html>
