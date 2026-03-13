@@ -44,8 +44,18 @@ library(naniar)
 
 source(here::here("R", "helpers.R"))
 
-# Load final panel and intermediate data
-panel_data <- readRDS(here::here("data", "panel_data.rds"))
+# Load the pre-cleaning panel (with workforce + gorard but before ATT8 filtering)
+# so that descriptive statistics reflect the full data landscape before modelling
+panel_data <- readRDS(here::here("data", "panel_with_workforce.rds"))
+
+# Add Gorard segregation + imputed predictors from the final panel
+# (computed in 04_compute_derived.R but not in panel_with_workforce.rds)
+panel_final <- readRDS(here::here("data", "panel_data.rds"))
+gorard_cols <- c("gorard_segregation", "has_imputed_predictors")
+gorard_data <- panel_final %>%
+  select(URN, year_label, any_of(gorard_cols))
+panel_data <- panel_data %>%
+  left_join(gorard_data, by = c("URN", "year_label"))
 
 # Ensure factor ordering
 panel_data <- panel_data %>%
