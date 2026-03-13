@@ -2270,18 +2270,18 @@ ggplotly(p_heat, tooltip = "text") %>%
 #| label: school-commentary
 #| output: asis
 
-# School logo URLs (from smarteruniforms.org)
+# School logo paths (downloaded from smarteruniforms.org, stored locally)
 school_logos <- c(
-  "Blatchington Mill School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/84/20c97926ca075b37626a8f4b37cbc38cf4442f",
-  "Brighton Aldridge Community Academy" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/d4/1c7bb2737c00949d80b04ea702b62f91b60b55",
-  "Cardinal Newman Catholic School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/34/bd58b63c78d4f40f2c256838468a3f490089d8",
-  "Dorothy Stringer School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/86/1aeb47fa78fecf6577e9d4a370f172e72a2023",
-  "Hove Park School and Sixth Form Centre" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/ef/1987aa2f37fe73e945889df8f2e516a413e079",
-  "King's School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/1f/5992fbe3a6adba3c056cc2eaaaef2ca9d6332d",
-  "Longhill High School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/24/9c6351def3c0b1c22f2012daa8252f0d520090",
-  "Patcham High School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/ca/3611f540a4886f60db76e9d690570115e25d00",
-  "Portslade Aldridge Community Academy" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/e5/edb871bea78133e694113c5ab4f7a1a4423aa5",
-  "Varndean School" = "https://sharetribe-assets.imgix.net/65bcfa13-3323-460f-8f2a-4740fd7a9da6/raw/cc/a34faea80de81d4ea34ce81fbb3dda5b7a8f10"
+  "Blatchington Mill School" = "school_logos/blatchington_mill.png",
+  "Brighton Aldridge Community Academy" = "school_logos/brighton_aldridge.png",
+  "Cardinal Newman Catholic School" = "school_logos/cardinal_newman.png",
+  "Dorothy Stringer School" = "school_logos/dorothy_stringer.png",
+  "Hove Park School and Sixth Form Centre" = "school_logos/hove_park.png",
+  "King's School" = "school_logos/kings_school.png",
+  "Longhill High School" = "school_logos/longhill_high.png",
+  "Patcham High School" = "school_logos/patcham_high.png",
+  "Portslade Aldridge Community Academy" = "school_logos/portslade_aldridge.png",
+  "Varndean School" = "school_logos/varndean.png"
 )
 
 # Generate automated commentary for each school
@@ -2381,11 +2381,12 @@ for (sch in school_order_commentary) {
     }
   }
 
-  # School logo (if available)
-  logo_url <- school_logos[sch]
-  if (!is.na(logo_url)) {
+  # School logo (if available) — embed as base64 for self-contained HTML
+  logo_path <- school_logos[sch]
+  if (!is.na(logo_path) && file.exists(logo_path)) {
+    logo_b64 <- knitr::image_uri(logo_path)
     cat(sprintf('\n<div style="display:flex;align-items:center;gap:16px;margin-top:1.2em;margin-bottom:0.4em;">\n'))
-    cat(sprintf('<img src="%s" alt="%s logo" style="height:60px;width:auto;object-fit:contain;border-radius:4px;">\n', logo_url, sch))
+    cat(sprintf('<img src="%s" alt="%s logo" style="height:60px;width:auto;object-fit:contain;border-radius:4px;">\n', logo_b64, sch))
     cat(sprintf('<h3 style="margin:0;">%s</h3>\n', sch))
     cat('</div>\n\n')
   } else {
