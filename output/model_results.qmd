@@ -1085,6 +1085,24 @@ Adding one year of carry-forward imputed data (Analysis E) produces coefficients
 #| label: tbl-a-vs-e
 #| tbl-cap: "Coefficient comparison: Analysis A (3-year full) vs Analysis E (4-year imputed full)"
 
+# Helper: relabel raw lmer coefficient names to human-readable form
+relabel_terms <- function(term) {
+  case_when(
+    term == "(Intercept)" ~ "(Intercept)",
+    term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
+    term == "log(PERCTOT)" ~ "log(% Absence)",
+    term == "log(PNUMEAL)" ~ "log(% EAL)",
+    term == "PTPRIORLO" ~ "% Low Prior Attainment",
+    term == "gorard_segregation" ~ "Gorard Segregation",
+    term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+    term == "ADMPOL_PTSEL" ~ "Admissions: Selective (ref: non-sel. in highly sel. area)",
+    term == "remained_in_the_same_school" ~ "Teacher Retention",
+    term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
+    term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
+    TRUE ~ term
+  )
+}
+
 a_vs_e <- bind_rows(
   tibble(Analysis = "A (Full, 3 yrs)",
          Term = names(fixef(panel_models$all)),
@@ -1097,7 +1115,8 @@ a_vs_e <- bind_rows(
          Disadvantaged = fixef(imputed_models$disadvantaged),
          `Non-Disadvantaged` = fixef(imputed_models$non_disadvantaged))
 ) %>%
-  mutate(across(where(is.numeric), \(x) round(x, 5)))
+  mutate(Term = relabel_terms(Term),
+         across(where(is.numeric), \(x) round(x, 5)))
 
 a_vs_e %>%
   kable(align = "llrrr") %>%
