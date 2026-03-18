@@ -193,6 +193,11 @@ where $i$ indexes schools, $j$ indexes school-year observations, the $\beta_k$ a
 
 @tbl-model-coefficients presents the full set of estimated coefficients from the All Pupils model.
 
+::: {.callout-tip}
+## Admissions policy dummy variables
+`ADMPOL_PT` (admissions policy type) is a **categorical variable** with three levels: *"Non-selective in a highly selective area"* (i.e. a non-selective school in an area with grammar schools), *"Other non-selective"*, and *"Selective"* (grammar schools). Because it is categorical, `lmer()` automatically creates **two dummy (indicator) variables**, with *"Non-selective in a highly selective area"* as the **reference category** (its effect is absorbed into the intercept). Each dummy coefficient shows the difference in log(ATT8) relative to that reference group, all else being equal.
+:::
+
 ```{r tbl-model-coefficients}
 #| label: tbl-model-coefficients
 #| tbl-cap: "Fixed-effect coefficients from the national multilevel model (Analysis E — All Pupils)"
@@ -210,8 +215,8 @@ var_labels <- c(
  "log(PERCTOT)" = "log(% overall absence)",
  "log(PNUMEAL)" = "log(% EAL)",
  "PTPRIORLO" = "% low prior attainment",
- "ADMPOL_PTOTHER NON SEL" = "Admissions: Other non-selective (vs. non-sel. in highly sel. area)",
- "ADMPOL_PTSEL" = "Admissions: Selective (vs. non-sel. in highly sel. area)",
+ "ADMPOL_PTOTHER NON SEL" = "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+ "ADMPOL_PTSEL" = "Admissions: Selective (ref: non-sel. in highly sel. area)",
  "gorard_segregation" = "Gorard segregation index",
  "remained_in_the_same_school" = "Teacher retention %",
  "teachers_on_leadership_pay_range_percent" = "% teachers on leadership pay",
@@ -242,7 +247,7 @@ kbl(display_tbl, format = "html", align = "lrrrr", escape = FALSE) %>%
 
 ::: {.callout-note}
 ## Reading the coefficients
-The four log-transformed predictors (% FSM, % absence, % EAL, teacher sickness days) have coefficients that act as **elasticities**: a 1% increase in the predictor is associated with a $\beta$ % change in Attainment 8. The remaining five predictors enter on their raw scale, so their coefficients represent the proportional change in ATT8 for a one-unit increase. In all cases, the effect on ATT8 in points depends on the school's starting ATT8 score — multiply the proportional change by the school's current ATT8 to get the point change.
+The four log-transformed predictors (% FSM, % absence, % EAL, teacher sickness days) have coefficients that act as **elasticities**: a 1% increase in the predictor is associated with a $\beta$ % change in Attainment 8. The remaining continuous predictors enter on their raw scale, so their coefficients represent the proportional change in ATT8 for a one-unit increase. The two **admissions policy** rows are dummy variables for a three-level categorical predictor — each coefficient shows the difference relative to the reference category ("non-selective in a highly selective area"). In all cases, the effect on ATT8 in points depends on the school's starting ATT8 score — multiply the proportional change by the school's current ATT8 to get the point change.
 :::
 
 

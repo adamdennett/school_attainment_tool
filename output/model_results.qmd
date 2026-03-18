@@ -1615,6 +1615,8 @@ tibble(
       paste0("log(", model_vars, ")"),
     model_vars %in% c("OFSTEDRATING_1", "gor_name", "LANAME", "year_label") ~
       paste0("(1 | ", model_vars, ")"),
+    model_vars == "ADMPOL_PT" ~
+      "Two dummy variables (treatment-coded): ADMPOL_PTOTHER NON SEL, ADMPOL_PTSEL (ref: non-sel. in highly sel. area)",
     TRUE ~ model_vars
   ),
   Source = case_when(

@@ -1050,6 +1050,24 @@ cat("Singular fit?", isSingular(mod_e_nondisadv), "\n")
 ```{r e-vs-a}
 #| label: e-vs-a
 
+# Helper: relabel raw lmer coefficient names to human-readable form
+relabel_terms <- function(term) {
+  case_when(
+    term == "(Intercept)" ~ "(Intercept)",
+    term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
+    term == "log(PERCTOT)" ~ "log(% Absence)",
+    term == "log(PNUMEAL)" ~ "log(% EAL)",
+    term == "PTPRIORLO" ~ "% Low Prior Attainment",
+    term == "gorard_segregation" ~ "Gorard Segregation",
+    term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+    term == "ADMPOL_PTSEL" ~ "Admissions: Selective (ref: non-sel. in highly sel. area)",
+    term == "remained_in_the_same_school" ~ "Teacher Retention",
+    term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
+    term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
+    TRUE ~ term
+  )
+}
+
 a_vs_e <- bind_rows(
   tibble(Analysis = "A (Real, 3 yrs)",
          Term = names(fixef(mod_a_all)),
@@ -1062,7 +1080,8 @@ a_vs_e <- bind_rows(
          Disadvantaged = fixef(mod_e_disadv),
          `Non-Disadvantaged` = fixef(mod_e_nondisadv))
 ) %>%
-  mutate(across(where(is.numeric), \(x) round(x, 5)))
+  mutate(Term = relabel_terms(Term),
+         across(where(is.numeric), \(x) round(x, 5)))
 
 knitr::kable(a_vs_e, align = "llrrr",
              caption = "Analysis A (real data, 3 years) vs Analysis E (with imputed 2024-25)")
@@ -1111,7 +1130,8 @@ imputed_coef_table <- bind_rows(
          Estimate = fixef(mod_e_nondisadv))
 ) %>%
   pivot_wider(names_from = Group, values_from = Estimate) %>%
-  mutate(across(where(is.numeric), \(x) round(x, 5)))
+  mutate(Term = relabel_terms(Term),
+         across(where(is.numeric), \(x) round(x, 5)))
 
 knitr::kable(imputed_coef_table, align = "lrrr",
              caption = "Imputed full model (Analysis E): fixed effect comparison (9 predictors, all 4 years)")
@@ -1140,7 +1160,8 @@ core_coef_table <- bind_rows(
          Estimate = fixef(mod_c_nondisadv))
 ) %>%
   pivot_wider(names_from = Group, values_from = Estimate) %>%
-  mutate(across(where(is.numeric), \(x) round(x, 5)))
+  mutate(Term = relabel_terms(Term),
+         across(where(is.numeric), \(x) round(x, 5)))
 
 knitr::kable(core_coef_table, align = "lrrr",
              caption = "Core panel model (Analysis C): fixed effect comparison (5 predictors, all 4 years)")
@@ -1247,6 +1268,7 @@ for (yr in year_levels) {
 yearly_coefs_df <- bind_rows(yearly_coefs) %>%
   filter(Term != "(Intercept)") %>%
   mutate(
+    Term = relabel_terms(Term),
     Group = factor(Group,
                    levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged"))
   )
@@ -1277,24 +1299,11 @@ ggplot(yearly_coefs_df,
 #| fig-height: 10
 #| fig-width: 9
 
-# Create a readable Term label for tooltips
+# Terms are already relabelled — build tooltips directly
 yearly_coefs_plotly <- yearly_coefs_df %>%
   mutate(
-    Term_short = case_when(
-      Term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
-      Term == "log(PERCTOT)" ~ "log(% Absence)",
-      Term == "log(PNUMEAL)" ~ "log(% EAL)",
-      Term == "PTPRIORLO" ~ "% Low Prior Attainment",
-      Term == "gorard_segregation" ~ "Gorard Segregation",
-      Term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other Non-Sel",
-      Term == "ADMPOL_PTSEL" ~ "Admissions: Selective",
-      Term == "remained_in_the_same_school" ~ "Teacher Retention",
-      Term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
-      Term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
-      TRUE ~ Term
-    ),
     tooltip_text = paste0(
-      "<b>", Term_short, "</b><br>",
+      "<b>", Term, "</b><br>",
       "Year: ", Year, "<br>",
       "Group: ", Group, "<br>",
       "Estimate: ", round(Estimate, 5)
@@ -1489,12 +1498,9 @@ but policy recommendations should not be based on its coefficient.
 
 ### 8. Admissions policy
 
-`ADMPOL_PT` is represented as a categorical variable with "NON SEL" as
-the reference level. The **selective** (`ADMPOL_PTSEL`) coefficient is
-**strongly positive** across all groups — grammar and other selective
-schools show higher attainment after controlling for intake
-characteristics. The **other non-selective** category shows a small
-and often non-significant coefficient.
+`ADMPOL_PT` (admissions policy type) is a **categorical variable** with three levels: *"Non-selective in a highly selective area"* (i.e. a non-selective school in an area with grammar schools), *"Other non-selective"*, and *"Selective"* (grammar schools). Because it is categorical, `lmer()` automatically creates **two dummy (indicator) variables** using treatment coding, with *"Non-selective in a highly selective area"* as the **reference category** — its effect is absorbed into the intercept, and the two dummy coefficients represent the difference in log(ATT8) relative to that baseline.
+
+The **selective** coefficient (`ADMPOL_PTSEL`) is **strongly positive** across all pupil groups — grammar and other selective schools show higher attainment after controlling for intake characteristics. The **other non-selective** coefficient (`ADMPOL_PTOTHER NON SEL`) shows a small and often non-significant difference from the reference group.
 
 ### 9. Workforce variables
 

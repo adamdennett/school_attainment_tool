@@ -240,8 +240,8 @@ mod_model_info_server <- function(id, selected_outcome) {
             ),
             tags$tr(
               tags$td("ADMPOL_PT"),
-              tags$td("School admissions policy type"),
-              tags$td("ADMPOL_PT")
+              tags$td("School admissions policy type — categorical with 3 levels: 'Non-selective in a highly selective area' (reference), 'Other non-selective', 'Selective'. Enters the model as two dummy variables."),
+              tags$td("ADMPOL_PTOTHER NON SEL, ADMPOL_PTSEL")
             ),
             tags$tr(
               tags$td("Gorard Segregation"),
