@@ -202,6 +202,13 @@ bh_data <- bh_data %>%
     predicted_non = predict(mod_e_nondisadv, newdata = bh_data, allow.new.levels = TRUE)
   )
 
+# ---- Brighton & Hove: latest year per school ----
+bh_latest_model <- bh_data %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
 # ---- Helper function ----
 ordinal_suffix <- function(n) {
   suffix <- case_when(
@@ -225,6 +232,73 @@ The analysis draws on the **imputed full panel model (Analysis E)**, which uses 
 ::: {.callout-note}
 ## Data note
 The panel covers academic years 2021-22 to 2024-25. For 2024-25, four predictor variables (% low prior attainment, teacher retention, leadership pay %, and teacher sickness days) are carry-forward imputed from 2023-24 values. These observations are marked with triangular markers in the plots below.
+:::
+
+
+# The National Model {#sec-national-model}
+
+The results presented in this case study are derived from a **multilevel linear model** (also known as a mixed-effects or hierarchical model) fitted to all mainstream secondary schools in England over four academic years (2021–22 to 2024–25). The model predicts **log-transformed Attainment 8** as a function of nine school-level characteristics, with random intercepts that allow the baseline to vary by year, Ofsted rating, and local authority (nested within region).
+
+The model equation can be written as:
+
+$$
+\log(\text{ATT8}_{ij}) = \beta_0 + \sum_{k=1}^{9} \beta_k \, x_{kij} + u_{\text{year}} + u_{\text{Ofsted}} + u_{\text{region}} + u_{\text{LA|region}} + \varepsilon_{ij}
+$$
+
+where $i$ indexes schools, $j$ indexes school-year observations, the $\beta_k$ are fixed-effect coefficients, and the $u$ terms are random intercepts. Because the outcome is on the **log scale**, each coefficient represents the proportional change in Attainment 8 associated with a one-unit change in the predictor (or, for log-transformed predictors, an **elasticity** — the percentage change in ATT8 for a 1% change in the predictor).
+
+@tbl-model-coefficients presents the full set of estimated coefficients from the All Pupils model.
+
+```{r tbl-model-coefficients}
+#| label: tbl-model-coefficients
+#| tbl-cap: "Fixed-effect coefficients from the national multilevel model (Analysis E — All Pupils)"
+
+library(kableExtra)
+
+# Extract coefficient table
+coef_tbl <- as.data.frame(summary(mod_e_all)$coefficients)
+coef_tbl$Variable <- rownames(coef_tbl)
+
+# Human-readable labels
+var_labels <- c(
+ "(Intercept)" = "Intercept",
+ "log(PTFSM6CLA1A)" = "log(% FSM eligible)",
+ "log(PERCTOT)" = "log(% overall absence)",
+ "log(PNUMEAL)" = "log(% EAL)",
+ "PTPRIORLO" = "% low prior attainment",
+ "ADMPOL_PTOTHER NON SEL" = "Admissions: Other non-selective (vs. non-sel. in highly sel. area)",
+ "ADMPOL_PTSEL" = "Admissions: Selective (vs. non-sel. in highly sel. area)",
+ "gorard_segregation" = "Gorard segregation index",
+ "remained_in_the_same_school" = "Teacher retention %",
+ "teachers_on_leadership_pay_range_percent" = "% teachers on leadership pay",
+ "log(average_number_of_days_taken)" = "log(avg teacher sickness days)"
+)
+
+coef_tbl$Label <- var_labels[coef_tbl$Variable]
+coef_tbl$Label[is.na(coef_tbl$Label)] <- coef_tbl$Variable[is.na(coef_tbl$Label)]
+
+# Format for display
+display_tbl <- coef_tbl %>%
+  transmute(
+    Variable = Label,
+    Estimate = round(Estimate, 5),
+    `Std. Error` = round(`Std. Error`, 5),
+    `t value` = round(`t value`, 2),
+    `Pr(>|t|)` = ifelse(`Pr(>|t|)` < 0.001, "< 0.001",
+                         ifelse(`Pr(>|t|)` < 0.01, "< 0.01",
+                                ifelse(`Pr(>|t|)` < 0.05, "< 0.05",
+                                       round(`Pr(>|t|)`, 3))))
+  )
+
+kbl(display_tbl, format = "html", align = "lrrrr", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(0, bold = TRUE)
+```
+
+::: {.callout-note}
+## Reading the coefficients
+The four log-transformed predictors (% FSM, % absence, % EAL, teacher sickness days) have coefficients that act as **elasticities**: a 1% increase in the predictor is associated with a $\beta$ % change in Attainment 8. The remaining five predictors enter on their raw scale, so their coefficients represent the proportional change in ATT8 for a one-unit increase. In all cases, the effect on ATT8 in points depends on the school's starting ATT8 score — multiply the proportional change by the school's current ATT8 to get the point change.
 :::
 
 
@@ -630,16 +704,254 @@ Comparing the two maps reveals the geographic correlation between intake depriva
 
 A key feature of the multilevel model is that four predictors enter on the **log scale**: % FSM, % absence, % EAL, and average teacher sickness days. This means the relationship between these predictors and attainment is **non-linear** on the original (raw) scale — a given absolute change in a predictor has a *different* predicted effect depending on where the school starts.
 
+Before exploring these non-linear patterns, it is helpful to see how the model produces a prediction for a single school. The worked example below uses **Longhill High School** to show how each variable contributes to the predicted Attainment 8 score, and how changes in key variables shift that prediction.
+
+## Worked example: Longhill High School {#sec-worked-example}
+
+```{r longhill-worked-example}
+#| label: longhill-worked-example
+#| output: asis
+
+library(kableExtra)
+
+# ---- Extract Longhill's data ----
+longhill <- bh_latest_model %>% filter(grepl("Longhill", SCHNAME))
+
+if (nrow(longhill) == 0) {
+  cat("Longhill High School not found in the data.\n")
+} else {
+  longhill <- longhill[1, ]
+
+  # ---- Use predict() as the ground truth ----
+  pred_check <- predict(mod_e_all, newdata = longhill, allow.new.levels = TRUE)
+  pred_att8 <- exp(pred_check)
+  actual_att8 <- longhill$ATT8SCR
+  residual <- actual_att8 - pred_att8
+
+  # ---- Fixed effects ----
+  fe <- fixef(mod_e_all)
+
+  # ---- Build the predictor contribution table ----
+  # Each row: human label, raw value, model input value, coefficient, contribution
+  # ADMPOL_PT is categorical → dummy-coded. Reference = "NON SEL IN HIGHLY SEL AREA"
+  # Longhill is "OTHER NON SEL" so the dummy ADMPOL_PTOTHER NON SEL = 1
+
+  admpol_val <- as.character(longhill$ADMPOL_PT)
+  admpol_dummy_name <- paste0("ADMPOL_PT", admpol_val)
+  admpol_beta <- if (admpol_dummy_name %in% names(fe)) unname(fe[admpol_dummy_name]) else 0
+  admpol_contrib <- admpol_beta  # dummy = 1 for this category
+
+  pred_rows <- list(
+    list("Intercept",                     "—",    1,                                      unname(fe["(Intercept)"]),                                unname(fe["(Intercept)"])),
+    list("% FSM eligible",                round(longhill$PTFSM6CLA1A, 1),                 round(log(longhill$PTFSM6CLA1A), 4),                      unname(fe["log(PTFSM6CLA1A)"]),                           unname(fe["log(PTFSM6CLA1A)"]) * log(longhill$PTFSM6CLA1A)),
+    list("% overall absence",             round(longhill$PERCTOT, 1),                      round(log(longhill$PERCTOT), 4),                          unname(fe["log(PERCTOT)"]),                                unname(fe["log(PERCTOT)"]) * log(longhill$PERCTOT)),
+    list("% EAL",                         round(longhill$PNUMEAL, 1),                      round(log(longhill$PNUMEAL), 4),                          unname(fe["log(PNUMEAL)"]),                                unname(fe["log(PNUMEAL)"]) * log(longhill$PNUMEAL)),
+    list("% low prior attainment",        round(longhill$PTPRIORLO, 1),                    round(longhill$PTPRIORLO, 4),                             unname(fe["PTPRIORLO"]),                                   unname(fe["PTPRIORLO"]) * longhill$PTPRIORLO),
+    list(paste0("Admissions policy (", admpol_val, ")"), admpol_val, 1,                    round(admpol_beta, 5),                                    admpol_contrib),
+    list("Gorard segregation index",      round(longhill$gorard_segregation, 3),            round(longhill$gorard_segregation, 4),                    unname(fe["gorard_segregation"]),                          unname(fe["gorard_segregation"]) * longhill$gorard_segregation),
+    list("Teacher retention %",           round(longhill$remained_in_the_same_school, 1),   round(longhill$remained_in_the_same_school, 4),           unname(fe["remained_in_the_same_school"]),                  unname(fe["remained_in_the_same_school"]) * longhill$remained_in_the_same_school),
+    list("% on leadership pay",           round(longhill$teachers_on_leadership_pay_range_percent, 1), round(longhill$teachers_on_leadership_pay_range_percent, 4), unname(fe["teachers_on_leadership_pay_range_percent"]), unname(fe["teachers_on_leadership_pay_range_percent"]) * longhill$teachers_on_leadership_pay_range_percent),
+    list("Avg teacher sickness days",     round(longhill$average_number_of_days_taken, 1),  round(log(longhill$average_number_of_days_taken), 4),     unname(fe["log(average_number_of_days_taken)"]),           unname(fe["log(average_number_of_days_taken)"]) * log(longhill$average_number_of_days_taken))
+  )
+
+  contrib_tbl <- data.frame(
+    Variable = sapply(pred_rows, `[[`, 1),
+    Raw_value = as.character(sapply(pred_rows, `[[`, 2)),
+    Model_input = as.character(sapply(pred_rows, function(x) if (is.numeric(x[[3]])) round(x[[3]], 4) else x[[3]])),
+    Coefficient = round(sapply(pred_rows, `[[`, 4), 5),
+    Contribution = round(sapply(pred_rows, `[[`, 5), 4),
+    stringsAsFactors = FALSE
+  )
+  names(contrib_tbl) <- c("Variable", "Raw value", "Model input (x)", "Coefficient (\u03b2)", "\u03b2 \u00d7 x")
+
+  # ---- Random effects ----
+  re <- ranef(mod_e_all)
+
+  yr <- as.character(longhill$year_label)
+  ofsted <- as.character(longhill$OFSTEDRATING_1)
+  la <- as.character(longhill$LANAME)
+  region <- as.character(longhill$gor_name)
+  la_region <- paste0(la, ":", region)
+
+  re_year <- if (yr %in% rownames(re$year_label)) re$year_label[yr, 1] else 0
+  re_ofsted <- if (ofsted %in% rownames(re$OFSTEDRATING_1)) re$OFSTEDRATING_1[ofsted, 1] else 0
+  re_region <- if (region %in% rownames(re$gor_name)) re$gor_name[region, 1] else 0
+  re_la <- if (la_region %in% rownames(re[["LANAME:gor_name"]])) re[["LANAME:gor_name"]][la_region, 1] else 0
+
+  fixed_sum <- sum(contrib_tbl[["\u03b2 \u00d7 x"]])
+  random_sum <- re_year + re_ofsted + re_region + re_la
+  manual_pred_log <- fixed_sum + random_sum
+
+  cat(sprintf("### Step 1: Longhill's predictor values and their contributions\n\n"))
+  cat(sprintf("The table below shows each variable in the model, Longhill High School's value for the most recent year (%s), how that value enters the model (log-transformed where applicable), the national model coefficient, and the resulting contribution to predicted log(ATT8).\n\n", yr))
+
+  print(kbl(contrib_tbl, format = "html", align = "lrrrc", escape = FALSE) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE) %>%
+    row_spec(0, bold = TRUE) %>%
+    row_spec(1, italic = TRUE))
+
+  cat(sprintf("\n\n**Sum of fixed-effect contributions:** %.4f\n\n", fixed_sum))
+
+  cat(sprintf("### Step 2: Adding the random effects\n\n"))
+  cat("The multilevel model also includes random intercepts that adjust the baseline for contextual groupings:\n\n")
+
+  re_tbl <- data.frame(
+    Group = c(
+      sprintf("Year (%s)", yr),
+      sprintf("Ofsted rating (%s)", ofsted),
+      sprintf("Region (%s)", region),
+      sprintf("LA (%s)", la)
+    ),
+    Adjustment = round(c(re_year, re_ofsted, re_region, re_la), 5),
+    stringsAsFactors = FALSE
+  )
+  names(re_tbl) <- c("Random effect", "Adjustment")
+
+  print(kbl(re_tbl, format = "html", align = "lr", escape = FALSE) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE) %>%
+    row_spec(0, bold = TRUE))
+
+  cat(sprintf("\n\n**Sum of random effects:** %.4f\n\n", random_sum))
+
+  cat(sprintf("### Step 3: The prediction\n\n"))
+  cat(sprintf("Adding the fixed and random components:\n\n"))
+  cat(sprintf("$$\\log(\\widehat{\\text{ATT8}}) = %.4f + %.4f = %.4f$$\n\n", fixed_sum, random_sum, manual_pred_log))
+  cat(sprintf("$$\\widehat{\\text{ATT8}} = e^{%.4f} = %.1f$$\n\n", manual_pred_log, exp(manual_pred_log)))
+  cat(sprintf("Longhill's **actual Attainment 8** in %s was **%.1f**, so the residual (actual − predicted) is **%+.1f** points.\n\n", yr, actual_att8, residual))
+  cat(sprintf("*(Internal check: `predict()` returns %.4f on the log scale = %.1f on the ATT8 scale.)*\n\n", pred_check, pred_att8))
+}
+```
+
+```{r longhill-scenarios}
+#| label: longhill-scenarios
+#| output: asis
+
+if (exists("longhill") && nrow(longhill) > 0) {
+  fe <- fixef(mod_e_all)
+  beta_fsm_wk <- unname(fe["log(PTFSM6CLA1A)"])
+  beta_abs_wk <- unname(fe["log(PERCTOT)"])
+
+  # City average FSM and national average absence (for realistic scenarios)
+  city_avg_fsm_wk <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+  national_latest <- panel %>%
+    filter(MINORGROUP %in% c("Academy", "Maintained school"), !is.na(ATT8SCR)) %>%
+    group_by(SCHNAME) %>%
+    filter(year_label == max(year_label)) %>%
+    ungroup()
+  national_avg_abs_wk <- mean(national_latest$PERCTOT, na.rm = TRUE)
+
+  cat("### Step 4: What happens when a variable changes?\n\n")
+  cat("The power of the model is that we can change one variable at a time and see how the prediction shifts. Below we show two realistic scenarios for Longhill, each corresponding to a plausible policy target.\n\n")
+
+  # ---- Scenario A: FSM reduces to city average ----
+  current_fsm <- longhill$PTFSM6CLA1A
+
+  if (current_fsm > city_avg_fsm_wk) {
+    cat(sprintf("#### Scenario A: %% FSM falls to the Brighton & Hove average (%.1f%%)\n\n", city_avg_fsm_wk))
+    cat(sprintf("Longhill currently has a FSM rate of **%.1f%%**, well above the city average of **%.1f%%**. What if intake redistribution brought Longhill's FSM rate down to that average?\n\n", current_fsm, city_avg_fsm_wk))
+
+    new_fsm <- city_avg_fsm_wk
+    current_log_fsm <- log(current_fsm)
+    new_log_fsm <- log(new_fsm)
+    delta_log_fsm <- new_log_fsm - current_log_fsm
+    current_contrib_fsm <- beta_fsm_wk * current_log_fsm
+    new_contrib_fsm <- beta_fsm_wk * new_log_fsm
+    delta_contrib <- new_contrib_fsm - current_contrib_fsm
+
+    new_pred_log <- pred_check + delta_contrib
+    new_pred_att8 <- exp(new_pred_log)
+    att8_change_fsm <- new_pred_att8 - pred_att8
+
+    fsm_scenario <- data.frame(
+      ` ` = c("Current", sprintf("City average (%.1f%%)", city_avg_fsm_wk), "Change"),
+      `% FSM` = c(sprintf("%.1f", current_fsm), sprintf("%.1f", new_fsm),
+                   sprintf("%.1f", new_fsm - current_fsm)),
+      `log(% FSM)` = c(sprintf("%.4f", current_log_fsm), sprintf("%.4f", new_log_fsm),
+                        sprintf("%+.4f", delta_log_fsm)),
+      `FSM contribution` = c(sprintf("%.4f", current_contrib_fsm), sprintf("%.4f", new_contrib_fsm),
+                              sprintf("%+.4f", delta_contrib)),
+      `Predicted ATT8` = c(sprintf("%.1f", pred_att8), sprintf("%.1f", new_pred_att8),
+                            sprintf("%+.1f", att8_change_fsm)),
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+
+    print(kbl(fsm_scenario, format = "html", align = "lrrrr", escape = FALSE) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                    full_width = FALSE) %>%
+      row_spec(0, bold = TRUE) %>%
+      row_spec(3, bold = TRUE, color = "#27ae60"))
+
+    cat(sprintf("\n\nReducing Longhill's FSM rate from %.1f%% to the city average of %.1f%% changes the log-FSM input from %.4f to %.4f (a shift of %+.4f). Multiplied by the FSM coefficient (%.5f), this shifts the predicted log(ATT8) by %+.4f, producing a predicted ATT8 gain of **%+.1f points**.\n\n",
+        current_fsm, city_avg_fsm_wk, current_log_fsm, new_log_fsm, delta_log_fsm,
+        beta_fsm_wk, delta_contrib, att8_change_fsm))
+  }
+
+  # ---- Scenario B: Absence falls to national average ----
+  current_abs <- longhill$PERCTOT
+
+  if (current_abs > national_avg_abs_wk) {
+    cat(sprintf("#### Scenario B: %% absence falls to the national average (%.1f%%)\n\n", national_avg_abs_wk))
+    cat(sprintf("Longhill's absence rate is **%.1f%%** — far above the national mainstream average of **%.1f%%**. What if targeted attendance interventions brought it in line with the national norm?\n\n", current_abs, national_avg_abs_wk))
+
+    new_abs <- national_avg_abs_wk
+    current_log_abs <- log(current_abs)
+    new_log_abs <- log(new_abs)
+    delta_log_abs <- new_log_abs - current_log_abs
+    current_contrib_abs <- beta_abs_wk * current_log_abs
+    new_contrib_abs <- beta_abs_wk * new_log_abs
+    delta_contrib_abs <- new_contrib_abs - current_contrib_abs
+
+    new_pred_log_abs <- pred_check + delta_contrib_abs
+    new_pred_att8_abs <- exp(new_pred_log_abs)
+    att8_change_abs <- new_pred_att8_abs - pred_att8
+
+    abs_scenario <- data.frame(
+      ` ` = c("Current", sprintf("National avg (%.1f%%)", national_avg_abs_wk), "Change"),
+      `% Absence` = c(sprintf("%.1f", current_abs), sprintf("%.1f", new_abs),
+                       sprintf("%.1f", new_abs - current_abs)),
+      `log(% Absence)` = c(sprintf("%.4f", current_log_abs), sprintf("%.4f", new_log_abs),
+                            sprintf("%+.4f", delta_log_abs)),
+      `Absence contribution` = c(sprintf("%.4f", current_contrib_abs), sprintf("%.4f", new_contrib_abs),
+                                  sprintf("%+.4f", delta_contrib_abs)),
+      `Predicted ATT8` = c(sprintf("%.1f", pred_att8), sprintf("%.1f", new_pred_att8_abs),
+                            sprintf("%+.1f", att8_change_abs)),
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )
+
+    print(kbl(abs_scenario, format = "html", align = "lrrrr", escape = FALSE) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                    full_width = FALSE) %>%
+      row_spec(0, bold = TRUE) %>%
+      row_spec(3, bold = TRUE, color = "#27ae60"))
+
+    cat(sprintf("\n\nBringing Longhill's absence from %.1f%% down to the national average of %.1f%% shifts the log-absence from %.4f to %.4f (%+.4f). The absence coefficient (%.5f) translates this into a predicted ATT8 gain of **%+.1f points**.\n\n",
+        current_abs, national_avg_abs_wk, current_log_abs, new_log_abs, delta_log_abs,
+        beta_abs_wk, att8_change_abs))
+  }
+
+  cat("::: {.callout-tip}\n")
+  cat("## Key takeaway\n")
+  cat(sprintf("For Longhill, reducing absence to the national average is predicted to raise Attainment 8 by **%+.1f points** — a substantial improvement. Reducing FSM to the city average would add **%+.1f points**. Both are positive, but the absence reduction produces a larger gain and is directly actionable through attendance policy. The scenario tables in the sections below apply this same arithmetic to every Brighton & Hove school.\n", att8_change_abs, att8_change_fsm))
+  cat(":::\n\n")
+
+  cat("::: {.callout-note}\n")
+  cat("## A note on the scenario calculations\n")
+  cat("The worked example above uses the **full model prediction** for Longhill — that is, it feeds all nine predictor values plus the school's random effects (year, Ofsted rating, region, and local authority) through the model, then changes one variable at a time and re-computes the prediction. This is the most accurate way to estimate the impact of a change for a specific school.\n\n")
+  cat("The policy scenario tables that follow in sections 7.3 and 7.4 use a **simplified approximation**: they take the model's coefficient for the variable of interest, compute the proportional change implied by a given shift on the log scale, and then multiply that proportional change by the city-wide mean observed Attainment 8 to convert it to ATT8 points. This is a reasonable shorthand for comparing schools side-by-side, but it produces slightly different point estimates from the full-model approach because it uses an average ATT8 as the base rather than each school's specific predicted score.\n\n")
+  cat(sprintf("For Longhill, for example, the full-model FSM scenario above predicts a gain of **%+.1f points**, while the simplified table in section 7.3 reports roughly +1.1 points for the same change. Both use the same coefficient from the same model — the difference is entirely due to the base ATT8 used to convert the proportional effect into points. The full-model approach is more precise for individual schools; the simplified approach is better suited to quick cross-school comparisons.\n", att8_change_fsm))
+  cat(":::\n\n")
+}
+```
+
 ## What the log transform means in practice
 
 ```{r bh-log-illustration}
 #| label: bh-log-illustration
-
-bh_latest_model <- bh_data %>%
-  filter(!is.na(ATT8SCR)) %>%
-  group_by(SCHNAME) %>%
-  filter(year_label == max(year_label)) %>%
-  ungroup()
 
 log_illustration <- bh_latest_model %>%
   select(School = SCHNAME, year_label,
@@ -841,6 +1153,8 @@ if (nrow(high_fsm_schools) > 0) {
       nrow(high_fsm_schools), city_avg_fsm, avg_gain))
 
   cat("Moreover, this calculation assumes everything else remains constant — in practice, reducing FSM concentration at one school necessarily increases it elsewhere, and the non-linear curve means the receiving schools (at the low end) would experience a larger *negative* predicted effect per pupil redistributed. The policy therefore has **ambiguous net effects** on city-wide attainment.\n\n")
+
+  cat("*Note: the ATT8 point estimates in this table are approximate — they convert the model's proportional effect using the city-wide mean ATT8 as a common base. For a more precise school-specific calculation using the full model (all nine predictors plus random effects), see the [Longhill worked example](#sec-worked-example) above.*\n\n")
 }
 ```
 

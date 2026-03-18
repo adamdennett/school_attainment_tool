@@ -219,6 +219,15 @@ ggplot(panel_coef_data,
 
 ## Random Effects & Model Fit
 
+The multilevel model includes four levels of **random intercepts**, each allowing the baseline log(ATT8) to vary across groups:
+
+1. **Academic year** (`year_label`) — captures system-wide year-on-year shifts in attainment (e.g. grade inflation, COVID recovery effects) that affect all schools equally within a given year.
+2. **Ofsted rating** (`OFSTEDRATING_1`, harmonised to four levels) — allows schools with different inspection outcomes to have systematically different attainment baselines, beyond what the fixed-effect predictors explain.
+3. **Government Office Region** (`gor_name`) — accounts for broad regional differences in attainment (e.g. London vs. the North East), which may reflect regional labour markets, funding patterns, or cultural factors.
+4. **Local authority nested within region** (`LANAME:gor_name`) — the finest grouping level, capturing LA-specific effects such as local policy environments, demographic composition, or authority-level support services, over and above the regional baseline.
+
+The table below reports the estimated variance for each random effect, along with the residual variance and overall model fit (marginal R², which reflects fixed effects only, and conditional R², which includes both fixed and random effects).
+
 ```{r tbl-panel-random}
 #| label: tbl-panel-random
 #| tbl-cap: "Random effect variance components and model fit statistics (panel models)"
@@ -265,55 +274,6 @@ panel_fit %>%
 ```
 
 
-## Residual Diagnostics
-
-```{r fig-panel-residuals}
-#| label: fig-panel-residuals
-#| fig-cap: "Residual diagnostics for the All Pupils panel model"
-#| fig-height: 8
-
-m_all <- panel_models$all
-
-resid_data <- tibble(
-  fitted = fitted(m_all),
-  resid  = residuals(m_all, type = "pearson"),
-  resid_std = resid / sd(resid)
-)
-
-p1 <- ggplot(resid_data, aes(x = fitted, y = resid)) +
-  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
-  geom_hline(yintercept = 0, colour = "#7b132b", linetype = "dashed") +
-  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
-  labs(title = "Residuals vs Fitted", x = "Fitted values (log scale)", y = "Pearson residuals") +
-  theme_pub
-
-p2 <- ggplot(resid_data, aes(sample = resid_std)) +
-  stat_qq(alpha = 0.1, size = 0.5, colour = "#2e6260") +
-  stat_qq_line(colour = "#7b132b", linewidth = 0.7) +
-  labs(title = "Normal Q-Q", x = "Theoretical quantiles", y = "Standardised residuals") +
-  theme_pub
-
-p3 <- ggplot(resid_data, aes(x = resid)) +
-  geom_histogram(bins = 80, fill = "#2e6260", alpha = 0.7, colour = "white") +
-  geom_vline(xintercept = 0, colour = "#7b132b", linetype = "dashed") +
-  labs(title = "Residual Distribution", x = "Pearson residuals", y = "Frequency") +
-  theme_pub
-
-p4 <- ggplot(resid_data, aes(x = fitted, y = sqrt(abs(resid_std)))) +
-  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
-  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
-  labs(title = "Scale-Location", x = "Fitted values (log scale)",
-       y = expression(sqrt("|Standardised residuals|"))) +
-  theme_pub
-
-(p1 + p2) / (p3 + p4) +
-  plot_annotation(
-    title = "Panel Model Diagnostics: All Pupils",
-    subtitle = "log(ATT8SCR) ~ fixed effects + (1|year) + (1|Ofsted harmonised) + (1|region/LA)"
-  )
-```
-
-
 ## Random Intercepts
 
 ```{r fig-random-intercepts}
@@ -321,6 +281,7 @@ p4 <- ggplot(resid_data, aes(x = fitted, y = sqrt(abs(resid_std)))) +
 #| fig-cap: "Random intercept estimates by grouping level (All Pupils panel model)"
 #| fig-height: 8
 
+m_all <- panel_models$all
 re <- ranef(m_all)
 
 # Year random effects
@@ -601,6 +562,57 @@ ggplot(re_compare, aes(x = group, y = `(Intercept)`)) +
   theme_pub +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
         strip.text = element_text(size = 10))
+```
+
+
+## Residual Diagnostics
+
+Having examined the random effects structure, we now turn to the model's residuals to check whether the key assumptions of the multilevel model are met: linearity, homoscedasticity (constant variance), and approximate normality of residuals.
+
+```{r fig-panel-residuals}
+#| label: fig-panel-residuals
+#| fig-cap: "Residual diagnostics for the All Pupils panel model"
+#| fig-height: 8
+
+m_all <- panel_models$all
+
+resid_data <- tibble(
+  fitted = fitted(m_all),
+  resid  = residuals(m_all, type = "pearson"),
+  resid_std = resid / sd(resid)
+)
+
+p1 <- ggplot(resid_data, aes(x = fitted, y = resid)) +
+  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  geom_hline(yintercept = 0, colour = "#7b132b", linetype = "dashed") +
+  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
+  labs(title = "Residuals vs Fitted", x = "Fitted values (log scale)", y = "Pearson residuals") +
+  theme_pub
+
+p2 <- ggplot(resid_data, aes(sample = resid_std)) +
+  stat_qq(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  stat_qq_line(colour = "#7b132b", linewidth = 0.7) +
+  labs(title = "Normal Q-Q", x = "Theoretical quantiles", y = "Standardised residuals") +
+  theme_pub
+
+p3 <- ggplot(resid_data, aes(x = resid)) +
+  geom_histogram(bins = 80, fill = "#2e6260", alpha = 0.7, colour = "white") +
+  geom_vline(xintercept = 0, colour = "#7b132b", linetype = "dashed") +
+  labs(title = "Residual Distribution", x = "Pearson residuals", y = "Frequency") +
+  theme_pub
+
+p4 <- ggplot(resid_data, aes(x = fitted, y = sqrt(abs(resid_std)))) +
+  geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
+  geom_smooth(method = "loess", se = FALSE, colour = "#7b132b", linewidth = 0.7) +
+  labs(title = "Scale-Location", x = "Fitted values (log scale)",
+       y = expression(sqrt("|Standardised residuals|"))) +
+  theme_pub
+
+(p1 + p2) / (p3 + p4) +
+  plot_annotation(
+    title = "Panel Model Diagnostics: All Pupils",
+    subtitle = "log(ATT8SCR) ~ fixed effects + (1|year) + (1|Ofsted harmonised) + (1|region/LA)"
+  )
 ```
 
 
