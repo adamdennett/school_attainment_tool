@@ -17,6 +17,8 @@ format:
     fig-dpi: 300
     df-print: kable
     embed-resources: true
+    include-in-header: header-logos.html
+    include-after-body: footer-logos.html
   pdf:
     toc: true
     number-sections: true

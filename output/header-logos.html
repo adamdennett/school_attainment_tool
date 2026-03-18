@@ -1,0 +1,49 @@
+<style>
+.quarto-title-banner {
+  position: relative;
+}
+.page-logo-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1100;
+  background: #361a54;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.5rem;
+  height: 56px;
+  box-sizing: border-box;
+}
+.page-logo-bar a {
+  display: flex;
+  align-items: center;
+}
+.page-logo-bar img {
+  height: 38px;
+  width: auto;
+}
+.page-logo-bar .logo-left img {
+  filter: brightness(0) invert(1);
+}
+.page-logo-bar .logo-right img {
+  filter: brightness(0) invert(1);
+}
+/* Push page content down to avoid overlap with fixed bar */
+body {
+  padding-top: 56px !important;
+}
+/* Fix sidebar overlap */
+.sidebar {
+  top: 56px !important;
+}
+</style>
+<div class="page-logo-bar">
+  <a class="logo-left" href="https://ai4ci.uk" target="_blank" rel="noopener" title="AI4CI — AI for Collective Intelligence">
+    <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo">
+  </a>
+  <a class="logo-right" href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
+    <img src="fonts/casa-logo-square.png" alt="CASA logo">
+  </a>
+</div>

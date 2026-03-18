@@ -16,6 +16,8 @@ format:
     fig-dpi: 150
     df-print: kable
     embed-resources: true
+    include-in-header: header-logos.html
+    include-after-body: footer-logos.html
 execute:
   echo: true
   warning: false

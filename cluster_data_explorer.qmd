@@ -10,6 +10,8 @@ format:
     number-sections: true
     theme: flatly
     embed-resources: true
+    include-in-header: header-logos.html
+    include-after-body: footer-logos.html
     code-fold: true
     fig-width: 10
     fig-height: 7

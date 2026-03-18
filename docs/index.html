@@ -56,14 +56,20 @@
       gap: 1.5rem;
     }
 
-    .header .logo {
+    .header .logo-left,
+    .header .logo-right {
+      flex-shrink: 0;
+    }
+
+    .header .logo-left img,
+    .header .logo-right img {
       height: 48px;
       width: auto;
-      flex-shrink: 0;
     }
 
     .header .header-text {
       color: #ffffff;
+      flex: 1;
     }
 
     .header h1 {
@@ -201,10 +207,6 @@
       width: auto;
     }
 
-    .footer-logos .ai4ci-logo {
-      height: 40px;
-    }
-
     .footer-divider {
       width: 1px;
       height: 36px;
@@ -239,8 +241,12 @@
       .footer-logos img {
         height: 40px;
       }
-      .footer-logos .ai4ci-logo {
-        height: 32px;
+      .header {
+        gap: 0.8rem;
+      }
+      .header .logo-left img,
+      .header .logo-right img {
+        height: 36px;
       }
     }
 
@@ -253,14 +259,16 @@
 </head>
 <body>
   <div class="header">
-    <svg class="logo" viewBox="0 0 1658.29 634.39" xmlns="http://www.w3.org/2000/svg" overflow="hidden">
-      <path d="M999.42 379.18 999.42 132.56 866.85 132.56 866.85 257.65 866.82 257.65C847.26 185.49 781.12 122.02 686.3 122.02 591.48 122.02 514.26 186.92 494.23 268.94L494.2 268.94 494.2 132.56 362.47 132.56 362.47 328.43C362.47 347.73 359.95 359.47 349.88 370.38 339.81 381.29 326.39 385.48 313.8 385.48 301.21 385.48 287.79 381.28 277.72 370.38 267.65 359.47 265.13 347.73 265.13 328.43L265.13 132.56 132.56 132.56 132.56 329.27C132.56 382.13 143.47 424.92 178.71 460.16 206.4 487.85 250.87 513.02 311.28 513.02 364.14 513.02 410.29 494.56 443.85 458.48 472.29 428.37 487.33 390.95 492.21 357.5L492.24 357.5C509.7 444.27 587.28 513.02 686.29 513.02 773.57 513.02 844.46 456.28 866.84 377.32L866.84 501.81 1113.52 501.81 1113.52 379.17 999.41 379.17ZM744.83 347.74C736.44 370.39 713.16 385.5 686.31 385.5 648.55 385.5 620.65 356.13 620.65 317.54 620.65 278.95 648.55 249.58 686.31 249.58 713.16 249.58 736.44 264.68 744.83 287.34L866.85 287.34 866.85 347.75 744.83 347.75Z" fill="#FAFAFA"/>
-      <path d="M1525.71 379.18 1482.78 379.18 1482.78 501.82 1525.71 501.82 1525.71 379.18ZM1457.01 379.18 1417.52 379.18 1417.52 501.82 1457.01 501.82 1457.01 379.18ZM1388.31 379.18 1352.25 379.18 1352.25 501.82 1388.31 501.82 1388.31 379.18ZM1319.61 379.18 1286.99 379.18 1286.99 501.82 1319.61 501.82 1319.61 379.18ZM1250.91 379.18 1221.72 379.18 1221.72 501.82 1250.91 501.82 1250.91 379.18ZM1182.22 379.18 1156.46 379.18 1156.46 501.82 1182.22 501.82 1182.22 379.18ZM1327.57 199.89C1305.16 205.7 1288.45 225.62 1287.45 249.61L1287.39 249.61 1287.39 264.06 1277.47 264.06 1277.47 287.33 1156.46 326.65 1156.46 132.57 1525.71 132.57 1525.71 326.65 1404.7 287.33 1404.7 264.06 1394.78 264.06 1394.78 249.61 1394.72 249.61C1393.72 225.63 1377.01 205.71 1354.6 199.89L1345.3 165.19 1336.85 165.19 1327.55 199.89Z" fill="#993BFF"/>
-    </svg>
+    <a class="logo-left" href="https://ai4ci.uk" target="_blank" rel="noopener" title="AI4CI — AI for Collective Intelligence">
+      <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="filter: brightness(0) invert(1);">
+    </a>
     <div class="header-text">
       <h1>School Attainment Tool</h1>
       <div class="subtitle">Multilevel modelling of KS4 Attainment 8 scores across English secondary schools</div>
     </div>
+    <a class="logo-right" href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
+      <img src="fonts/casa-logo-square.png" alt="CASA logo" style="filter: brightness(0) invert(1);">
+    </a>
   </div>
   <div class="accent-bar"></div>
 
@@ -314,12 +322,12 @@
 
   <div class="footer">
     <div class="footer-logos">
-      <a href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
-        <img src="fonts/casa-logo-square.png" alt="CASA logo">
+      <a href="https://www.ucl.ac.uk" target="_blank" rel="noopener" title="University College London">
+        <img src="fonts/ucl-logo.svg" alt="UCL logo">
       </a>
       <div class="footer-divider"></div>
-      <a href="https://ai4ci.uk" target="_blank" rel="noopener" title="AI4CI — AI for Collective Intelligence">
-        <img class="ai4ci-logo" src="fonts/ai4ci-logo.svg" alt="AI4CI logo">
+      <a href="https://www.ukri.org" target="_blank" rel="noopener" title="UK Research and Innovation">
+        <img src="fonts/ukri-logo.png" alt="UKRI logo">
       </a>
     </div>
     <a href="https://www.ucl.ac.uk/bartlett/casa">UCL Centre for Advanced Spatial Analysis</a> &middot; School Attainment Tool

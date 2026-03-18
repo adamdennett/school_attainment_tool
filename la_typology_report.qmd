@@ -10,6 +10,8 @@ format:
     number-sections: true
     theme: ucl-theme.scss
     embed-resources: true
+    include-in-header: header-logos.html
+    include-after-body: footer-logos.html
     code-fold: true
     fig-width: 9
     fig-height: 6

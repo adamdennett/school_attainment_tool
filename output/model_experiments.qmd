@@ -12,6 +12,8 @@ format:
     theme: ucl-theme.scss
     df-print: kable
     embed-resources: true
+    include-in-header: header-logos.html
+    include-after-body: footer-logos.html
 execute:
   echo: true
   warning: true
