@@ -159,7 +159,7 @@ tibble::tribble(
     "Teacher retention, leadership pay %, sickness days",
     '<a href="https://explore-education-statistics.service.gov.uk/find-statistics/school-workforce-in-england" target="_blank">explore-education-statistics.service.gov.uk</a>'
 ) %>%
-  kable(align = "lllll", escape = FALSE) %>%
+  kable(format = "html", align = "lllll", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11) %>%
   save_tbl("data_sources")
