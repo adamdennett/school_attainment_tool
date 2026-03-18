@@ -139,21 +139,27 @@ All figures are saved as publication-ready PDF and JPEG files in `output/data_ov
 #| tbl-cap: "Primary data sources and their contribution to the panel"
 
 tibble::tribble(
-  ~Source, ~Provider, ~Coverage, ~`Key variables`,
+  ~Source, ~Provider, ~Coverage, ~`Key variables`, ~`Data link`,
   "KS4 Performance Tables", "DfE", "4 years (2021-22 to 2024-25)",
     "ATT8SCR, P8MEA, PTFSM6CLA1A, PTPRIORLO, ADMPOL_PT, TOTPUPS",
+    '<a href="https://www.find-school-performance-data.service.gov.uk/" target="_blank">find-school-performance-data.service.gov.uk</a>',
   "School Census", "DfE", "4 years (matched to KS4)",
     "PNUMEAL, PNUMENGFL, TPUP, TFSM6CLA1A",
+    '<a href="https://www.find-school-performance-data.service.gov.uk/" target="_blank">find-school-performance-data.service.gov.uk</a>',
   "Absence (perf. tables + API)", "DfE / EES", "4 years",
     "PERCTOT, PPERSABS10",
+    '<a href="https://explore-education-statistics.service.gov.uk/find-statistics/pupil-absence-in-schools-in-england" target="_blank">explore-education-statistics.service.gov.uk</a>',
   "Ofsted Ratings", "Ofsted Official Statistics", "As at 31 Aug 2024",
     "OFSTEDRATING_1 (harmonised 1\u20134)",
+    '<a href="https://www.gov.uk/government/statistical-data-sets/monthly-management-information-ofsteds-school-inspections-outcomes" target="_blank">gov.uk/ofsted-outcomes</a>',
   "Edubase", "DfE", "Oct 2024 snapshot",
     "gor_name (region), easting, northing",
+    '<a href="https://get-information-schools.service.gov.uk/" target="_blank">get-information-schools.service.gov.uk</a>',
   "School Workforce Census", "DfE / EES", "4 years (2024-25 delayed)",
-    "Teacher retention, leadership pay %, sickness days"
+    "Teacher retention, leadership pay %, sickness days",
+    '<a href="https://explore-education-statistics.service.gov.uk/find-statistics/school-workforce-in-england" target="_blank">explore-education-statistics.service.gov.uk</a>'
 ) %>%
-  kable(align = "llll") %>%
+  kable(align = "lllll", escape = FALSE) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 11) %>%
   save_tbl("data_sources")
