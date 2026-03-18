@@ -294,6 +294,28 @@ build_panel <- function(year_data_list, force_download = FALSE) {
               n_after, " still missing)")
     }
 
+    # --- Within-school backfill for remaining missing gor_name ---
+    # Schools in reorganised LAs (e.g. Westmorland and Furness from Cumbria)
+    # may be missing in the LA lookup for earlier years but present in later years
+    if (any(is.na(df$gor_name))) {
+      n_before_urn <- sum(is.na(df$gor_name))
+      urn_region <- df %>%
+        filter(!is.na(gor_name)) %>%
+        distinct(URN, gor_name) %>%
+        group_by(URN) %>%
+        slice(1) %>%
+        ungroup() %>%
+        rename(gor_name_urn = gor_name)
+      df <- df %>%
+        left_join(urn_region, by = "URN") %>%
+        mutate(gor_name = coalesce(gor_name, gor_name_urn)) %>%
+        select(-gor_name_urn)
+      n_after_urn <- sum(is.na(df$gor_name))
+      message("  Within-school region backfill: fixed ", n_before_urn - n_after_urn,
+              " of ", n_before_urn, " remaining missing gor_name (",
+              n_after_urn, " still missing)")
+    }
+
     # --- Join Ofsted ratings ---
     # Use OFSTEDRATING from school_information if available, else from external source
     # Coerce both to character first to avoid type mismatch in coalesce

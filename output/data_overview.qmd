@@ -74,7 +74,11 @@ panel_data <- panel_data %>%
 # Analysis sample: restrict to Academies and Maintained schools only
 # (matches the filter in 05_fit_model.R prepare_model_data())
 model_panel <- panel_data %>%
-  filter(MINORGROUP %in% c("Academy", "Maintained school"))
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  # Backfill any missing gor_name from other years for the same school
+  group_by(URN) %>%
+  mutate(gor_name = if (any(!is.na(gor_name))) coalesce(gor_name, na.omit(gor_name)[1]) else gor_name) %>%
+  ungroup()
 
 # Publication theme
 theme_pub <- theme_minimal(base_size = 11) +
@@ -117,18 +121,16 @@ save_tbl <- function(tbl, name) {
 }
 ```
 
-
 # Introduction
 
 This document describes the construction and characteristics of the school-level panel dataset used in the multilevel regression analysis of KS4 Attainment 8 scores. It covers:
 
-1. **Data sources** — where each variable originates
-2. **Panel construction** — how per-year data are harmonised and linked
-3. **Cleaning and imputation** — handling of missing values and the 2024--25 carry-forward strategy
-4. **Descriptive statistics** — distributions, correlations, and completeness of the analysis variables
+1.  **Data sources** — where each variable originates
+2.  **Panel construction** — how per-year data are harmonised and linked
+3.  **Cleaning and imputation** — handling of missing values and the 2024--25 carry-forward strategy
+4.  **Descriptive statistics** — distributions, correlations, and completeness of the analysis variables
 
 All figures are saved as publication-ready PDF and JPEG files in `output/data_overview_files/`.
-
 
 # Data Sources
 
@@ -164,7 +166,6 @@ tibble::tribble(
                 full_width = FALSE, font_size = 11) %>%
   save_tbl("data_sources")
 ```
-
 
 # Variable Definitions
 
@@ -205,7 +206,6 @@ tibble(
   save_tbl("variable_definitions")
 ```
 
-
 # Panel Construction Pipeline
 
 The panel is assembled through four sequential scripts, each adding data and producing an intermediate `.rds` file.
@@ -236,16 +236,15 @@ tibble::tribble(
   save_tbl("pipeline_steps")
 ```
 
-
 # Sample Overview
 
 ## Panel Dimensions
 
 ```{r tbl-sample-summary}
 #| label: tbl-sample-summary
-#| tbl-cap: "Panel dimensions by academic year"
+#| tbl-cap: "Panel dimensions by academic year (state-funded mainstream schools only)"
 
-sample_tbl <- panel_data %>%
+sample_tbl <- model_panel %>%
   group_by(`Academic year` = year_label) %>%
   summarise(
     Schools = n_distinct(URN),
@@ -257,10 +256,10 @@ sample_tbl <- panel_data %>%
 
 totals <- tibble(
   `Academic year` = "Total / Overall",
-  Schools = n_distinct(panel_data$URN),
-  `School-year obs.` = nrow(panel_data),
-  LAs = n_distinct(panel_data$LANAME),
-  Regions = n_distinct(panel_data$gor_name)
+  Schools = n_distinct(model_panel$URN),
+  `School-year obs.` = nrow(model_panel),
+  LAs = n_distinct(model_panel$LANAME),
+  Regions = n_distinct(model_panel$gor_name)
 )
 
 bind_rows(sample_tbl, totals) %>%
@@ -271,6 +270,36 @@ bind_rows(sample_tbl, totals) %>%
   save_tbl("panel_dimensions")
 ```
 
+::: {.callout-important}
+## Sample restriction
+
+All figures and tables in this report are based on the **analysis sample** of mainstream state-funded schools only (Academies and LA-maintained schools). The following school types have been excluded from the raw extract:
+
+```{r}
+#| label: tbl-dropped-summary
+#| echo: false
+
+dropped_types <- panel_data %>%
+  filter(!MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  count(MINORGROUP, name = "Observations") %>%
+  mutate(Schools = map_int(MINORGROUP, ~ n_distinct(panel_data$URN[panel_data$MINORGROUP == .x]))) %>%
+  arrange(desc(Observations)) %>%
+  rename(`School type` = MINORGROUP)
+
+dropped_types %>%
+  bind_rows(
+    tibble(`School type` = "Total excluded",
+           Observations = sum(dropped_types$Observations),
+           Schools = NA_integer_)
+  ) %>%
+  kable(align = "lrr", format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  row_spec(nrow(dropped_types) + 1, bold = TRUE)
+```
+
+This reduces the panel from `r format(nrow(panel_data), big.mark = ",")` to **`r format(nrow(model_panel), big.mark = ",")`** school-year observations (`r format(n_distinct(model_panel$URN), big.mark = ",")` unique schools across `r n_distinct(model_panel$LANAME)` LAs). These school types are excluded because they operate under different funding, governance, and accountability frameworks that make direct comparison with the mainstream state-funded sector inappropriate. Independent schools, in particular, do not participate in the same performance table reporting regime, and their inclusion would confound the relationship between deprivation-related predictors and attainment outcomes.
+:::
 
 ## Geographic Distribution
 
@@ -279,7 +308,7 @@ bind_rows(sample_tbl, totals) %>%
 #| fig-cap: "Number of schools per region and academic year"
 #| fig-height: 5
 
-p_region <- panel_data %>%
+p_region <- model_panel %>%
   filter(!is.na(gor_name)) %>%
   count(gor_name, year_label) %>%
   ggplot(aes(x = fct_reorder(gor_name, n, .fun = sum), y = n, fill = year_label)) +
@@ -303,7 +332,7 @@ The South East, North West, and London contribute the largest number of schools,
 #| fig-cap: "School type composition across the panel"
 #| fig-height: 4
 
-p_types <- panel_data %>%
+p_types <- model_panel %>%
   filter(!is.na(MINORGROUP)) %>%
   count(MINORGROUP) %>%
   mutate(pct = n / sum(n) * 100,
@@ -313,7 +342,7 @@ p_types <- panel_data %>%
   geom_text(aes(label = sprintf("%.1f%%", pct)), hjust = -0.1, size = 3) +
   coord_flip() +
   labs(x = NULL, y = "% of school-year observations",
-       title = "School type composition (all years pooled)") +
+       title = "School type composition (analysis sample, all years pooled)") +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   theme_pub
 
@@ -321,7 +350,7 @@ save_fig(p_types, "school_types", width = 7, height = 4)
 p_types
 ```
 
-Academies form the largest group in the full panel, followed by Maintained schools and then Independent schools. The Independent school share --- while non-trivial in the raw data --- is excluded from the analysis sample for the reasons described in the callout below.
+Academies form the largest group in the analysis sample, followed by Maintained schools. Independent schools, colleges, and special schools have been excluded from all figures and tables in this report (see @tbl-school-type-filter for the full breakdown).
 
 ## Ofsted Rating Distribution
 
@@ -385,8 +414,9 @@ The admissions policy variable captures whether a school selects pupils on acade
 
 # Outcome Variables
 
-::: {.callout-note}
+::: callout-note
 ## Analysis sample
+
 From this section onward, all statistics, figures, and tables are based on the **analysis sample** of mainstream state-funded schools only --- Academies and Maintained schools. Independent schools (`r format(sum(panel_data$MINORGROUP == "Independent school", na.rm = TRUE), big.mark = ",")` observations), colleges (`r sum(panel_data$MINORGROUP == "College", na.rm = TRUE)`), and special schools (`r sum(panel_data$MINORGROUP == "Special school", na.rm = TRUE)`) are excluded because they operate under different funding, governance, and accountability frameworks that make direct comparison with the mainstream sector inappropriate. This reduces the panel from `r format(nrow(panel_data), big.mark = ",")` to **`r format(nrow(model_panel), big.mark = ",")`** school-year observations. Full details of the restriction are given in @tbl-school-type-filter.
 :::
 
@@ -419,6 +449,32 @@ outcome_stats %>%
                 full_width = FALSE, font_size = 11) %>%
   collapse_rows(columns = 1, valign = "top") %>%
   save_tbl("outcome_statistics")
+```
+
+```{r tbl-outcome-stats-pooled}
+#| label: tbl-outcome-stats-pooled
+#| tbl-cap: "Descriptive statistics for Attainment 8 outcome variables (full panel, pooled across years)"
+
+outcome_stats_pooled <- model_panel %>%
+  pivot_longer(all_of(outcome_vars), names_to = "Variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(Variable) %>%
+  summarise(
+    N      = n(),
+    Mean   = round(mean(value), 1),
+    SD     = round(sd(value), 1),
+    Min    = round(min(value), 1),
+    Median = round(median(value), 1),
+    Max    = round(max(value), 1),
+    .groups = "drop"
+  ) %>%
+  mutate(Variable = var_label(Variable))
+
+outcome_stats_pooled %>%
+  kable(align = "lrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  save_tbl("outcome_statistics_pooled")
 ```
 
 Mean Attainment 8 scores for all pupils sit in the mid-to-high 40s and have edged upward over the four-year window. The disadvantaged subgroup consistently scores around 10 points below the non-disadvantaged subgroup, and its standard deviation is slightly wider, reflecting greater heterogeneity in outcomes for this group. Scores for all three measures are approximately normally distributed, so the log transformation applied to the outcome in the multilevel model serves primarily to stabilise variance across the fitted-value range rather than to correct severe skew.
@@ -583,8 +639,9 @@ p_out_ofs
 
 There is a clear gradient in attainment across Ofsted categories: Outstanding schools have the highest median scores and the tightest distributions, while Inadequate schools sit noticeably lower with wider spread. The step from Good to Requires Improvement is the sharpest for all three pupil groups.
 
-::: {.callout-tip}
+::: callout-tip
 ## Relation to the multilevel null model
+
 These two plots illustrate the structure captured by the **random intercepts** in the multilevel model. Region (`gor_name`) and Ofsted rating (`OFSTEDRATING_1`) each enter as grouping variables, allowing the model to estimate a separate baseline (intercept) for each level. Before any school-level predictors are added, these group-level intercepts absorb the systematic variation visible in the violin plots above --- effectively representing a **null model** that accounts only for which region and Ofsted category a school belongs to. The fixed-effect predictors (deprivation, absence, EAL, etc.) then explain the remaining within-group variation around these baselines.
 :::
 
@@ -594,9 +651,45 @@ The multilevel model includes eight fixed-effect predictors capturing school com
 
 ## Descriptive Statistics
 
+```{r tbl-predictor-stats-yearly}
+#| label: tbl-predictor-stats-yearly
+#| tbl-cap: "Descriptive statistics for predictor variables by academic year"
+
+pred_vars_yr <- c(
+  "PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "PTPRIORLO",
+  "gorard_segregation",
+  "remained_in_the_same_school",
+  "teachers_on_leadership_pay_range_percent",
+  "average_number_of_days_taken"
+)
+pred_vars_yr <- intersect(pred_vars_yr, names(model_panel))
+
+pred_table_yearly <- model_panel %>%
+  pivot_longer(all_of(pred_vars_yr), names_to = "Variable", values_to = "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(Variable, Year = year_label) %>%
+  summarise(
+    N      = n(),
+    Mean   = round(mean(value), 2),
+    SD     = round(sd(value), 2),
+    Min    = round(min(value), 2),
+    Median = round(median(value), 2),
+    Max    = round(max(value), 2),
+    .groups = "drop"
+  ) %>%
+  mutate(Variable = var_label(Variable))
+
+pred_table_yearly %>%
+  kable(align = "llrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  save_tbl("predictor_statistics_yearly")
+```
+
 ```{r tbl-predictor-stats}
 #| label: tbl-predictor-stats
-#| tbl-cap: "Descriptive statistics for predictor variables used in the multilevel model"
+#| tbl-cap: "Descriptive statistics for predictor variables (full panel, pooled across years)"
 
 pred_vars <- c(
   "PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "PTPRIORLO",
@@ -664,7 +757,7 @@ Several predictors exhibit clear right skew --- notably the proportion of pupils
 
 ## Log-Transformed Predictors
 
-Predictors with |skewness| > 1 are log-transformed for the multilevel model. `remained_in_the_same_school` (skewness = 0.47) is entered on the raw scale as it is near-symmetric. @fig-log-compare shows the raw and log-transformed distributions for the variables that undergo this transformation.
+Predictors with \|skewness\| \> 1 are log-transformed for the multilevel model. `remained_in_the_same_school` (skewness = 0.47) is entered on the raw scale as it is near-symmetric. @fig-log-compare shows the raw and log-transformed distributions for the variables that undergo this transformation.
 
 ```{r fig-log-compare}
 #| label: fig-log-compare
@@ -1039,7 +1132,6 @@ htmltools::tagList(controls, fig, js_block)
 
 Toggling the log checkboxes reveals how the transformation reshapes each relationship. For example, the raw `% Disadvantaged` vs raw `Attainment 8` plot shows a curved, heteroscedastic pattern; switching both axes to log scale linearises the relationship and stabilises the variance --- illustrating why the model uses `log(y) ~ log(x)` for these variables.
 
-
 # Analysis Sample Restriction
 
 The multilevel models are fitted to **mainstream state-funded schools only** (Academies and Maintained schools). Independent schools, colleges, and special schools are excluded because they operate under different funding, governance, and admissions structures that make direct comparison inappropriate.
@@ -1102,7 +1194,6 @@ bind_rows(model_summary, totals) %>%
 ```
 
 All descriptive statistics and figures from this point forward are based on the **analysis sample** (`r format(nrow(model_panel), big.mark = ",")` school-year observations from `r n_distinct(model_panel$URN)` mainstream state-funded schools).
-
 
 # Missing Data
 
@@ -1181,25 +1272,25 @@ p_miss
 
 The heatmap makes the pattern stark: missingness is concentrated almost entirely in the workforce and prior attainment variables for the 2024--25 year. For the earlier three years, data completeness is consistently high across all variables. This structured, year-specific pattern supports the use of a carry-forward imputation strategy rather than more complex multiple imputation approaches.
 
-::: {.callout-note}
+::: callout-note
 ## Teacher sickness absence: a notable gap in 2021--22 and 2022--23
 
-Although the heatmap shows high overall completeness for the earlier years, one variable — `average_number_of_days_taken` (teacher sickness absence) — has a less visible but consequential pattern of missingness. Approximately 570 school-year observations pass all other filters but fail on this variable: ~250 in 2021-22 and ~244 in 2022-23, falling to ~54 in 2023-24 and ~22 in 2024-25. Around 420 of these are genuinely missing (NA) and ~150 are reported as zero (excluded because the log transform requires strictly positive values). Academies account for roughly 80% of the affected schools, suggesting patchier sickness absence reporting in the early post-COVID workforce census returns. Because the model uses `log(average_number_of_days_taken)`, these cases cannot be retained without either imputation or removing the variable from the model specification.
+Although the heatmap shows high overall completeness for the earlier years, one variable — `average_number_of_days_taken` (teacher sickness absence) — has a less visible but consequential pattern of missingness. Approximately 570 school-year observations pass all other filters but fail on this variable: \~250 in 2021-22 and \~244 in 2022-23, falling to \~54 in 2023-24 and \~22 in 2024-25. Around 420 of these are genuinely missing (NA) and \~150 are reported as zero (excluded because the log transform requires strictly positive values). Academies account for roughly 80% of the affected schools, suggesting patchier sickness absence reporting in the early post-COVID workforce census returns. Because the model uses `log(average_number_of_days_taken)`, these cases cannot be retained without either imputation or removing the variable from the model specification.
 :::
 
 # Imputation: 2024--25 Carry-Forward
 
 Four predictor variables are unavailable for the 2024--25 academic year:
 
-- **PTPRIORLO** — KS2 prior attainment was cancelled due to the lingering effects of COVID-19 disruption
-- **remained_in_the_same_school** — workforce turnover data not yet published
-- **teachers_on_leadership_pay_range_percent** — workforce pay data not yet published
-- **average_number_of_days_taken** — workforce sickness data not yet published
+-   **PTPRIORLO** — KS2 prior attainment was cancelled due to the lingering effects of COVID-19 disruption
+-   **remained_in_the_same_school** — workforce turnover data not yet published
+-   **teachers_on_leadership_pay_range_percent** — workforce pay data not yet published
+-   **average_number_of_days_taken** — workforce sickness data not yet published
 
 These are imputed using a two-step approach:
 
-1. **Carry-forward**: use the school's 2023--24 value
-2. **Fallback**: if no 2023--24 value exists, use the school-level mean across all available years
+1.  **Carry-forward**: use the school's 2023--24 value
+2.  **Fallback**: if no 2023--24 value exists, use the school-level mean across all available years
 
 A flag variable `has_imputed_predictors` is set to `TRUE` for any 2024--25 row that received at least one imputed value.
 
@@ -1238,7 +1329,6 @@ imputation_summary %>%
                             round(flagged / n_2425 * 100, 1), "%).")) %>%
   save_tbl("imputation_summary")
 ```
-
 
 ```{r fig-imputed-vs-observed}
 #| label: fig-imputed-vs-observed
@@ -1438,8 +1528,8 @@ Correlations are computed on the model scale --- i.e. the four log-transformed p
 
 The full panel dataset contains **`r format(nrow(panel_data), big.mark = ",")`** school-year observations from **`r n_distinct(panel_data$URN)`** unique schools. After restricting to mainstream state-funded schools (Academies and Maintained schools), the **analysis sample** comprises **`r format(nrow(model_panel), big.mark = ",")`** school-year observations from **`r n_distinct(model_panel$URN)`** schools across **`r n_distinct(model_panel$LANAME)`** Local Authorities and **4 academic years** (2021--22 to 2024--25). Key features:
 
-- **Sample restriction**: Independent schools (`r format(sum(panel_data$MINORGROUP == "Independent school", na.rm = TRUE), big.mark = ",")` obs.), colleges, and special schools are excluded from the analysis.
-- **Outcome completeness**: Attainment 8 scores (all pupils) are available for 100% of analysis sample observations by construction.
-- **Predictor completeness**: Core predictors (disadvantage, absence, EAL) exceed 95% availability across all years. Workforce variables are unavailable for 2024--25 and are carry-forward imputed.
-- **Imputation scope**: `r round(sum(model_panel$has_imputed_predictors, na.rm = TRUE) / nrow(model_panel) * 100, 1)`% of analysis sample observations (confined to 2024--25) contain at least one imputed predictor.
-- **Transformations**: Four right-skewed predictors are log-transformed; the Gorard segregation index is computed at the LA-year level.
+-   **Sample restriction**: Independent schools (`r format(sum(panel_data$MINORGROUP == "Independent school", na.rm = TRUE), big.mark = ",")` obs.), colleges, and special schools are excluded from the analysis.
+-   **Outcome completeness**: Attainment 8 scores (all pupils) are available for 100% of analysis sample observations by construction.
+-   **Predictor completeness**: Core predictors (disadvantage, absence, EAL) exceed 95% availability across all years. Workforce variables are unavailable for 2024--25 and are carry-forward imputed.
+-   **Imputation scope**: `r round(sum(model_panel$has_imputed_predictors, na.rm = TRUE) / nrow(model_panel) * 100, 1)`% of analysis sample observations (confined to 2024--25) contain at least one imputed predictor.
+-   **Transformations**: Four right-skewed predictors are log-transformed; the Gorard segregation index is computed at the LA-year level.

@@ -16,8 +16,8 @@ format:
     include-after-body: footer-logos.html
 execute:
   echo: true
-  warning: true
-  message: true
+  warning: false
+  message: false
 ---
 
 ```{r setup}
