@@ -1126,6 +1126,169 @@ a_vs_e %>%
 ```
 
 
+# Stepwise Model Building
+
+The table below shows how the model develops as predictors are added, using the All Pupils outcome. This stepwise approach reveals **confounding** and **mediating** relationships between variables — when a coefficient changes substantially as new predictors enter, it indicates that the earlier estimate was partly capturing the effect of the omitted variable.
+
+Four nested models are fitted to the same data (Analysis E, all 4 years):
+
+1. **Model 1** — FSM only: a single predictor measuring school-level disadvantage
+2. **Model 2** — adds overall absence rate alongside FSM
+3. **Model 3** — all nine fixed-effect predictors (no random effects)
+4. **Model 4** — the full multilevel model with random intercepts for year, Ofsted rating, and local authority nested within region
+
+```{r tbl-stepwise}
+#| label: tbl-stepwise
+#| tbl-cap: "Stepwise model building: All Pupils (Analysis E data)"
+
+# ---- Prepare data ----
+step_data <- imputed_model_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0)
+
+# ---- Fit 4 nested models ----
+m1 <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A),
+         data = step_data)
+
+m2 <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT),
+         data = step_data)
+
+m3 <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+           PTPRIORLO + ADMPOL_PT + gorard_segregation +
+           remained_in_the_same_school +
+           teachers_on_leadership_pay_range_percent +
+           log(average_number_of_days_taken),
+         data = step_data)
+
+m4 <- lmer(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+             PTPRIORLO + ADMPOL_PT + gorard_segregation +
+             remained_in_the_same_school +
+             teachers_on_leadership_pay_range_percent +
+             log(average_number_of_days_taken) +
+             (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+           data = step_data, REML = TRUE, na.action = na.exclude,
+           control = lmerControl(optimizer = "bobyqa",
+                                 optCtrl = list(maxfun = 20000)))
+
+# ---- Helper: extract coefficients with stars ----
+extract_coefs <- function(model, is_lmer = FALSE) {
+  if (is_lmer) {
+    s <- summary(model)$coefficients
+  } else {
+    s <- summary(model)$coefficients
+  }
+  df <- as.data.frame(s)
+  df$term <- rownames(df)
+
+  # Column names differ between lm and lmer
+  p_col <- if ("Pr(>|t|)" %in% names(df)) "Pr(>|t|)" else "Pr(>|z|)"
+  t_col <- if ("t value" %in% names(df)) "t value" else "z value"
+
+  df %>%
+    transmute(
+      term = term,
+      estimate = Estimate,
+      t_value = .data[[t_col]],
+      p_value = .data[[p_col]],
+      stars = case_when(
+        p_value < 0.001 ~ "***",
+        p_value < 0.01  ~ "**",
+        p_value < 0.05  ~ "*",
+        TRUE ~ ""
+      ),
+      est_display = paste0(format(round(estimate, 4), nsmall = 4), stars),
+      t_display = format(round(t_value, 2), nsmall = 2)
+    )
+}
+
+c1 <- extract_coefs(m1)
+c2 <- extract_coefs(m2)
+c3 <- extract_coefs(m3)
+c4 <- extract_coefs(m4, is_lmer = TRUE)
+
+# ---- Build unified term list (in model order) ----
+all_terms <- unique(c(c1$term, c2$term, c3$term, c4$term))
+# Keep intercept first, then order by appearance in full model
+term_order <- c4$term
+all_terms <- c(term_order, setdiff(all_terms, term_order))
+
+# ---- Assemble table ----
+step_tbl <- tibble(term = all_terms) %>%
+  left_join(c1 %>% select(term, est1 = est_display, t1 = t_display), by = "term") %>%
+  left_join(c2 %>% select(term, est2 = est_display, t2 = t_display), by = "term") %>%
+  left_join(c3 %>% select(term, est3 = est_display, t3 = t_display), by = "term") %>%
+  left_join(c4 %>% select(term, est4 = est_display, t4 = t_display), by = "term") %>%
+  mutate(across(everything(), \(x) replace_na(x, ""))) %>%
+  mutate(term = relabel_terms(term))
+
+# ---- R² and N rows ----
+r2_m1 <- round(summary(m1)$r.squared, 4)
+r2_m2 <- round(summary(m2)$r.squared, 4)
+r2_m3 <- round(summary(m3)$r.squared, 4)
+r2_m4 <- performance::r2(m4)
+r2m_m4 <- round(r2_m4$R2_marginal, 4)
+r2c_m4 <- round(r2_m4$R2_conditional, 4)
+
+n_obs <- nrow(step_data)
+
+footer_rows <- tibble(
+  term = c("R²", "R² (conditional)", "N"),
+  est1 = c(as.character(r2_m1), "", format(n_obs, big.mark = ",")),
+  t1   = c("", "", ""),
+  est2 = c(as.character(r2_m2), "", format(n_obs, big.mark = ",")),
+  t2   = c("", "", ""),
+  est3 = c(as.character(r2_m3), "", format(n_obs, big.mark = ",")),
+  t3   = c("", "", ""),
+  est4 = c(as.character(r2m_m4), as.character(r2c_m4), format(n_obs, big.mark = ",")),
+  t4   = c("(marginal)", "(fixed + random)", "")
+)
+
+full_tbl <- bind_rows(step_tbl, footer_rows)
+
+# ---- Render with kableExtra ----
+names(full_tbl) <- c("Variable",
+                      "Estimate", "t",
+                      "Estimate ", "t ",
+                      "Estimate  ", "t  ",
+                      "Estimate   ", "t   ")
+
+kbl(full_tbl, format = "html", align = "lrlrlrlrl", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  add_header_above(c(" " = 1,
+                      "Model 1: FSM only" = 2,
+                      "Model 2: + Absence" = 2,
+                      "Model 3: All fixed effects" = 2,
+                      "Model 4: Full multilevel" = 2)) %>%
+  row_spec(nrow(step_tbl) + 1, bold = TRUE) %>%
+  row_spec(nrow(step_tbl) + 2, bold = TRUE) %>%
+  row_spec(nrow(step_tbl) + 3, bold = TRUE) %>%
+  footnote(general = "Significance: *** p < 0.001, ** p < 0.01, * p < 0.05. Models 1–3 are OLS; Model 4 is a multilevel model (lmer) with random intercepts.",
+           general_title = "")
+```
+
+### What the stepwise results reveal
+
+```{r stepwise-commentary}
+#| label: stepwise-commentary
+#| include: false
+
+# Extract key values for inline commentary
+fsm_m1 <- round(c1$estimate[c1$term == "log(PTFSM6CLA1A)"], 4)
+fsm_m2 <- round(c2$estimate[c2$term == "log(PTFSM6CLA1A)"], 4)
+fsm_m3 <- round(c3$estimate[c3$term == "log(PTFSM6CLA1A)"], 4)
+fsm_m4 <- round(c4$estimate[c4$term == "log(PTFSM6CLA1A)"], 4)
+abs_m2 <- round(c2$estimate[c2$term == "log(PERCTOT)"], 4)
+abs_m3 <- round(c3$estimate[c3$term == "log(PERCTOT)"], 4)
+abs_m4 <- round(c4$estimate[c4$term == "log(PERCTOT)"], 4)
+```
+
+**Model 1 → Model 2 (adding absence):** When FSM is the sole predictor, its coefficient is `r fsm_m1` — but when absence is added in Model 2, the FSM coefficient shifts to `r fsm_m2`. This change reveals **confounding**: schools with higher FSM rates also tend to have higher absence rates, so Model 1's FSM coefficient was partly capturing the absence–attainment relationship. The absence coefficient itself (`r abs_m2`) is strongly negative, confirming that higher absence is associated with lower attainment. R² increases from `r r2_m1` to `r r2_m2`.
+
+**Model 2 → Model 3 (adding all remaining fixed effects):** The FSM coefficient changes again to `r fsm_m3` as prior attainment, admissions policy, EAL, segregation, and workforce variables enter the model. Prior attainment is a particularly important mediator — schools with high FSM rates also have more pupils with low prior attainment, and separating these effects sharpens the estimate of each. The absence coefficient also shifts from `r abs_m2` to `r abs_m3`. R² rises to `r r2_m3`, showing that the full set of school-level characteristics explains substantially more variation than disadvantage and absence alone.
+
+**Model 3 → Model 4 (adding random effects):** The fixed-effect coefficients (R²~m~ = `r r2m_m4`) are similar to Model 3, but the conditional R² (R²~c~ = `r r2c_m4`) shows a substantial jump. The difference between R²~m~ and R²~c~ represents variance explained by the **grouping structure** — knowing which Ofsted category, region, and local authority a school belongs to adds considerable explanatory power beyond the nine measured predictors. This suggests that unobserved LA-level and regional factors (funding levels, local labour markets, housing costs, historical policy choices) contribute meaningfully to attainment differences.
+
+
 # Observed vs Predicted
 
 The scatter plots below show observed Attainment 8 scores against imputed-full-model fitted values (Analysis E) for each of the four academic years. Schools in **Brighton and Hove** are highlighted in pink. A linear regression line with R² is overlaid on each panel; the dashed grey line marks perfect prediction.
