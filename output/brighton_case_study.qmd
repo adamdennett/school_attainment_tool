@@ -48,10 +48,12 @@ panel <- readRDS(here::here("data", "panel_data.rds"))
 
 HIGHLIGHT_LA <- "Brighton and Hove"
 
-# ---- Prepare model datasets (same as model_experiments.qmd) ----
+# ---- Prepare model dataset (Analysis E: 9 predictors, all 4 years) ----
+# panel_data.rds already contains carry-forward imputed workforce variables
+# for 2024-25 (from 04_compute_derived.R), so we simply filter for complete
+# cases — no need to bind_rows or separate years.
 
-# Full model dataset (3 years with workforce data)
-model_data <- panel %>%
+imputed_full_data <- panel %>%
   filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
   filter(
     !is.na(ATT8SCR), ATT8SCR > 0,
@@ -64,64 +66,6 @@ model_data <- panel %>%
     average_number_of_days_taken > 0,
     !is.na(gorard_segregation)
   ) %>%
-  mutate(
-    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
-                            levels = c("Outstanding", "Good",
-                                       "Requires Improvement", "Inadequate"),
-                            ordered = TRUE),
-    gor_name   = factor(gor_name),
-    LANAME     = factor(LANAME),
-    year_label = factor(year_label)
-  ) %>%
-  droplevels()
-
-contrasts(model_data$OFSTEDRATING_1) <-
-  contr.treatment(levels(model_data$OFSTEDRATING_1))
-
-# Core model dataset (all 4 years, 5 predictors)
-core_model_data <- panel %>%
-  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
-  filter(
-    !is.na(ATT8SCR), ATT8SCR > 0,
-    PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
-    !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME)
-  ) %>%
-  mutate(
-    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
-                            levels = c("Outstanding", "Good",
-                                       "Requires Improvement", "Inadequate"),
-                            ordered = TRUE),
-    gor_name   = factor(gor_name),
-    LANAME     = factor(LANAME),
-    year_label = factor(year_label)
-  ) %>%
-  droplevels()
-
-contrasts(core_model_data$OFSTEDRATING_1) <-
-  contr.treatment(levels(core_model_data$OFSTEDRATING_1))
-
-# Imputed full dataset (all 4 years, 9 predictors with carry-forward)
-imputed_2425 <- panel %>%
-  filter(MINORGROUP %in% c("Academy", "Maintained school"),
-         year_label == "2024-25",
-         !is.na(ATT8SCR), ATT8SCR > 0,
-         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
-         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
-         !is.na(remained_in_the_same_school),
-         !is.na(teachers_on_leadership_pay_range_percent),
-         average_number_of_days_taken > 0,
-         !is.na(gorard_segregation)) %>%
-  mutate(
-    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
-                            levels = c("Outstanding", "Good",
-                                       "Requires Improvement", "Inadequate"),
-                            ordered = TRUE),
-    gor_name   = factor(gor_name),
-    LANAME     = factor(LANAME),
-    year_label = factor(year_label)
-  )
-
-imputed_full_data <- bind_rows(model_data, imputed_2425) %>%
   mutate(
     OFSTEDRATING_1 = factor(OFSTEDRATING_1,
                             levels = c("Outstanding", "Good",
@@ -2156,7 +2100,7 @@ Use the dropdown above the map to switch between outcome groups: **All Pupils**,
 ```{r bh-national-context}
 #| label: bh-national-context
 
-national_summary <- core_model_data %>%
+national_summary <- imputed_full_data %>%
   filter(!is.na(ATT8SCR)) %>%
   summarise(
     fsm_p25 = quantile(PTFSM6CLA1A, 0.25, na.rm = TRUE),

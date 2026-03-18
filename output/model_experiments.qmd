@@ -83,20 +83,22 @@ match the production pipeline.
 
 # Data Preparation
 
-Two datasets are needed: a **full** dataset (requires workforce and
-prior-attainment variables, so covers 3 years) and a **core** dataset
-(5 predictors only, covers all 4 years including 2024-25).
+Three datasets are needed:
 
-## Full model dataset
+1. A **full** dataset for Analysis A (9 predictors, **3 years only** — excluding 2024-25, which has carry-forward imputed workforce variables)
+2. A **core** dataset (5 predictors, all 4 years including 2024-25)
+3. An **imputed full** dataset for Analysis E (9 predictors, all 4 years — including 2024-25 with imputed workforce variables)
+
+Note: `panel_data.rds` already contains carry-forward imputed workforce variables for 2024-25 (from `04_compute_derived.R`). To create a genuine 3-year dataset for Analysis A, we must explicitly exclude 2024-25.
+
+## Full model dataset (3 years, real data only)
 
 ```{r data-full}
 #| label: data-full
 
-model_data <- panel %>%
-  # Mainstream schools only
-
+# All 4 years with complete workforce data (used for Analysis E)
+all_model_data <- panel %>%
   filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
-  # Main outcome + log-transformed predictors must be positive & non-NA
   filter(
     !is.na(ATT8SCR), ATT8SCR > 0,
     PTFSM6CLA1A > 0,
@@ -106,14 +108,12 @@ model_data <- panel %>%
     !is.na(gor_name),
     !is.na(LANAME)
   ) %>%
-  # Workforce + Gorard variables (drops 2024-25)
   filter(
     !is.na(remained_in_the_same_school),
     !is.na(teachers_on_leadership_pay_range_percent),
     average_number_of_days_taken > 0,
     !is.na(gorard_segregation)
   ) %>%
-  # Set factor levels
   mutate(
     OFSTEDRATING_1 = factor(OFSTEDRATING_1,
                             levels = c("Outstanding", "Good",
@@ -125,11 +125,18 @@ model_data <- panel %>%
   ) %>%
   droplevels()
 
-# Treatment contrasts (lmer default for ordered factors is polynomial)
+contrasts(all_model_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(all_model_data$OFSTEDRATING_1))
+
+# Analysis A: 3 years only (exclude 2024-25 which has imputed workforce values)
+model_data <- all_model_data %>%
+  filter(year_label != "2024-25") %>%
+  droplevels()
+
 contrasts(model_data$OFSTEDRATING_1) <-
   contr.treatment(levels(model_data$OFSTEDRATING_1))
 
-cat("Full model dataset:", nrow(model_data), "rows\n")
+cat("Full model dataset (Analysis A, 3 years):", nrow(model_data), "rows\n")
 cat("Years:", paste(levels(model_data$year_label), collapse = ", "), "\n")
 cat("Regions:", n_distinct(model_data$gor_name), "\n")
 cat("LAs:", n_distinct(model_data$LANAME), "\n")
@@ -901,49 +908,18 @@ marks which rows use estimates.
 ```{r e-setup}
 #| label: e-setup
 
-# Prepare the imputed full dataset — same filter as prepare_model_data()
-# but now 2024-25 has imputed values so it should pass the workforce filter
-imputed_model_data <- model_data  # start with the full dataset (3 years real)
+# Analysis E uses all 4 years including 2024-25 (with carry-forward imputed
+# workforce variables). This is simply `all_model_data` — no bind_rows needed
+# because panel_data.rds already contains the imputed values.
+imputed_full_data <- all_model_data
 
-# For 2024-25: pull from core_model_data which has the imputed values
-imputed_2425 <- panel %>%
-  filter(MINORGROUP %in% c("Academy", "Maintained school"),
-         year_label == "2024-25",
-         !is.na(ATT8SCR), ATT8SCR > 0,
-         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
-         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
-         !is.na(remained_in_the_same_school),
-         !is.na(teachers_on_leadership_pay_range_percent),
-         average_number_of_days_taken > 0,
-         !is.na(gorard_segregation)) %>%
-  mutate(
-    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
-                            levels = c("Outstanding", "Good",
-                                       "Requires Improvement", "Inadequate"),
-                            ordered = TRUE),
-    gor_name   = factor(gor_name),
-    LANAME     = factor(LANAME),
-    year_label = factor(year_label)
-  )
-
-imputed_full_data <- bind_rows(model_data, imputed_2425) %>%
-  mutate(
-    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
-                            levels = c("Outstanding", "Good",
-                                       "Requires Improvement", "Inadequate"),
-                            ordered = TRUE),
-    gor_name   = factor(gor_name),
-    LANAME     = factor(LANAME),
-    year_label = factor(year_label)
-  ) %>%
-  droplevels()
-
-contrasts(imputed_full_data$OFSTEDRATING_1) <-
-  contr.treatment(levels(imputed_full_data$OFSTEDRATING_1))
+n_2425 <- sum(imputed_full_data$year_label == "2024-25")
 
 cat("Imputed full dataset:", nrow(imputed_full_data), "rows\n")
 cat("Years:", paste(levels(imputed_full_data$year_label), collapse = ", "), "\n")
-cat("Of which 2024-25 (imputed predictors):", nrow(imputed_2425), "rows\n")
+cat("Of which 2024-25 (imputed predictors):", n_2425, "rows\n")
+cat("Analysis A had:", nrow(model_data), "rows (3 years)\n")
+cat("Difference (new 2024-25 rows):", nrow(imputed_full_data) - nrow(model_data), "\n")
 ```
 
 ## All Pupils

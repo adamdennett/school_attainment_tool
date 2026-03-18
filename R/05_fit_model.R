@@ -402,19 +402,30 @@ if (sys.nframe() == 0) {
   panel <- readRDS(panel_path)
   message("Loaded panel: ", nrow(panel), " rows, ", ncol(panel), " cols\n")
 
-  # Prepare modelling dataset (shared by both analyses)
-  model_data <- prepare_model_data(panel)
+  # Prepare modelling dataset — all 4 years (panel_data already has imputed
+
+  # workforce values for 2024-25 from 04_compute_derived.R)
+  all_model_data <- prepare_model_data(panel)
 
   # Save modelling data for reproducibility
-  saveRDS(model_data, here::here("data", "model_data.rds"))
+  saveRDS(all_model_data, here::here("data", "model_data.rds"))
+
+  # Analysis A uses only 3 years (real data, excludes carry-forward imputed 2024-25)
+  model_data_3yr <- all_model_data %>%
+    dplyr::filter(year_label != "2024-25") %>%
+    droplevels()
+  contrasts(model_data_3yr$OFSTEDRATING_1) <-
+    contr.treatment(levels(model_data_3yr$OFSTEDRATING_1))
+  message("Analysis A dataset (3 years): ", nrow(model_data_3yr), " rows")
+  message("Analysis E dataset (4 years): ", nrow(all_model_data), " rows")
 
 
   # =====================================================================
-  # ANALYSIS A: FULL PANEL — year_label as random effect
+  # ANALYSIS A: FULL PANEL — year_label as random effect (3 years only)
   # =====================================================================
 
   message("\n", strrep("=", 70))
-  message("ANALYSIS A: FULL PANEL MODELS (all years, year as random effect)")
+  message("ANALYSIS A: FULL PANEL MODELS (3 years, year as random effect)")
   message(strrep("=", 70))
 
   panel_models <- list()
@@ -431,7 +442,7 @@ if (sys.nframe() == 0) {
     )
 
     panel_models[[model_name]] <- fit_attainment_model(
-      outcome_var, model_data,
+      outcome_var, model_data_3yr,
       random_effects = PANEL_RANDOM,
       label = label
     )
@@ -454,7 +465,7 @@ if (sys.nframe() == 0) {
   message("ANALYSIS B: PER-YEAR MODELS (separate model for each year)")
   message(strrep("=", 70))
 
-  year_levels <- sort(unique(as.character(model_data$year_label)))
+  year_levels <- sort(unique(as.character(model_data_3yr$year_label)))
   message("Years to fit: ", paste(year_levels, collapse = ", "))
 
   yearly_models <- list()
@@ -467,7 +478,7 @@ if (sys.nframe() == 0) {
     message(strrep("-", 60))
 
     # Subset to this year and drop unused factor levels
-    yr_data <- model_data %>%
+    yr_data <- model_data_3yr %>%
       filter(year_label == yr) %>%
       droplevels()
 
@@ -643,9 +654,8 @@ if (sys.nframe() == 0) {
   message("ANALYSIS E: FULL PANEL WITH IMPUTED 2024-25 PREDICTORS")
   message(strrep("=", 70))
 
-  # Re-run prepare_model_data() — now that 2024-25 has imputed values,
-  # it should retain those rows too
-  imputed_model_data <- prepare_model_data(panel)
+  # Use all_model_data which already includes 2024-25 with imputed values
+  imputed_model_data <- all_model_data
   saveRDS(imputed_model_data, here::here("data", "model_data_imputed.rds"))
 
   n_imputed_rows <- sum(imputed_model_data$has_imputed_predictors, na.rm = TRUE)
