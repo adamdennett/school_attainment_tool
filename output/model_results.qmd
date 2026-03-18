@@ -578,9 +578,10 @@ m_all <- panel_models$all
 
 resid_data <- tibble(
   fitted = fitted(m_all),
-  resid  = residuals(m_all, type = "pearson"),
-  resid_std = resid / sd(resid)
-)
+  resid  = residuals(m_all, type = "pearson")
+) %>%
+  filter(!is.na(fitted), !is.na(resid)) %>%
+  mutate(resid_std = resid / sd(resid))
 
 p1 <- ggplot(resid_data, aes(x = fitted, y = resid)) +
   geom_point(alpha = 0.1, size = 0.5, colour = "#2e6260") +
