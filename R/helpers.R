@@ -154,6 +154,8 @@ VAR_LABELS <- c(
   "PTPRIORHI"              = "% KS4 pupils with high prior attainment (KS2)",
   "ADMPOL"                 = "Admissions policy (self-declared)",
   "ADMPOL_PT"              = "Admissions policy (new definition from 2019)",
+  "ADMPOL_PTOTHER NON SEL" = "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+  "ADMPOL_PTSEL"           = "Admissions: Selective (ref: non-sel. in highly sel. area)",
   "RECTYPE"                = "Record type (1=mainstream, 2=special, 4=LA, 5=national)",
 
   # --- Census meta ---
