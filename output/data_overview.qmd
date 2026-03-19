@@ -512,7 +512,7 @@ save_fig(p_density, "outcome_density", width = 8, height = 7)
 p_density
 ```
 
-The density plots confirm that all three Attainment 8 measures are unimodal and broadly symmetric. The disadvantaged subgroup distribution is shifted noticeably to the left, with a slight positive tail. Year-on-year shapes are highly stable, suggesting that the national distribution of school-level attainment has not shifted dramatically over the period.
+The density plots confirm that all three Attainment 8 measures are unimodal and broadly symmetric. The disadvantaged subgroup distribution is shifted noticeably to the left, with a slight positive tail. Year-on-year shapes are stable (especially since 2022-23 - post COVID), suggesting that the national distribution of school-level attainment has not shifted dramatically over the period, except for an immediately post-COVID drop.
 
 ## Disadvantage Gap Over Time
 
@@ -551,7 +551,7 @@ save_fig(p_gap, "disadvantage_gap_trend", width = 7, height = 4.5)
 p_gap
 ```
 
-The school-level disadvantage gap is remarkably persistent, with median values of around 13--14 Attainment 8 points across all four years. The interquartile range is wide, indicating that some schools narrow the gap far more effectively than others --- a key motivation for the multilevel modelling approach. A small number of schools show negative gaps (i.e. disadvantaged pupils outperforming their non-disadvantaged peers), visible as outliers below zero.
+The school-level disadvantage gap (the difference in attainment between disadvantaged pupils and non-disadvantaged pupils) is remarkably persistent over the period, with median values of around 13--14 Attainment 8 points across all four years. The interquartile range is wide, indicating that some schools narrow the gap far more effectively than others --- a key motivation for the multilevel modelling approach. A small number of schools show negative gaps (i.e. disadvantaged pupils outperforming their non-disadvantaged peers), visible as outliers below zero.
 
 ## Outcomes by Region
 

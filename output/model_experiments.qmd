@@ -1,6 +1,7 @@
 ---
 title: "Model Experiments"
 subtitle: "Human-readable lmer implementations for manual inspection"
+author: "Adam Dennett with some assistance from Claude Code"
 date: today
 format:
   html:

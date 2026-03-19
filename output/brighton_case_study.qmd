@@ -1,6 +1,7 @@
 ---
 title: "Brighton & Hove: A Local Case Study"
 subtitle: "Applying the multilevel attainment model to a single local authority"
+author: "Adam Dennett with some assistance from Claude Code"
 date: today
 format:
   html:
