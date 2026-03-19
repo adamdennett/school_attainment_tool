@@ -103,7 +103,7 @@ For full details on data sources, panel construction, variable definitions, desc
 
 ::: {.callout-tip}
 ## Model code & case study
-The full `lmer()` code for all model specifications (Analyses A–E) is available in the [Model Experiments report](https://adamdennett.github.io/school_attainment_tool/model_experiments.html), which provides human-readable, self-contained implementations for manual inspection and reproducibility. A detailed application of the model to a single local authority — including maps, non-linear effect interpretation, and policy recommendations — is presented in the [Brighton & Hove Case Study](https://adamdennett.github.io/school_attainment_tool/brighton_case_study.html).
+The full [`lme4`](https://cran.r-project.org/web/packages/lme4/refman/lme4.html) code for all model specifications (Analyses A–E) is available in the [Model Experiments report](https://adamdennett.github.io/school_attainment_tool/model_experiments.html), which provides human-readable, self-contained implementations for manual inspection and reproducibility. A detailed application of the model to a single local authority — including maps, non-linear effect interpretation, and policy recommendations — is presented in the [Brighton & Hove Case Study](https://adamdennett.github.io/school_attainment_tool/brighton_case_study.html).
 :::
 
 
@@ -1583,6 +1583,131 @@ Beyond the FSM flip, the two models differ in several other important ways:
 
 These patterns underscore that **the same school-level factors do not operate equally across pupil subgroups**. Policy interventions need to account for these differential effects — what benefits disadvantaged pupils most (concentrated disadvantage with strong support, low absence) is not the same as what benefits non-disadvantaged pupils most (selective admissions, school composition).
 
+### Variable importance: standardised coefficients
+
+The chart below puts all eight continuous predictors on a **common scale** so that their relative importance can be compared directly across pupil groups. Raw model coefficients cannot be compared across variables because the predictors are measured in different units (percentages, indices, days) — a coefficient of −0.15 on log(% FSM) is not directly comparable to −0.003 on % low prior attainment.
+
+The standardisation works as follows: for each predictor, the coefficient is multiplied by the **standard deviation** of that predictor across all schools in the dataset (computed on the log scale for log-transformed variables, matching how they enter the model). The result — the **standardised coefficient** — answers the question: *"if this predictor moved by one standard deviation across the school population, how much would log(ATT8) change?"* This is a measure of **practical importance**, not statistical significance. A large standardised coefficient means the variable has a big impact on attainment differences across schools; a small one means it contributes little to the variation we observe, even if it is statistically significant.
+
+This differs from the **t-value** shown in the stepwise tables above, which measures statistical confidence (coefficient ÷ standard error). With 12,000+ observations, even tiny effects can be highly significant (large t-values), so t-values are poor guides to practical importance. The standardised coefficients shown here are the better tool for understanding which levers matter most.
+
+The admissions policy dummies are excluded because standardising a binary (0/1) indicator is less informative — a "one SD change" in a dummy variable has no natural interpretation.
+
+```{r fig-std-coef-comparison}
+#| label: fig-std-coef-comparison
+#| fig-cap: "Standardised coefficients: relative variable importance across pupil groups (Model 5). Bars show the change in log(ATT8) associated with a one-SD shift in each predictor."
+#| fig-height: 6
+#| fig-width: 9
+
+library(plotly)
+
+# ---- Helper: compute standardised coefficients ----
+standardised_importance <- function(model, data, outcome_var, group_label) {
+  fe <- fixef(model)
+  fe <- fe[names(fe) != "(Intercept)"]
+
+  coef_info <- tribble(
+    ~term,                                     ~data_col,                                   ~transform,
+    "log(PTFSM6CLA1A)",                        "PTFSM6CLA1A",                               "log",
+    "log(PERCTOT)",                             "PERCTOT",                                   "log",
+    "log(PNUMEAL)",                             "PNUMEAL",                                   "log",
+    "PTPRIORLO",                                "PTPRIORLO",                                 "none",
+    "gorard_segregation",                       "gorard_segregation",                        "none",
+    "remained_in_the_same_school",              "remained_in_the_same_school",               "none",
+    "teachers_on_leadership_pay_range_percent",  "teachers_on_leadership_pay_range_percent",  "none",
+    "log(average_number_of_days_taken)",         "average_number_of_days_taken",              "log"
+  )
+
+  results <- coef_info %>%
+    filter(term %in% names(fe)) %>%
+    rowwise() %>%
+    mutate(
+      coef = fe[term],
+      x_vals = list(
+        if (transform == "log") log(data[[data_col]][!is.na(data[[data_col]]) & data[[data_col]] > 0])
+        else data[[data_col]][!is.na(data[[data_col]])]
+      ),
+      sd_x = sd(unlist(x_vals), na.rm = TRUE),
+      std_coef = coef * sd_x,
+      abs_std_coef = abs(std_coef),
+      Group = group_label
+    ) %>%
+    ungroup() %>%
+    select(term, data_col, coef, sd_x, std_coef, abs_std_coef, Group)
+
+  results
+}
+
+display_names <- c(
+  "log(PTFSM6CLA1A)" = "% Disadvantaged (FSM)",
+  "log(PERCTOT)" = "Overall Absence Rate",
+  "log(PNUMEAL)" = "% EAL",
+  "PTPRIORLO" = "% Low Prior Attainment",
+  "gorard_segregation" = "Gorard Segregation Index",
+  "remained_in_the_same_school" = "Teacher Retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
+  "log(average_number_of_days_taken)" = "Teacher Sickness Days"
+)
+
+# Compute for all three groups using the imputed full models (Analysis E)
+imp_all <- standardised_importance(imputed_models$all, imputed_model_data,
+                                    "ATT8SCR", "All Pupils")
+imp_dis <- standardised_importance(imputed_models$disadvantaged, imputed_model_data,
+                                    "ATT8SCR_FSM6CLA1A", "Disadvantaged")
+imp_non <- standardised_importance(imputed_models$non_disadvantaged, imputed_model_data,
+                                    "ATT8SCR_NFSM6CLA1A", "Non-Disadvantaged")
+
+importance_national <- bind_rows(imp_all, imp_dis, imp_non) %>%
+  mutate(display_name = display_names[term])
+
+# ---- Chart ----
+importance_chart_data <- importance_national %>%
+  mutate(
+    display_name = factor(display_name),
+    Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")),
+    tooltip_text = paste0(
+      "<b>", display_name, "</b><br>",
+      "Group: ", Group, "<br>",
+      "Raw coefficient: ", round(coef, 5), "<br>",
+      "SD of predictor: ", round(sd_x, 3), "<br>",
+      "Standardised coef: ", round(std_coef, 4)
+    )
+  )
+
+var_order <- importance_chart_data %>%
+  group_by(display_name) %>%
+  summarise(avg_abs = mean(abs_std_coef)) %>%
+  arrange(avg_abs) %>%
+  pull(display_name)
+
+importance_chart_data <- importance_chart_data %>%
+  mutate(display_name = factor(display_name, levels = var_order))
+
+p_imp <- ggplot(importance_chart_data,
+       aes(x = display_name, y = std_coef, fill = Group,
+           text = tooltip_text)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  coord_flip() +
+  scale_fill_manual(values = c("All Pupils" = "#2e6260",
+                                "Disadvantaged" = "#4e3c56",
+                                "Non-Disadvantaged" = "#abc766")) +
+  labs(x = NULL, y = "Standardised Coefficient (signed)",
+       fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+
+ggplotly(p_imp, tooltip = "text") %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.15))
+```
+
+The chart makes several features of the model immediately visible:
+
+- **% FSM** flips direction for disadvantaged pupils (positive bar) while remaining strongly negative for non-disadvantaged and all pupils — the sign flip discussed above.
+- **Overall absence** and **% low prior attainment** are the two largest negative drivers of attainment across all groups, with absence hitting disadvantaged pupils harder.
+- **% EAL** is the largest *positive* predictor in standardised terms, reflecting that schools with more EAL pupils perform better than expected after controlling for deprivation.
+- **Teacher retention** has a modest positive effect, slightly larger for disadvantaged pupils.
+- **Gorard segregation**, **leadership pay %**, and **teacher sickness days** have small standardised effects — they are statistically significant in the model but contribute relatively little to the variation in attainment across schools.
 
 
 # Observed vs Predicted
