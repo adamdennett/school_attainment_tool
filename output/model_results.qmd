@@ -500,68 +500,80 @@ ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
 
-```{r fig-caterpillar-compare}
-#| label: fig-caterpillar-compare
-#| fig-cap: "Caterpillar plot of LA random intercepts compared across model specifications (All Pupils). Brighton and Hove highlighted in pink."
-#| fig-height: 12
-#| fig-width: 10
+```{r caterpillar-helper}
+#| label: caterpillar-helper
+#| include: false
 
-# Helper: extract LA random effects from any model
-extract_la_re <- function(model, model_name) {
+# Reusable function for LA caterpillar plots
+plot_la_caterpillar <- function(model, title_label) {
   re_list <- ranef(model, condVar = TRUE)
   re_df <- as.data.frame(re_list$`LANAME:gor_name`)
   re_df$group <- rownames(re_list$`LANAME:gor_name`)
   se <- sqrt(attr(re_list$`LANAME:gor_name`, "postVar")[1, 1, ])
-  re_df %>%
+  re_df$se <- se
+
+  re_df <- re_df %>%
     mutate(
-      model = model_name,
       la_name = sub(":.*$", "", group),
-      se = se,
       ci_lo = `(Intercept)` - 1.96 * se,
       ci_hi = `(Intercept)` + 1.96 * se,
+      sig = ci_lo > 0 | ci_hi < 0,
       highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
     )
-}
 
-# Extract for all three panel specifications
-re_compare <- bind_rows(
-  extract_la_re(panel_models$all, "Analysis A: Full Panel (3 yrs)"),
-  extract_la_re(core_models$all,  "Analysis C: Core Panel (4 yrs)"),
-  extract_la_re(imputed_models$all, "Analysis E: Imputed Full Panel (4 yrs)")
-)
-
-# Order LAs by the imputed model's estimate
-la_order <- re_compare %>%
-  filter(grepl("Analysis E", model)) %>%
-  arrange(`(Intercept)`) %>%
-  pull(group)
-
-re_compare <- re_compare %>%
-  mutate(
-    group = factor(group, levels = la_order),
-    model = factor(model, levels = c(
-      "Analysis A: Full Panel (3 yrs)",
-      "Analysis C: Core Panel (4 yrs)",
-      "Analysis E: Imputed Full Panel (4 yrs)"
-    ))
+  # Top and bottom 10 + always include Brighton
+  extreme <- c(
+    head(re_df$la_name[order(re_df$`(Intercept)`)], 10),
+    tail(re_df$la_name[order(re_df$`(Intercept)`)], 10)
   )
+  if (any(grepl("Brighton", re_df$la_name))) {
+    extreme <- unique(c(extreme,
+                         re_df$la_name[grepl("Brighton", re_df$la_name)]))
+  }
 
-ggplot(re_compare, aes(x = group, y = `(Intercept)`)) +
-  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
-                width = 0, colour = "grey70", linewidth = 0.25) +
-  geom_point(aes(colour = highlight), size = 1) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
-  facet_wrap(~ model, ncol = 1, scales = "free_y") +
-  scale_colour_manual(values = c("Other" = "#49a0c4",
-                                  "Brighton and Hove" = "#e16fca"),
-                      guide = "none") +
-  labs(title = "LA Random Intercepts Compared Across Model Specifications (All Pupils)",
-       subtitle = "All panels ordered by Analysis E estimate; error bars = 95% CI",
-       x = "Local Authority (ordered)",
-       y = "Random Intercept (log scale)") +
-  theme_pub +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-        strip.text = element_text(size = 10))
+  ggplot(re_df, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
+    geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                  width = 0, colour = "grey60", linewidth = 0.3) +
+    geom_point(aes(colour = highlight), size = 1.5) +
+    geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+    geom_text_repel(
+      data = re_df %>% filter(la_name %in% extreme),
+      aes(label = la_name),
+      size = 2.5, max.overlaps = 25, force = 4, nudge_y = 0.005,
+      segment.colour = "grey60", segment.size = 0.3
+    ) +
+    scale_colour_manual(values = c("Other" = "#49a0c4",
+                                    "Brighton and Hove" = "#e16fca"),
+                        guide = "none") +
+    labs(title = title_label,
+         subtitle = "Ordered by estimate; error bars = 95% CI. LAs whose CI excludes 0 differ meaningfully from average.",
+         x = "Local Authority (ordered by random intercept)",
+         y = "Random Intercept (log scale)") +
+    theme_pub +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+}
+```
+
+The plots below show the same caterpillar format for **disadvantaged** and **non-disadvantaged** Attainment 8 models. The LA ordering will differ between the two — local authorities that perform well for disadvantaged pupils are not necessarily the same ones that perform well for non-disadvantaged pupils.
+
+```{r fig-caterpillar-la-disadv}
+#| label: fig-caterpillar-la-disadv
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, Disadvantaged Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
+#| fig-height: 8
+#| fig-width: 10
+
+plot_la_caterpillar(imputed_models$disadvantaged,
+                    "LA Random Intercepts — Imputed Full Panel Model (Disadvantaged Pupils)")
+```
+
+```{r fig-caterpillar-la-nondis}
+#| label: fig-caterpillar-la-nondis
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, Non-Disadvantaged Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
+#| fig-height: 8
+#| fig-width: 10
+
+plot_la_caterpillar(imputed_models$non_disadvantaged,
+                    "LA Random Intercepts — Imputed Full Panel Model (Non-Disadvantaged Pupils)")
 ```
 
 
