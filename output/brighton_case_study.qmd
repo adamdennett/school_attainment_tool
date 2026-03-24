@@ -1138,8 +1138,24 @@ cat(sprintf("By contrast, Brighton & Hove's mean FSM rate is **%.1f%%** versus t
     ordinal_suffix(bh_fsm_rank$rank), n_las_bench,
     bh_fsm_rank$pctile, ifelse(bh_fsm_rank$pctile > 45 & bh_fsm_rank$pctile < 55, "th", "th")))
 
-cat(sprintf("**%d out of %d** Brighton & Hove secondary schools have absence rates above the national school-level average.\n",
+cat(sprintf("**%d out of %d** Brighton & Hove secondary schools have absence rates above the national school-level average.\n\n",
     n_above_nat_abs, n_bh_schools))
+
+# Top 10 highest-absence LAs table
+top10_abs <- la_means_abs %>%
+  arrange(desc(la_mean_abs)) %>%
+  head(10) %>%
+  mutate(
+    Rank = paste0(ordinal_suffix(rank), " / ", n_las_bench),
+    `Mean Absence (%)` = round(la_mean_abs, 1)
+  ) %>%
+  select(`Local Authority` = LANAME, `Mean Absence (%)`, Rank)
+
+cat(knitr::kable(top10_abs, format = "html", align = "lrl",
+                  caption = paste0("10 local authorities with the highest mean school absence rates (", latest_year, ")")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                             full_width = FALSE, font_size = 10))
+cat("\n")
 cat(":::\n\n")
 
 cat("This combination — typical deprivation but atypical absence — makes absence reduction an especially important lever for the city. The non-linear effects of the log transformation compound the problem: because most Brighton & Hove schools sit at the high end of the national absence distribution, they are on the flatter part of the curve where each percentage point of improvement buys less predicted attainment gain than it would for schools starting from a lower base. Nonetheless, the sheer scale of the gap means that closing it would deliver substantial improvements.\n\n")
