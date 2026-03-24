@@ -1747,7 +1747,113 @@ For Brighton & Hove, the practical conclusion is clear: **investing in absence r
 
 # Observed vs Predicted
 
-How well does the national model predict attainment for Brighton & Hove schools specifically?
+How well does the national model predict attainment for Brighton & Hove schools specifically? The scatter plot below shows **all schools nationally** in 2024-25 as grey points, with Brighton & Hove schools highlighted in pink and labelled by name. The dashed line marks perfect prediction — schools above the line are outperforming the model's expectations; schools below are underperforming. The three panels show All Pupils, Disadvantaged, and Non-Disadvantaged outcomes.
+
+```{r bh-obs-pred-national}
+#| label: bh-obs-pred-national
+#| fig-height: 12
+#| fig-width: 9
+#| fig-cap: "Observed vs predicted Attainment 8 for all schools (2024-25). Brighton & Hove schools highlighted in pink and labelled."
+
+library(ggrepel)
+
+# Get the latest year
+latest_yr <- max(bh_data$year_label, na.rm = TRUE)
+
+# National data for 2024-25 with predictions from all three models
+national_2425 <- imputed_full_data %>%
+  filter(year_label == latest_yr) %>%
+  mutate(
+    pred_all = predict(mod_e_all, newdata = ., allow.new.levels = TRUE),
+    pred_dis = predict(mod_e_disadv, newdata = ., allow.new.levels = TRUE),
+    pred_non = predict(mod_e_nondisadv, newdata = ., allow.new.levels = TRUE),
+    is_bh = grepl("Brighton", LANAME)
+  )
+
+# Build long format for three panels
+outcomes <- list(
+  list(obs = "ATT8SCR", pred = "pred_all", label = "All Pupils"),
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "pred_dis", label = "Disadvantaged"),
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "pred_non", label = "Non-Disadvantaged")
+)
+
+nat_long <- map_dfr(outcomes, function(o) {
+  national_2425 %>%
+    filter(!is.na(.data[[o$obs]]), !is.na(.data[[o$pred]])) %>%
+    transmute(
+      School = SCHNAME,
+      LANAME = LANAME,
+      Group = o$label,
+      Observed = .data[[o$obs]],
+      Predicted = exp(.data[[o$pred]]),
+      is_bh = is_bh
+    )
+}) %>%
+  mutate(Group = factor(Group,
+                        levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")))
+
+# Compute R² per panel
+r2_labels <- nat_long %>%
+  group_by(Group) %>%
+  summarise(
+    r2 = cor(Observed, Predicted, use = "complete.obs")^2,
+    label = paste0("R² = ", format(round(r2, 3), nsmall = 3)),
+    .groups = "drop"
+  )
+
+# Range for axes
+rng <- range(c(nat_long$Observed, nat_long$Predicted), na.rm = TRUE)
+rng <- c(max(0, rng[1] - 2), rng[2] + 2)
+
+# Brighton schools for labelling
+bh_points <- nat_long %>% filter(is_bh)
+
+ggplot(nat_long, aes(x = Predicted, y = Observed)) +
+  # National schools (grey background)
+  geom_point(data = nat_long %>% filter(!is_bh),
+             colour = "grey75", size = 0.8, alpha = 0.4) +
+  # Perfect prediction line
+  geom_abline(slope = 1, intercept = 0, colour = "grey40",
+              linewidth = 0.5, linetype = "dashed") +
+  # OLS fit line
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue",
+              linewidth = 0.5, alpha = 0.5) +
+  # Brighton schools (pink)
+  geom_point(data = bh_points,
+             colour = "#e16fca", size = 2.5, alpha = 0.9) +
+  # School name labels
+  geom_text_repel(
+    data = bh_points,
+    aes(label = School),
+    colour = "#c0389a", size = 2.5,
+    max.overlaps = 20, force = 6, force_pull = 0.5,
+    nudge_y = 1, segment.colour = "grey50", segment.size = 0.3,
+    segment.linetype = "solid", min.segment.length = 0.2
+  ) +
+  # R² annotation
+  geom_text(data = r2_labels,
+            aes(x = rng[1] + 2, y = rng[2] - 2, label = label),
+            hjust = 0, vjust = 1, size = 3.5, colour = "steelblue",
+            inherit.aes = FALSE) +
+  facet_wrap(~ Group, ncol = 1) +
+  coord_cartesian(xlim = rng, ylim = rng) +
+  labs(x = "Predicted ATT8 (imputed full model)",
+       y = "Observed ATT8",
+       title = paste0("Observed vs Predicted Attainment 8 — ", latest_yr),
+       subtitle = "Brighton & Hove schools highlighted in pink. Blue line = OLS fit; dashed = perfect prediction.") +
+  theme_minimal(base_size = 11) +
+  theme(
+    strip.text = element_text(face = "bold", size = 12),
+    plot.title = element_text(face = "bold"),
+    panel.spacing = unit(1, "lines")
+  )
+```
+
+The plot reveals how each Brighton & Hove school sits relative to the full national distribution of predicted attainment. Schools well above the dashed line have positive residuals — they are achieving more than the model predicts given their intake and context. Schools below are underperforming relative to expectations.
+
+## Brighton & Hove schools across all years
+
+The following plot focuses on **Brighton & Hove schools only**, showing how each school's observed and predicted attainment tracks across all four years of the panel. Triangular markers indicate years where carry-forward imputed predictors were used (2024-25).
 
 ```{r bh-obs-pred}
 #| label: bh-obs-pred
