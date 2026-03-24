@@ -1461,9 +1461,14 @@ This is a more promising and directly controllable route to raising attainment t
 :::
 
 
-# How Confounding Changes the Story: The Full Model in Brighton & Hove {#sec-confounding}
+# How Mediation and Confounding Change the Story {#sec-confounding}
 
 The non-linear effects described above tell us *how much* a change in a predictor matters at different starting points. But a crucial question remains: **what are the coefficients actually measuring?** The answer depends on which other variables are in the model — and the full imputed panel model (Analysis E, with 9 predictors) tells a fundamentally different story from a simpler model that omits prior attainment and workforce controls.
+
+Two distinct mechanisms are at work:
+
+- **Mediation**: prior attainment sits on the *causal pathway* between disadvantage and attainment — disadvantaged pupils arrive at secondary school with lower KS2 scores, which in turn predict lower KS4 outcomes. Controlling for prior attainment removes this indirect effect, revealing the direct (residual) relationship between school-level deprivation and attainment.
+- **Confounding**: absence is correlated with FSM but is not simply caused by it — schools in deprived areas face higher absence for reasons partly independent of deprivation itself. Without controlling for absence, the FSM coefficient absorbs both the deprivation effect and the absence effect.
 
 ## The problem: omitted variable bias
 
@@ -1499,7 +1504,7 @@ The table above reveals several features that are crucial for interpreting the m
 
 ## Prior attainment absorbs much of the "disadvantage penalty"
 
-The single most important confounding relationship in this model is between **% FSM** (intake deprivation) and **% low prior attainment** (`PTPRIORLO`). These two variables are strongly correlated: schools with more disadvantaged intakes also tend to receive more pupils with low KS2 scores. In a simpler model without `PTPRIORLO`, the FSM coefficient would have to absorb *both* the direct deprivation effect and the prior-attainment effect, making deprivation appear more damaging than it actually is once prior attainment is accounted for.
+The single most important **mediating** relationship in this model is between **% FSM** (intake deprivation) and **% low prior attainment** (`PTPRIORLO`). Prior attainment is a *mediator*, not a confounder: the causal chain runs from disadvantage → lower KS2 achievement → lower KS4 attainment. These two variables are strongly correlated because schools with more disadvantaged intakes receive more pupils who arrived with weaker primary-school preparation. In a simpler model without `PTPRIORLO`, the FSM coefficient absorbs *both* the direct deprivation effect and the indirect effect operating through prior attainment, making deprivation appear more damaging than it actually is once the prior-attainment pathway is accounted for.
 
 ```{r confounding-correlation}
 #| label: confounding-correlation
@@ -1533,9 +1538,9 @@ p_confound
 #| label: confounding-narrative
 #| output: asis
 
-cat(sprintf("In Brighton & Hove, the correlation between log(%% FSM) and %% low prior attainment is **r = %.2f** — meaning schools with higher deprivation levels consistently receive pupils with weaker primary-school preparation. Without controlling for prior attainment, any model would attribute this entire penalty to FSM alone.\n\n", cor_val))
+cat(sprintf("In Brighton & Hove, the correlation between log(%% FSM) and %% low prior attainment is **r = %.2f** — meaning schools with higher deprivation levels consistently receive pupils with weaker primary-school preparation. This is the mediating pathway in action: disadvantage leads to lower KS2 scores, which in turn predict lower KS4 attainment. Without controlling for prior attainment, any model would attribute this entire indirect effect to FSM alone.\n\n", cor_val))
 
-cat("In the full model (Analysis E), `PTPRIORLO` picks up the prior-attainment component of the disadvantage penalty, freeing `log(% FSM)` to capture only the *residual* relationship between intake composition and outcomes. This decomposition reveals something remarkable.\n\n")
+cat("In the full model (Analysis E), `PTPRIORLO` picks up the prior-attainment pathway of the disadvantage penalty, freeing `log(% FSM)` to capture only the *direct residual* relationship between intake composition and outcomes. This decomposition reveals something remarkable.\n\n")
 ```
 
 ## The FSM sign-flip: a structural finding only visible in the full model
@@ -1569,7 +1574,7 @@ cat("**Why does this happen?** Two plausible explanations:\n\n")
 cat("1. **The \"critical mass\" effect:** Schools serving predominantly disadvantaged cohorts may concentrate more resources — Pupil Premium funding, specialist teaching, pastoral support — on those pupils. Where disadvantaged pupils are a large share of the cohort, interventions are scaled rather than marginal.\n\n")
 cat("2. **The composition effect:** In schools where almost all pupils are disadvantaged, the disadvantaged subgroup essentially *is* the school average, removing any within-school composition penalty.\n\n")
 
-cat("**Crucially, this sign flip is invisible in a simpler model.** Without `PTPRIORLO` in the model, `log(% FSM)` is forced to absorb the prior-attainment penalty as well, and the net effect is negative for all three groups. The structural relationship is *suppressed* by omitted variable bias.\n\n")
+cat("**Crucially, this sign flip is invisible in a simpler model.** Without `PTPRIORLO` in the model, `log(% FSM)` is forced to absorb the indirect effect operating through prior attainment as well, and the net effect is negative for all three groups. The structural relationship is *suppressed* because the mediating pathway has not been separated out.\n\n")
 ```
 
 ## What this means for Brighton & Hove schools
@@ -1580,17 +1585,20 @@ cat("**Crucially, this sign flip is invisible in a simpler model.** Without `PTP
 
 # Compute the decomposition for each B&H school
 bh_decomp <- bh_latest_model %>%
-  filter(!is.na(PTPRIORLO)) %>%
+  filter(!is.na(PTPRIORLO), !is.na(PERCTOT)) %>%
   transmute(
     School = SCHNAME,
     fsm_pct = round(PTFSM6CLA1A, 1),
+    abs_pct = round(PERCTOT, 1),
     prior_lo_pct = round(PTPRIORLO, 1),
     # Effect via FSM coefficient (All Pupils)
     fsm_effect_all = round(fe_all["log(PTFSM6CLA1A)"] * log(PTFSM6CLA1A), 3),
-    # Effect via prior attainment coefficient
+    # Effect via absence coefficient (confounder)
+    abs_effect_all = round(fe_all["log(PERCTOT)"] * log(PERCTOT), 3),
+    # Effect via prior attainment coefficient (mediator)
     prior_effect = round(fe_all["PTPRIORLO"] * PTPRIORLO, 3),
-    # Combined
-    combined = round(fsm_effect_all + prior_effect, 3),
+    # Combined: FSM + absence + prior attainment
+    combined = round(fsm_effect_all + abs_effect_all + prior_effect, 3),
     # FSM effect for disadvantaged (positive!)
     fsm_effect_dis = round(fe_dis["log(PTFSM6CLA1A)"] * log(PTFSM6CLA1A), 3)
   ) %>%
@@ -1598,13 +1606,15 @@ bh_decomp <- bh_latest_model %>%
 
 knitr::kable(bh_decomp %>%
   rename(`% FSM` = fsm_pct,
+         `% Absence` = abs_pct,
          `% Low Prior` = prior_lo_pct,
          `FSM effect (All)` = fsm_effect_all,
+         `Absence effect (All)` = abs_effect_all,
          `Prior att. effect` = prior_effect,
          `Combined` = combined,
          `FSM effect (Disadv.)` = fsm_effect_dis),
-  caption = "Brighton & Hove schools: decomposing the disadvantage penalty into FSM and prior attainment components (log-ATT8 scale)",
-  align = "lrrrrrr")
+  caption = "Brighton & Hove schools: decomposing the disadvantage-related penalty into FSM, absence (confounder), and prior attainment (mediator) components (log-ATT8 scale)",
+  align = "lrrrrrrrrr")
 ```
 
 ```{r bh-decomp-narrative}
@@ -1615,13 +1625,14 @@ knitr::kable(bh_decomp %>%
 high_fsm <- bh_decomp %>% filter(fsm_pct == max(fsm_pct))
 low_fsm <- bh_decomp %>% filter(fsm_pct == min(fsm_pct))
 
-cat("The table above decomposes the model's predicted penalty from intake composition into two parts for each Brighton & Hove school:\n\n")
-cat("- **FSM effect:** the direct contribution of log(% FSM) × its coefficient\n")
-cat("- **Prior attainment effect:** the contribution of % low prior attainment × its coefficient\n\n")
+cat("The table above decomposes the model's predicted penalty from intake composition into three parts for each Brighton & Hove school:\n\n")
+cat("- **FSM effect:** the direct (residual) contribution of log(% FSM) × its coefficient\n")
+cat("- **Absence effect:** the contribution of log(% absence) × its coefficient — a **confounder** correlated with FSM but not simply caused by it\n")
+cat("- **Prior attainment effect:** the contribution of % low prior attainment × its coefficient — a **mediator** on the causal pathway from disadvantage to attainment\n\n")
 
-cat(sprintf("For **%s** (%.0f%% FSM, %.0f%% low prior), the FSM effect on all-pupil attainment is %.3f log points, while the prior attainment effect is %.3f — meaning prior attainment accounts for a substantial share of the total intake penalty.\n\n",
-    high_fsm$School, high_fsm$fsm_pct, high_fsm$prior_lo_pct,
-    high_fsm$fsm_effect_all, high_fsm$prior_effect))
+cat(sprintf("For **%s** (%.0f%% FSM, %.1f%% absence, %.0f%% low prior), the FSM effect on all-pupil attainment is %.3f log points, the absence effect is %.3f, and the prior attainment effect is %.3f — meaning prior attainment and absence together account for the bulk of the total intake-related penalty.\n\n",
+    high_fsm$School, high_fsm$fsm_pct, high_fsm$abs_pct, high_fsm$prior_lo_pct,
+    high_fsm$fsm_effect_all, high_fsm$abs_effect_all, high_fsm$prior_effect))
 
 cat(sprintf("But look at the last column: the FSM effect *for disadvantaged pupils* at the same school is **%+.3f** — positive. This school's disadvantaged pupils are predicted to do slightly *better* precisely because it is a high-FSM school. Conversely, **%s** (%.0f%% FSM) has a FSM effect for disadvantaged pupils of %+.3f — smaller, because there are fewer disadvantaged peers.\n\n",
     high_fsm$fsm_effect_dis, low_fsm$School, low_fsm$fsm_pct, low_fsm$fsm_effect_dis))
@@ -1720,15 +1731,15 @@ ggplot(abs_impact_groups,
 ```
 
 ::: {.callout-important}
-## The confounding story in summary
+## Mediation, confounding, and the story they tell
 
-The full model reveals that what appears to be a simple "disadvantage penalty" is actually a composite of two distinct mechanisms:
+The full model reveals that what appears to be a simple "disadvantage penalty" is actually a composite of distinct mechanisms:
 
-1. **Prior attainment** — strongly correlated with FSM, and the primary driver of the raw association between deprivation and attainment. Schools with more disadvantaged intakes receive pupils with weaker KS2 preparation, and this accounts for a large portion of the apparent FSM effect.
+1. **Prior attainment (mediation)** — the primary *mediating* pathway between deprivation and attainment. Schools with more disadvantaged intakes receive pupils with weaker KS2 preparation, and this indirect effect accounts for a large portion of the apparent FSM–attainment relationship. Once this mediator is included, the FSM coefficient captures only the direct residual effect of school-level deprivation.
 
-2. **Residual deprivation** — once prior attainment is controlled for, higher FSM rates actually *help* disadvantaged pupils slightly (the sign flip), while still penalising overall and non-disadvantaged attainment.
+2. **Residual deprivation** — once prior attainment is accounted for, higher FSM rates actually *help* disadvantaged pupils slightly (the sign flip), while still penalising overall and non-disadvantaged attainment.
 
-3. **Absence** — the strongest directly actionable predictor, hitting disadvantaged pupils hardest. Unlike FSM composition, absence can be influenced through policy and intervention, and the non-linear log scale means the greatest gains come from protecting schools with moderate absence rates. Brighton & Hove's position as a national outlier on absence — but *not* on deprivation — makes this the defining policy challenge for the authority.
+3. **Absence (confounding)** — the strongest directly actionable predictor, hitting disadvantaged pupils hardest. Absence is correlated with FSM but is not simply caused by it, making it a confounder that inflates the apparent deprivation penalty in simpler models. Unlike FSM composition, absence can be influenced through policy and intervention, and the non-linear log scale means the greatest gains come from protecting schools with moderate absence rates. Brighton & Hove's position as a national outlier on absence — but *not* on deprivation — makes this the defining policy challenge for the authority.
 
 For Brighton & Hove, the practical conclusion is clear: **investing in absence reduction and KS2–KS3 transition support** will deliver far more than attempts to redistribute intake composition across schools. The fact that the city has near-average deprivation levels but near-worst absence rates demonstrates that the absence problem is not an inevitable consequence of its intake profile — and is therefore, in principle, solvable through targeted local action.
 :::

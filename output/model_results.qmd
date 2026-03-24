@@ -1495,7 +1495,7 @@ d_abs_m4 <- round(sw_dis$coefs$c4$estimate[sw_dis$coefs$c4$term == "log(PERCTOT)
 d_prior_m3 <- round(sw_dis$coefs$c3$estimate[sw_dis$coefs$c3$term == "PTPRIORLO"], 3)
 ```
 
-**Model 1 → Model 2 (adding absence):** For disadvantaged pupils, the FSM coefficient starts at `r d_fsm_m1` and shifts to `r d_fsm_m2` when absence enters. As with all pupils, the direction of confounding is clear — absence partly mediates the FSM–attainment pathway. R² increases from `r sw_dis$r2$r2_1` to `r sw_dis$r2$r2_2`.
+**Model 1 → Model 2 (adding absence):** For disadvantaged pupils, the FSM coefficient starts at `r d_fsm_m1` and shifts to `r d_fsm_m2` when absence enters. As with all pupils, the confounding between FSM and absence is clear — schools with higher deprivation also tend to have higher absence. R² increases from `r sw_dis$r2$r2_1` to `r sw_dis$r2$r2_2`.
 
 **Model 2 → Model 3 (adding % low prior attainment):** The FSM coefficient moves from `r d_fsm_m2` to `r d_fsm_m3` — the mediating role of prior attainment is substantial here too. The prior attainment coefficient (`r d_prior_m3`) is strongly negative. R² jumps to `r sw_dis$r2$r2_3`.
 
