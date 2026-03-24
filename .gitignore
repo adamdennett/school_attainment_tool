@@ -16,6 +16,10 @@ renv/staging/
 
 # Data - raw source files (too large for git)
 data-raw/*.zip
+data-raw/casaviz/
+data-raw/*.potx
+data-raw/*.pptx
+data-raw/*.docx
 
 # Data - intermediate pipeline outputs
 data/extracted/
@@ -71,9 +75,9 @@ output/
 .claude/
 
 # Scratch / debug scripts
-check_la.R
+check_*.R
+verify_*.R
 tmp_check.R
-verify_la_match.R
 
 # Exploratory HTML output
 cluster_data_explorer.html
