@@ -1585,13 +1585,13 @@ These patterns underscore that **the same school-level factors do not operate eq
 
 ### Variable importance: standardised coefficients
 
-The chart below puts all eight continuous predictors on a **common scale** so that their relative importance can be compared directly across pupil groups. Raw model coefficients cannot be compared across variables because the predictors are measured in different units (percentages, indices, days) — a coefficient of −0.15 on log(% FSM) is not directly comparable to −0.003 on % low prior attainment.
+The chart below puts all predictors on a **common scale** so that their relative importance can be compared directly across pupil groups. Raw model coefficients cannot be compared across variables because the predictors are measured in different units (percentages, indices, days) — a coefficient of −0.15 on log(% FSM) is not directly comparable to −0.003 on % low prior attainment.
 
 The standardisation works as follows: for each predictor, the coefficient is multiplied by the **standard deviation** of that predictor across all schools in the dataset (computed on the log scale for log-transformed variables, matching how they enter the model). The result — the **standardised coefficient** — answers the question: *"if this predictor moved by one standard deviation across the school population, how much would log(ATT8) change?"* This is a measure of **practical importance**, not statistical significance. A large standardised coefficient means the variable has a big impact on attainment differences across schools; a small one means it contributes little to the variation we observe, even if it is statistically significant.
 
 This differs from the **t-value** shown in the stepwise tables above, which measures statistical confidence (coefficient ÷ standard error). With 12,000+ observations, even tiny effects can be highly significant (large t-values), so t-values are poor guides to practical importance. The standardised coefficients shown here are the better tool for understanding which levers matter most.
 
-The admissions policy dummies are excluded because standardising a binary (0/1) indicator is less informative — a "one SD change" in a dummy variable has no natural interpretation.
+The chart also includes the **selective admissions** dummy variable (grammar schools). Because this is a binary 0/1 indicator rather than a continuous measure, the standardisation is applied in the same way — the coefficient is multiplied by the SD of the 0/1 variable. Since only around 5% of schools are selective, the SD is small (~0.22), so the standardised coefficient reflects the effect weighted by how common selective schools are in the population. This puts it on the same "population-level importance" scale as the continuous predictors: a variable that affects every school modestly will rank higher than one with a dramatic effect on only a few schools. The "other non-selective" dummy is omitted as its coefficient is small and generally non-significant.
 
 ```{r fig-std-coef-comparison}
 #| label: fig-std-coef-comparison
