@@ -254,7 +254,7 @@ The four log-transformed predictors (% FSM, % absence, % EAL, teacher sickness d
 
 # Brighton & Hove's Position Among All Local Authorities
 
-Before examining individual schools, it is important to understand where Brighton & Hove sits as a *local authority* in the national model. The multilevel model includes a random intercept for each of the 152 local authorities (nested within region). This random intercept captures the extent to which an LA's schools systematically over- or under-perform the national average, **after controlling for all nine fixed-effect predictors** (intake composition, absence, workforce, etc.).
+Before examining individual schools, it is important to understand where Brighton & Hove sits as a *local authority* in the national model. The caterpillar plot below displays the estimated random intercepts for each local authority (nested within region), ordered by magnitude. Error bars show 95% confidence intervals (±1.96 posterior SE). Local authorities whose interval does not cross zero are meaningfully different from the overall mean, after accounting for fixed effects and other random effects. Brighton and Hove is highlighted in pink.
 
 ```{r caterpillar-plot}
 #| label: caterpillar-plot
@@ -314,7 +314,9 @@ ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
   scale_colour_manual(values = c("Other" = "#49a0c4",
                                   "Brighton and Hove" = "#e16fca"),
                       guide = "none") +
-  labs(x = "Local Authority (ordered by random intercept)",
+  labs(title = "LA Random Intercepts — Imputed Full Panel Model (All Pupils)",
+       subtitle = "Ordered by estimate; error bars = 95% CI. LAs whose CI excludes 0 differ meaningfully from average.",
+       x = "Local Authority (ordered by random intercept)",
        y = "Random Intercept (log scale)") +
   theme_minimal(base_size = 11) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
