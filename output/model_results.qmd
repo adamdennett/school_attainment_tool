@@ -1612,6 +1612,7 @@ standardised_importance <- function(model, data, outcome_var, group_label) {
     "log(PERCTOT)",                             "PERCTOT",                                   "log",
     "log(PNUMEAL)",                             "PNUMEAL",                                   "log",
     "PTPRIORLO",                                "PTPRIORLO",                                 "none",
+    "ADMPOL_PTSEL",                             "ADMPOL_PT",                                 "dummy_SEL",
     "gorard_segregation",                       "gorard_segregation",                        "none",
     "remained_in_the_same_school",              "remained_in_the_same_school",               "none",
     "teachers_on_leadership_pay_range_percent",  "teachers_on_leadership_pay_range_percent",  "none",
@@ -1625,6 +1626,7 @@ standardised_importance <- function(model, data, outcome_var, group_label) {
       coef = fe[term],
       x_vals = list(
         if (transform == "log") log(data[[data_col]][!is.na(data[[data_col]]) & data[[data_col]] > 0])
+        else if (transform == "dummy_SEL") as.numeric(data[[data_col]] == "SEL")[!is.na(data[[data_col]])]
         else data[[data_col]][!is.na(data[[data_col]])]
       ),
       sd_x = sd(unlist(x_vals), na.rm = TRUE),
@@ -1643,6 +1645,7 @@ display_names <- c(
   "log(PERCTOT)" = "Overall Absence Rate",
   "log(PNUMEAL)" = "% EAL",
   "PTPRIORLO" = "% Low Prior Attainment",
+  "ADMPOL_PTSEL" = "Selective Admissions (grammar)",
   "gorard_segregation" = "Gorard Segregation Index",
   "remained_in_the_same_school" = "Teacher Retention",
   "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
@@ -1706,6 +1709,7 @@ The chart makes several features of the model immediately visible:
 - **% FSM** flips direction for disadvantaged pupils (positive bar) while remaining strongly negative for non-disadvantaged and all pupils — the sign flip discussed above.
 - **Overall absence** and **% low prior attainment** are the two largest negative drivers of attainment across all groups, with absence hitting disadvantaged pupils harder.
 - **% EAL** is the largest *positive* predictor in standardised terms, reflecting that schools with more EAL pupils perform better than expected after controlling for deprivation.
+- **Selective admissions** (grammar schools) shows a strong positive standardised coefficient, but the effect is notably larger for non-disadvantaged pupils than for disadvantaged pupils — the grammar school premium is not equally shared.
 - **Teacher retention** has a modest positive effect, slightly larger for disadvantaged pupils.
 - **Gorard segregation**, **leadership pay %**, and **teacher sickness days** have small standardised effects — they are statistically significant in the model but contribute relatively little to the variation in attainment across schools.
 
