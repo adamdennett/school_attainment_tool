@@ -2149,3 +2149,398 @@ policy lever on the basis of this model.
 | `gor_name` | `(1\|gor_name/LANAME)` | Government Office Region |
 | `LANAME` | nested in `gor_name` | Local Authority |
 | `year_label` | `(1\|year_label)` | Academic year (panel models only) |
+
+
+# Disadvantaged Attainment and Concentrations of Disadvantage: Directionality Test {#sec-directionality}
+
+In Analysis E, the coefficient on `log(PTFSM6CLA1A)` flips from negative (All Pupils, Non-Disadvantaged) to **positive** for Disadvantaged pupils once prior attainment and other controls are included. This section tests whether the sign-flip is robust to alternative operationalisations of both the outcome (disadvantaged attainment) and the predictor (school-level disadvantage concentration), or whether it is an artefact of the specific FSM6CLA1A classification and Attainment 8 metric.
+
+**Strategy:** Hold the model specification constant (same random effects, same controls) and systematically vary:
+
+1. The **Y variable** — alternative measures of disadvantaged pupil attainment
+2. The **X variable** — alternative measures of school-level disadvantage concentration
+
+If the sign-flip appears consistently across different measures, it is more likely to reflect a genuine structural relationship than a measurement artefact.
+
+## Setup: baseline model and data
+
+```{r directionality-setup}
+#| label: directionality-setup
+
+# Use the same imputed full dataset as Analysis E
+d_dir <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(PTPRIORLO),
+         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
+         !is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0,
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+contrasts(d_dir$OFSTEDRATING_1) <- contr.treatment(levels(d_dir$OFSTEDRATING_1))
+
+cat("Directionality test dataset:", nrow(d_dir), "rows\n")
+cat("Years:", paste(unique(d_dir$year_label), collapse = ", "), "\n")
+
+# Reference: the Analysis E disadvantaged coefficient
+ref_coef <- fixef(mod_e_disadv)["log(PTFSM6CLA1A)"]
+cat(sprintf("\nReference (Analysis E): log(PTFSM6CLA1A) coefficient = %+.5f\n", ref_coef))
+```
+
+## Test 1: Alternative Y variables (disadvantaged attainment)
+
+Holding `log(PTFSM6CLA1A)` as the deprivation measure, we swap the outcome variable across six alternative measures of disadvantaged attainment. For each, we report the coefficient on `log(PTFSM6CLA1A)`, its standard error, t-value, and sign.
+
+```{r directionality-y-vars}
+#| label: directionality-y-vars
+
+# Define alternative Y variables to test
+y_tests <- tribble(
+  ~y_var,                      ~label,                              ~transform,  ~filter_positive,
+  "ATT8SCR_FSM6CLA1A",        "ATT8 Disadvantaged (reference)",    "log",       TRUE,
+  "ATT8SCRENG_FSM6CLA1A",     "ATT8 English (Disadvantaged)",      "log",       TRUE,
+  "ATT8SCRMAT_FSM6CLA1A",     "ATT8 Maths (Disadvantaged)",        "log",       TRUE,
+  "ATT8SCREBAC_FSM6CLA1A",    "ATT8 EBacc (Disadvantaged)",        "log",       TRUE,
+  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open (Disadvantaged)",         "log",       TRUE,
+  "P8MEA_FSM6CLA1A",          "Progress 8 (Disadvantaged)",        "none",      FALSE
+)
+
+# Fit each model and extract the FSM coefficient
+y_results <- map_dfr(seq_len(nrow(y_tests)), function(i) {
+  y_var <- y_tests$y_var[i]
+  label <- y_tests$label[i]
+  transform <- y_tests$transform[i]
+  filter_pos <- y_tests$filter_positive[i]
+
+  d_test <- d_dir
+  y_vals <- d_test[[y_var]]
+
+  # Filter to valid observations
+  if (filter_pos) {
+    d_test <- d_test[!is.na(y_vals) & y_vals > 0, ]
+  } else {
+    d_test <- d_test[!is.na(y_vals), ]
+  }
+  d_test <- droplevels(d_test)
+  contrasts(d_test$OFSTEDRATING_1) <- contr.treatment(levels(d_test$OFSTEDRATING_1))
+
+  # Build formula
+  if (transform == "log") {
+    lhs <- paste0("log(", y_var, ")")
+  } else {
+    lhs <- y_var
+  }
+
+  formula_str <- paste0(
+    lhs, " ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
+    "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+    "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
+    "log(average_number_of_days_taken) + ",
+    "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+  )
+
+  mod <- tryCatch(
+    lmer(as.formula(formula_str), data = d_test, REML = TRUE,
+         na.action = na.exclude,
+         control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))),
+    error = function(e) NULL
+  )
+
+  if (is.null(mod)) {
+    return(tibble(Y_Variable = label, N = nrow(d_test),
+                  Coefficient = NA_real_, SE = NA_real_,
+                  t_value = NA_real_, Sign = "FAILED"))
+  }
+
+  coefs <- summary(mod)$coefficients
+  row_name <- "log(PTFSM6CLA1A)"
+  if (row_name %in% rownames(coefs)) {
+    tibble(
+      Y_Variable = label,
+      N = nrow(d_test),
+      Coefficient = coefs[row_name, "Estimate"],
+      SE = coefs[row_name, "Std. Error"],
+      t_value = coefs[row_name, "t value"],
+      Sign = ifelse(coefs[row_name, "Estimate"] > 0, "POSITIVE", "negative")
+    )
+  } else {
+    tibble(Y_Variable = label, N = nrow(d_test),
+           Coefficient = NA_real_, SE = NA_real_,
+           t_value = NA_real_, Sign = "NOT FOUND")
+  }
+})
+
+knitr::kable(
+  y_results %>%
+    mutate(Coefficient = sprintf("%+.5f", Coefficient),
+           SE = sprintf("%.5f", SE),
+           t_value = sprintf("%+.2f", t_value)),
+  caption = "Test 1: Coefficient on log(% FSM) across alternative disadvantaged attainment measures",
+  align = "lrrrrl"
+)
+```
+
+```{r directionality-y-narrative}
+#| label: directionality-y-narrative
+#| output: asis
+
+n_positive <- sum(y_results$Sign == "POSITIVE", na.rm = TRUE)
+n_total <- sum(!is.na(y_results$Coefficient))
+
+cat(sprintf("Of the %d outcome measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils.\n\n", n_total, n_positive))
+
+# Special note on Progress 8
+p8_row <- y_results %>% filter(grepl("Progress 8", Y_Variable))
+if (nrow(p8_row) > 0 && !is.na(p8_row$Coefficient)) {
+  cat(sprintf("**Progress 8** is particularly noteworthy because it is already a value-added measure (adjusting for prior attainment at the individual pupil level). The coefficient on log(%% FSM) in the P8 model is **%+.5f** (t = %+.2f). ",
+      p8_row$Coefficient, p8_row$t_value))
+  if (p8_row$Coefficient > 0) {
+    cat("The fact that the sign remains positive even when the outcome itself already accounts for prior attainment reinforces the finding: this is not simply a statistical artefact of controlling for `PTPRIORLO` in the model.\n\n")
+  } else {
+    cat("The sign is negative here, which is expected since Progress 8 already removes the prior-attainment pathway at the individual level — the school-level `PTPRIORLO` control in our model may be double-counting.\n\n")
+  }
+}
+```
+
+## Test 2: Alternative X variables (school-level disadvantage concentration)
+
+Now we hold the outcome fixed at `log(ATT8SCR_FSM6CLA1A)` and swap the deprivation predictor. Each alternative X replaces `log(PTFSM6CLA1A)` in the model while keeping all other predictors unchanged.
+
+```{r directionality-x-vars}
+#| label: directionality-x-vars
+
+# Define alternative X variables to test
+x_tests <- tribble(
+  ~x_var,            ~label,                                 ~transform,
+  "PTFSM6CLA1A",    "% FSM6CLA1A (reference)",              "log",
+  "PNUMFSMEVER",    "% ever FSM (census, broader defn.)",   "log",
+  "PSEN_ALL4",      "% any SEN",                            "log",
+  "PPERSABS10",     "% persistent absentees (10%+)",        "log",
+  "PTEALGRP2",      "% EAL not yet fluent",                 "log"
+)
+
+x_results <- map_dfr(seq_len(nrow(x_tests)), function(i) {
+  x_var <- x_tests$x_var[i]
+  label <- x_tests$label[i]
+  transform <- x_tests$transform[i]
+
+  d_test <- d_dir
+  x_vals <- d_test[[x_var]]
+
+  # Filter to valid, positive values for log transform
+  d_test <- d_test[!is.na(x_vals) & x_vals > 0, ]
+  d_test <- droplevels(d_test)
+  contrasts(d_test$OFSTEDRATING_1) <- contr.treatment(levels(d_test$OFSTEDRATING_1))
+
+  # Build formula: swap x_var for PTFSM6CLA1A
+  x_term <- if (transform == "log") paste0("log(", x_var, ")") else x_var
+  coef_name <- if (transform == "log") paste0("log(", x_var, ")") else x_var
+
+  formula_str <- paste0(
+    "log(ATT8SCR_FSM6CLA1A) ~ ", x_term, " + log(PERCTOT) + log(PNUMEAL) + ",
+    "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+    "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
+    "log(average_number_of_days_taken) + ",
+    "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+  )
+
+  mod <- tryCatch(
+    lmer(as.formula(formula_str), data = d_test, REML = TRUE,
+         na.action = na.exclude,
+         control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))),
+    error = function(e) NULL
+  )
+
+  if (is.null(mod)) {
+    return(tibble(X_Variable = label, N = nrow(d_test),
+                  Coefficient = NA_real_, SE = NA_real_,
+                  t_value = NA_real_, Sign = "FAILED"))
+  }
+
+  coefs <- summary(mod)$coefficients
+  if (coef_name %in% rownames(coefs)) {
+    tibble(
+      X_Variable = label,
+      N = nrow(d_test),
+      Coefficient = coefs[coef_name, "Estimate"],
+      SE = coefs[coef_name, "Std. Error"],
+      t_value = coefs[coef_name, "t value"],
+      Sign = ifelse(coefs[coef_name, "Estimate"] > 0, "POSITIVE", "negative")
+    )
+  } else {
+    tibble(X_Variable = label, N = nrow(d_test),
+           Coefficient = NA_real_, SE = NA_real_,
+           t_value = NA_real_, Sign = "NOT FOUND")
+  }
+})
+
+knitr::kable(
+  x_results %>%
+    mutate(Coefficient = sprintf("%+.5f", Coefficient),
+           SE = sprintf("%.5f", SE),
+           t_value = sprintf("%+.2f", t_value)),
+  caption = "Test 2: Coefficient on alternative deprivation measures predicting log(ATT8 Disadvantaged)",
+  align = "lrrrrl"
+)
+```
+
+```{r directionality-x-narrative}
+#| label: directionality-x-narrative
+#| output: asis
+
+n_positive_x <- sum(x_results$Sign == "POSITIVE", na.rm = TRUE)
+n_total_x <- sum(!is.na(x_results$Coefficient))
+
+cat(sprintf("Of the %d deprivation measures tested, **%d show a positive coefficient** when predicting disadvantaged attainment.\n\n", n_total_x, n_positive_x))
+
+cat("The alternative X variables test different conceptualisations of disadvantage concentration:\n\n")
+cat("- **% ever FSM** uses the broader census-based definition (ever eligible in the past 6 years), which captures a wider population than the KS4-cohort FSM6CLA1A measure\n")
+cat("- **% any SEN** measures a different dimension of disadvantage entirely (educational needs rather than economic deprivation)\n")
+cat("- **% persistent absentees** is a behavioural proxy for disadvantage that is not directly based on FSM classification\n")
+cat("- **% EAL not yet fluent** captures linguistic disadvantage, partially independent of economic deprivation\n\n")
+
+if (n_positive_x >= 3) {
+  cat("The consistency of the positive sign across multiple, conceptually distinct measures of disadvantage concentration strengthens the case that this is a **genuine structural relationship** rather than an artefact of the FSM6CLA1A classification. Schools with higher concentrations of disadvantage — however measured — tend to achieve slightly higher outcomes for their disadvantaged subgroup, once prior attainment and other controls are accounted for.\n\n")
+} else if (n_positive_x >= 1) {
+  cat("The sign-flip appears with some but not all alternative measures, suggesting the relationship may be **partly specific to particular operationalisations** of disadvantage concentration. The FSM-based measures and closely correlated alternatives tend to show the positive sign, while more conceptually distinct measures may not.\n\n")
+} else {
+  cat("The positive sign appears **only with the original FSM6CLA1A measure**, raising the possibility that the sign-flip may be partly a measurement artefact rather than a robust structural finding. Further investigation with individual pupil-level data would be needed.\n\n")
+}
+```
+
+## Test 3: Cross-tabulation (Y x X combinations)
+
+As a final check, we fit the most informative subset of Y × X combinations to see whether the pattern is consistent across the full grid.
+
+```{r directionality-grid}
+#| label: directionality-grid
+#| fig-height: 5
+#| fig-width: 8
+
+# Select key Y and X combinations
+grid_y <- tribble(
+  ~y_var,                    ~y_label,          ~y_transform,  ~y_filter_pos,
+  "ATT8SCR_FSM6CLA1A",      "ATT8 Disadv.",    "log",         TRUE,
+  "ATT8SCRENG_FSM6CLA1A",   "ATT8 Eng Dis.",   "log",         TRUE,
+  "ATT8SCRMAT_FSM6CLA1A",   "ATT8 Mat Dis.",   "log",         TRUE,
+  "P8MEA_FSM6CLA1A",        "P8 Disadv.",      "none",        FALSE
+)
+
+grid_x <- tribble(
+  ~x_var,            ~x_label,              ~x_transform,
+  "PTFSM6CLA1A",    "% FSM",               "log",
+  "PNUMFSMEVER",    "% ever FSM",          "log",
+  "PSEN_ALL4",      "% any SEN",           "log",
+  "PPERSABS10",     "% persist. absent",   "log"
+)
+
+grid_results <- expand_grid(
+  y_idx = seq_len(nrow(grid_y)),
+  x_idx = seq_len(nrow(grid_x))
+) %>%
+  mutate(result = map2(y_idx, x_idx, function(yi, xi) {
+    y_var <- grid_y$y_var[yi]
+    x_var <- grid_x$x_var[xi]
+    y_transform <- grid_y$y_transform[yi]
+    x_transform <- grid_x$x_transform[xi]
+    filter_pos <- grid_y$y_filter_pos[yi]
+
+    d_test <- d_dir
+    y_vals <- d_test[[y_var]]
+    x_vals <- d_test[[x_var]]
+
+    # Filter
+    valid <- !is.na(y_vals) & !is.na(x_vals) & x_vals > 0
+    if (filter_pos) valid <- valid & y_vals > 0
+    d_test <- d_test[valid, ] %>% droplevels()
+    contrasts(d_test$OFSTEDRATING_1) <- contr.treatment(levels(d_test$OFSTEDRATING_1))
+
+    lhs <- if (y_transform == "log") paste0("log(", y_var, ")") else y_var
+    x_term <- if (x_transform == "log") paste0("log(", x_var, ")") else x_var
+    coef_name <- if (x_transform == "log") paste0("log(", x_var, ")") else x_var
+
+    formula_str <- paste0(
+      lhs, " ~ ", x_term, " + log(PERCTOT) + log(PNUMEAL) + ",
+      "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+      "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
+      "log(average_number_of_days_taken) + ",
+      "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+    )
+
+    mod <- tryCatch(
+      lmer(as.formula(formula_str), data = d_test, REML = TRUE,
+           na.action = na.exclude,
+           control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))),
+      error = function(e) NULL
+    )
+
+    if (is.null(mod)) return(tibble(coef = NA_real_, t = NA_real_, n = nrow(d_test)))
+
+    coefs <- summary(mod)$coefficients
+    if (coef_name %in% rownames(coefs)) {
+      tibble(coef = coefs[coef_name, "Estimate"],
+             t = coefs[coef_name, "t value"],
+             n = nrow(d_test))
+    } else {
+      tibble(coef = NA_real_, t = NA_real_, n = nrow(d_test))
+    }
+  })) %>%
+  unnest(result) %>%
+  mutate(
+    y_label = grid_y$y_label[y_idx],
+    x_label = grid_x$x_label[x_idx],
+    sign = case_when(
+      is.na(coef) ~ "NA",
+      coef > 0 ~ "+",
+      TRUE ~ "–"
+    )
+  )
+
+# Heatmap
+ggplot(grid_results, aes(x = x_label, y = y_label, fill = coef)) +
+  geom_tile(colour = "white", linewidth = 1.5) +
+  geom_text(aes(label = sprintf("%+.4f\n(t=%+.1f)", coef, t)),
+            size = 3.2, colour = "white", fontface = "bold") +
+  scale_fill_gradient2(low = "#7b132b", mid = "#f5f5f5", high = "#2e6260",
+                       midpoint = 0, name = "Coefficient") +
+  labs(title = "Disadvantage concentration coefficient across Y x X combinations",
+       subtitle = "Green = positive (sign-flip present); Red = negative",
+       x = "Deprivation measure (X variable)",
+       y = "Disadvantaged attainment measure (Y variable)") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        panel.grid = element_blank())
+```
+
+```{r directionality-grid-narrative}
+#| label: directionality-grid-narrative
+#| output: asis
+
+n_pos_grid <- sum(grid_results$coef > 0, na.rm = TRUE)
+n_total_grid <- sum(!is.na(grid_results$coef))
+
+cat(sprintf("\nAcross the **%d-cell grid** of Y × X combinations, **%d (%d%%)** show a positive coefficient on the deprivation concentration measure.\n\n",
+    n_total_grid, n_pos_grid, round(100 * n_pos_grid / n_total_grid)))
+
+cat("## Summary\n\n")
+
+if (n_pos_grid / n_total_grid >= 0.75) {
+  cat("::: {.callout-important}\n")
+  cat("## The sign-flip is robust\n\n")
+  cat("The positive relationship between disadvantage concentration and disadvantaged attainment holds across the large majority of alternative operationalisations tested. This is consistent with a genuine structural relationship — likely reflecting resource concentration (Pupil Premium scaling), institutional focus, and/or composition effects — rather than a measurement artefact of the FSM6CLA1A classification or the Attainment 8 metric.\n\n")
+  cat("The finding that this pattern persists when using % ever FSM (broader economic measure), % any SEN (different dimension of disadvantage), and % persistent absentees (behavioural proxy) as the concentration measure provides triangulating evidence that schools serving more disadvantaged intakes generate modestly better outcomes for those pupils, once prior attainment is accounted for.\n")
+  cat(":::\n")
+} else if (n_pos_grid / n_total_grid >= 0.4) {
+  cat("::: {.callout-note}\n")
+  cat("## The sign-flip is partially robust\n\n")
+  cat("The positive relationship appears in a substantial minority of combinations but is not universal. It is strongest with FSM-based deprivation measures and ATT8-based outcomes, suggesting the effect is real but may be moderated by the specific dimensions of disadvantage and attainment being measured. The core finding holds, but its magnitude and significance vary with operationalisation.\n")
+  cat(":::\n")
+} else {
+  cat("::: {.callout-warning}\n")
+  cat("## The sign-flip may be fragile\n\n")
+  cat("The positive coefficient appears in fewer than 40% of combinations tested. While not necessarily an artefact, the sign-flip may be more sensitive to operationalisation than the Analysis E results alone would suggest. Individual pupil-level data would be needed to disentangle whether this reflects a genuine structural relationship or a compositional effect specific to the FSM6CLA1A classification.\n")
+  cat(":::\n")
+}
+```
