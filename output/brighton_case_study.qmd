@@ -2704,6 +2704,142 @@ ggplotly(p_heat, tooltip = "text") %>%
   layout(legend = list(orientation = "h", y = -0.2))
 ```
 
+## Orientation Map: Schools and Proposed Catchments
+
+```{r orientation-map}
+#| label: orientation-map
+#| fig-cap: "Brighton & Hove secondary schools with 2025/26 catchment boundaries. Click a logo or marker to see the school name."
+
+# ---- Load optionZ catchment boundaries ----
+optionZ <- st_read(
+  "E:/BH_Schools_Consultation/data/optionZ_Mar25.geojson",
+  quiet = TRUE
+) %>%
+  st_transform(4326)
+
+# ---- Catchment colour palette ----
+catchment_names <- sort(unique(optionZ$catchment))
+catchment_colours <- c(
+  "BACA"              = "#e41a1c",
+  "HoveBlatchington"  = "#377eb8",
+  "Longhill"          = "#4daf4a",
+  "PACA"              = "#984ea3",
+  "Patcham"           = "#ff7f00",
+  "VarndeanStringer"  = "#a65628"
+)
+# Fallback for any unexpected names
+pal_catch <- colorFactor(
+  palette = unname(catchment_colours),
+  domain = names(catchment_colours)
+)
+
+# ---- School locations (reuse bh_latest from earlier map chunk) ----
+bh_map_data <- bh_latest %>%
+  filter(!is.na(easting), !is.na(northing)) %>%
+  st_as_sf(coords = c("easting", "northing"), crs = 27700) %>%
+  st_transform(4326)
+
+map_coords <- st_coordinates(bh_map_data)
+bh_map_data$lon <- map_coords[, 1]
+bh_map_data$lat <- map_coords[, 2]
+
+# ---- Build base64-encoded logo icons ----
+logo_paths <- c(
+  "Blatchington Mill School"                = "school_logos/blatchington_mill.png",
+  "Brighton Aldridge Community Academy"      = "school_logos/brighton_aldridge.png",
+  "Cardinal Newman Catholic School"          = "school_logos/cardinal_newman.png",
+  "Dorothy Stringer School"                  = "school_logos/dorothy_stringer.png",
+  "Hove Park School and Sixth Form Centre"   = "school_logos/hove_park.png",
+  "King's School"                            = "school_logos/kings_school.png",
+  "Longhill High School"                     = "school_logos/longhill_high.png",
+  "Patcham High School"                      = "school_logos/patcham_high.png",
+  "Portslade Aldridge Community Academy"     = "school_logos/portslade_aldridge.png",
+  "Varndean School"                          = "school_logos/varndean.png"
+)
+
+# ---- Catchment labels (readable names for the legend) ----
+catchment_labels <- c(
+  "BACA"              = "BACA (Brighton Aldridge)",
+  "HoveBlatchington"  = "Hove Park / Blatchington Mill",
+  "Longhill"          = "Longhill",
+  "PACA"              = "PACA (Portslade Aldridge)",
+  "Patcham"           = "Patcham",
+  "VarndeanStringer"  = "Varndean / Dorothy Stringer"
+)
+
+# ---- Build the leaflet map ----
+m_orient <- leaflet(width = "100%", height = 550) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  # Catchment polygons
+  addPolygons(
+    data = optionZ,
+    fillColor = ~pal_catch(catchment),
+    fillOpacity = 0.12,
+    color = ~pal_catch(catchment),
+    weight = 2.5,
+    opacity = 0.8,
+    label = ~catchment_labels[catchment],
+    highlightOptions = highlightOptions(
+      weight = 4, fillOpacity = 0.25, bringToFront = FALSE
+    )
+  )
+
+# Add each school as a small dot + logo marker with an offset
+for (i in seq_len(nrow(bh_map_data))) {
+  sch_name <- bh_map_data$SCHNAME[i]
+  sch_lon  <- bh_map_data$lon[i]
+  sch_lat  <- bh_map_data$lat[i]
+
+  popup_html <- sprintf(
+    "<b>%s</b><br>ATT8: %.1f | FSM: %.1f%% | Absence: %.1f%%",
+    sch_name,
+    bh_map_data$ATT8SCR[i],
+    bh_map_data$PTFSM6CLA1A[i],
+    bh_map_data$PERCTOT[i]
+  )
+
+  # Dot at exact location
+  m_orient <- m_orient %>%
+    addCircleMarkers(
+      lng = sch_lon, lat = sch_lat,
+      radius = 5, fillColor = "#333333", fillOpacity = 0.9,
+      color = "white", weight = 1.5,
+      popup = popup_html
+    )
+
+  # Logo icon offset slightly above-right
+  logo_file <- logo_paths[sch_name]
+  if (!is.na(logo_file) && file.exists(logo_file)) {
+    logo_b64 <- knitr::image_uri(logo_file)
+    logo_icon <- makeIcon(
+      iconUrl = logo_b64,
+      iconWidth = 36, iconHeight = 36,
+      iconAnchorX = -4, iconAnchorY = 40   # offset: right and above the dot
+    )
+    m_orient <- m_orient %>%
+      addMarkers(
+        lng = sch_lon, lat = sch_lat,
+        icon = logo_icon,
+        popup = popup_html
+      )
+  }
+}
+
+# Legend for catchments
+m_orient <- m_orient %>%
+  addLegend(
+    position = "bottomright",
+    colors = unname(catchment_colours),
+    labels = unname(catchment_labels),
+    title = "2025/26 Catchment<br>Boundaries",
+    opacity = 0.8
+  )
+
+m_orient
+```
+
+The map above shows each Brighton & Hove secondary school at its geographic location, marked with the school's logo, and overlaid with the 2025/26 catchment boundaries. Shared catchment areas (e.g. Varndean/Dorothy Stringer, Hove Park/Blatchington Mill) are shown as single zones. Click on any logo or dot for key school statistics.
+
 ## School-by-School Commentary
 
 ```{r school-commentary}
