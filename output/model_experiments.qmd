@@ -2191,7 +2191,7 @@ cat(sprintf("\nReference (Analysis E): log(PTFSM6CLA1A) coefficient = %+.5f\n", 
 
 ## Test 1: Alternative Y variables (disadvantaged attainment)
 
-Holding `log(PTFSM6CLA1A)` as the deprivation measure, we swap the outcome variable across six alternative measures of disadvantaged attainment. For each, we report the coefficient on `log(PTFSM6CLA1A)`, its standard error, t-value, and sign.
+Holding `log(PTFSM6CLA1A)` as the deprivation measure, we swap the outcome variable across alternative Attainment 8 measures for disadvantaged pupils. Each captures a different component of the KS4 curriculum — English, Maths, EBacc subjects, and Open (non-EBacc) qualifications — allowing us to test whether the sign-flip is specific to the overall ATT8 aggregate or appears consistently across subject domains. For each, we report the coefficient on `log(PTFSM6CLA1A)`, its standard error, t-value, and sign.
 
 ```{r directionality-y-vars}
 #| label: directionality-y-vars
@@ -2203,8 +2203,7 @@ y_tests <- tribble(
   "ATT8SCRENG_FSM6CLA1A",     "ATT8 English (Disadvantaged)",      "log",       TRUE,
   "ATT8SCRMAT_FSM6CLA1A",     "ATT8 Maths (Disadvantaged)",        "log",       TRUE,
   "ATT8SCREBAC_FSM6CLA1A",    "ATT8 EBacc (Disadvantaged)",        "log",       TRUE,
-  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open (Disadvantaged)",         "log",       TRUE,
-  "P8MEA_FSM6CLA1A",          "Progress 8 (Disadvantaged)",        "none",      FALSE
+  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open (Disadvantaged)",         "log",       TRUE
 )
 
 # Fit each model and extract the FSM coefficient
@@ -2289,17 +2288,27 @@ knitr::kable(
 n_positive <- sum(y_results$Sign == "POSITIVE", na.rm = TRUE)
 n_total <- sum(!is.na(y_results$Coefficient))
 
-cat(sprintf("Of the %d outcome measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils.\n\n", n_total, n_positive))
+cat(sprintf("Of the %d Attainment 8 component measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils.\n\n", n_total, n_positive))
 
-# Special note on Progress 8
-p8_row <- y_results %>% filter(grepl("Progress 8", Y_Variable))
-if (nrow(p8_row) > 0 && !is.na(p8_row$Coefficient)) {
-  cat(sprintf("**Progress 8** is particularly noteworthy because it is already a value-added measure (adjusting for prior attainment at the individual pupil level). The coefficient on log(%% FSM) in the P8 model is **%+.5f** (t = %+.2f). ",
-      p8_row$Coefficient, p8_row$t_value))
-  if (p8_row$Coefficient > 0) {
-    cat("The fact that the sign remains positive even when the outcome itself already accounts for prior attainment reinforces the finding: this is not simply a statistical artefact of controlling for `PTPRIORLO` in the model.\n\n")
+if (n_positive == n_total) {
+  cat("The sign-flip is consistent across **every subject domain** — English, Maths, EBacc, and Open qualifications — not just the overall ATT8 aggregate. This makes it unlikely to be an artefact of how particular subjects are weighted in the Attainment 8 formula.\n\n")
+} else if (n_positive >= n_total - 1) {
+  cat("The sign-flip appears in almost all subject domains, suggesting it is a broad structural pattern rather than being driven by any single curriculum component.\n\n")
+} else {
+  cat("The sign-flip varies across subject domains, suggesting the relationship may be stronger in some curriculum areas than others.\n\n")
+}
+
+# Highlight any variation across components
+eng_row <- y_results %>% filter(grepl("English", Y_Variable))
+mat_row <- y_results %>% filter(grepl("Maths", Y_Variable))
+if (nrow(eng_row) > 0 && nrow(mat_row) > 0 &&
+    !is.na(eng_row$Coefficient) && !is.na(mat_row$Coefficient)) {
+  cat(sprintf("Comparing the two core subjects: the coefficient is %+.5f for English and %+.5f for Maths. ",
+      eng_row$Coefficient, mat_row$Coefficient))
+  if (sign(eng_row$Coefficient) == sign(mat_row$Coefficient)) {
+    cat("Both point in the same direction, reinforcing that the pattern is not subject-specific.\n\n")
   } else {
-    cat("The sign is negative here, which is expected since Progress 8 already removes the prior-attainment pathway at the individual level — the school-level `PTPRIORLO` control in our model may be double-counting.\n\n")
+    cat("The difference in sign between these two core subjects warrants further investigation.\n\n")
   }
 }
 ```
@@ -2307,6 +2316,82 @@ if (nrow(p8_row) > 0 && !is.na(p8_row$Coefficient)) {
 ## Test 2: Alternative X variables (school-level disadvantage concentration)
 
 Now we hold the outcome fixed at `log(ATT8SCR_FSM6CLA1A)` and swap the deprivation predictor. Each alternative X replaces `log(PTFSM6CLA1A)` in the model while keeping all other predictors unchanged.
+
+The interpretation of these tests depends on understanding how each alternative X variable relates to the two key controls already in the model — **% low prior attainment** (`PTPRIORLO`) and **% overall absence** (`log(PERCTOT)`):
+
+- **% FSM6CLA1A** (reference): the DfE's KS4-cohort disadvantage flag (FSM-eligible in the past 6 years or looked-after). Strongly correlated with both prior attainment and absence — the sign-flip only appears once these pathways are controlled for.
+
+- **% ever FSM** (`PNUMFSMEVER`): a census-based measure covering all pupils on roll, not just the KS4 cohort. This is a broader economic deprivation measure and will be highly correlated with `PTFSM6CLA1A` but not identical — it includes younger year groups and uses a different snapshot. If the sign-flip persists, it confirms the finding is not an artefact of the specific KS4 cohort definition. Because `PNUMFSMEVER` is correlated with both `PTPRIORLO` and `PERCTOT` in similar ways to `PTFSM6CLA1A`, we would expect a similar decomposition.
+
+- **% any SEN** (`PSEN_ALL4`): captures a different dimension of disadvantage — educational needs rather than economic deprivation. SEN rates are moderately correlated with FSM (schools in deprived areas tend to have higher SEN identification rates) but the overlap is far from complete. Crucially, the relationship between SEN concentration and prior attainment is more direct: schools with high SEN rates will mechanically have more pupils with low KS2 scores. If the sign-flip appears here too, it suggests that the "critical mass" or resource concentration effect operates across different types of disadvantage, not just economic deprivation.
+
+- **% persistent absentees** (`PPERSABS10`): the proportion of pupils missing 10%+ of sessions. This is a behavioural measure that overlaps with but is conceptually distinct from FSM. The key complication is that persistent absence is *also* captured (partially) by the overall absence rate `PERCTOT` already in the model. A school with 15% persistent absentees and 7% overall absence is in a different situation from one with 15% persistent absentees and 5% overall absence. The coefficient on `PPERSABS10` therefore captures the *additional* effect of having a concentrated tail of chronic non-attenders beyond what the school's mean absence rate already explains.
+
+- **% EAL not yet fluent** (`PTEALGRP2`): measures linguistic disadvantage independently of economic deprivation. EAL rates have a complex relationship with both prior attainment (newly arrived pupils may have low KS2 scores or no KS2 data) and absence (EAL pupils' absence patterns vary widely by community). This is the most conceptually distinct alternative — if the sign-flip appears with EAL concentration, it would provide strong evidence for a general "concentration benefit" rather than anything specific to FSM.
+
+```{r directionality-x-correlations}
+#| label: directionality-x-correlations
+#| fig-height: 4
+#| fig-width: 8
+#| fig-cap: "Pairwise correlations between alternative X variables and the key model controls (PTPRIORLO and PERCTOT). Higher correlations mean the X variable shares more variance with the controls, and its coefficient captures a more residual effect."
+
+# Compute correlations between X variables and the two key controls
+x_var_names <- c("PTFSM6CLA1A", "PNUMFSMEVER", "PSEN_ALL4", "PPERSABS10", "PTEALGRP2")
+x_var_labels <- c("% FSM", "% ever FSM", "% any SEN", "% persist. absent", "% EAL not fluent")
+control_names <- c("PTPRIORLO", "PERCTOT")
+control_labels <- c("% Low Prior Attainment", "% Overall Absence")
+
+cor_data <- expand_grid(
+  x_idx = seq_along(x_var_names),
+  c_idx = seq_along(control_names)
+) %>%
+  mutate(
+    x_var = x_var_names[x_idx],
+    x_label = x_var_labels[x_idx],
+    control = control_names[c_idx],
+    control_label = control_labels[c_idx],
+    r = map2_dbl(x_var, control, function(xv, cv) {
+      vals <- d_dir[, c(xv, cv)] %>% drop_na()
+      if (nrow(vals) < 30) return(NA_real_)
+      cor(log(pmax(vals[[xv]], 0.01)), vals[[cv]], use = "complete.obs")
+    })
+  )
+
+ggplot(cor_data, aes(x = x_label, y = control_label, fill = r)) +
+  geom_tile(colour = "white", linewidth = 1.5) +
+  geom_text(aes(label = sprintf("r = %.2f", r)),
+            size = 3.5, fontface = "bold",
+            colour = ifelse(abs(cor_data$r) > 0.5, "white", "grey30")) +
+  scale_fill_gradient2(low = "#2166ac", mid = "#f7f7f7", high = "#b2182b",
+                       midpoint = 0, limits = c(-1, 1), name = "Correlation") +
+  labs(title = "How alternative X variables correlate with model controls",
+       x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        panel.grid = element_blank())
+```
+
+```{r directionality-x-cor-narrative}
+#| label: directionality-x-cor-narrative
+#| output: asis
+
+# Find the highest and lowest correlations with PTPRIORLO
+cor_prior <- cor_data %>% filter(control == "PTPRIORLO")
+cor_abs <- cor_data %>% filter(control == "PERCTOT")
+
+cat("The correlation matrix reveals important differences in how each X variable relates to the model's controls:\n\n")
+
+for (i in seq_along(x_var_names)) {
+  r_prior <- cor_prior$r[cor_prior$x_var == x_var_names[i]]
+  r_abs <- cor_abs$r[cor_abs$x_var == x_var_names[i]]
+  if (!is.na(r_prior) && !is.na(r_abs)) {
+    cat(sprintf("- **%s**: r = %.2f with prior attainment, r = %.2f with absence\n",
+        x_var_labels[i], r_prior, r_abs))
+  }
+}
+
+cat("\nVariables with high correlations to both controls (e.g. % FSM, % ever FSM) will show the sign-flip most cleanly because the model's controls effectively remove the indirect pathways through prior attainment and absence. Variables with lower correlations to the controls (e.g. % EAL) are a tougher test — the sign-flip appearing with these would be stronger evidence of a genuine structural effect.\n\n")
+```
 
 ```{r directionality-x-vars}
 #| label: directionality-x-vars
@@ -2395,18 +2480,39 @@ n_total_x <- sum(!is.na(x_results$Coefficient))
 
 cat(sprintf("Of the %d deprivation measures tested, **%d show a positive coefficient** when predicting disadvantaged attainment.\n\n", n_total_x, n_positive_x))
 
-cat("The alternative X variables test different conceptualisations of disadvantage concentration:\n\n")
-cat("- **% ever FSM** uses the broader census-based definition (ever eligible in the past 6 years), which captures a wider population than the KS4-cohort FSM6CLA1A measure\n")
-cat("- **% any SEN** measures a different dimension of disadvantage entirely (educational needs rather than economic deprivation)\n")
-cat("- **% persistent absentees** is a behavioural proxy for disadvantage that is not directly based on FSM classification\n")
-cat("- **% EAL not yet fluent** captures linguistic disadvantage, partially independent of economic deprivation\n\n")
+cat("As discussed above, each alternative X captures a different dimension of disadvantage concentration, with different degrees of overlap with the model's prior attainment and absence controls. The correlation analysis showed which variables share the most variance with those controls — and therefore which provide the most independent test of the sign-flip.\n\n")
+
+# Classify results by correlation strength
+cat("Interpreting the results in light of the correlations:\n\n")
+
+for (i in seq_len(nrow(x_results))) {
+  xv <- x_tests$x_var[i]
+  r_prior_val <- cor_data %>% filter(x_var == xv, control == "PTPRIORLO") %>% pull(r)
+  r_abs_val <- cor_data %>% filter(x_var == xv, control == "PERCTOT") %>% pull(r)
+  sign_text <- x_results$Sign[i]
+
+  if (length(r_prior_val) > 0 && !is.na(r_prior_val) && !is.na(x_results$Coefficient[i])) {
+    overlap <- if (abs(r_prior_val) > 0.5 || abs(r_abs_val) > 0.5) {
+      "high overlap with controls"
+    } else if (abs(r_prior_val) > 0.3 || abs(r_abs_val) > 0.3) {
+      "moderate overlap with controls"
+    } else {
+      "low overlap with controls — a more independent test"
+    }
+    cat(sprintf("- **%s** (%s): coefficient is **%s** (%+.5f, t = %+.2f)\n",
+        x_results$X_Variable[i], overlap,
+        tolower(sign_text), x_results$Coefficient[i], x_results$t_value[i]))
+  }
+}
+
+cat("\n")
 
 if (n_positive_x >= 3) {
-  cat("The consistency of the positive sign across multiple, conceptually distinct measures of disadvantage concentration strengthens the case that this is a **genuine structural relationship** rather than an artefact of the FSM6CLA1A classification. Schools with higher concentrations of disadvantage — however measured — tend to achieve slightly higher outcomes for their disadvantaged subgroup, once prior attainment and other controls are accounted for.\n\n")
+  cat("The consistency of the positive sign across multiple, conceptually distinct measures of disadvantage concentration — including those with lower correlations to the model's controls — strengthens the case that this is a **genuine structural relationship** rather than an artefact of the FSM6CLA1A classification. The sign-flip survives even when the deprivation measure shares less variance with prior attainment and absence, suggesting the \"critical mass\" or resource concentration effect is not simply an artefact of how those confounders are partialled out.\n\n")
 } else if (n_positive_x >= 1) {
-  cat("The sign-flip appears with some but not all alternative measures, suggesting the relationship may be **partly specific to particular operationalisations** of disadvantage concentration. The FSM-based measures and closely correlated alternatives tend to show the positive sign, while more conceptually distinct measures may not.\n\n")
+  cat("The sign-flip appears with some but not all alternative measures. Notably, it tends to be strongest with X variables that are **highly correlated with the controls** (prior attainment and absence), suggesting the sign-flip may depend on the model successfully removing those indirect pathways. Where the X variable is more independent of the controls, the raw negative association between disadvantage and attainment may dominate.\n\n")
 } else {
-  cat("The positive sign appears **only with the original FSM6CLA1A measure**, raising the possibility that the sign-flip may be partly a measurement artefact rather than a robust structural finding. Further investigation with individual pupil-level data would be needed.\n\n")
+  cat("The positive sign appears **only with the original FSM6CLA1A measure**, raising the possibility that the sign-flip may be partly a measurement artefact. The alternative deprivation measures, which have different correlation structures with prior attainment and absence, do not replicate the finding. Further investigation with individual pupil-level data would be needed.\n\n")
 }
 ```
 
@@ -2421,11 +2527,12 @@ As a final check, we fit the most informative subset of Y × X combinations to s
 
 # Select key Y and X combinations
 grid_y <- tribble(
-  ~y_var,                    ~y_label,          ~y_transform,  ~y_filter_pos,
-  "ATT8SCR_FSM6CLA1A",      "ATT8 Disadv.",    "log",         TRUE,
-  "ATT8SCRENG_FSM6CLA1A",   "ATT8 Eng Dis.",   "log",         TRUE,
-  "ATT8SCRMAT_FSM6CLA1A",   "ATT8 Mat Dis.",   "log",         TRUE,
-  "P8MEA_FSM6CLA1A",        "P8 Disadv.",      "none",        FALSE
+  ~y_var,                    ~y_label,            ~y_transform,  ~y_filter_pos,
+  "ATT8SCR_FSM6CLA1A",      "ATT8 Disadv.",      "log",         TRUE,
+  "ATT8SCRENG_FSM6CLA1A",   "ATT8 Eng Dis.",     "log",         TRUE,
+  "ATT8SCRMAT_FSM6CLA1A",   "ATT8 Mat Dis.",     "log",         TRUE,
+  "ATT8SCREBAC_FSM6CLA1A",  "ATT8 EBacc Dis.",   "log",         TRUE,
+  "ATT8SCROPEN_FSM6CLA1A",  "ATT8 Open Dis.",    "log",         TRUE
 )
 
 grid_x <- tribble(
