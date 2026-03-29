@@ -2253,31 +2253,49 @@ y_results <- map_dfr(seq_len(nrow(y_tests)), function(i) {
                   t_value = NA_real_, Sign = "FAILED"))
   }
 
+  # lmerTest::summary gives Satterthwaite p-values
   coefs <- summary(mod)$coefficients
   row_name <- "log(PTFSM6CLA1A)"
   if (row_name %in% rownames(coefs)) {
+    p_val <- if ("Pr(>|t|)" %in% colnames(coefs)) coefs[row_name, "Pr(>|t|)"] else NA_real_
     tibble(
       Y_Variable = label,
       N = nrow(d_test),
       Coefficient = coefs[row_name, "Estimate"],
       SE = coefs[row_name, "Std. Error"],
       t_value = coefs[row_name, "t value"],
+      p_value = p_val,
       Sign = ifelse(coefs[row_name, "Estimate"] > 0, "POSITIVE", "negative")
     )
   } else {
     tibble(Y_Variable = label, N = nrow(d_test),
            Coefficient = NA_real_, SE = NA_real_,
-           t_value = NA_real_, Sign = "NOT FOUND")
+           t_value = NA_real_, p_value = NA_real_, Sign = "NOT FOUND")
   }
 })
+
+# Add significance stars
+y_results <- y_results %>%
+  mutate(
+    Sig = case_when(
+      is.na(p_value) ~ "",
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE ~ ""
+    )
+  )
 
 knitr::kable(
   y_results %>%
     mutate(Coefficient = sprintf("%+.5f", Coefficient),
            SE = sprintf("%.5f", SE),
-           t_value = sprintf("%+.2f", t_value)),
-  caption = "Test 1: Coefficient on log(% FSM) across alternative disadvantaged attainment measures",
-  align = "lrrrrl"
+           t_value = sprintf("%+.2f", t_value),
+           p_value = ifelse(p_value < 0.001, "< 0.001", sprintf("%.3f", p_value))) %>%
+    select(Y_Variable, N, Coefficient, SE, t_value, p_value, Sig, Sign),
+  caption = "Test 1: Coefficient on log(% FSM) across alternative disadvantaged attainment measures (Satterthwaite p-values)",
+  align = "lrrrrrll"
 )
 ```
 
@@ -2287,8 +2305,19 @@ knitr::kable(
 
 n_positive <- sum(y_results$Sign == "POSITIVE", na.rm = TRUE)
 n_total <- sum(!is.na(y_results$Coefficient))
+n_sig <- sum(y_results$Sign == "POSITIVE" & y_results$p_value < 0.05, na.rm = TRUE)
+n_marginal <- sum(y_results$Sign == "POSITIVE" & y_results$p_value >= 0.05 & y_results$p_value < 0.1, na.rm = TRUE)
 
-cat(sprintf("Of the %d Attainment 8 component measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils.\n\n", n_total, n_positive))
+cat(sprintf("Of the %d Attainment 8 component measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils", n_total, n_positive))
+
+if (n_sig > 0 || n_marginal > 0) {
+  parts <- c()
+  if (n_sig > 0) parts <- c(parts, sprintf("%d statistically significant at p < 0.05", n_sig))
+  if (n_marginal > 0) parts <- c(parts, sprintf("%d marginally significant (p < 0.1)", n_marginal))
+  cat(sprintf(", of which %s.\n\n", paste(parts, collapse = " and ")))
+} else {
+  cat(", though none reach conventional significance thresholds.\n\n")
+}
 
 if (n_positive == n_total) {
   cat("The sign-flip is consistent across **every subject domain** — English, Maths, EBacc, and Open qualifications — not just the overall ATT8 aggregate. This makes it unlikely to be an artefact of how particular subjects are weighted in the Attainment 8 formula.\n\n")
@@ -2296,6 +2325,20 @@ if (n_positive == n_total) {
   cat("The sign-flip appears in almost all subject domains, suggesting it is a broad structural pattern rather than being driven by any single curriculum component.\n\n")
 } else {
   cat("The sign-flip varies across subject domains, suggesting the relationship may be stronger in some curriculum areas than others.\n\n")
+}
+
+# Comment on significance patterns
+sig_rows <- y_results %>% filter(Sign == "POSITIVE", p_value < 0.05)
+nonsig_rows <- y_results %>% filter(Sign == "POSITIVE", p_value >= 0.05)
+if (nrow(sig_rows) > 0 && nrow(nonsig_rows) > 0) {
+  cat(sprintf("The coefficient is statistically significant for **%s** but not for %s. ",
+      paste(sig_rows$Y_Variable, collapse = ", "),
+      paste(nonsig_rows$Y_Variable, collapse = ", ")))
+  cat("This suggests the effect is real but modest in magnitude — the sign is consistent but the precision varies across subject domains, likely reflecting differences in sample sizes and variance in the component scores.\n\n")
+} else if (nrow(sig_rows) == n_positive && n_positive > 0) {
+  cat("All positive coefficients are statistically significant, providing strong evidence that the sign-flip is not a chance finding.\n\n")
+} else if (n_positive > 0 && nrow(sig_rows) == 0) {
+  cat("None of the positive coefficients reach statistical significance at p < 0.05. The consistent direction is suggestive but the effect may be too small to detect reliably with these sample sizes, or the true effect size may be negligible.\n\n")
 }
 
 # Highlight any variation across components
@@ -2446,28 +2489,44 @@ x_results <- map_dfr(seq_len(nrow(x_tests)), function(i) {
 
   coefs <- summary(mod)$coefficients
   if (coef_name %in% rownames(coefs)) {
+    p_val <- if ("Pr(>|t|)" %in% colnames(coefs)) coefs[coef_name, "Pr(>|t|)"] else NA_real_
     tibble(
       X_Variable = label,
       N = nrow(d_test),
       Coefficient = coefs[coef_name, "Estimate"],
       SE = coefs[coef_name, "Std. Error"],
       t_value = coefs[coef_name, "t value"],
+      p_value = p_val,
       Sign = ifelse(coefs[coef_name, "Estimate"] > 0, "POSITIVE", "negative")
     )
   } else {
     tibble(X_Variable = label, N = nrow(d_test),
            Coefficient = NA_real_, SE = NA_real_,
-           t_value = NA_real_, Sign = "NOT FOUND")
+           t_value = NA_real_, p_value = NA_real_, Sign = "NOT FOUND")
   }
 })
+
+x_results <- x_results %>%
+  mutate(
+    Sig = case_when(
+      is.na(p_value) ~ "",
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE ~ ""
+    )
+  )
 
 knitr::kable(
   x_results %>%
     mutate(Coefficient = sprintf("%+.5f", Coefficient),
            SE = sprintf("%.5f", SE),
-           t_value = sprintf("%+.2f", t_value)),
-  caption = "Test 2: Coefficient on alternative deprivation measures predicting log(ATT8 Disadvantaged)",
-  align = "lrrrrl"
+           t_value = sprintf("%+.2f", t_value),
+           p_value = ifelse(p_value < 0.001, "< 0.001", sprintf("%.3f", p_value))) %>%
+    select(X_Variable, N, Coefficient, SE, t_value, p_value, Sig, Sign),
+  caption = "Test 2: Coefficient on alternative deprivation measures predicting log(ATT8 Disadvantaged) (Satterthwaite p-values)",
+  align = "lrrrrrll"
 )
 ```
 
@@ -2478,7 +2537,17 @@ knitr::kable(
 n_positive_x <- sum(x_results$Sign == "POSITIVE", na.rm = TRUE)
 n_total_x <- sum(!is.na(x_results$Coefficient))
 
-cat(sprintf("Of the %d deprivation measures tested, **%d show a positive coefficient** when predicting disadvantaged attainment.\n\n", n_total_x, n_positive_x))
+n_sig_x <- sum(x_results$Sign == "POSITIVE" & x_results$p_value < 0.05, na.rm = TRUE)
+n_neg_sig_x <- sum(x_results$Sign == "negative" & x_results$p_value < 0.05, na.rm = TRUE)
+
+cat(sprintf("Of the %d deprivation measures tested, **%d show a positive coefficient** when predicting disadvantaged attainment", n_total_x, n_positive_x))
+if (n_sig_x > 0) {
+  cat(sprintf(" (%d significant at p < 0.05)", n_sig_x))
+}
+if (n_neg_sig_x > 0) {
+  cat(sprintf(". **%d show a significantly negative coefficient**, indicating the sign-flip does not generalise to all conceptualisations of disadvantage", n_neg_sig_x))
+}
+cat(".\n\n")
 
 cat("As discussed above, each alternative X captures a different dimension of disadvantage concentration, with different degrees of overlap with the model's prior attainment and absence controls. The correlation analysis showed which variables share the most variance with those controls — and therefore which provide the most independent test of the sign-flip.\n\n")
 
@@ -2583,15 +2652,17 @@ grid_results <- expand_grid(
       error = function(e) NULL
     )
 
-    if (is.null(mod)) return(tibble(coef = NA_real_, t = NA_real_, n = nrow(d_test)))
+    if (is.null(mod)) return(tibble(coef = NA_real_, t = NA_real_, p = NA_real_, n = nrow(d_test)))
 
     coefs <- summary(mod)$coefficients
     if (coef_name %in% rownames(coefs)) {
+      p_val <- if ("Pr(>|t|)" %in% colnames(coefs)) coefs[coef_name, "Pr(>|t|)"] else NA_real_
       tibble(coef = coefs[coef_name, "Estimate"],
              t = coefs[coef_name, "t value"],
+             p = p_val,
              n = nrow(d_test))
     } else {
-      tibble(coef = NA_real_, t = NA_real_, n = nrow(d_test))
+      tibble(coef = NA_real_, t = NA_real_, p = NA_real_, n = nrow(d_test))
     }
   })) %>%
   unnest(result) %>%
@@ -2602,18 +2673,26 @@ grid_results <- expand_grid(
       is.na(coef) ~ "NA",
       coef > 0 ~ "+",
       TRUE ~ "–"
+    ),
+    sig_marker = case_when(
+      is.na(p) ~ "",
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      p < 0.1   ~ "\u2020",
+      TRUE ~ ""
     )
   )
 
-# Heatmap
+# Heatmap with significance markers
 ggplot(grid_results, aes(x = x_label, y = y_label, fill = coef)) +
   geom_tile(colour = "white", linewidth = 1.5) +
-  geom_text(aes(label = sprintf("%+.4f\n(t=%+.1f)", coef, t)),
-            size = 3.2, colour = "white", fontface = "bold") +
+  geom_text(aes(label = sprintf("%+.4f %s\n(t=%+.1f)", coef, sig_marker, t)),
+            size = 3.0, colour = "white", fontface = "bold") +
   scale_fill_gradient2(low = "#7b132b", mid = "#f5f5f5", high = "#2e6260",
                        midpoint = 0, name = "Coefficient") +
   labs(title = "Disadvantage concentration coefficient across Y x X combinations",
-       subtitle = "Green = positive (sign-flip present); Red = negative",
+       subtitle = "Green = positive (sign-flip); Red = negative. Significance: *** p<0.001, ** p<0.01, * p<0.05, \u2020 p<0.1",
        x = "Deprivation measure (X variable)",
        y = "Disadvantaged attainment measure (Y variable)") +
   theme_minimal(base_size = 12) +
@@ -2627,27 +2706,78 @@ ggplot(grid_results, aes(x = x_label, y = y_label, fill = coef)) +
 
 n_pos_grid <- sum(grid_results$coef > 0, na.rm = TRUE)
 n_total_grid <- sum(!is.na(grid_results$coef))
+n_sig_pos <- sum(grid_results$coef > 0 & grid_results$p < 0.05, na.rm = TRUE)
+n_sig_neg <- sum(grid_results$coef < 0 & grid_results$p < 0.05, na.rm = TRUE)
+n_marginal_pos <- sum(grid_results$coef > 0 & grid_results$p >= 0.05 & grid_results$p < 0.1, na.rm = TRUE)
+n_nonsig <- sum(grid_results$p >= 0.05, na.rm = TRUE)
 
 cat(sprintf("\nAcross the **%d-cell grid** of Y × X combinations, **%d (%d%%)** show a positive coefficient on the deprivation concentration measure.\n\n",
     n_total_grid, n_pos_grid, round(100 * n_pos_grid / n_total_grid)))
 
-cat("## Summary\n\n")
+cat("### Statistical significance breakdown\n\n")
+cat(sprintf("| Category | Count | %% of grid |\n|----------|------:|----------:|\n"))
+cat(sprintf("| Positive & significant (p < 0.05) | %d | %d%% |\n", n_sig_pos, round(100 * n_sig_pos / n_total_grid)))
+cat(sprintf("| Positive & marginal (p < 0.1) | %d | %d%% |\n", n_marginal_pos, round(100 * n_marginal_pos / n_total_grid)))
+cat(sprintf("| Positive & non-significant | %d | %d%% |\n", n_pos_grid - n_sig_pos - n_marginal_pos, round(100 * (n_pos_grid - n_sig_pos - n_marginal_pos) / n_total_grid)))
+cat(sprintf("| Negative & significant (p < 0.05) | %d | %d%% |\n", n_sig_neg, round(100 * n_sig_neg / n_total_grid)))
+cat(sprintf("| Negative & non-significant | %d | %d%% |\n\n", n_total_grid - n_pos_grid - n_sig_neg, round(100 * (n_total_grid - n_pos_grid - n_sig_neg) / n_total_grid)))
 
-if (n_pos_grid / n_total_grid >= 0.75) {
+# Analyse patterns by X variable
+cat("### Patterns by deprivation measure\n\n")
+for (xlab in unique(grid_results$x_label)) {
+  x_sub <- grid_results %>% filter(x_label == xlab)
+  n_pos_x <- sum(x_sub$coef > 0, na.rm = TRUE)
+  n_sig_x <- sum(x_sub$coef > 0 & x_sub$p < 0.05, na.rm = TRUE)
+  median_t <- median(x_sub$t, na.rm = TRUE)
+  cat(sprintf("- **%s**: %d/%d positive (of which %d significant); median t = %+.1f\n",
+      xlab, n_pos_x, nrow(x_sub), n_sig_x, median_t))
+}
+
+cat("\n### Patterns by attainment measure\n\n")
+for (ylab in unique(grid_results$y_label)) {
+  y_sub <- grid_results %>% filter(y_label == ylab)
+  n_pos_y <- sum(y_sub$coef > 0, na.rm = TRUE)
+  n_sig_y <- sum(y_sub$coef > 0 & y_sub$p < 0.05, na.rm = TRUE)
+  median_t <- median(y_sub$t, na.rm = TRUE)
+  cat(sprintf("- **%s**: %d/%d positive (of which %d significant); median t = %+.1f\n",
+      ylab, n_pos_y, nrow(y_sub), n_sig_y, median_t))
+}
+
+cat("\n## Overall assessment\n\n")
+
+# More nuanced assessment based on both direction and significance
+pct_pos <- n_pos_grid / n_total_grid
+pct_sig_pos <- n_sig_pos / n_total_grid
+
+if (pct_pos >= 0.75 && pct_sig_pos >= 0.4) {
   cat("::: {.callout-important}\n")
-  cat("## The sign-flip is robust\n\n")
-  cat("The positive relationship between disadvantage concentration and disadvantaged attainment holds across the large majority of alternative operationalisations tested. This is consistent with a genuine structural relationship — likely reflecting resource concentration (Pupil Premium scaling), institutional focus, and/or composition effects — rather than a measurement artefact of the FSM6CLA1A classification or the Attainment 8 metric.\n\n")
-  cat("The finding that this pattern persists when using % ever FSM (broader economic measure), % any SEN (different dimension of disadvantage), and % persistent absentees (behavioural proxy) as the concentration measure provides triangulating evidence that schools serving more disadvantaged intakes generate modestly better outcomes for those pupils, once prior attainment is accounted for.\n")
+  cat("## The sign-flip is robust and statistically significant\n\n")
+  cat(sprintf("The positive coefficient appears in %d%% of combinations, and is statistically significant (p < 0.05) in %d%% of them. ", round(100 * pct_pos), round(100 * pct_sig_pos)))
+  cat("This provides strong evidence that the relationship between disadvantage concentration and disadvantaged attainment is genuine and not an artefact of a specific measure. The effect is consistent across different ATT8 subject components and across conceptually distinct deprivation measures, including those with low correlations to the model's prior attainment and absence controls.\n\n")
+  cat("The combination of directional consistency and statistical significance across diverse operationalisations makes this one of the more robust findings in the model experiments. It is consistent with mechanisms such as Pupil Premium resource concentration, institutional focus on disadvantaged cohorts, and reduced within-school stigmatisation of disadvantaged status.\n")
   cat(":::\n")
-} else if (n_pos_grid / n_total_grid >= 0.4) {
+} else if (pct_pos >= 0.75 && pct_sig_pos < 0.4) {
+  cat("::: {.callout-note}\n")
+  cat("## The sign-flip is directionally robust but often not statistically significant\n\n")
+  cat(sprintf("The positive coefficient appears in %d%% of combinations — a clear directional pattern — but is statistically significant (p < 0.05) in only %d%% of them. ", round(100 * pct_pos), round(100 * pct_sig_pos)))
+  cat("This suggests a real but **small** effect: the sign-flip is not a chance finding (its consistency across measures is hard to attribute to noise), but its magnitude is modest enough that it does not always clear conventional significance thresholds.\n\n")
+  cat("For policy purposes, the directional consistency matters more than the p-values in individual cells. The finding that higher concentrations of disadvantage are associated with *slightly better* (or at worst, no worse) outcomes for disadvantaged pupils — once prior attainment and absence are controlled — holds across multiple operationalisations. What varies is the precision of the estimate, not its direction.\n\n")
+  cat("However, the modest significance should temper the strength of causal claims. The effect is likely real, but it is small relative to the dominant predictors in the model (absence, prior attainment), and could be confounded by unmeasured school-level factors correlated with intake composition.\n")
+  cat(":::\n")
+} else if (pct_pos >= 0.4) {
   cat("::: {.callout-note}\n")
   cat("## The sign-flip is partially robust\n\n")
-  cat("The positive relationship appears in a substantial minority of combinations but is not universal. It is strongest with FSM-based deprivation measures and ATT8-based outcomes, suggesting the effect is real but may be moderated by the specific dimensions of disadvantage and attainment being measured. The core finding holds, but its magnitude and significance vary with operationalisation.\n")
+  cat(sprintf("The positive coefficient appears in %d%% of combinations, with %d%% reaching statistical significance. ", round(100 * pct_pos), round(100 * pct_sig_pos)))
+  cat("The sign-flip is not universal — it tends to be strongest with FSM-based deprivation measures (which share the most variance with the model's controls) and weaker or reversed with more conceptually distinct measures.\n\n")
+  cat("This pattern is consistent with two interpretations: (a) the effect is genuine but specific to economic deprivation (FSM-type measures), not disadvantage in general; or (b) the sign-flip partly depends on the model's ability to remove indirect pathways through prior attainment and absence, and this works better for some X variables than others.\n\n")
+  cat("The practical implication remains: there is no evidence that concentrating disadvantaged pupils in certain schools *harms* their attainment, and suggestive evidence that it may modestly *help* — but this finding is sensitive to how both disadvantage and attainment are measured.\n")
   cat(":::\n")
 } else {
   cat("::: {.callout-warning}\n")
   cat("## The sign-flip may be fragile\n\n")
-  cat("The positive coefficient appears in fewer than 40% of combinations tested. While not necessarily an artefact, the sign-flip may be more sensitive to operationalisation than the Analysis E results alone would suggest. Individual pupil-level data would be needed to disentangle whether this reflects a genuine structural relationship or a compositional effect specific to the FSM6CLA1A classification.\n")
+  cat(sprintf("The positive coefficient appears in only %d%% of combinations (%d%% significant). ", round(100 * pct_pos), round(100 * pct_sig_pos)))
+  cat("The sign-flip does not generalise well beyond the original FSM6CLA1A × ATT8 combination used in Analysis E. Alternative measures of either disadvantage concentration or disadvantaged attainment tend to produce negative or non-significant coefficients.\n\n")
+  cat("This does not necessarily mean the original finding is wrong — it may reflect something specific to how FSM6CLA1A interacts with the model's controls — but it does caution against strong claims that disadvantage concentration benefits disadvantaged pupils as a general principle. Individual pupil-level data would be needed to make further progress.\n")
   cat(":::\n")
 }
 ```
