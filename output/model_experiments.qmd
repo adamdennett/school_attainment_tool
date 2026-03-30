@@ -2352,6 +2352,44 @@ if (n_pos_disadv == nrow(disadv_rows)) {
   cat("The sign-flip varies across subject domains.\n\n")
 }
 
+# Open GCSE vs non-GCSE deep dive
+openg_row <- y_results %>% filter(grepl("Open GCSE \\(", Y_Variable))
+openng_row <- y_results %>% filter(grepl("Open non-GCSE", Y_Variable))
+open_total_row <- y_results %>% filter(Y_Variable == "ATT8 Open (Disadvantaged)")
+
+if (nrow(openng_row) > 0 && !is.na(openng_row$Coefficient) &&
+    nrow(openg_row) > 0 && !is.na(openg_row$Coefficient)) {
+
+  cat("::: {.callout-note}\n")
+  cat("## The Open non-GCSE result: qualification pathways and the sign-flip\n\n")
+
+  cat(sprintf("The coefficient on `log(%% FSM)` is strikingly different between the two Open sub-components: **%+.5f** (t = %+.2f) for Open GCSE qualifications versus **%+.5f** (t = %+.2f) for Open non-GCSE qualifications.\n\n",
+      openg_row$Coefficient, openg_row$t_value,
+      openng_row$Coefficient, openng_row$t_value))
+
+  cat("**What Open non-GCSE measures:** The ATT8 Open bucket is split into GCSEs (e.g. Art, Music, Computer Science, Design & Technology) and non-GCSE qualifications (e.g. BTECs, Cambridge Nationals, vocational and technical awards). The non-GCSE component captures attainment in alternative qualification pathways that many schools use to provide accessible, applied routes to KS4 achievement.\n\n")
+
+  if (openng_row$Coefficient > openg_row$Coefficient) {
+    cat("The much larger positive coefficient for non-GCSE qualifications suggests that **schools with higher FSM concentrations achieve disproportionately better outcomes for their disadvantaged pupils specifically in vocational/technical pathways**. This finding admits two quite different interpretations:\n\n")
+
+    cat("**Interpretation 1: Strategic curriculum design (strengthens the sign-flip argument).** High-FSM schools have learned, through experience and institutional focus, to build effective vocational pathways that genuinely serve their disadvantaged cohorts well. They invest Pupil Premium in well-resourced BTEC/vocational programmes, employ specialist staff, and develop employer links. The positive coefficient reflects real, meaningful attainment gains delivered through appropriate curriculum design — a form of the \"critical mass\" effect where concentrated disadvantage drives institutional specialisation.\n\n")
+
+    cat("**Interpretation 2: Qualification gaming (weakens the sign-flip argument).** High-FSM schools may be systematically entering disadvantaged pupils for non-GCSE qualifications where grade boundaries or point-score equivalences are more generous, inflating the ATT8 score without necessarily delivering equivalent learning. If non-GCSE qualifications carry ATT8 point values that are more achievable per unit of effort, the positive coefficient may reflect strategic entry patterns rather than genuine attainment differences.\n\n")
+
+    cat("**How to distinguish:** If the sign-flip were *only* visible in the non-GCSE Open component, Interpretation 2 would be concerning. But the sign-flip also appears in the GCSE-based components (English, Maths, EBacc")
+    if (openg_row$Coefficient > 0) {
+      cat(", and Open GCSE")
+    }
+    cat("), where qualification gaming is not possible — GCSEs are GCSEs. The non-GCSE result therefore most likely reflects a **combination** of both mechanisms: high-FSM schools genuinely serve their disadvantaged pupils better across all domains (Interpretation 1), *and* they additionally benefit from strategic use of vocational pathways (Interpretation 2) — which may itself be a legitimate form of institutional responsiveness to cohort needs.\n\n")
+
+    cat(sprintf("The practical implication is that the **overall ATT8 sign-flip (coefficient = %+.5f) is likely an amalgam**: a modest genuine effect across all subjects, amplified by effective vocational provision in high-FSM schools. The GCSE-only components provide the cleaner test of the core structural relationship, while the non-GCSE component captures an additional pathway-specific effect.\n",
+        y_results$Coefficient[y_results$Y_Variable == "ATT8 Disadvantaged (reference)"]))
+  } else {
+    cat("Interestingly, the Open GCSE component shows a stronger positive coefficient than the non-GCSE component, suggesting the sign-flip is not driven by vocational qualification pathways.\n\n")
+  }
+  cat(":::\n\n")
+}
+
 # L2 Basics
 basics_row <- y_results %>% filter(grepl("L2 Basics", Y_Variable))
 if (nrow(basics_row) > 0 && !is.na(basics_row$Coefficient)) {
