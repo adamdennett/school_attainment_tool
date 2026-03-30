@@ -2191,19 +2191,37 @@ cat(sprintf("\nReference (Analysis E): log(PTFSM6CLA1A) coefficient = %+.5f\n", 
 
 ## Test 1: Alternative Y variables (disadvantaged attainment)
 
-Holding `log(PTFSM6CLA1A)` as the deprivation measure, we swap the outcome variable across alternative Attainment 8 measures for disadvantaged pupils. Each captures a different component of the KS4 curriculum — English, Maths, EBacc subjects, and Open (non-EBacc) qualifications — allowing us to test whether the sign-flip is specific to the overall ATT8 aggregate or appears consistently across subject domains. For each, we report the coefficient on `log(PTFSM6CLA1A)`, its standard error, t-value, and sign.
+Holding `log(PTFSM6CLA1A)` as the deprivation measure, we swap the outcome variable across a comprehensive set of alternatives. These fall into four groups:
+
+1. **ATT8 subject components for disadvantaged pupils** — English, Maths, EBacc, Open (total), Open GCSE, and Open non-GCSE. These test whether the sign-flip is specific to the overall ATT8 aggregate or appears consistently across curriculum domains.
+2. **% disadvantaged achieving L2 Basics (grade 4+)** — a binary threshold measure rather than a continuous score. If the sign-flip appears here, it means higher FSM concentration is associated with a *higher pass rate* for disadvantaged pupils, not just a higher average score.
+3. **ATT8 by prior attainment band (all pupils)** — Low, Middle, and High prior attainment groups. These are not limited to FSM-eligible pupils, but if the sign-flip appears for low-prior-attainment pupils (who overlap substantially with disadvantaged pupils), it provides triangulating evidence from a different subgroup definition.
+4. **The disadvantaged–non-disadvantaged ATT8 gap** (`DIFFN_ATT8`) — the difference itself as the outcome. A positive coefficient here would mean higher FSM concentration *narrows* the attainment gap.
+
+Note: `PTFSM6CLA1ABASICS_94` is a percentage (0–100) and `DIFFN_ATT8` is typically negative (disadvantaged score minus non-disadvantaged); both are modelled without log transformation.
 
 ```{r directionality-y-vars}
 #| label: directionality-y-vars
 
 # Define alternative Y variables to test
 y_tests <- tribble(
-  ~y_var,                      ~label,                              ~transform,  ~filter_positive,
-  "ATT8SCR_FSM6CLA1A",        "ATT8 Disadvantaged (reference)",    "log",       TRUE,
-  "ATT8SCRENG_FSM6CLA1A",     "ATT8 English (Disadvantaged)",      "log",       TRUE,
-  "ATT8SCRMAT_FSM6CLA1A",     "ATT8 Maths (Disadvantaged)",        "log",       TRUE,
-  "ATT8SCREBAC_FSM6CLA1A",    "ATT8 EBacc (Disadvantaged)",        "log",       TRUE,
-  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open (Disadvantaged)",         "log",       TRUE
+  ~y_var,                      ~label,                                         ~transform,  ~filter_positive,
+  # --- ATT8 components for disadvantaged pupils ---
+  "ATT8SCR_FSM6CLA1A",        "ATT8 Disadvantaged (reference)",               "log",       TRUE,
+  "ATT8SCRENG_FSM6CLA1A",     "ATT8 English (Disadvantaged)",                 "log",       TRUE,
+  "ATT8SCRMAT_FSM6CLA1A",     "ATT8 Maths (Disadvantaged)",                   "log",       TRUE,
+  "ATT8SCREBAC_FSM6CLA1A",    "ATT8 EBacc (Disadvantaged)",                   "log",       TRUE,
+  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open (Disadvantaged)",                    "log",       TRUE,
+  "ATT8SCROPENG_FSM6CLA1A",   "ATT8 Open GCSE (Disadvantaged)",               "log",       TRUE,
+  "ATT8SCROPENNG_FSM6CLA1A",  "ATT8 Open non-GCSE (Disadvantaged)",           "log",       TRUE,
+  # --- L2 Basics threshold for disadvantaged ---
+  "PTFSM6CLA1ABASICS_94",     "% Disadv. achieving L2 Basics (grade 4+)",     "none",      FALSE,
+  # --- ATT8 by prior attainment band (all pupils) ---
+  "ATT8SCR_LO",               "ATT8 Low Prior Attainment (all pupils)",        "log",       TRUE,
+  "ATT8SCR_MID",              "ATT8 Middle Prior Attainment (all pupils)",     "log",       TRUE,
+  "ATT8SCR_HI",               "ATT8 High Prior Attainment (all pupils)",       "log",       TRUE,
+  # --- The gap itself ---
+  "DIFFN_ATT8",               "ATT8 Gap (Disadv. minus Non-Disadv.)",         "none",      FALSE
 )
 
 # Fit each model and extract the FSM coefficient
@@ -2307,52 +2325,101 @@ n_positive <- sum(y_results$Sign == "POSITIVE", na.rm = TRUE)
 n_total <- sum(!is.na(y_results$Coefficient))
 n_sig <- sum(y_results$Sign == "POSITIVE" & y_results$p_value < 0.05, na.rm = TRUE)
 n_marginal <- sum(y_results$Sign == "POSITIVE" & y_results$p_value >= 0.05 & y_results$p_value < 0.1, na.rm = TRUE)
+n_neg_sig <- sum(y_results$Sign == "negative" & y_results$p_value < 0.05, na.rm = TRUE)
 
-cat(sprintf("Of the %d Attainment 8 component measures tested, **%d show a positive coefficient** on log(%% FSM) for disadvantaged pupils", n_total, n_positive))
-
+cat(sprintf("Of the %d outcome measures tested, **%d show a positive coefficient** on log(%% FSM)", n_total, n_positive))
 if (n_sig > 0 || n_marginal > 0) {
   parts <- c()
   if (n_sig > 0) parts <- c(parts, sprintf("%d statistically significant at p < 0.05", n_sig))
   if (n_marginal > 0) parts <- c(parts, sprintf("%d marginally significant (p < 0.1)", n_marginal))
-  cat(sprintf(", of which %s.\n\n", paste(parts, collapse = " and ")))
+  cat(sprintf(", of which %s", paste(parts, collapse = " and ")))
+}
+if (n_neg_sig > 0) {
+  cat(sprintf(". **%d show a significantly negative coefficient**", n_neg_sig))
+}
+cat(".\n\n")
+
+# --- Group-by-group commentary ---
+# ATT8 disadvantaged components
+disadv_rows <- y_results %>% filter(grepl("Disadvantaged|Open GCSE|Open non-GCSE", Y_Variable))
+n_pos_disadv <- sum(disadv_rows$Sign == "POSITIVE", na.rm = TRUE)
+n_sig_disadv <- sum(disadv_rows$Sign == "POSITIVE" & disadv_rows$p_value < 0.05, na.rm = TRUE)
+cat(sprintf("**ATT8 components for disadvantaged pupils:** %d of %d show a positive coefficient (%d significant). ",
+    n_pos_disadv, nrow(disadv_rows), n_sig_disadv))
+if (n_pos_disadv == nrow(disadv_rows)) {
+  cat("The sign-flip is consistent across **every subject domain** — English, Maths, EBacc, Open (total and split into GCSE/non-GCSE) — making it unlikely to be an artefact of the Attainment 8 weighting formula.\n\n")
 } else {
-  cat(", though none reach conventional significance thresholds.\n\n")
+  cat("The sign-flip varies across subject domains.\n\n")
 }
 
-if (n_positive == n_total) {
-  cat("The sign-flip is consistent across **every subject domain** — English, Maths, EBacc, and Open qualifications — not just the overall ATT8 aggregate. This makes it unlikely to be an artefact of how particular subjects are weighted in the Attainment 8 formula.\n\n")
-} else if (n_positive >= n_total - 1) {
-  cat("The sign-flip appears in almost all subject domains, suggesting it is a broad structural pattern rather than being driven by any single curriculum component.\n\n")
-} else {
-  cat("The sign-flip varies across subject domains, suggesting the relationship may be stronger in some curriculum areas than others.\n\n")
-}
-
-# Comment on significance patterns
-sig_rows <- y_results %>% filter(Sign == "POSITIVE", p_value < 0.05)
-nonsig_rows <- y_results %>% filter(Sign == "POSITIVE", p_value >= 0.05)
-if (nrow(sig_rows) > 0 && nrow(nonsig_rows) > 0) {
-  cat(sprintf("The coefficient is statistically significant for **%s** but not for %s. ",
-      paste(sig_rows$Y_Variable, collapse = ", "),
-      paste(nonsig_rows$Y_Variable, collapse = ", ")))
-  cat("This suggests the effect is real but modest in magnitude — the sign is consistent but the precision varies across subject domains, likely reflecting differences in sample sizes and variance in the component scores.\n\n")
-} else if (nrow(sig_rows) == n_positive && n_positive > 0) {
-  cat("All positive coefficients are statistically significant, providing strong evidence that the sign-flip is not a chance finding.\n\n")
-} else if (n_positive > 0 && nrow(sig_rows) == 0) {
-  cat("None of the positive coefficients reach statistical significance at p < 0.05. The consistent direction is suggestive but the effect may be too small to detect reliably with these sample sizes, or the true effect size may be negligible.\n\n")
-}
-
-# Highlight any variation across components
-eng_row <- y_results %>% filter(grepl("English", Y_Variable))
-mat_row <- y_results %>% filter(grepl("Maths", Y_Variable))
-if (nrow(eng_row) > 0 && nrow(mat_row) > 0 &&
-    !is.na(eng_row$Coefficient) && !is.na(mat_row$Coefficient)) {
-  cat(sprintf("Comparing the two core subjects: the coefficient is %+.5f for English and %+.5f for Maths. ",
-      eng_row$Coefficient, mat_row$Coefficient))
-  if (sign(eng_row$Coefficient) == sign(mat_row$Coefficient)) {
-    cat("Both point in the same direction, reinforcing that the pattern is not subject-specific.\n\n")
+# L2 Basics
+basics_row <- y_results %>% filter(grepl("L2 Basics", Y_Variable))
+if (nrow(basics_row) > 0 && !is.na(basics_row$Coefficient)) {
+  cat(sprintf("**%% Disadvantaged achieving L2 Basics (grade 4+):** Coefficient = %+.5f (t = %+.2f, p = %s). ",
+      basics_row$Coefficient, basics_row$t_value,
+      ifelse(basics_row$p_value < 0.001, "< 0.001", sprintf("%.3f", basics_row$p_value))))
+  if (basics_row$Coefficient > 0) {
+    cat("The positive sign means higher FSM concentration is associated with a higher *pass rate* for disadvantaged pupils — the effect is not limited to average scores but extends to the proportion clearing the key grade 4 threshold.\n\n")
   } else {
-    cat("The difference in sign between these two core subjects warrants further investigation.\n\n")
+    cat("The negative sign here contrasts with the ATT8 results. This could reflect floor effects: schools with very high FSM may have more pupils clustered just below the grade boundary, where average ATT8 can rise slightly without pushing more pupils over the threshold.\n\n")
   }
+}
+
+# Prior attainment bands
+prior_rows <- y_results %>% filter(grepl("Prior Attainment", Y_Variable))
+if (nrow(prior_rows) > 0) {
+  lo_row <- prior_rows %>% filter(grepl("Low", Y_Variable))
+  mid_row <- prior_rows %>% filter(grepl("Middle", Y_Variable))
+  hi_row <- prior_rows %>% filter(grepl("High", Y_Variable))
+
+  cat("**ATT8 by prior attainment band (all pupils):** ")
+  if (nrow(lo_row) > 0 && !is.na(lo_row$Coefficient)) {
+    cat(sprintf("Low prior: %+.5f (t = %+.2f, p = %s); ",
+        lo_row$Coefficient, lo_row$t_value,
+        ifelse(lo_row$p_value < 0.001, "< 0.001", sprintf("%.3f", lo_row$p_value))))
+  }
+  if (nrow(mid_row) > 0 && !is.na(mid_row$Coefficient)) {
+    cat(sprintf("Middle: %+.5f (t = %+.2f); ", mid_row$Coefficient, mid_row$t_value))
+  }
+  if (nrow(hi_row) > 0 && !is.na(hi_row$Coefficient)) {
+    cat(sprintf("High: %+.5f (t = %+.2f). ", hi_row$Coefficient, hi_row$t_value))
+  }
+
+  if (nrow(lo_row) > 0 && !is.na(lo_row$Coefficient) && lo_row$Coefficient > 0) {
+    cat("The positive coefficient for **low prior attainment pupils** is particularly telling — these pupils overlap substantially with the disadvantaged subgroup, providing triangulating evidence from a different (ability-based rather than income-based) definition of vulnerability. ")
+  }
+  if (nrow(hi_row) > 0 && !is.na(hi_row$Coefficient) && hi_row$Coefficient < 0) {
+    cat("The negative coefficient for **high prior attainment** pupils makes intuitive sense: high-ability pupils in high-FSM schools may face less academic stretch and fewer high-achieving peers, consistent with a composition effect that works in the opposite direction for the most able.")
+  }
+  cat("\n\n")
+}
+
+# The gap
+gap_row <- y_results %>% filter(grepl("Gap", Y_Variable))
+if (nrow(gap_row) > 0 && !is.na(gap_row$Coefficient)) {
+  cat(sprintf("**The ATT8 gap (Disadvantaged minus Non-Disadvantaged):** Coefficient = %+.5f (t = %+.2f, p = %s). ",
+      gap_row$Coefficient, gap_row$t_value,
+      ifelse(gap_row$p_value < 0.001, "< 0.001", sprintf("%.3f", gap_row$p_value))))
+  if (gap_row$Coefficient > 0) {
+    cat("A positive coefficient here means the gap **narrows** (becomes less negative) in schools with higher FSM concentrations. This is the most direct test of the policy-relevant question: does concentrating disadvantaged pupils reduce the attainment gap? The model suggests it does, modestly.\n\n")
+  } else {
+    cat("A negative coefficient means the gap **widens** in schools with higher FSM concentrations, which would undermine the sign-flip narrative. However, note that the gap variable captures the *difference* between two scores that are both affected by FSM in different ways.\n\n")
+  }
+}
+
+# Significance patterns
+sig_rows <- y_results %>% filter(Sign == "POSITIVE", p_value < 0.05)
+nonsig_pos_rows <- y_results %>% filter(Sign == "POSITIVE", p_value >= 0.05)
+if (nrow(sig_rows) > 0 && nrow(nonsig_pos_rows) > 0) {
+  cat("**Significance patterns:** The coefficient is statistically significant for: ",
+      paste0("*", sig_rows$Y_Variable, "*", collapse = ", "), ". ", sep = "")
+  cat("It is positive but non-significant for: ",
+      paste0("*", nonsig_pos_rows$Y_Variable, "*", collapse = ", "), ". ", sep = "")
+  cat("This suggests the effect is real but modest — the direction is consistent but precision varies with sample size and variance in each outcome measure.\n\n")
+} else if (nrow(sig_rows) == n_positive && n_positive > 0) {
+  cat("**All positive coefficients are statistically significant**, providing strong evidence that the sign-flip is not a chance finding.\n\n")
+} else if (n_positive > 0 && nrow(sig_rows) == 0) {
+  cat("**None of the positive coefficients reach statistical significance** at p < 0.05. The consistent direction is suggestive but the effect may be too small to detect reliably.\n\n")
 }
 ```
 
@@ -2591,17 +2658,20 @@ As a final check, we fit the most informative subset of Y × X combinations to s
 
 ```{r directionality-grid}
 #| label: directionality-grid
-#| fig-height: 5
-#| fig-width: 8
+#| fig-height: 7
+#| fig-width: 9
 
 # Select key Y and X combinations
 grid_y <- tribble(
-  ~y_var,                    ~y_label,            ~y_transform,  ~y_filter_pos,
-  "ATT8SCR_FSM6CLA1A",      "ATT8 Disadv.",      "log",         TRUE,
-  "ATT8SCRENG_FSM6CLA1A",   "ATT8 Eng Dis.",     "log",         TRUE,
-  "ATT8SCRMAT_FSM6CLA1A",   "ATT8 Mat Dis.",     "log",         TRUE,
-  "ATT8SCREBAC_FSM6CLA1A",  "ATT8 EBacc Dis.",   "log",         TRUE,
-  "ATT8SCROPEN_FSM6CLA1A",  "ATT8 Open Dis.",    "log",         TRUE
+  ~y_var,                      ~y_label,              ~y_transform,  ~y_filter_pos,
+  "ATT8SCR_FSM6CLA1A",        "ATT8 Disadv.",        "log",         TRUE,
+  "ATT8SCRENG_FSM6CLA1A",     "ATT8 Eng Dis.",       "log",         TRUE,
+  "ATT8SCRMAT_FSM6CLA1A",     "ATT8 Mat Dis.",       "log",         TRUE,
+  "ATT8SCREBAC_FSM6CLA1A",    "ATT8 EBacc Dis.",     "log",         TRUE,
+  "ATT8SCROPEN_FSM6CLA1A",    "ATT8 Open Dis.",      "log",         TRUE,
+  "PTFSM6CLA1ABASICS_94",     "% Dis. L2 Basics",    "none",        FALSE,
+  "ATT8SCR_LO",               "ATT8 Low Prior",      "log",         TRUE,
+  "DIFFN_ATT8",               "ATT8 Gap",            "none",        FALSE
 )
 
 grid_x <- tribble(
