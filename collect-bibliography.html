@@ -1,0 +1,108 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // ── 1. Collect bibliography from margin citations ──
+  var marginEntries = document.querySelectorAll('.column-margin .csl-entry');
+
+  var refsSection = document.getElementById('references');
+  if (refsSection && marginEntries.length > 0) {
+    var refsDiv = document.getElementById('refs');
+    if (!refsDiv) {
+      refsDiv = document.createElement('div');
+      refsDiv.id = 'refs';
+      refsDiv.className = 'references csl-bib-body hanging-indent';
+      refsDiv.setAttribute('role', 'list');
+      refsSection.appendChild(refsDiv);
+    }
+
+    // Deduplicate by id, sort alphabetically
+    var seen = {};
+    var entries = [];
+    marginEntries.forEach(function(entry) {
+      var id = entry.id || entry.textContent.trim().substring(0, 80);
+      if (!seen[id]) {
+        seen[id] = true;
+        entries.push(entry.cloneNode(true));
+      }
+    });
+
+    entries.sort(function(a, b) {
+      return a.textContent.trim().localeCompare(b.textContent.trim());
+    });
+
+    entries.forEach(function(entry) {
+      refsDiv.appendChild(entry);
+    });
+  }
+
+  // ── 2. Collect footnotes from margins ──
+  var fnContainer = document.getElementById('footnotes-section');
+  if (!fnContainer) return;
+
+  // Footnotes in margins are <div id="fn1">, <div id="fn2">, etc.
+  var marginFootnotes = document.querySelectorAll('.column-margin div[id^="fn"]');
+  if (marginFootnotes.length === 0) return;
+
+  // Create the heading
+  var heading = document.createElement('h1');
+  heading.className = 'unnumbered';
+  heading.textContent = 'Footnotes';
+  fnContainer.appendChild(heading);
+
+  // Build an ordered list
+  var ol = document.createElement('ol');
+  ol.className = 'collected-footnotes-list';
+
+  // Sort by footnote number
+  var fnArray = Array.from(marginFootnotes);
+  fnArray.sort(function(a, b) {
+    var numA = parseInt(a.id.replace('fn', ''), 10);
+    var numB = parseInt(b.id.replace('fn', ''), 10);
+    return numA - numB;
+  });
+
+  // Deduplicate and add to list
+  var seenFn = {};
+  fnArray.forEach(function(fn) {
+    if (seenFn[fn.id]) return;
+    seenFn[fn.id] = true;
+
+    var li = document.createElement('li');
+    li.setAttribute('value', fn.id.replace('fn', ''));
+
+    // Clone the paragraph content, removing the leading <sup> number
+    var p = fn.querySelector('p');
+    if (p) {
+      var clone = p.cloneNode(true);
+      var sup = clone.querySelector('sup');
+      if (sup) {
+        // Also remove the non-breaking space after the sup
+        var next = sup.nextSibling;
+        if (next && next.nodeType === 3) {
+          next.textContent = next.textContent.replace(/^\s+/, '');
+        }
+        sup.remove();
+      }
+      li.innerHTML = clone.innerHTML.trim();
+    } else {
+      li.innerHTML = fn.innerHTML;
+    }
+    ol.appendChild(li);
+  });
+
+  fnContainer.appendChild(ol);
+
+  // Add Footnotes to the table of contents
+  var tocList = document.querySelector('#TOC > ul, nav[id="TOC"] > ul, #quarto-sidebar nav > ul');
+  if (tocList) {
+    var tocItem = document.createElement('li');
+    var tocLink = document.createElement('a');
+    tocLink.href = '#footnotes-section';
+    tocLink.textContent = 'Footnotes';
+    tocLink.className = 'nav-link';
+    tocLink.setAttribute('data-scroll-target', '#footnotes-section');
+    tocItem.appendChild(tocLink);
+    tocList.appendChild(tocItem);
+  }
+});
+</script>
