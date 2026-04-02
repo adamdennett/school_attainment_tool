@@ -1,7 +1,72 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
+  // ── 0. Fix displaced margin citations ──
+  // Quarto sometimes places the 3rd+ citation from a paragraph into a
+  // different paragraph's margin block. This relocates them correctly.
+  var allCiteSpans = document.querySelectorAll('span.citation[data-cites]');
+  allCiteSpans.forEach(function(span) {
+    var keys = span.getAttribute('data-cites').split(/\s+/);
+    var para = span.closest('p, li, dd');
+    if (!para) return;
+
+    var marginDiv = null;
+    var sibling = para.nextElementSibling;
+    if (!sibling || !sibling.classList.contains('column-margin')) {
+      var parent = para.parentElement;
+      if (parent) {
+        sibling = parent.nextElementSibling;
+      }
+    }
+    if (sibling && sibling.classList.contains('column-margin')) {
+      marginDiv = sibling;
+    }
+
+    keys.forEach(function(key) {
+      var refId = 'ref-' + key;
+      if (marginDiv && marginDiv.querySelector('#' + CSS.escape(refId))) return;
+
+      var refEntry = document.getElementById(refId);
+      if (!refEntry || !refEntry.classList.contains('csl-entry')) return;
+
+      if (!marginDiv) {
+        marginDiv = document.createElement('div');
+        marginDiv.className = 'no-row-height column-margin column-container';
+        para.parentNode.insertBefore(marginDiv, para.nextSibling);
+      }
+
+      var clone = refEntry.cloneNode(true);
+      marginDiv.appendChild(clone);
+    });
+  });
+
+  // ── 0b. Deduplicate margin citations: keep only FIRST occurrence ──
+  // Walk margin entries in document order; remove any ref that has already
+  // appeared in an earlier margin block.
+  var seenRefs = {};
+  var allMarginEntries = document.querySelectorAll('.column-margin .csl-entry');
+  allMarginEntries.forEach(function(entry) {
+    var id = entry.id;
+    if (!id) return;
+    if (seenRefs[id]) {
+      // This is a duplicate — remove it from the margin
+      entry.parentNode.removeChild(entry);
+    } else {
+      seenRefs[id] = true;
+    }
+  });
+
+  // Clean up any now-empty margin divs
+  var allMarginDivs = document.querySelectorAll('.column-margin.column-container');
+  allMarginDivs.forEach(function(div) {
+    // Check if it still has any csl-entry children (keep footnotes etc.)
+    if (div.children.length === 0) {
+      div.parentNode.removeChild(div);
+    }
+  });
+
   // ── 1. Collect bibliography from margin citations ──
+  // Re-query after dedup
   var marginEntries = document.querySelectorAll('.column-margin .csl-entry');
 
   var refsSection = document.getElementById('references');
@@ -39,21 +104,17 @@ document.addEventListener('DOMContentLoaded', function() {
   var fnContainer = document.getElementById('footnotes-section');
   if (!fnContainer) return;
 
-  // Footnotes in margins are <div id="fn1">, <div id="fn2">, etc.
   var marginFootnotes = document.querySelectorAll('.column-margin div[id^="fn"]');
   if (marginFootnotes.length === 0) return;
 
-  // Create the heading
   var heading = document.createElement('h1');
   heading.className = 'unnumbered';
   heading.textContent = 'Footnotes';
   fnContainer.appendChild(heading);
 
-  // Build an ordered list
   var ol = document.createElement('ol');
   ol.className = 'collected-footnotes-list';
 
-  // Sort by footnote number
   var fnArray = Array.from(marginFootnotes);
   fnArray.sort(function(a, b) {
     var numA = parseInt(a.id.replace('fn', ''), 10);
@@ -61,7 +122,6 @@ document.addEventListener('DOMContentLoaded', function() {
     return numA - numB;
   });
 
-  // Deduplicate and add to list
   var seenFn = {};
   fnArray.forEach(function(fn) {
     if (seenFn[fn.id]) return;
@@ -70,13 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
     var li = document.createElement('li');
     li.setAttribute('value', fn.id.replace('fn', ''));
 
-    // Clone the paragraph content, removing the leading <sup> number
     var p = fn.querySelector('p');
     if (p) {
       var clone = p.cloneNode(true);
       var sup = clone.querySelector('sup');
       if (sup) {
-        // Also remove the non-breaking space after the sup
         var next = sup.nextSibling;
         if (next && next.nodeType === 3) {
           next.textContent = next.textContent.replace(/^\s+/, '');
@@ -92,7 +150,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   fnContainer.appendChild(ol);
 
-  // Add Footnotes to the table of contents
   var tocList = document.querySelector('#TOC > ul, nav[id="TOC"] > ul, #quarto-sidebar nav > ul');
   if (tocList) {
     var tocItem = document.createElement('li');

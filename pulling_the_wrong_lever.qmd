@@ -56,6 +56,7 @@ library(scales)
 library(htmlwidgets)
 library(jsonlite)
 library(here)
+library(ggrepel)
 
 source(here::here("R", "helpers.R"))
 
@@ -126,6 +127,31 @@ bh_latest <- bh_data %>%
   group_by(URN) %>%
   filter(year_label == max(year_label)) %>%
   ungroup()
+
+# ---- National benchmarks (for FSM / absence plots) ----
+national_benchmarks <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"),
+         !is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1))
+
+latest_year <- max(bh_latest_model$year_label, na.rm = TRUE)
+national_latest <- national_benchmarks %>% filter(year_label == latest_year)
+
+national_mean_abs <- mean(national_latest$PERCTOT, na.rm = TRUE)
+bh_mean_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+national_mean_fsm <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+bh_mean_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+# ---- Reusable theme ----
+theme_pub <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(colour = "grey40", size = 10),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
 
 # ---- Helper functions ----
 relabel_terms <- function(term) {
@@ -415,14 +441,32 @@ for (i in seq_len(nrow(bh_map_data))) {
   }
 }
 
-# Legend
+# Legend — use HTML labels with inline coloured squares for clean alignment
+legend_html <- paste0(
+  '<div style="font-size: 12px; line-height: 1.6;">',
+  paste0(
+    '<div style="display: flex; align-items: center; gap: 6px;">',
+    '<span style="display: inline-block; width: 14px; height: 14px; ',
+    'background:', unname(catchment_colours), '; ',
+    'border-radius: 2px; flex-shrink: 0;"></span>',
+    '<span>', unname(catchment_labels), '</span></div>',
+    collapse = ''
+  ),
+  '</div>'
+)
+
 m_orient <- m_orient %>%
-  addLegend(
-    position = "bottomright",
-    colors = unname(catchment_colours),
-    labels = unname(catchment_labels),
-    title = "2025/26 Catchment<br>Boundaries",
-    opacity = 0.8
+  addControl(
+    html = paste0(
+      '<div style="background: white; padding: 8px 12px; ',
+      'border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.3); ',
+      'font-family: sans-serif;">',
+      '<div style="font-weight: bold; margin-bottom: 4px; font-size: 12px;">',
+      '2025/26 Catchment Boundaries</div>',
+      legend_html,
+      '</div>'
+    ),
+    position = "topright"
   )
 
 m_orient
@@ -1057,12 +1101,57 @@ What this means in practical terms is that if there were another LEA with the sa
 
 [^caterpillar-all]: See supplementary material for the full caterpillar plots <https://adamdennett.github.io/school_attainment_tool/model_results.html#fig-caterpillar-la-nondis>
 
-::: {#fig-caterpillar}
-<!-- TODO: Insert Figure 4 from model_results.qmd - Caterpillar plot for disadvantaged pupils -->
-![Placeholder: Caterpillar Plot for LEA random effects, Disadvantaged Students]()
+```{r fig-caterpillar}
+#| label: fig-caterpillar
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, Disadvantaged Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
+#| fig-height: 8
+#| fig-width: 10
 
-A 'Caterpillar Plot' representing the Local Education Authority random effect intercepts from the full Model 5 specification for Disadvantaged Students, all LEAs in England.
-:::
+re_list_dis <- ranef(mod_e_disadv, condVar = TRUE)
+re_la_dis <- as.data.frame(re_list_dis$`LANAME:gor_name`)
+re_la_dis$group <- rownames(re_list_dis$`LANAME:gor_name`)
+se_la_dis <- sqrt(attr(re_list_dis$`LANAME:gor_name`, "postVar")[1, 1, ])
+re_la_dis$se <- se_la_dis
+
+re_la_dis <- re_la_dis %>%
+  mutate(
+    la_name = sub(":.*$", "", group),
+    ci_lo = `(Intercept)` - 1.96 * se,
+    ci_hi = `(Intercept)` + 1.96 * se,
+    sig = ci_lo > 0 | ci_hi < 0,
+    highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
+  )
+
+extreme_la_dis <- c(
+  head(re_la_dis$la_name[order(re_la_dis$`(Intercept)`)], 10),
+  tail(re_la_dis$la_name[order(re_la_dis$`(Intercept)`)], 10)
+)
+if (any(grepl("Brighton", re_la_dis$la_name))) {
+  extreme_la_dis <- unique(c(extreme_la_dis,
+                              re_la_dis$la_name[grepl("Brighton", re_la_dis$la_name)]))
+}
+
+ggplot(re_la_dis, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                width = 0, colour = "grey60", linewidth = 0.3) +
+  geom_point(aes(colour = highlight), size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_text_repel(
+    data = re_la_dis %>% filter(la_name %in% extreme_la_dis),
+    aes(label = la_name),
+    size = 2.5, max.overlaps = 25, force = 4, nudge_y = 0.005,
+    segment.colour = "grey60", segment.size = 0.3
+  ) +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca"),
+                      guide = "none") +
+  labs(title = "LA Random Intercepts — Imputed Full Panel Model (Disadvantaged Pupils)",
+       subtitle = "Ordered by estimate; error bars = 95% CI. LAs whose CI excludes 0 differ meaningfully from average.",
+       x = "Local Authority (ordered by random intercept)",
+       y = "Random Intercept (log scale)") +
+  theme_pub +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
 
 With this context the policy starting point should be somewhat different to that experienced at the end of 2024. Rather than an emergency needing radical changes to the secondary school system in the city, we have a Local Education Authority that, given the structural factors we know affect attainment, over-performing in the national context — in the top 10 LEAs for both disadvantaged and non-disadvantaged attainment. Rather than what is the city doing wrong, what is the city doing right? What are the factors (both within the gift of the LEA to influence and not) not captured by the model that mean that the city is over-performing? Are they home-based, such as parental engagement? Is it something to do with school leadership and governance? Local Authority services? School improvement programmes? These questions will require additional data or qualitative follow-up to find the answers to.
 
@@ -1072,48 +1161,145 @@ However, another question that follows that we can answer with the data to hand 
 
 Earlier analysis in this paper pointed to absence as being the most important factor affecting attainment, but how do the absence levels in Brighton and Hove compare to other LEAs in England?
 
-::: {#tbl-absence}
+```{r tbl-absence}
+#| label: tbl-absence
+#| tbl-cap: "Highest-absence local authorities across all panel years (mean school absence %, rank)."
 
-| Local Authority | 2021-22 | 2022-23 | 2023-24 | 2024-25 |
-|:---|---:|---:|---:|---:|
-| Knowsley | 12.6% (152/152) | 11.8% (149/152) | 11.9% (151/152) | 10.9% (152/152) |
-| **Brighton and Hove** | **10.8% (144/152)** | **10.5% (137/152)** | **11.0% (143/152)** | **10.8% (151/152)** |
-| Newcastle upon Tyne | 12.2% (151/152) | 12.9% (152/152) | 11.4% (150/152) | 10.6% (150/152) |
-| Southampton | 10.1% (119/152) | 10.6% (139/152) | 11.0% (145/152) | 10.5% (149/152) |
-| Bradford | 11.5% (149/152) | 11.9% (150/152) | 11.2% (147/152) | 10.3% (148/152) |
-| Plymouth | 11.1% (147/152) | 10.8% (144/152) | 11.3% (149/152) | 10.2% (147/152) |
-| Middlesbrough | 11.8% (150/152) | 12.9% (151/152) | 12.2% (152/152) | 10.1% (146/152) |
-| Sefton | 10.1% (122/152) | 10.3% (129/152) | 10.5% (133/152) | 10.0% (145/152) |
-| Devon | 10.8% (145/152) | 10.9% (145/152) | 10.8% (139/152) | 9.9% (144/152) |
-| Dorset | 10.3% (134/152) | 10.2% (127/152) | 10.7% (137/152) | 9.9% (143/152) |
+all_years <- sort(unique(national_benchmarks$year_label))
 
-: Worst 10 LEAs for Absence in 2024-25, with corresponding ranks for the preceding 3 years. {#tbl-absence}
-:::
+la_abs_all_years <- national_benchmarks %>%
+  group_by(year_label, LANAME) %>%
+  summarise(la_mean_abs = mean(PERCTOT, na.rm = TRUE), .groups = "drop") %>%
+  group_by(year_label) %>%
+  arrange(la_mean_abs) %>%
+  mutate(rank = row_number(), n_las = n()) %>%
+  ungroup()
+
+# LAs in the top 10 for any year, plus always include B&H
+top10_any_year <- la_abs_all_years %>%
+  group_by(year_label) %>%
+  slice_max(la_mean_abs, n = 10) %>%
+  ungroup() %>%
+  pull(LANAME) %>%
+  unique()
+
+top10_any_year <- unique(c(top10_any_year,
+                            la_abs_all_years$LANAME[grepl("Brighton", la_abs_all_years$LANAME)]))
+
+abs_wide <- la_abs_all_years %>%
+  filter(LANAME %in% top10_any_year) %>%
+  mutate(display = paste0(format(round(la_mean_abs, 1), nsmall = 1),
+                           "% (", rank, "/", n_las, ")")) %>%
+  select(LANAME, year_label, display) %>%
+  mutate(year_label = factor(year_label,
+    levels = c("2021-22", "2022-23", "2023-24", "2024-25"))) %>%
+  arrange(year_label) %>%
+  pivot_wider(names_from = year_label, values_from = display, values_fill = "\u2014")
+
+latest_order <- la_abs_all_years %>%
+  filter(year_label == latest_year, LANAME %in% top10_any_year) %>%
+  arrange(desc(la_mean_abs))
+
+abs_wide <- abs_wide %>%
+  mutate(LANAME = factor(LANAME, levels = latest_order$LANAME)) %>%
+  arrange(LANAME) %>%
+  mutate(LANAME = as.character(LANAME))
+
+bh_row <- which(grepl("Brighton", abs_wide$LANAME))
+
+names(abs_wide)[1] <- "Local Authority"
+
+abs_wide %>%
+  kable(format = "html",
+        align = paste0("l", paste(rep("r", length(all_years)), collapse = ""))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 10) %>%
+  row_spec(bh_row, bold = TRUE, background = "#fce4f1")
+```
 
 As @tbl-absence shows, Brighton and Hove had the 2nd worst absence rate in England in 2024-25 — it was in the top 10 in two of the other three years where we have data. Compounding this, the direction of travel appears to be that the city is getting worse. Delving beneath the local authority to the school level in @fig-absence-bh, we see that only two schools — King's School and Patcham High School — have absence rates better than the national average. All other schools in the city are worse. @fig-absence-bh plots raw absence against log(absence). The downward curve from right to left shows what might be referred to as 'diminishing returns'. Where absence begins very low in raw-terms on the left of the plot, as we increase to the right, the corresponding increase on the log-scale is initially sharp but flattens out the further to the right we get. This means that if the relationship between log(attainment) and log(absence) is linear and negative — which it is — then the biggest improvements to attainment are associated with declines in absence, where it is already low. At higher levels of absence, much bigger raw changes are required to affect the same attainment change. Even so, the magnitude of the absence problem at some schools in the city means that substantial improvements could be made by reducing absence to the national average. Estimates of these can be seen in @tbl-absence-gains — it reveals that the potential gains for the schools with the highest absence rates compared to the national average are very high — 4-5 GCSE points.
 
-::: {#fig-absence-bh}
-<!-- TODO: Insert Figure 5 from brighton_case_study.qmd - School-level absence raw vs log -->
-![Placeholder: School-level absence in Brighton and Hove]()
+```{r fig-absence-bh}
+#| label: fig-absence-bh
+#| fig-cap: "Diminishing returns: the same 1pp change in absence has a much larger model impact at the low end. Brighton & Hove schools (pink) cluster to the right of the national average, on the flatter part of the curve."
+#| fig-height: 4.5
 
-School-level absence in Brighton and Hove, raw vs log relationship, 2024-25.
-:::
+beta_absence <- fixef(mod_e_all)["log(PERCTOT)"]
 
-::: {#tbl-absence-gains}
+abs_seq <- seq(2, 12, by = 0.1)
+abs_log_df <- tibble(abs_raw = abs_seq, abs_log = log(abs_seq))
 
-| School | Current % Absence | National Average (Target) | Reduction needed (pp) | Predicted ATT8 change (%) | ≈ ATT8 points |
-|:---|---:|---:|---:|---:|---:|
-| Longhill High School | 16.7 | 8.2 | 8.4 | 16.25 | 5.3 |
-| Brighton Aldridge Community Academy | 14.4 | 8.2 | 6.2 | 12.74 | 4.6 |
-| Hove Park School and Sixth Form Centre | 12.9 | 8.2 | 4.6 | 10.01 | 4.1 |
-| Portslade Aldridge Community Academy | 11.3 | 8.2 | 3.1 | 7.07 | 3 |
-| Blatchington Mill School | 10.8 | 8.2 | 2.6 | 5.93 | 3 |
-| Dorothy Stringer School | 9.8 | 8.2 | 1.5 | 3.71 | 2 |
-| Varndean School | 9 | 8.2 | 0.8 | 1.98 | 1 |
-| Cardinal Newman Catholic School | 8.5 | 8.2 | 0.3 | 0.64 | 0.3 |
+bh_abs <- bh_latest_model %>%
+  transmute(School = SCHNAME,
+            abs_raw = PERCTOT,
+            abs_log = log(PERCTOT))
 
-: Potential Attainment gains to be made at different schools in Brighton and Hove by moving absence to the national average, 2024-25.[^absence-note] {#tbl-absence-gains}
-:::
+city_avg_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+
+p_abs <- ggplot() +
+  geom_line(data = abs_log_df, aes(x = abs_raw, y = abs_log),
+            colour = "grey40", linewidth = 0.8) +
+  annotate("segment", x = 4.5, xend = 5.5, y = log(4.5), yend = log(4.5),
+           colour = "#2e6260", linewidth = 0.8, linetype = "dashed") +
+  annotate("segment", x = 5.5, xend = 5.5, y = log(4.5), yend = log(5.5),
+           colour = "#2e6260", linewidth = 0.8,
+           arrow = arrow(length = unit(0.15, "cm"))) +
+  annotate("text", x = 5.8, y = (log(4.5) + log(5.5)) / 2,
+           label = sprintf("+%.2f", log(5.5) - log(4.5)),
+           colour = "#2e6260", fontface = "bold", size = 3.5) +
+  annotate("segment", x = 8.5, xend = 9.5, y = log(8.5), yend = log(8.5),
+           colour = "#4e3c56", linewidth = 0.8, linetype = "dashed") +
+  annotate("segment", x = 9.5, xend = 9.5, y = log(8.5), yend = log(9.5),
+           colour = "#4e3c56", linewidth = 0.8,
+           arrow = arrow(length = unit(0.15, "cm"))) +
+  annotate("text", x = 9.8, y = (log(8.5) + log(9.5)) / 2,
+           label = sprintf("+%.2f", log(9.5) - log(8.5)),
+           colour = "#4e3c56", fontface = "bold", size = 3.5) +
+  geom_vline(xintercept = national_mean_abs, linetype = "solid",
+             colour = "#abc766", linewidth = 0.7, alpha = 0.7) +
+  annotate("text", x = national_mean_abs - 0.15, y = max(abs_log_df$abs_log) - 0.02,
+           label = sprintf("National avg\n%.1f%%", national_mean_abs),
+           colour = "#abc766", size = 2.8, fontface = "bold", hjust = 1) +
+  geom_vline(xintercept = city_avg_abs, linetype = "dotted",
+             colour = "#4e3c56", linewidth = 0.6) +
+  annotate("text", x = city_avg_abs + 0.2, y = min(abs_log_df$abs_log) + 0.05,
+           label = sprintf("B&H avg\n%.1f%%", city_avg_abs),
+           colour = "#4e3c56", size = 2.8, fontface = "italic", hjust = 0) +
+  geom_point(data = bh_abs, aes(x = abs_raw, y = abs_log),
+             colour = "#e16fca", size = 3, alpha = 0.8) +
+  geom_text(data = bh_abs,
+            aes(x = abs_raw, y = abs_log, label = School),
+            size = 2.5, hjust = -0.1, vjust = -0.5, colour = "#e16fca") +
+  labs(x = "% Absence (raw scale)",
+       y = "log(% Absence)",
+       title = "Diminishing returns: overall absence and the log transformation") +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"))
+
+p_abs
+```
+
+```{r tbl-absence-gains}
+#| label: tbl-absence-gains
+#| tbl-cap: "Potential Attainment gains to be made at different schools in Brighton and Hove by moving absence to the national average, 2024-25.[^absence-note]"
+
+absence_gains <- tribble(
+  ~School, ~`Current % Absence`, ~`National Average (Target)`, ~`Reduction needed (pp)`, ~`Predicted ATT8 change (%)`, ~`≈ ATT8 points`,
+  "Longhill High School",                   16.7, 8.2, 8.4, 16.25, 5.3,
+  "Brighton Aldridge Community Academy",    14.4, 8.2, 6.2, 12.74, 4.6,
+  "Hove Park School and Sixth Form Centre", 12.9, 8.2, 4.6, 10.01, 4.1,
+  "Portslade Aldridge Community Academy",   11.3, 8.2, 3.1,  7.07, 3.0,
+  "Blatchington Mill School",               10.8, 8.2, 2.6,  5.93, 3.0,
+  "Dorothy Stringer School",                 9.8, 8.2, 1.5,  3.71, 2.0,
+  "Varndean School",                         9.0, 8.2, 0.8,  1.98, 1.0,
+  "Cardinal Newman Catholic School",         8.5, 8.2, 0.3,  0.64, 0.3
+)
+
+absence_gains %>%
+  kable(align = "lrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11)
+```
 
 [^absence-note]: Note — this table uses a simplified approximation of impact on Attainment 8. It takes the model's coefficient for the variable of interest, computes the proportional change implied by a given shift on the log scale, and then multiplies that proportional change by the city-wide mean observed Attainment 8 to convert it to ATT8 points. This is a shorthand for comparing schools side-by-side, but it produces slightly different point estimates from the full-model approach because it uses an average ATT8 as the base rather than each school's specific predicted score.
 
@@ -1121,24 +1307,81 @@ School-level absence in Brighton and Hove, raw vs log relationship, 2024-25.
 
 Given the Council's policy focus has been on reducing the concentrations of disadvantage in some schools in the city rather than on absence, it is worth exploring in GCSE point terms and in relation to each school, what the likely impact of this policy will be. Specifically, we can look at the impact of bringing all schools in the city to the city average. @fig-fsm-bh is a similar plot to @fig-absence-bh and shows two things of interest. Firstly, the Brighton and Hove average for the % FSM eligible children in a school is very close to the national average — compared to absence where it is way above average and the second worst in England last year. Secondly, the rate of change for shifts in %FSM for where the Brighton and Hove Schools sit on the distribution, is much flatter. Even large changes in %FSM will only likely bring modest impacts on school-level Attainment; and for schools with the highest proportions of FSM eligible students, massive reductions in %FSM are required to affect even a slight change.
 
-::: {#fig-fsm-bh}
-<!-- TODO: Insert Figure 6 from brighton_case_study.qmd - School-level %FSM raw vs log -->
-![Placeholder: School-level %FSM in Brighton and Hove]()
+```{r fig-fsm-bh}
+#| label: fig-fsm-bh
+#| fig-cap: "Diminishing returns: the same 5pp change in % FSM produces a much larger shift on the log scale at the low end. Brighton & Hove schools are marked in pink."
+#| fig-height: 4.5
 
-School-level proportions of Free School Meal Eligible Children in their final year of secondary school in Brighton and Hove, raw vs log relationship, 2024-25.
-:::
+beta_fsm <- fixef(mod_e_all)["log(PTFSM6CLA1A)"]
 
-::: {#tbl-fsm-gains}
+fsm_seq <- seq(2, 60, by = 0.5)
+log_df <- tibble(fsm_raw = fsm_seq, fsm_log = log(fsm_seq))
 
-| School | Current % FSM | Target % FSM | Change in log(FSM) | Predicted ATT8 change (%) | ≈ ATT8 points |
-|:---|---:|---:|---:|---:|---:|
-| Brighton Aldridge Community Academy | 52.6 | 28.8 | -0.603 | 4.16 | 1.9 |
-| Longhill High School | 40.1 | 28.8 | -0.332 | 2.27 | 1 |
-| Hove Park School and Sixth Form Centre | 35.8 | 28.8 | -0.219 | 1.49 | 0.7 |
-| Portslade Aldridge Community Academy | 29.7 | 28.8 | -0.032 | 0.21 | 0.1 |
+bh_fsm <- bh_latest_model %>%
+  transmute(School = SCHNAME,
+            fsm_raw = PTFSM6CLA1A,
+            fsm_log = log(PTFSM6CLA1A))
 
-: Potential Attainment gains to be made at different schools in Brighton and Hove by moving %FSM to the city average, 2024-25. {#tbl-fsm-gains}
-:::
+city_avg_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+p_log <- ggplot() +
+  geom_line(data = log_df, aes(x = fsm_raw, y = fsm_log),
+            colour = "grey40", linewidth = 0.8) +
+  annotate("segment", x = 10, xend = 15, y = log(10), yend = log(10),
+           colour = "#2e6260", linewidth = 0.8, linetype = "dashed") +
+  annotate("segment", x = 15, xend = 15, y = log(10), yend = log(15),
+           colour = "#2e6260", linewidth = 0.8,
+           arrow = arrow(length = unit(0.15, "cm"))) +
+  annotate("text", x = 16.5, y = (log(10) + log(15)) / 2,
+           label = "+0.41", colour = "#2e6260", fontface = "bold", size = 3.5) +
+  annotate("segment", x = 40, xend = 45, y = log(40), yend = log(40),
+           colour = "#4e3c56", linewidth = 0.8, linetype = "dashed") +
+  annotate("segment", x = 45, xend = 45, y = log(40), yend = log(45),
+           colour = "#4e3c56", linewidth = 0.8,
+           arrow = arrow(length = unit(0.15, "cm"))) +
+  annotate("text", x = 46.5, y = (log(40) + log(45)) / 2,
+           label = "+0.12", colour = "#4e3c56", fontface = "bold", size = 3.5) +
+  geom_vline(xintercept = national_mean_fsm, linetype = "solid",
+             colour = "#abc766", linewidth = 0.7, alpha = 0.7) +
+  annotate("text", x = national_mean_fsm - 1.5, y = max(log_df$fsm_log) - 0.05,
+           label = sprintf("National avg\n%.0f%%", national_mean_fsm),
+           colour = "#abc766", size = 2.8, fontface = "bold", hjust = 1) +
+  geom_vline(xintercept = city_avg_fsm, linetype = "dotted",
+             colour = "#4e3c56", linewidth = 0.6) +
+  annotate("text", x = city_avg_fsm + 1.5, y = min(log_df$fsm_log) + 0.1,
+           label = sprintf("B&H avg\n%.0f%%", city_avg_fsm),
+           colour = "#4e3c56", size = 2.8, fontface = "italic", hjust = 0) +
+  geom_point(data = bh_fsm, aes(x = fsm_raw, y = fsm_log),
+             colour = "#e16fca", size = 3, alpha = 0.8) +
+  geom_text(data = bh_fsm,
+            aes(x = fsm_raw, y = fsm_log, label = School),
+            size = 2.5, hjust = -0.1, vjust = -0.5, colour = "#e16fca") +
+  labs(x = "% FSM (raw scale)",
+       y = "log(% FSM)",
+       title = "Diminishing returns: % FSM and the log transformation") +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"))
+
+p_log
+```
+
+```{r tbl-fsm-gains}
+#| label: tbl-fsm-gains
+#| tbl-cap: "Potential Attainment gains to be made at different schools in Brighton and Hove by moving %FSM to the city average, 2024-25."
+
+fsm_gains <- tribble(
+  ~School, ~`Current % FSM`, ~`Target % FSM`, ~`Change in log(FSM)`, ~`Predicted ATT8 change (%)`, ~`≈ ATT8 points`,
+  "Brighton Aldridge Community Academy",    52.6, 28.8, -0.603, 4.16, 1.9,
+  "Longhill High School",                   40.1, 28.8, -0.332, 2.27, 1.0,
+  "Hove Park School and Sixth Form Centre", 35.8, 28.8, -0.219, 1.49, 0.7,
+  "Portslade Aldridge Community Academy",   29.7, 28.8, -0.032, 0.21, 0.1
+)
+
+fsm_gains %>%
+  kable(align = "lrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11)
+```
 
 @tbl-fsm-gains shows that for schools like BACA and Longhill, even very dramatic reductions of 10-20% in the proportion of disadvantaged pupils would likely only bring relatively modest changes to overall attainment at the school-level. And this is before factoring in that the relationship for disadvantaged students, on average for schools across England, works in the other direction. Of course, it would never be as simple as reducing levels of absence having an immediate and direct effect at the level predicted on attainment — these modelled figures are indicative and don't account for a change in the levels of one variable having an influence on the levels of another (reducing absence, pushing up teacher sickness days, for example). However they do allow us to make useful comparisons *between* actionable policy levers relative to what we know about real situations in real schools. We can say with more confidence that when comparing the impact of reducing absence or disadvantage in a school, the absence coefficient is roughly 2.6 times as important as disadvantage in predicting attainment. This contradicts the council's assertion at the start of the 2024 consultation that results in the city are 'driven by advantage': we can say that this is not the case — if anything is depressing attainment in the city's schools and 'driving' results, given its impact and where Brighton and Hove sits in the national league tables, it is absence.
 
@@ -1146,12 +1389,33 @@ School-level proportions of Free School Meal Eligible Children in their final ye
 
 The examples above have zoomed in on the most important variable (absence) and the one chosen by the council as their policy lever (concentrations of disadvantage). However, as the earlier modelling showed, there are other important factors to consider, the main one of these being low prior attainment. The national modelling shows that unless we control for the mediating effects of low prior attainment on KS4 attainment, the effects of deprivation appear more damaging than they are — and indeed for schools with higher levels of deprived students, all other things being equal, once low prior attainment is accounted for, they are likely to achieve better results for their deprived students than those with lower levels. In Brighton and Hove schools, as shown in @fig-prior-att, the two are strongly correlated, but without accounting for this factor, the FSM coefficient absorbs both the direct deprivation effect and the indirect effect operating through prior attainment.
 
-::: {#fig-prior-att}
-<!-- TODO: Insert Figure 7 from brighton_case_study.qmd - Correlation between low prior attainment and disadvantage -->
-![Placeholder: Correlation between low prior attainment and disadvantage]()
+```{r fig-prior-att}
+#| label: fig-prior-att
+#| fig-cap: "Correlation between low prior attainment and disadvantage across Brighton and Hove Schools, 2021-22 to 2024-25."
 
-Correlation between low prior attainment and disadvantage across Brighton and Hove Schools, 2021-22 to 2024-25.
-:::
+bh_cor_data <- bh_data %>%
+  filter(!is.na(PTFSM6CLA1A), !is.na(PTPRIORLO), !is.na(ATT8SCR))
+
+cor_val <- cor(log(bh_cor_data$PTFSM6CLA1A), bh_cor_data$PTPRIORLO,
+               use = "complete.obs")
+
+p_confound <- ggplot(bh_cor_data,
+       aes(x = PTFSM6CLA1A, y = PTPRIORLO, colour = SCHNAME)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE,
+              colour = "grey30", linewidth = 0.6, linetype = "dashed") +
+  labs(x = "% FSM (Disadvantaged)",
+       y = "% Low Prior Attainment (KS2)",
+       title = sprintf("Brighton & Hove: FSM and prior attainment are correlated (r = %.2f)", cor_val),
+       colour = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 7),
+        plot.title = element_text(face = "bold")) +
+  guides(colour = guide_legend(nrow = 3))
+
+p_confound
+```
 
 ## Alternative Local League Tables
 
@@ -1159,46 +1423,99 @@ One of the features of the debate in Brighton and Hove in 2024 related to percei
 
 One advantage of the model-based national analysis presented is we can compare what we observe with what we expect. The models presented account for nearly all of the variation in Attainment 8 in schools across England over a 4-year period. Schools achieving scores above those predicted are doing something (via factors we have not measured — perhaps related to behaviour management, governance, culture and ethos) that means the average attainment of pupils in those schools is better than we would expect. Conversely, schools with scores below the model predictions are not achieving the attainment levels expected, given their situation. Of course some of the residual variation could be down to data limitations or deficiencies in variable selection, but in modelling terms even if the data or variable selection are flawed in some way, that so much variation is explained means our attention is probably best focused on things we have not already covered in the models to offer the best explanations for these residual values.
 
-::: {#fig-obs-vs-pred}
-<!-- TODO: Insert Figure 8 from brighton_case_study.qmd or model_results.qmd - Observed vs Predicted scatter -->
-![Placeholder: Observed and Predicted Attainment 8 scatter plot]()
+```{r fig-obs-vs-pred}
+#| label: fig-obs-vs-pred
+#| fig-height: 7
+#| fig-width: 9
+#| fig-cap: "Observed vs model-predicted Attainment 8 for Brighton & Hove schools, faceted by pupil group. Points above the dashed line are outperforming expectations."
 
-Observed and Predicted Attainment 8 for All, disadvantaged and non-disadvantaged pupils, all academy and maintained schools in England, 2024-25. Brighton and Hove Schools highlighted in pink.
-:::
+outcomes_bh <- list(
+  list(obs = "ATT8SCR", pred = "predicted_all",
+       label = "All Pupils"),
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_dis",
+       label = "Disadvantaged"),
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_non",
+       label = "Non-Disadvantaged")
+)
+
+bh_long <- map_dfr(outcomes_bh, function(o) {
+  bh_data %>%
+    filter(!is.na(!!sym(o$obs)), !is.na(!!sym(o$pred))) %>%
+    transmute(
+      School = SCHNAME,
+      Year = year_label,
+      Group = o$label,
+      Observed = !!sym(o$obs),
+      Predicted = exp(!!sym(o$pred)),
+      Residual = Observed - exp(!!sym(o$pred)),
+      Imputed = ifelse(!is.na(has_imputed_predictors) & has_imputed_predictors,
+                       "Yes", "No")
+    )
+}) %>%
+  mutate(Group = factor(Group,
+                        levels = c("All Pupils", "Disadvantaged",
+                                   "Non-Disadvantaged")))
+
+rng <- range(c(bh_long$Observed, bh_long$Predicted), na.rm = TRUE)
+
+ggplot(bh_long, aes(x = Predicted, y = Observed, colour = School)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60",
+              linewidth = 0.5, linetype = "dashed") +
+  geom_point(aes(shape = Imputed), size = 2.5, alpha = 0.8) +
+  scale_shape_manual(values = c("No" = 16, "Yes" = 17)) +
+  facet_wrap(~ Group, ncol = 3) +
+  coord_cartesian(xlim = rng, ylim = rng) +
+  labs(x = "Predicted ATT8 (imputed full model)",
+       y = "Observed ATT8",
+       colour = NULL, shape = "Imputed predictors?") +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    legend.text = element_text(size = 8),
+    strip.text = element_text(face = "bold")
+  ) +
+  guides(colour = guide_legend(nrow = 4))
+```
 
 @fig-obs-vs-pred is a visual representation of this alternative league table for school-level attainment in 2024-25. The diagonal line represents where observed and predicted attainment match perfectly. The further vertically above or below the line an individual school falls (in statistical terms, the greater its residual), the better or worse it performs relative to expectations after accounting for the factors mentioned. Brighton and Hove schools are highlighted and reveal an interesting picture. Most schools are close to the attainment levels we would expect, given their situations. Some perform much better than expected — e.g. Dorothy Stringer School — which achieves better Attainment 8 results than expected for both disadvantaged and non-disadvantaged pupils, whereas Longhill High School performs worse than expected on both fronts.
 
 Perhaps the two most interesting schools in the city at other ends of the spectrum are Brighton Aldridge Community Academy (BACA) and Patcham High School. We are able to zoom in on their respective situations using @tbl-residuals below:
 
-::: {#tbl-residuals}
+```{r tbl-residuals}
+#| label: tbl-residuals
+#| tbl-cap: "Full 4-year Panel Model Residuals, by year. Brighton and Hove Schools.[^residuals-all]"
 
-| Residuals | School | 2021-22 | 2022-23 | 2023-24 | 2024-25 | Mean Residual |
-|:---|:---|---:|---:|---:|---:|---:|
-| **Disadvantaged Pupils Rank** | | | | | | |
-| 1 | Brighton Aldridge Community Academy | 3.2 | -1.3 | 4.1 | 5.2 | 2.8 |
-| 2 | Varndean School | 3.2 | 3.6 | 4.5 | -1.9 | 2.3 |
-| 3 | Dorothy Stringer School | 2.9 | 3.2 | 0.3 | 1.7 | 2 |
-| 4 | Cardinal Newman Catholic School | 2.4 | -5 | 6.5 | 2.5 | 1.6 |
-| 5 | King's School | 5.8 | 0.9 | 4.4 | -5.4 | 1.5 |
-| 6 | Blatchington Mill School | -5.4 | 1.3 | 5.2 | 3.4 | 1.1 |
-| 7 | Hove Park School and Sixth Form Centre | 2.4 | -1.7 | 1.3 | 0.5 | 0.6 |
-| 8 | Portslade Aldridge Community Academy | 2.6 | -4 | 4.7 | -1.3 | 0.5 |
-| 9 | Patcham High School | 3.8 | 1.6 | -11.9 | -3.7 | -2.6 |
-| 10 | Longhill High School | -4.6 | -6.2 | 0.8 | -1.4 | -2.9 |
-| **Non-Disadvantaged Pupil Rank** | | | | | | |
-| 1 | Dorothy Stringer School | 3.3 | 3.5 | 3.1 | 5.1 | 3.7 |
-| 2 | Varndean School | 3.7 | 2.9 | 6 | 2 | 3.7 |
-| 3 | King's School | 3.9 | -0.6 | 5.3 | 2 | 2.7 |
-| 4 | Portslade Aldridge Community Academy | 2.4 | 0.4 | 2.2 | -0.4 | 1.2 |
-| 5 | Brighton Aldridge Community Academy | 2.6 | 4.5 | -0.9 | -2.2 | 1 |
-| 6 | Hove Park School and Sixth Form Centre | -0.4 | 3.1 | -0.1 | -0.9 | 0.4 |
-| 7 | Blatchington Mill School | -2.3 | -2.2 | 0.7 | 1.8 | -0.5 |
-| 8 | Longhill High School | 3.5 | -1.4 | -3.8 | -3.7 | -1.4 |
-| 9 | Cardinal Newman Catholic School | -0.5 | -1.6 | -0.6 | -2.8 | -1.4 |
-| 10 | Patcham High School | -4.7 | -4.4 | -3.3 | -3.3 | -3.9 |
+residuals_data <- tribble(
+  ~Rank, ~School, ~`2021-22`, ~`2022-23`, ~`2023-24`, ~`2024-25`, ~`Mean Residual`,
+  1, "Brighton Aldridge Community Academy",     3.2,  -1.3,   4.1,   5.2,  2.8,
+  2, "Varndean School",                         3.2,   3.6,   4.5,  -1.9,  2.3,
+  3, "Dorothy Stringer School",                 2.9,   3.2,   0.3,   1.7,  2.0,
+  4, "Cardinal Newman Catholic School",         2.4,  -5.0,   6.5,   2.5,  1.6,
+  5, "King's School",                           5.8,   0.9,   4.4,  -5.4,  1.5,
+  6, "Blatchington Mill School",               -5.4,   1.3,   5.2,   3.4,  1.1,
+  7, "Hove Park School and Sixth Form Centre",  2.4,  -1.7,   1.3,   0.5,  0.6,
+  8, "Portslade Aldridge Community Academy",    2.6,  -4.0,   4.7,  -1.3,  0.5,
+  9, "Patcham High School",                     3.8,   1.6, -11.9,  -3.7, -2.6,
+  10, "Longhill High School",                  -4.6,  -6.2,   0.8,  -1.4, -2.9,
+  1, "Dorothy Stringer School",                 3.3,   3.5,   3.1,   5.1,  3.7,
+  2, "Varndean School",                         3.7,   2.9,   6.0,   2.0,  3.7,
+  3, "King's School",                           3.9,  -0.6,   5.3,   2.0,  2.7,
+  4, "Portslade Aldridge Community Academy",    2.4,   0.4,   2.2,  -0.4,  1.2,
+  5, "Brighton Aldridge Community Academy",     2.6,   4.5,  -0.9,  -2.2,  1.0,
+  6, "Hove Park School and Sixth Form Centre", -0.4,   3.1,  -0.1,  -0.9,  0.4,
+  7, "Blatchington Mill School",               -2.3,  -2.2,   0.7,   1.8, -0.5,
+  8, "Longhill High School",                    3.5,  -1.4,  -3.8,  -3.7, -1.4,
+  9, "Cardinal Newman Catholic School",        -0.5,  -1.6,  -0.6,  -2.8, -1.4,
+  10, "Patcham High School",                   -4.7,  -4.4,  -3.3,  -3.3, -3.9
+)
 
-: Full 4-year Panel Model Residuals, by year. Brighton and Hove Schools.[^residuals-all] {#tbl-residuals}
-:::
+residuals_data %>%
+  kable(align = "rlrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  pack_rows("Disadvantaged Pupils", 1, 10) %>%
+  pack_rows("Non-Disadvantaged Pupils", 11, 20)
+```
 
 [^residuals-all]: Complete set of residuals for Brighton and Hove Schools available in the supplementary material — <https://adamdennett.github.io/school_attainment_tool/brighton_case_study.html#all-pupils>
 
@@ -1304,21 +1621,29 @@ The tool can be accessed here — <https://adam-dennett.shinyapps.io/School_Atta
 Front Page of the Policy Simulator Tool.
 :::
 
-::: {#tbl-simulator-tabs}
+```{r tbl-simulator-tabs}
+#| label: tbl-simulator-tabs
+#| tbl-cap: "Analysis Tabs Available in the Policy Simulator."
 
-| Tab | What it does |
-|:---|:---|
-| School Finder | Search for a school by name or Local Authority. View it on a map, see key statistics, and send it to the Policy Simulator for deeper analysis. |
-| Find My Twin | Select a school and find its 'twin' — another school with the most similar contextual characteristics (pupil intake, absence, workforce, school type). Attainment outcomes are shown for comparison but excluded from the matching. |
-| Observed vs Predicted | An interactive scatter plot comparing every school's actual attainment against its model-predicted value. Schools above the line are outperforming; those below are underperforming relative to expectations. |
-| Policy Simulator | The core tool. Adjust school-level variables — absence rates, pupil composition, teacher retention, leadership pay, and more — to see the predicted impact on attainment. Crucially, some of these relationships are non-linear, so the simulator reveals where small changes matter most and where returns diminish. |
-| LA Overview | A Local Authority-level view showing how schools within an LA perform relative to expectations, with a distribution chart comparing the LA against the national picture. |
-| LA Typology | A data-driven classification of Local Authorities into clusters based on over 200 indicators. Explore which LAs face similar challenges and compare their profiles on an interactive map. |
-| Cluster Analysis | Radar charts and summary statistics for each LA cluster, making it easy to compare groups and identify shared characteristics. |
-| Model Info | Technical detail: model coefficients, fit statistics, diagnostics, and caveats. Useful for understanding the model's strengths and limitations. |
+simulator_tabs <- tribble(
+  ~Tab, ~`What it does`,
+  "School Finder", "Search for a school by name or Local Authority. View it on a map, see key statistics, and send it to the Policy Simulator for deeper analysis.",
+  "Find My Twin", "Select a school and find its 'twin' — another school with the most similar contextual characteristics (pupil intake, absence, workforce, school type). Attainment outcomes are shown for comparison but excluded from the matching.",
+  "Observed vs Predicted", "An interactive scatter plot comparing every school's actual attainment against its model-predicted value. Schools above the line are outperforming; those below are underperforming relative to expectations.",
+  "Policy Simulator", "The core tool. Adjust school-level variables — absence rates, pupil composition, teacher retention, leadership pay, and more — to see the predicted impact on attainment. Crucially, some of these relationships are non-linear, so the simulator reveals where small changes matter most and where returns diminish.",
+  "LA Overview", "A Local Authority-level view showing how schools within an LA perform relative to expectations, with a distribution chart comparing the LA against the national picture.",
+  "LA Typology", "A data-driven classification of Local Authorities into clusters based on over 200 indicators. Explore which LAs face similar challenges and compare their profiles on an interactive map.",
+  "Cluster Analysis", "Radar charts and summary statistics for each LA cluster, making it easy to compare groups and identify shared characteristics.",
+  "Model Info", "Technical detail: model coefficients, fit statistics, diagnostics, and caveats. Useful for understanding the model's strengths and limitations."
+)
 
-: Analysis Tabs Available in the Policy Simulator. {#tbl-simulator-tabs}
-:::
+simulator_tabs %>%
+  kable(align = "ll") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 11) %>%
+  column_spec(1, bold = TRUE, width = "10em") %>%
+  column_spec(2, width = "40em")
+```
 
 The tool allows for the easy visualisation of descriptive raw and modelled statistics at both the local authority and school levels. Perhaps most usefully for school leaders and policy makers, the simulator tab allows users to select a school and using the coefficients and linear or log-linear associations with the predictors used in the model, adjust sliders to see how changes in these variables might impact the attainment of all pupils, disadvantaged and non-disadvantaged pupils, at the school level.
 

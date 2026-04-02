@@ -974,526 +974,36 @@ n_bh_schools <- nrow(bh_latest_model)
 n_above_nat_abs <- sum(bh_latest_model$PERCTOT > national_mean_abs, na.rm = TRUE)
 ```
 
-## The diminishing-returns curve: % FSM
-
-```{r fsm-national-context}
-#| label: fsm-national-context
-#| output: asis
-
-cat(sprintf("Before examining the non-linear effects, it is worth noting where Brighton & Hove sits nationally on this variable. The city's mean FSM rate across its secondary schools is **%.1f%%**, compared to the national average of **%.1f%%** — placing it at roughly the %s percentile among all %d local authorities. Brighton & Hove is, in terms of overall deprivation levels, an unremarkable authority. This is important context for the policy discussion that follows.\n\n",
-    bh_mean_fsm, national_mean_fsm,
-    ordinal_suffix(round(bh_fsm_rank$pctile)), n_las_bench))
-```
-
-The table above shows how the same raw predictor value maps to very different positions on the log scale. To illustrate the practical consequence, consider two hypothetical Brighton & Hove schools:
-
-- **School A** with 10% FSM: `log(10) = 2.30`. If FSM rises by 5 percentage points to 15%, `log(15) = 2.71` — a shift of **+0.41** on the log scale.
-- **School B** with 40% FSM: `log(40) = 3.69`. If FSM rises by the same 5 percentage points to 45%, `log(45) = 3.81` — a shift of only **+0.12** on the log scale.
-
-Because the model operates on the log scale, the *same absolute increase* in FSM rate produces a predicted effect that is **more than three times larger** for the lower-FSM school.
-
-```{r log-curve-plot}
-#| label: log-curve-plot
-#| fig-cap: "Diminishing returns: the same 5pp change in % FSM produces a much larger shift on the log scale at the low end. Brighton & Hove schools are marked in orange."
-#| fig-height: 4.5
-
-# Extract FSM coefficient from the All Pupils model
-beta_fsm <- fixef(mod_e_all)["log(PTFSM6CLA1A)"]
-
-# Visualise the log curve with Brighton schools marked
-fsm_seq <- seq(2, 60, by = 0.5)
-log_df <- tibble(fsm_raw = fsm_seq, fsm_log = log(fsm_seq))
-
-bh_fsm <- bh_latest_model %>%
-  transmute(School = SCHNAME,
-            fsm_raw = PTFSM6CLA1A,
-            fsm_log = log(PTFSM6CLA1A))
-
-# City-wide average FSM
-city_avg_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
-
-p_log <- ggplot() +
-  geom_line(data = log_df, aes(x = fsm_raw, y = fsm_log),
-            colour = "grey40", linewidth = 0.8) +
-  # Mark the two hypothetical schools
-  annotate("segment", x = 10, xend = 15, y = log(10), yend = log(10),
-           colour = "#2e6260", linewidth = 0.8, linetype = "dashed") +
-  annotate("segment", x = 15, xend = 15, y = log(10), yend = log(15),
-           colour = "#2e6260", linewidth = 0.8,
-           arrow = arrow(length = unit(0.15, "cm"))) +
-  annotate("text", x = 16.5, y = (log(10) + log(15)) / 2,
-           label = "+0.41", colour = "#2e6260", fontface = "bold", size = 3.5) +
-  annotate("segment", x = 40, xend = 45, y = log(40), yend = log(40),
-           colour = "#4e3c56", linewidth = 0.8, linetype = "dashed") +
-  annotate("segment", x = 45, xend = 45, y = log(40), yend = log(45),
-           colour = "#4e3c56", linewidth = 0.8,
-           arrow = arrow(length = unit(0.15, "cm"))) +
-  annotate("text", x = 46.5, y = (log(40) + log(45)) / 2,
-           label = "+0.12", colour = "#4e3c56", fontface = "bold", size = 3.5) +
-  # National average line
-  geom_vline(xintercept = national_mean_fsm, linetype = "solid",
-             colour = "#abc766", linewidth = 0.7, alpha = 0.7) +
-  annotate("text", x = national_mean_fsm - 1.5, y = max(log_df$fsm_log) - 0.05,
-           label = sprintf("National avg\n%.0f%%", national_mean_fsm),
-           colour = "#abc766", size = 2.8, fontface = "bold", hjust = 1) +
-  # City average line
-  geom_vline(xintercept = city_avg_fsm, linetype = "dotted",
-             colour = "#4e3c56", linewidth = 0.6) +
-  annotate("text", x = city_avg_fsm + 1.5, y = min(log_df$fsm_log) + 0.1,
-           label = sprintf("B&H avg\n%.0f%%", city_avg_fsm),
-           colour = "#4e3c56", size = 2.8, fontface = "italic", hjust = 0) +
-  # Mark actual Brighton schools
-  geom_point(data = bh_fsm, aes(x = fsm_raw, y = fsm_log),
-             colour = "#e16fca", size = 3, alpha = 0.8) +
-  geom_text(data = bh_fsm,
-            aes(x = fsm_raw, y = fsm_log, label = School),
-            size = 2.5, hjust = -0.1, vjust = -0.5, colour = "#e16fca") +
-  labs(x = "% FSM (raw scale)",
-       y = "log(% FSM)",
-       title = "Diminishing returns: % FSM and the log transformation") +
-  theme_minimal(base_size = 11) +
-  theme(plot.title = element_text(face = "bold"))
-
-p_log
-```
-
-### Policy scenario: redistributing FSM towards the city average
-
-```{r fsm-policy-scenario}
-#| label: fsm-policy-scenario
-#| output: asis
-
-# Compute what happens if high-FSM schools came down to the city average
-high_fsm_schools <- bh_latest_model %>%
-  filter(PTFSM6CLA1A > city_avg_fsm) %>%
-  arrange(desc(PTFSM6CLA1A)) %>%
-  transmute(
-    School = SCHNAME,
-    current_fsm = PTFSM6CLA1A,
-    target_fsm = city_avg_fsm,
-    log_shift = log(target_fsm) - log(current_fsm),
-    # The model predicts log(ATT8), so the effect on ATT8 is:
-    # exp(beta * delta_log_fsm) gives the multiplicative change
-    # For All Pupils (negative beta), reducing FSM -> positive effect
-    pct_att8_change = (exp(beta_fsm * log_shift) - 1) * 100,
-    att8_point_change = mean(bh_latest_model$ATT8SCR, na.rm = TRUE) *
-                        (exp(beta_fsm * log_shift) - 1)
-  )
-
-if (nrow(high_fsm_schools) > 0) {
-  cat("One stated policy ambition for Brighton & Hove has been to reduce the concentration of disadvantaged pupils at the schools with the highest FSM rates — effectively redistributing intake towards a more even spread. The model allows us to estimate the **predicted attainment gain** if schools above the city average FSM rate were brought down to it.\n\n")
-
-  scenario_table <- high_fsm_schools %>%
-    mutate(
-      `Current % FSM` = round(current_fsm, 1),
-      `Target % FSM` = round(target_fsm, 1),
-      `Change in log(FSM)` = round(log_shift, 3),
-      `Predicted ATT8 change (%)` = round(pct_att8_change, 2),
-      `≈ ATT8 points` = round(att8_point_change, 1)
-    ) %>%
-    select(School, `Current % FSM`, `Target % FSM`,
-           `Change in log(FSM)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
-
-  print(knitr::kable(scenario_table,
-               caption = sprintf("Scenario: if schools above the city average (%.0f%% FSM) reduced to it — predicted ATT8 effect (All Pupils model)",
-                                 city_avg_fsm)))
-
-  total_gain <- sum(high_fsm_schools$att8_point_change, na.rm = TRUE)
-  avg_gain <- mean(high_fsm_schools$att8_point_change, na.rm = TRUE)
-
-  cat(sprintf("\n\nAcross the %d schools above the city average, bringing FSM rates down to %.0f%% would produce a predicted gain of roughly **%+.1f ATT8 points per school** on average. These are modest gains — and this is the key insight: **FSM redistribution alone produces relatively small predicted improvements**, because the log transformation compresses changes at the high end of the distribution.\n\n",
-      nrow(high_fsm_schools), city_avg_fsm, avg_gain))
-
-  cat("Moreover, this calculation assumes everything else remains constant — in practice, reducing FSM concentration at one school necessarily increases it elsewhere, and the non-linear curve means the receiving schools (at the low end) would experience a larger *negative* predicted effect per pupil redistributed. The policy therefore has **ambiguous net effects** on city-wide attainment.\n\n")
-
-  cat("*Note: the ATT8 point estimates in this table are approximate — they convert the model's proportional effect using the city-wide mean ATT8 as a common base. For a more precise school-specific calculation using the full model (all nine predictors plus random effects), see the [Longhill worked example](#sec-worked-example) above.*\n\n")
-}
-```
-
-::: {.callout-warning}
-## The limits of FSM redistribution as a lever
-The model suggests that redistributing disadvantaged pupils more evenly across Brighton & Hove schools would produce only modest predicted attainment gains at the high-FSM schools, while potentially creating larger predicted *losses* at the low-FSM schools receiving additional disadvantaged pupils (because they sit on the steep part of the curve). This does not mean FSM redistribution is a bad policy — there may be valid equity and social cohesion arguments — but the model does not support it as an effective route to raising overall attainment.
-:::
-
-
-## The diminishing-returns curve: % Absence
-
-The same non-linear logic applies to overall absence, but the **policy implications are far more urgent for Brighton & Hove** because absence is both a directly actionable variable *and* because the city is a national outlier on this measure.
-
-```{r absence-national-context}
-#| label: absence-national-context
-#| output: asis
-
-# National benchmarks already computed in the national-benchmarks chunk above
-
-cat("::: {.callout-warning}\n")
-cat("## Brighton & Hove is a national outlier on absence — but not on disadvantage\n\n")
-cat(sprintf("In %s, Brighton & Hove's mean school absence rate is **%.1f%%**, compared to a national average of **%.1f%%** — a gap of **+%.1f percentage points**. This places the authority **%s out of %d local authorities** in England for absence (where %d is the worst), in the %.0f%s percentile.\n\n",
-    latest_year, bh_mean_abs, national_mean_abs, abs_gap,
-    ordinal_suffix(bh_abs_rank$rank), n_las_bench, n_las_bench,
-    bh_abs_rank$pctile, ifelse(bh_abs_rank$pctile >= 90, " — near the very worst in the country", "")))
-
-cat(sprintf("By contrast, Brighton & Hove's mean FSM rate is **%.1f%%** versus the national mean of **%.1f%%** (difference: %+.1f pp), placing it **%s out of %d LAs** — almost exactly at the national median (%.0f%s percentile). The city is unremarkable for its overall level of deprivation.\n\n",
-    bh_mean_fsm, national_mean_fsm, fsm_gap,
-    ordinal_suffix(bh_fsm_rank$rank), n_las_bench,
-    bh_fsm_rank$pctile, ifelse(bh_fsm_rank$pctile > 45 & bh_fsm_rank$pctile < 55, "th", "th")))
-
-cat(sprintf("**%d out of %d** Brighton & Hove secondary schools have absence rates above the national school-level average.\n\n",
-    n_above_nat_abs, n_bh_schools))
-
-# Top 10 highest-absence LAs across all 4 years (+ always include B&H)
-all_years <- sort(unique(national_benchmarks$year_label))
-
-la_abs_all_years <- national_benchmarks %>%
-  group_by(year_label, LANAME) %>%
-  summarise(la_mean_abs = mean(PERCTOT, na.rm = TRUE), .groups = "drop") %>%
-  group_by(year_label) %>%
-  arrange(la_mean_abs) %>%
-  mutate(rank = row_number(), n_las = n()) %>%
-  ungroup()
-
-# Identify LAs that appear in the top 10 for any year, plus B&H
-top10_any_year <- la_abs_all_years %>%
-  group_by(year_label) %>%
-  slice_max(la_mean_abs, n = 10) %>%
-  ungroup() %>%
-  pull(LANAME) %>%
-  unique()
-
-top10_any_year <- unique(c(top10_any_year,
-                            la_abs_all_years$LANAME[grepl("Brighton", la_abs_all_years$LANAME)]))
-
-# Build wide table: rows = LAs, columns = years with "absence% (rank)"
-abs_wide <- la_abs_all_years %>%
-  filter(LANAME %in% top10_any_year) %>%
-  mutate(display = paste0(format(round(la_mean_abs, 1), nsmall = 1),
-                           "% (", rank, "/", n_las, ")")) %>%
-  select(LANAME, year_label, display) %>%
-  mutate(year_label = factor(year_label,
-    levels = c("2021-22", "2022-23", "2023-24", "2024-25"))) %>%
-  arrange(year_label) %>%
-  pivot_wider(names_from = year_label, values_from = display, values_fill = "—")
-
-# Order by latest year's absence (descending)
-latest_order <- la_abs_all_years %>%
-  filter(year_label == latest_year, LANAME %in% top10_any_year) %>%
-  arrange(desc(la_mean_abs))
-
-abs_wide <- abs_wide %>%
-  mutate(LANAME = factor(LANAME, levels = latest_order$LANAME)) %>%
-  arrange(LANAME) %>%
-  mutate(LANAME = as.character(LANAME))
-
-# Highlight Brighton row
-bh_row <- which(grepl("Brighton", abs_wide$LANAME))
-
-names(abs_wide)[1] <- "Local Authority"
-
-cat(knitr::kable(abs_wide, format = "html", align = paste0("l", paste(rep("r", length(all_years)), collapse = "")),
-                  caption = "Highest-absence local authorities across all panel years (mean school absence %, rank)") %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                             full_width = FALSE, font_size = 10) %>%
-  kableExtra::row_spec(bh_row, bold = TRUE, background = "#fce4f1"))
-cat("\n")
-cat(":::\n\n")
-
-cat("This combination — typical deprivation but atypical absence — makes absence reduction an especially important lever for the city. The non-linear effects of the log transformation compound the problem: because most Brighton & Hove schools sit at the high end of the national absence distribution, they are on the flatter part of the curve where each percentage point of improvement buys less predicted attainment gain than it would for schools starting from a lower base. Nonetheless, the sheer scale of the gap means that closing it would deliver substantial improvements.\n\n")
-```
-
-```{r absence-curve-plot}
-#| label: absence-curve-plot
-#| fig-cap: "Diminishing returns: the same 1pp change in absence has a much larger model impact at the low end. Brighton & Hove schools (orange) cluster to the right of the national average, on the flatter part of the curve."
-#| fig-height: 4.5
-
-beta_absence <- fixef(mod_e_all)["log(PERCTOT)"]
-
-abs_seq <- seq(2, 12, by = 0.1)
-abs_log_df <- tibble(abs_raw = abs_seq, abs_log = log(abs_seq))
-
-bh_abs <- bh_latest_model %>%
-  transmute(School = SCHNAME,
-            abs_raw = PERCTOT,
-            abs_log = log(PERCTOT))
-
-city_avg_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
-
-p_abs <- ggplot() +
-  geom_line(data = abs_log_df, aes(x = abs_raw, y = abs_log),
-            colour = "grey40", linewidth = 0.8) +
-  # Example: 4.5% to 5.5% (low end — steep)
-  annotate("segment", x = 4.5, xend = 5.5, y = log(4.5), yend = log(4.5),
-           colour = "#2e6260", linewidth = 0.8, linetype = "dashed") +
-  annotate("segment", x = 5.5, xend = 5.5, y = log(4.5), yend = log(5.5),
-           colour = "#2e6260", linewidth = 0.8,
-           arrow = arrow(length = unit(0.15, "cm"))) +
-  annotate("text", x = 5.8, y = (log(4.5) + log(5.5)) / 2,
-           label = sprintf("+%.2f", log(5.5) - log(4.5)),
-           colour = "#2e6260", fontface = "bold", size = 3.5) +
-  # Example: 8.5% to 9.5% (high end — flat)
-  annotate("segment", x = 8.5, xend = 9.5, y = log(8.5), yend = log(8.5),
-           colour = "#4e3c56", linewidth = 0.8, linetype = "dashed") +
-  annotate("segment", x = 9.5, xend = 9.5, y = log(8.5), yend = log(9.5),
-           colour = "#4e3c56", linewidth = 0.8,
-           arrow = arrow(length = unit(0.15, "cm"))) +
-  annotate("text", x = 9.8, y = (log(8.5) + log(9.5)) / 2,
-           label = sprintf("+%.2f", log(9.5) - log(8.5)),
-           colour = "#4e3c56", fontface = "bold", size = 3.5) +
-  # National average line
-  geom_vline(xintercept = national_mean_abs, linetype = "solid",
-             colour = "#abc766", linewidth = 0.7, alpha = 0.7) +
-  annotate("text", x = national_mean_abs - 0.15, y = max(abs_log_df$abs_log) - 0.02,
-           label = sprintf("National avg\n%.1f%%", national_mean_abs),
-           colour = "#abc766", size = 2.8, fontface = "bold", hjust = 1) +
-  # City average line
-  geom_vline(xintercept = city_avg_abs, linetype = "dotted",
-             colour = "#4e3c56", linewidth = 0.6) +
-  annotate("text", x = city_avg_abs + 0.2, y = min(abs_log_df$abs_log) + 0.05,
-           label = sprintf("B&H avg\n%.1f%%", city_avg_abs),
-           colour = "#4e3c56", size = 2.8, fontface = "italic", hjust = 0) +
-  # Mark actual Brighton schools
-  geom_point(data = bh_abs, aes(x = abs_raw, y = abs_log),
-             colour = "#e16fca", size = 3, alpha = 0.8) +
-  geom_text(data = bh_abs,
-            aes(x = abs_raw, y = abs_log, label = School),
-            size = 2.5, hjust = -0.1, vjust = -0.5, colour = "#e16fca") +
-  labs(x = "% Absence (raw scale)",
-       y = "log(% Absence)",
-       title = "Diminishing returns: overall absence and the log transformation") +
-  theme_minimal(base_size = 11) +
-  theme(plot.title = element_text(face = "bold"))
-
-p_abs
-```
-
-### Policy scenario: reducing absence by 1 percentage point
-
-```{r absence-policy-scenario}
-#| label: absence-policy-scenario
-#| output: asis
-
-# Compute predicted ATT8 effect of a 1pp reduction for each school
-absence_scenario <- bh_latest_model %>%
-  filter(!is.na(PERCTOT), PERCTOT > 1) %>%
-  arrange(PERCTOT) %>%
-  transmute(
-    School = SCHNAME,
-    current_abs = PERCTOT,
-    target_abs = PERCTOT - 1,
-    log_shift = log(target_abs) - log(current_abs),
-    # Absence coefficient is negative, so reducing absence -> positive effect
-    pct_att8_change = (exp(beta_absence * log_shift) - 1) * 100,
-    att8_point_change = ATT8SCR * (exp(beta_absence * log_shift) - 1)
-  )
-
-if (nrow(absence_scenario) > 0) {
-  cat("Unlike FSM, absence is something schools and the council can directly influence. The table below shows the predicted ATT8 gain from a **1 percentage point reduction in absence** at each Brighton & Hove school:\n\n")
-
-  abs_table <- absence_scenario %>%
-    mutate(
-      `Current % Absence` = round(current_abs, 1),
-      `Target % Absence` = round(target_abs, 1),
-      `Change in log(Absence)` = round(log_shift, 3),
-      `Predicted ATT8 change (%)` = round(pct_att8_change, 2),
-      `≈ ATT8 points` = round(att8_point_change, 1)
-    ) %>%
-    select(School, `Current % Absence`, `Target % Absence`,
-           `Change in log(Absence)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
-
-  print(knitr::kable(abs_table,
-               caption = "Scenario: 1pp reduction in absence at each school — predicted ATT8 effect (All Pupils model)"))
-
-  # Find the school with most and least to gain
-  most_gain <- absence_scenario %>% filter(att8_point_change == max(att8_point_change))
-  least_gain <- absence_scenario %>% filter(att8_point_change == min(att8_point_change))
-
-  cat(sprintf("\n\nThe non-linearity is immediately visible: a school with low absence (around 4–5%%) stands to gain roughly **%+.1f ATT8 points** from a 1pp reduction, while a school already at higher absence (8–9%%) gains only around **%+.1f points** from the same 1pp reduction. The low-absence school gains more because it sits on the steep part of the log curve.\n\n",
-      max(absence_scenario$att8_point_change), min(absence_scenario$att8_point_change)))
-}
-```
-
-### Policy scenario: closing the gap to the national average {#sec-national-avg-absence}
-
-```{r absence-national-avg-scenario}
-#| label: absence-national-avg-scenario
-#| output: asis
-
-# Compute predicted ATT8 gain if each B&H school reduced absence to national average
-national_avg_scenario <- bh_latest_model %>%
-  filter(!is.na(PERCTOT), PERCTOT > 1, !is.na(ATT8SCR)) %>%
-  arrange(desc(PERCTOT)) %>%
-  transmute(
-    School = SCHNAME,
-    current_abs = PERCTOT,
-    target_abs = pmin(PERCTOT, national_mean_abs),  # only reduce if above
-    above_national = PERCTOT > national_mean_abs,
-    log_shift = log(target_abs) - log(current_abs),
-    pct_att8_change = ifelse(above_national,
-                             (exp(beta_absence * log_shift) - 1) * 100, 0),
-    att8_point_change = ifelse(above_national,
-                               ATT8SCR * (exp(beta_absence * log_shift) - 1), 0)
-  )
-
-n_above <- sum(national_avg_scenario$above_national)
-n_total <- nrow(national_avg_scenario)
-
-cat(sprintf("Given that Brighton & Hove's absence rates are among the worst in England, a more ambitious but entirely reasonable policy target is to ask: **what if every school in the city brought its absence rate down to the national school-level average of %.1f%%?** This is not an aspirational stretch target — it is simply asking Brighton & Hove schools to achieve what the typical English secondary school already does.\n\n", national_mean_abs))
-
-# Table for schools above national average
-above_nat <- national_avg_scenario %>% filter(above_national)
-
-if (nrow(above_nat) > 0) {
-  nat_table <- above_nat %>%
-    mutate(
-      `Current % Absence` = round(current_abs, 1),
-      `National Average (Target)` = round(target_abs, 1),
-      `Reduction needed (pp)` = round(current_abs - target_abs, 1),
-      `Predicted ATT8 change (%)` = round(pct_att8_change, 2),
-      `≈ ATT8 points` = round(att8_point_change, 1)
-    ) %>%
-    select(School, `Current % Absence`, `National Average (Target)`,
-           `Reduction needed (pp)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
-
-  print(knitr::kable(nat_table,
-               caption = sprintf("Scenario: if all schools above the national average (%.1f%%) reduced to it — predicted ATT8 effect (All Pupils model)",
-                                 national_mean_abs)))
-
-  avg_gain_nat <- mean(above_nat$att8_point_change, na.rm = TRUE)
-  total_gain_nat <- sum(above_nat$att8_point_change, na.rm = TRUE)
-  avg_reduction <- mean(above_nat$current_abs - national_mean_abs, na.rm = TRUE)
-  max_reduction_school <- above_nat %>% filter(current_abs == max(current_abs))
-
-  cat(sprintf("\n\n**%d out of %d** Brighton & Hove schools currently have absence above the national average. The reductions required range from modest (around 1 pp) to substantial (%.1f pp for %s). Across these %d schools, achieving the national average would produce predicted gains averaging **%+.1f ATT8 points per school**, with a city-wide total gain of approximately **%+.1f ATT8 points** summed across all affected schools.\n\n",
-      n_above, n_total,
-      max_reduction_school$current_abs - national_mean_abs,
-      max_reduction_school$School,
-      n_above, avg_gain_nat, total_gain_nat))
-
-  cat(sprintf("Compare this to the FSM redistribution scenario above, where bringing high-FSM schools down to the city average produced only modest gains. The absence scenario delivers larger predicted improvements — and crucially, it does not have the zero-sum problem of FSM redistribution. Reducing absence at one school does not increase it at another.\n\n"))
-
-  # Also compute the disadvantaged-specific gains
-  # Extract coefficients directly (fe_dis/fe_all are defined later in the confounding section)
-  beta_abs_dis <- fixef(mod_e_disadv)["log(PERCTOT)"]
-  beta_abs_all <- fixef(mod_e_all)["log(PERCTOT)"]
-
-  nat_scenario_dis <- bh_latest_model %>%
-    filter(!is.na(PERCTOT), PERCTOT > national_mean_abs,
-           !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
-    arrange(desc(PERCTOT)) %>%
-    transmute(
-      School = SCHNAME,
-      current_abs = PERCTOT,
-      log_shift = log(national_mean_abs) - log(PERCTOT),
-      att8_gain_dis = ATT8SCR_FSM6CLA1A * (exp(beta_abs_dis * log_shift) - 1),
-      att8_gain_all = ATT8SCR * (exp(beta_abs_all * log_shift) - 1)
-    )
-
-  if (nrow(nat_scenario_dis) > 0) {
-    avg_dis_gain <- mean(nat_scenario_dis$att8_gain_dis, na.rm = TRUE)
-    avg_all_gain <- mean(nat_scenario_dis$att8_gain_all, na.rm = TRUE)
-
-    cat(sprintf("For **disadvantaged pupils**, the gains would be even larger: an average of **%+.1f ATT8 points** per school (compared to %+.1f for all pupils), because the absence coefficient is %.0f%% larger for disadvantaged pupils. Closing the absence gap to the national average would therefore simultaneously raise overall attainment *and* narrow the disadvantage gap.\n\n",
-        avg_dis_gain, avg_all_gain,
-        (abs(beta_abs_dis) / abs(beta_abs_all) - 1) * 100))
-  }
-}
-```
-
-::: {.callout-tip}
-## The absence gap is not inevitable
-Brighton & Hove's absence rates are not a necessary consequence of its intake composition. The city has near-average levels of deprivation (FSM rates at the national median) but near-worst absence. Many local authorities with similar or higher FSM rates achieve substantially lower absence. This suggests that the absence problem is driven by local factors — attendance culture, enforcement practices, alternative provision use, or community-level dynamics — rather than being an unavoidable correlate of disadvantage. It is, in principle, solvable.
-:::
-
-
-### Comparing the two levers: FSM vs Absence
-
-```{r lever-comparison}
-#| label: lever-comparison
-#| output: asis
-
-cat(sprintf("The model's coefficients allow a direct comparison of the two policy levers:\n\n"))
-cat(sprintf("- **log(FSM) coefficient** (All Pupils): %.4f\n", beta_fsm))
-cat(sprintf("- **log(Absence) coefficient** (All Pupils): %.4f\n\n", beta_absence))
-
-# Compare standardised effects
-sd_log_fsm <- sd(log(bh_latest_model$PTFSM6CLA1A), na.rm = TRUE)
-sd_log_abs <- sd(log(bh_latest_model$PERCTOT), na.rm = TRUE)
-
-std_fsm <- abs(beta_fsm * sd_log_fsm)
-std_abs <- abs(beta_absence * sd_log_abs)
-
-ratio <- std_abs / std_fsm
-
-cat(sprintf("When standardised by the Brighton & Hove spread of each variable (SD of log-FSM = %.2f; SD of log-Absence = %.2f), the absence coefficient is **%.1f times** as important as FSM for predicting attainment across Brighton & Hove schools.\n\n", sd_log_fsm, sd_log_abs, ratio))
-
-cat("This has a clear policy implication — and it is reinforced by Brighton & Hove's position in the national distribution:\n\n")
-```
-
-```{r lever-context}
-#| label: lever-context
-#| output: asis
-
-cat(sprintf("- **FSM:** Brighton & Hove sits at the **%s percentile** nationally (%s of %d LAs) — the city's deprivation levels are unremarkable. There is limited scope for FSM-based policy to differentiate Brighton & Hove from its statistical peers.\n",
-    ordinal_suffix(round(bh_fsm_rank$pctile)), ordinal_suffix(bh_fsm_rank$rank), n_las_bench))
-cat(sprintf("- **Absence:** Brighton & Hove sits at the **%s percentile** nationally (%s of %d LAs) — among the very worst in England. There is therefore *enormous* scope for absence reduction to bring the city into line with its peers, and the model predicts meaningful attainment gains from doing so.\n\n",
-    ordinal_suffix(round(bh_abs_rank$pctile)), ordinal_suffix(bh_abs_rank$rank), n_las_bench))
-
-cat("The mismatch between a typical level of disadvantage and an extreme level of absence is what makes absence the standout policy priority for Brighton & Hove specifically.\n\n")
-```
-
-::: {.callout-important}
-## Key insight: absence is a far more effective lever than FSM redistribution
-
-```{r lever-callout}
-#| output: asis
-cat(sprintf("Across Brighton & Hove, a one-standard-deviation improvement in absence rates is predicted to improve ATT8 by roughly **%.1f times** as much as a one-standard-deviation change in FSM composition. Moreover, absence is directly actionable through attendance strategies, family liaison, and early intervention — whereas FSM redistribution requires changing school admissions patterns, which is politically contentious, operationally complex, and (as shown above) produces ambiguous net effects on city-wide attainment.\n\n", ratio))
-cat(sprintf("The case is further strengthened by Brighton & Hove's outlier position: the city has the %s-highest absence rate among %d local authorities in England, despite having a near-average FSM rate. Simply converging towards the national mean absence level — something that most LAs already achieve — would deliver predicted attainment gains substantially larger than any feasible FSM redistribution scenario.\n\n",
-    ordinal_suffix(n_las_bench - bh_abs_rank$rank + 1), n_las_bench))
-```
-
-The model therefore supports a policy strategy that prioritises:
-
-1. **Protecting low-absence schools** from any deterioration (the steep part of the curve)
-2. **Intensive early intervention** at moderate-absence schools (where there is most to gain)
-3. **Sustained absence reduction programmes** at high-absence schools (where gains per unit are smaller but the absolute room for improvement is greatest)
-4. **Benchmarking against national norms** — the target should not be the B&H average (which is itself an outlier) but the national average, which most of the city's schools currently exceed
-
-This is a more promising and directly controllable route to raising attainment than attempting to redistribute intake composition.
-:::
-
-### Comparing marginal returns: FSM vs Absence on the same scale
-
-```{r fig-diminishing-returns-combined}
-#| label: fig-diminishing-returns-combined
-#| fig-cap: "Marginal ATT8 gain from a 1 percentage point reduction in each variable, at different starting values. The steeper the curve, the bigger the payoff. Absence (green) delivers larger gains than FSM (purple) at every level, and the gap widens at lower starting values. Brighton & Hove schools are marked on each curve."
-#| fig-height: 5.5
-#| fig-width: 9
+## Accelerating returns: comparing the two policy levers
+
+```{r lever-setup}
+#| label: lever-setup
+#| include: false
 
 # Model coefficients
-beta_fsm_val  <- fixef(mod_e_all)["log(PTFSM6CLA1A)"]
-beta_abs_val  <- fixef(mod_e_all)["log(PERCTOT)"]
+beta_fsm     <- fixef(mod_e_all)["log(PTFSM6CLA1A)"]
+beta_absence <- fixef(mod_e_all)["log(PERCTOT)"]
 
 # City-wide mean ATT8 as base for converting to points
-city_att8 <- mean(bh_latest_model$ATT8SCR, na.rm = TRUE)
+city_att8    <- mean(bh_latest_model$ATT8SCR, na.rm = TRUE)
+city_avg_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+city_avg_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
 
-# For each variable, compute predicted ATT8 gain from a 1pp reduction
-# at a range of starting values
-# log(x-1) - log(x) gives the log-scale shift; multiply by coefficient
-# then convert to ATT8 points: ATT8 * (exp(beta * delta_log) - 1)
-
+# Marginal ATT8 gain from a 1pp reduction at each starting value
 fsm_range <- seq(5, 55, by = 0.5)
 abs_range <- seq(3, 16, by = 0.1)
 
 marginal_fsm <- tibble(
   starting_value = fsm_range,
   delta_log = log(fsm_range - 1) - log(fsm_range),
-  att8_gain = city_att8 * (exp(beta_fsm_val * delta_log) - 1),
+  att8_gain = city_att8 * (exp(beta_fsm * delta_log) - 1),
   Variable = "% FSM (Disadvantaged)"
 )
 
 marginal_abs <- tibble(
   starting_value = abs_range,
   delta_log = log(abs_range - 1) - log(abs_range),
-  att8_gain = city_att8 * (exp(beta_abs_val * delta_log) - 1),
+  att8_gain = city_att8 * (exp(beta_absence * delta_log) - 1),
   Variable = "% Absence"
 )
 
@@ -1506,7 +1016,7 @@ bh_fsm_pts <- bh_latest_model %>%
     School = SCHNAME,
     starting_value = PTFSM6CLA1A,
     delta_log = log(PTFSM6CLA1A - 1) - log(PTFSM6CLA1A),
-    att8_gain = city_att8 * (exp(beta_fsm_val * delta_log) - 1),
+    att8_gain = city_att8 * (exp(beta_fsm * delta_log) - 1),
     Variable = "% FSM (Disadvantaged)"
   )
 
@@ -1516,11 +1026,70 @@ bh_abs_pts <- bh_latest_model %>%
     School = SCHNAME,
     starting_value = PERCTOT,
     delta_log = log(PERCTOT - 1) - log(PERCTOT),
-    att8_gain = city_att8 * (exp(beta_abs_val * delta_log) - 1),
+    att8_gain = city_att8 * (exp(beta_absence * delta_log) - 1),
     Variable = "% Absence"
   )
 
 bh_pts <- bind_rows(bh_fsm_pts, bh_abs_pts)
+
+# FSM scenario: schools above city avg moving to city avg
+high_fsm_schools <- bh_latest_model %>%
+  filter(PTFSM6CLA1A > city_avg_fsm) %>%
+  arrange(desc(PTFSM6CLA1A)) %>%
+  transmute(
+    School = SCHNAME,
+    current_fsm = PTFSM6CLA1A,
+    target_fsm = city_avg_fsm,
+    log_shift = log(target_fsm) - log(current_fsm),
+    pct_att8_change = (exp(beta_fsm * log_shift) - 1) * 100,
+    att8_point_change = city_att8 * (exp(beta_fsm * log_shift) - 1)
+  )
+
+# Extreme FSM scenario: worst FSM school to best FSM level
+worst_fsm <- bh_latest_model %>% filter(PTFSM6CLA1A == max(PTFSM6CLA1A, na.rm = TRUE))
+best_fsm  <- bh_latest_model %>% filter(PTFSM6CLA1A == min(PTFSM6CLA1A, na.rm = TRUE))
+extreme_log_shift <- log(best_fsm$PTFSM6CLA1A) - log(worst_fsm$PTFSM6CLA1A)
+extreme_att8_gain <- city_att8 * (exp(beta_fsm * extreme_log_shift) - 1)
+
+# Absence scenario: schools above national avg moving to national avg
+beta_abs_dis <- fixef(mod_e_disadv)["log(PERCTOT)"]
+
+above_nat_abs <- bh_latest_model %>%
+  filter(!is.na(PERCTOT), PERCTOT > national_mean_abs, !is.na(ATT8SCR)) %>%
+  arrange(desc(PERCTOT)) %>%
+  transmute(
+    School = SCHNAME,
+    current_abs = PERCTOT,
+    target_abs = national_mean_abs,
+    reduction_pp = current_abs - national_mean_abs,
+    log_shift = log(target_abs) - log(current_abs),
+    pct_att8_change = (exp(beta_absence * log_shift) - 1) * 100,
+    att8_point_change = ATT8SCR * (exp(beta_absence * log_shift) - 1),
+    att8_gain_dis = ifelse(!is.na(ATT8SCR_FSM6CLA1A) & ATT8SCR_FSM6CLA1A > 0,
+                           ATT8SCR_FSM6CLA1A * (exp(beta_abs_dis * log_shift) - 1), NA)
+  )
+
+n_above_abs <- nrow(above_nat_abs)
+avg_abs_gain <- mean(above_nat_abs$att8_point_change, na.rm = TRUE)
+avg_dis_gain <- mean(above_nat_abs$att8_gain_dis, na.rm = TRUE)
+
+# Standardised importance ratio
+sd_log_fsm <- sd(log(bh_latest_model$PTFSM6CLA1A), na.rm = TRUE)
+sd_log_abs <- sd(log(bh_latest_model$PERCTOT), na.rm = TRUE)
+std_fsm <- abs(beta_fsm * sd_log_fsm)
+std_abs <- abs(beta_absence * sd_log_abs)
+ratio <- std_abs / std_fsm
+```
+
+The national modelling established that the relationships between attainment and its key predictors are non-linear. Because the model operates on log-transformed variables, the same raw percentage-point change produces different effects depending on where a school starts. Reading from right to left in @fig-accelerating-returns — that is, in the direction of policy improvement — the returns to reducing both absence and FSM *accelerate* as schools improve. Each successive percentage point of reduction buys a bigger predicted gain in Attainment 8 than the last.
+
+But the two curves are not equal. @fig-accelerating-returns places both variables on the same y-axis — the predicted ATT8 gain from a 1 percentage point reduction — allowing a direct comparison of the two policy levers at every starting level.
+
+```{r fig-accelerating-returns}
+#| label: fig-accelerating-returns
+#| fig-cap: "Accelerating returns: each percentage point of reduction buys a progressively larger ATT8 gain (reading right to left). Absence (green) delivers substantially larger gains than FSM (purple) at every level. Brighton & Hove schools are marked on each curve."
+#| fig-height: 5.5
+#| fig-width: 9
 
 p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
                                        colour = Variable)) +
@@ -1532,7 +1101,6 @@ p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
                   size = 2.3, max.overlaps = 15, force = 3,
                   segment.colour = "grey60", segment.size = 0.3,
                   show.legend = FALSE) +
-  # National averages
   geom_vline(xintercept = national_mean_fsm, linetype = "dotted",
              colour = "#4e3c56", linewidth = 0.5, alpha = 0.6) +
   geom_vline(xintercept = national_mean_abs, linetype = "dotted",
@@ -1547,11 +1115,18 @@ p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
            colour = "#2e6260", size = 2.5, fontface = "italic", hjust = 0) +
   scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#4e3c56",
                                   "% Absence" = "#2e6260")) +
+  annotate("segment", x = 45, xend = 15, y = max(marginal_df$att8_gain) * 0.15,
+           yend = max(marginal_df$att8_gain) * 0.15,
+           arrow = arrow(length = unit(0.2, "cm")),
+           colour = "grey50", linewidth = 0.4) +
+  annotate("text", x = 30, y = max(marginal_df$att8_gain) * 0.12,
+           label = "direction of policy improvement",
+           colour = "grey50", size = 2.5, fontface = "italic") +
   labs(x = "Current level (%)",
        y = "Predicted ATT8 gain from 1pp reduction",
        colour = NULL,
-       title = "Diminishing returns compared: absence vs FSM",
-       subtitle = "Each point on the curve shows the ATT8 improvement from reducing that variable by 1 percentage point at that starting level") +
+       title = "Accelerating returns: reducing absence vs reducing FSM",
+       subtitle = "Each point shows the ATT8 gain from a 1pp reduction at that starting level — returns accelerate as values fall (right to left)") +
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom",
         plot.title = element_text(face = "bold"),
@@ -1560,38 +1135,45 @@ p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
 p_combined
 ```
 
-```{r fig-diminishing-returns-standardised}
-#| label: fig-diminishing-returns-standardised
-#| fig-cap: "Marginal ATT8 gain from a 1pp reduction, with starting values standardised to SDs from the national mean. At the same relative position in the national distribution, absence reduction delivers substantially larger gains than FSM reduction."
+Three things are immediately visible. First, the absence curve sits well above the FSM curve at every starting level — a 1 percentage point reduction in absence always buys more predicted attainment than the same reduction in FSM. Second, the gap between the two curves *widens* as values fall, meaning the comparative advantage of targeting absence grows as schools improve. Third, the Brighton & Hove schools (marked on each curve) cluster in the flatter right-hand portion for both variables, but the city's position is far more extreme on absence than on FSM.
+
+```{r lever-national-context}
+#| label: lever-national-context
+#| output: asis
+
+cat(sprintf("To put this in national context: Brighton & Hove's mean school FSM rate of **%.1f%%** is close to the national average of **%.1f%%**, placing the city at roughly the %s percentile — an unremarkable position. But the city's mean absence rate of **%.1f%%** against a national average of **%.1f%%** places it at the %s percentile, **%s out of %d local authorities** — among the very worst in England. **%d out of %d** Brighton & Hove secondary schools have absence rates above the national school-level average.\n\n",
+    bh_mean_fsm, national_mean_fsm, ordinal_suffix(round(bh_fsm_rank$pctile)),
+    bh_mean_abs, national_mean_abs, ordinal_suffix(round(bh_abs_rank$pctile)),
+    ordinal_suffix(bh_abs_rank$rank), n_las_bench,
+    n_above_nat_abs, n_bh_schools))
+```
+
+When we standardise the x-axis so that both variables are measured in standard deviations from their national means, the mismatch becomes even starker. @fig-accelerating-returns-standardised shows that Brighton & Hove schools sit close to z = 0 for FSM (unremarkable) but at z = +1 to +2 for absence (extreme national outliers). At the same relative position in the national distribution, absence reduction delivers substantially larger gains.
+
+```{r fig-accelerating-returns-standardised}
+#| label: fig-accelerating-returns-standardised
+#| fig-cap: "Accelerating returns standardised: x-axis shows SDs from the national mean. Brighton & Hove schools cluster near the national average for FSM but are extreme outliers on absence."
 #| fig-height: 5.5
 #| fig-width: 9
 
-# Compute national means and SDs for standardisation
 nat_mean_fsm_raw <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
 nat_sd_fsm_raw   <- sd(national_latest$PTFSM6CLA1A, na.rm = TRUE)
 nat_mean_abs_raw <- mean(national_latest$PERCTOT, na.rm = TRUE)
 nat_sd_abs_raw   <- sd(national_latest$PERCTOT, na.rm = TRUE)
 
-# Add z-scores to the marginal curves
 marginal_fsm_z <- marginal_fsm %>%
   mutate(z = (starting_value - nat_mean_fsm_raw) / nat_sd_fsm_raw)
-
 marginal_abs_z <- marginal_abs %>%
   mutate(z = (starting_value - nat_mean_abs_raw) / nat_sd_abs_raw)
-
 marginal_z <- bind_rows(marginal_fsm_z, marginal_abs_z)
 
-# Add z-scores to B&H school points
 bh_fsm_z <- bh_fsm_pts %>%
   mutate(z = (starting_value - nat_mean_fsm_raw) / nat_sd_fsm_raw)
-
 bh_abs_z <- bh_abs_pts %>%
   mutate(z = (starting_value - nat_mean_abs_raw) / nat_sd_abs_raw)
-
 bh_pts_z <- bind_rows(bh_fsm_z, bh_abs_z)
 
-p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain,
-                                          colour = Variable)) +
+p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain, colour = Variable)) +
   geom_line(linewidth = 1) +
   geom_point(data = bh_pts_z, aes(x = z, y = att8_gain),
              size = 2.5, alpha = 0.8) +
@@ -1600,8 +1182,7 @@ p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain,
                   size = 2.3, max.overlaps = 15, force = 3,
                   segment.colour = "grey60", segment.size = 0.3,
                   show.legend = FALSE) +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40",
-             linewidth = 0.4) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
   annotate("text", x = 0.1, y = max(marginal_z$att8_gain) * 0.95,
            label = "National\naverage", colour = "grey40",
            size = 2.8, fontface = "italic", hjust = 0) +
@@ -1610,7 +1191,7 @@ p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain,
   labs(x = "Starting value (SDs from national mean)",
        y = "Predicted ATT8 gain from 1pp reduction",
        colour = NULL,
-       title = "Diminishing returns standardised: absence vs FSM",
+       title = "Accelerating returns standardised: absence vs FSM",
        subtitle = "X-axis shows where a school sits relative to the national distribution for each variable") +
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom",
@@ -1619,6 +1200,161 @@ p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain,
 
 p_standardised
 ```
+
+```{r lever-ratio}
+#| label: lever-ratio
+#| output: asis
+
+cat(sprintf("When standardised by the Brighton & Hove spread of each variable, the absence coefficient is **%.1f times** as important as FSM for predicting attainment across the city's schools.\n\n", ratio))
+```
+
+### Absence in Brighton and Hove
+
+```{r absence-national-context}
+#| label: absence-national-context
+#| output: asis
+
+# Top 10 highest-absence LAs across all 4 years (+ always include B&H)
+all_years <- sort(unique(national_benchmarks$year_label))
+
+la_abs_all_years <- national_benchmarks %>%
+  group_by(year_label, LANAME) %>%
+  summarise(la_mean_abs = mean(PERCTOT, na.rm = TRUE), .groups = "drop") %>%
+  group_by(year_label) %>%
+  arrange(la_mean_abs) %>%
+  mutate(rank = row_number(), n_las = n()) %>%
+  ungroup()
+
+top10_any_year <- la_abs_all_years %>%
+  group_by(year_label) %>%
+  slice_max(la_mean_abs, n = 10) %>%
+  ungroup() %>%
+  pull(LANAME) %>%
+  unique()
+
+top10_any_year <- unique(c(top10_any_year,
+                            la_abs_all_years$LANAME[grepl("Brighton", la_abs_all_years$LANAME)]))
+
+abs_wide <- la_abs_all_years %>%
+  filter(LANAME %in% top10_any_year) %>%
+  mutate(display = paste0(format(round(la_mean_abs, 1), nsmall = 1),
+                           "% (", rank, "/", n_las, ")")) %>%
+  select(LANAME, year_label, display) %>%
+  mutate(year_label = factor(year_label,
+    levels = c("2021-22", "2022-23", "2023-24", "2024-25"))) %>%
+  arrange(year_label) %>%
+  pivot_wider(names_from = year_label, values_from = display, values_fill = "\u2014")
+
+latest_order <- la_abs_all_years %>%
+  filter(year_label == latest_year, LANAME %in% top10_any_year) %>%
+  arrange(desc(la_mean_abs))
+
+abs_wide <- abs_wide %>%
+  mutate(LANAME = factor(LANAME, levels = latest_order$LANAME)) %>%
+  arrange(LANAME) %>%
+  mutate(LANAME = as.character(LANAME))
+
+bh_row <- which(grepl("Brighton", abs_wide$LANAME))
+names(abs_wide)[1] <- "Local Authority"
+
+cat(knitr::kable(abs_wide, format = "html",
+    align = paste0("l", paste(rep("r", length(all_years)), collapse = "")),
+    caption = "Highest-absence local authorities across all panel years (mean school absence %, rank)") %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                             full_width = FALSE, font_size = 10) %>%
+  kableExtra::row_spec(bh_row, bold = TRUE, background = "#fce4f1"))
+cat("\n\n")
+```
+
+The table above confirms Brighton and Hove's persistent position among the worst local authorities in England for school absence — in the top 10 in multiple years, and the second worst in 2024-25. The direction of travel is, if anything, deteriorating.
+
+```{r absence-national-avg-scenario}
+#| label: absence-national-avg-scenario
+#| output: asis
+
+cat(sprintf("What would it mean if every Brighton & Hove school brought its absence rate down to the national school-level average of **%.1f%%**? This is not an aspirational stretch target — it is simply asking the city's schools to achieve what the typical English secondary school already does. The table below shows the predicted attainment gains:\n\n", national_mean_abs))
+
+nat_table <- above_nat_abs %>%
+  mutate(
+    `Current % Absence` = round(current_abs, 1),
+    `National Average (Target)` = round(target_abs, 1),
+    `Reduction needed (pp)` = round(reduction_pp, 1),
+    `Predicted ATT8 change (%%)` = round(pct_att8_change, 2),
+    `\u2248 ATT8 points` = round(att8_point_change, 1)
+  ) %>%
+  select(School, `Current % Absence`, `National Average (Target)`,
+         `Reduction needed (pp)`, `Predicted ATT8 change (%%)`, `\u2248 ATT8 points`)
+
+print(knitr::kable(nat_table, format = "html",
+             caption = sprintf("Scenario: if all schools above the national average (%.1f%%) reduced to it — predicted ATT8 effect (All Pupils model)",
+                               national_mean_abs)) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                             full_width = FALSE, font_size = 10))
+
+cat(sprintf("\n\n**%d out of %d** Brighton & Hove schools currently have absence above the national average. The potential gains for the schools with the highest absence rates are substantial — **3 to 5 GCSE points**. Across these schools, achieving the national average would produce predicted gains averaging **%+.1f ATT8 points per school**. For **disadvantaged pupils**, the gains would be even larger — an average of **%+.1f ATT8 points** — because the absence coefficient is larger for disadvantaged pupils. Closing the absence gap to the national average would therefore simultaneously raise overall attainment *and* narrow the disadvantage gap.\n\n",
+    n_above_abs, nrow(bh_latest_model),
+    avg_abs_gain, avg_dis_gain))
+```
+
+::: {.callout-tip}
+## The absence gap is not inevitable
+Brighton & Hove's absence rates are not a necessary consequence of its intake composition. The city has near-average levels of deprivation (FSM rates at the national median) but near-worst absence. Many local authorities with similar or higher FSM rates achieve substantially lower absence. This suggests that the absence problem is driven by local factors — attendance culture, enforcement practices, alternative provision use, or community-level dynamics — rather than being an unavoidable correlate of disadvantage. It is, in principle, solvable.
+:::
+
+### Concentrations of disadvantage in Brighton and Hove
+
+Given the council's policy focus in 2024 was on reducing concentrations of disadvantage rather than on absence, it is worth quantifying what the FSM lever can realistically deliver. The answer, as @fig-accelerating-returns makes visually clear, is: far less.
+
+```{r fsm-policy-scenario}
+#| label: fsm-policy-scenario
+#| output: asis
+
+scenario_table <- high_fsm_schools %>%
+  mutate(
+    `Current % FSM` = round(current_fsm, 1),
+    `Target % FSM` = round(target_fsm, 1),
+    `Change in log(FSM)` = round(log_shift, 3),
+    `Predicted ATT8 change (%%)` = round(pct_att8_change, 2),
+    `\u2248 ATT8 points` = round(att8_point_change, 1)
+  ) %>%
+  select(School, `Current % FSM`, `Target % FSM`,
+         `Change in log(FSM)`, `Predicted ATT8 change (%%)`, `\u2248 ATT8 points`)
+
+print(knitr::kable(scenario_table, format = "html",
+             caption = sprintf("Scenario: if schools above the city average (%.0f%% FSM) reduced to it — predicted ATT8 effect (All Pupils model)",
+                               city_avg_fsm)) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                             full_width = FALSE, font_size = 10))
+
+avg_fsm_gain <- mean(high_fsm_schools$att8_point_change, na.rm = TRUE)
+
+cat(sprintf("\n\nBringing the schools above the city average FSM rate down to it would produce a predicted gain of roughly **%+.1f ATT8 points per school** — modest gains that are dwarfed by the absence scenario above.\n\n", avg_fsm_gain))
+
+cat(sprintf("To illustrate just how limited this lever is: even if **%s** — the school with the highest FSM rate in the city at %.0f%% — were to achieve the FSM level of **%s** (the lowest at %.0f%%), the predicted attainment gain would be approximately **%.1f ATT8 points**. That is a dramatic, arguably impossible transformation in school composition for a gain that is a fraction of what reducing absence to the national average would deliver at the same school. And unlike absence reduction, FSM redistribution is zero-sum: reducing FSM at one school necessarily increases it at another, and the non-linear curve means the receiving schools (sitting on the steeper part) would experience a *larger* negative predicted effect per pupil redistributed.\n\n",
+    worst_fsm$SCHNAME, worst_fsm$PTFSM6CLA1A,
+    best_fsm$SCHNAME, best_fsm$PTFSM6CLA1A,
+    extreme_att8_gain))
+```
+
+::: {.callout-important}
+## Key insight: absence is a far more effective lever than FSM redistribution
+
+```{r lever-callout}
+#| output: asis
+cat(sprintf("Across Brighton & Hove, a one-standard-deviation improvement in absence rates is predicted to improve ATT8 by roughly **%.1f times** as much as a one-standard-deviation change in FSM composition. Moreover, absence is directly actionable through attendance strategies, family liaison, and early intervention — whereas FSM redistribution requires changing school admissions patterns, which is politically contentious, operationally complex, and (as shown above) produces ambiguous net effects on city-wide attainment.\n\n", ratio))
+cat(sprintf("The case is further strengthened by Brighton & Hove's outlier position: the city has the %s-highest absence rate among %d local authorities in England, despite having a near-average FSM rate. Simply converging towards the national mean absence level — something that most LAs already achieve — would deliver predicted attainment gains substantially larger than any feasible FSM redistribution scenario.\n\n",
+    ordinal_suffix(n_las_bench - bh_abs_rank$rank + 1), n_las_bench))
+```
+
+The model therefore supports a policy strategy that prioritises:
+
+1. **Protecting low-absence schools** from any deterioration (the steep part of the curve means these schools have the most to lose)
+2. **Intensive early intervention** at moderate-absence schools (where the accelerating returns mean there is most to gain per unit of improvement)
+3. **Sustained absence reduction programmes** at high-absence schools (where gains per unit are smaller but the absolute room for improvement is greatest)
+4. **Benchmarking against national norms** — the target should not be the B&H average (which is itself an outlier) but the national average, which most of the city's schools currently exceed
+
+This is a more promising and directly controllable route to raising attainment than attempting to redistribute intake composition.
+:::
 
 
 # How Mediation and Confounding Change the Story {#sec-confounding}
