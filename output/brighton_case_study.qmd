@@ -1460,6 +1460,166 @@ The model therefore supports a policy strategy that prioritises:
 This is a more promising and directly controllable route to raising attainment than attempting to redistribute intake composition.
 :::
 
+### Comparing marginal returns: FSM vs Absence on the same scale
+
+```{r fig-diminishing-returns-combined}
+#| label: fig-diminishing-returns-combined
+#| fig-cap: "Marginal ATT8 gain from a 1 percentage point reduction in each variable, at different starting values. The steeper the curve, the bigger the payoff. Absence (green) delivers larger gains than FSM (purple) at every level, and the gap widens at lower starting values. Brighton & Hove schools are marked on each curve."
+#| fig-height: 5.5
+#| fig-width: 9
+
+# Model coefficients
+beta_fsm_val  <- fixef(mod_e_all)["log(PTFSM6CLA1A)"]
+beta_abs_val  <- fixef(mod_e_all)["log(PERCTOT)"]
+
+# City-wide mean ATT8 as base for converting to points
+city_att8 <- mean(bh_latest_model$ATT8SCR, na.rm = TRUE)
+
+# For each variable, compute predicted ATT8 gain from a 1pp reduction
+# at a range of starting values
+# log(x-1) - log(x) gives the log-scale shift; multiply by coefficient
+# then convert to ATT8 points: ATT8 * (exp(beta * delta_log) - 1)
+
+fsm_range <- seq(5, 55, by = 0.5)
+abs_range <- seq(3, 16, by = 0.1)
+
+marginal_fsm <- tibble(
+  starting_value = fsm_range,
+  delta_log = log(fsm_range - 1) - log(fsm_range),
+  att8_gain = city_att8 * (exp(beta_fsm_val * delta_log) - 1),
+  Variable = "% FSM (Disadvantaged)"
+)
+
+marginal_abs <- tibble(
+  starting_value = abs_range,
+  delta_log = log(abs_range - 1) - log(abs_range),
+  att8_gain = city_att8 * (exp(beta_abs_val * delta_log) - 1),
+  Variable = "% Absence"
+)
+
+marginal_df <- bind_rows(marginal_fsm, marginal_abs)
+
+# B&H school positions on each curve
+bh_fsm_pts <- bh_latest_model %>%
+  filter(!is.na(PTFSM6CLA1A), PTFSM6CLA1A > 2) %>%
+  transmute(
+    School = SCHNAME,
+    starting_value = PTFSM6CLA1A,
+    delta_log = log(PTFSM6CLA1A - 1) - log(PTFSM6CLA1A),
+    att8_gain = city_att8 * (exp(beta_fsm_val * delta_log) - 1),
+    Variable = "% FSM (Disadvantaged)"
+  )
+
+bh_abs_pts <- bh_latest_model %>%
+  filter(!is.na(PERCTOT), PERCTOT > 2) %>%
+  transmute(
+    School = SCHNAME,
+    starting_value = PERCTOT,
+    delta_log = log(PERCTOT - 1) - log(PERCTOT),
+    att8_gain = city_att8 * (exp(beta_abs_val * delta_log) - 1),
+    Variable = "% Absence"
+  )
+
+bh_pts <- bind_rows(bh_fsm_pts, bh_abs_pts)
+
+p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
+                                       colour = Variable)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = bh_pts, aes(x = starting_value, y = att8_gain),
+             size = 2.5, alpha = 0.8) +
+  geom_text_repel(data = bh_pts,
+                  aes(x = starting_value, y = att8_gain, label = School),
+                  size = 2.3, max.overlaps = 15, force = 3,
+                  segment.colour = "grey60", segment.size = 0.3,
+                  show.legend = FALSE) +
+  # National averages
+  geom_vline(xintercept = national_mean_fsm, linetype = "dotted",
+             colour = "#4e3c56", linewidth = 0.5, alpha = 0.6) +
+  geom_vline(xintercept = national_mean_abs, linetype = "dotted",
+             colour = "#2e6260", linewidth = 0.5, alpha = 0.6) +
+  annotate("text", x = national_mean_fsm + 0.8,
+           y = max(marginal_df$att8_gain) * 0.95,
+           label = sprintf("Nat. avg FSM\n%.0f%%", national_mean_fsm),
+           colour = "#4e3c56", size = 2.5, fontface = "italic", hjust = 0) +
+  annotate("text", x = national_mean_abs + 0.5,
+           y = max(marginal_df$att8_gain) * 0.82,
+           label = sprintf("Nat. avg\nabsence %.1f%%", national_mean_abs),
+           colour = "#2e6260", size = 2.5, fontface = "italic", hjust = 0) +
+  scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#4e3c56",
+                                  "% Absence" = "#2e6260")) +
+  labs(x = "Current level (%)",
+       y = "Predicted ATT8 gain from 1pp reduction",
+       colour = NULL,
+       title = "Diminishing returns compared: absence vs FSM",
+       subtitle = "Each point on the curve shows the ATT8 improvement from reducing that variable by 1 percentage point at that starting level") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40", size = 9))
+
+p_combined
+```
+
+```{r fig-diminishing-returns-standardised}
+#| label: fig-diminishing-returns-standardised
+#| fig-cap: "Marginal ATT8 gain from a 1pp reduction, with starting values standardised to SDs from the national mean. At the same relative position in the national distribution, absence reduction delivers substantially larger gains than FSM reduction."
+#| fig-height: 5.5
+#| fig-width: 9
+
+# Compute national means and SDs for standardisation
+nat_mean_fsm_raw <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+nat_sd_fsm_raw   <- sd(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+nat_mean_abs_raw <- mean(national_latest$PERCTOT, na.rm = TRUE)
+nat_sd_abs_raw   <- sd(national_latest$PERCTOT, na.rm = TRUE)
+
+# Add z-scores to the marginal curves
+marginal_fsm_z <- marginal_fsm %>%
+  mutate(z = (starting_value - nat_mean_fsm_raw) / nat_sd_fsm_raw)
+
+marginal_abs_z <- marginal_abs %>%
+  mutate(z = (starting_value - nat_mean_abs_raw) / nat_sd_abs_raw)
+
+marginal_z <- bind_rows(marginal_fsm_z, marginal_abs_z)
+
+# Add z-scores to B&H school points
+bh_fsm_z <- bh_fsm_pts %>%
+  mutate(z = (starting_value - nat_mean_fsm_raw) / nat_sd_fsm_raw)
+
+bh_abs_z <- bh_abs_pts %>%
+  mutate(z = (starting_value - nat_mean_abs_raw) / nat_sd_abs_raw)
+
+bh_pts_z <- bind_rows(bh_fsm_z, bh_abs_z)
+
+p_standardised <- ggplot(marginal_z, aes(x = z, y = att8_gain,
+                                          colour = Variable)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = bh_pts_z, aes(x = z, y = att8_gain),
+             size = 2.5, alpha = 0.8) +
+  geom_text_repel(data = bh_pts_z,
+                  aes(x = z, y = att8_gain, label = School),
+                  size = 2.3, max.overlaps = 15, force = 3,
+                  segment.colour = "grey60", segment.size = 0.3,
+                  show.legend = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40",
+             linewidth = 0.4) +
+  annotate("text", x = 0.1, y = max(marginal_z$att8_gain) * 0.95,
+           label = "National\naverage", colour = "grey40",
+           size = 2.8, fontface = "italic", hjust = 0) +
+  scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#4e3c56",
+                                  "% Absence" = "#2e6260")) +
+  labs(x = "Starting value (SDs from national mean)",
+       y = "Predicted ATT8 gain from 1pp reduction",
+       colour = NULL,
+       title = "Diminishing returns standardised: absence vs FSM",
+       subtitle = "X-axis shows where a school sits relative to the national distribution for each variable") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40", size = 9))
+
+p_standardised
+```
+
 
 # How Mediation and Confounding Change the Story {#sec-confounding}
 
