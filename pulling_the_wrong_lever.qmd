@@ -31,6 +31,20 @@ format:
     include-after-body:
       - footer-logos.html
       - collect-bibliography.html
+  pdf:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    fig-cap-location: bottom
+    fig-width: 8
+    fig-height: 5.5
+    fig-dpi: 300
+    documentclass: article
+    geometry:
+      - margin=2.5cm
+    fontsize: 11pt
+    colorlinks: true
+    keep-tex: true
 bibliography: SchoolAttainment.bib
 csl: sage-harvard.csl
 execute:
@@ -181,6 +195,9 @@ ordinal_suffix <- function(n) {
   )
   paste0(n, suffix)
 }
+
+# ---- Output format helper ----
+tbl_fmt <- if (knitr::is_html_output()) "html" else "latex"
 
 # ---- LA-level rankings (for accelerating returns section) ----
 la_means_abs <- national_benchmarks %>%
@@ -524,7 +541,32 @@ m_orient <- m_orient %>%
     position = "topright"
   )
 
-m_orient
+if (knitr::is_html_output()) {
+  m_orient
+} else {
+  # Static map for PDF output
+  ggplot() +
+    geom_sf(data = optionZ, aes(fill = catchment), alpha = 0.15,
+            colour = NA, show.legend = FALSE) +
+    geom_sf(data = optionZ, aes(colour = catchment), fill = NA,
+            linewidth = 0.6, show.legend = TRUE) +
+    scale_fill_manual(values = catchment_colours, labels = catchment_labels,
+                      aesthetics = c("fill", "colour"), name = "Catchment") +
+    geom_point(data = as.data.frame(bh_map_data),
+               aes(x = lon, y = lat), size = 2, colour = "#333333") +
+    geom_text_repel(data = as.data.frame(bh_map_data),
+                    aes(x = lon, y = lat, label = SCHNAME),
+                    size = 2, max.overlaps = 15, force = 3,
+                    segment.colour = "grey50", segment.size = 0.3) +
+    # CoMArt
+    geom_point(aes(x = comart_lon, y = comart_lat),
+               size = 2, colour = "#e41a1c") +
+    annotate("text", x = comart_lon + 0.005, y = comart_lat,
+             label = "CoMArt (Closed 2005)", size = 2, colour = "#e41a1c", hjust = 0) +
+    theme_void(base_size = 10) +
+    theme(legend.position = "bottom",
+          legend.text = element_text(size = 7))
+}
 ```
 
 As one of us has written elsewhere[^4], as a result of this unique admissions landscape, Brighton and Hove has been something of a curiosity case study for education-focused journalists and academics over the years [@Allen2013; @Millar2017]. The Council is the admission authority for the community schools in Brighton and Hove (a rare example of a local authority where 60% of the secondary schools in the city are still under direct LEA control), and is required by section 88C of the School Standards and Framework Act 1998 ("the SSFA 1998") to determine its admission arrangements in advance of each school year. Under these rules it also has a statutory duty to consult with the public on any changes it wishes to make. In October 2024, it launched a public engagement exercise where they solicited opinions from parents and other concerned parties on proposals to further evolve secondary school admissions in the city which was then followed by a full consultation a few weeks later.
@@ -715,31 +757,43 @@ ols_raw_line <- tibble(
 yr_colours <- c("2021-22" = "#2e6260", "2022-23" = "#abc766",
                 "2023-24" = "#e16fca", "2024-25" = "#4e3c56")
 
-p_raw <- plot_ly() %>%
-  add_markers(
-    data = bivar_df,
-    x = ~PTFSM6CLA1A, y = ~ATT8SCR,
-    color = ~year_label,
-    colors = yr_colours,
-    text = ~paste0(SCHNAME, " (", LANAME, ")"),
-    marker = list(opacity = 0.3, size = 4),
-    hovertemplate = "<b>%{text}</b><br>FSM: %{x:.1f}%<br>ATT8: %{y:.1f}<extra></extra>"
-  ) %>%
-  add_lines(
-    data = ols_raw_line, x = ~x, y = ~y,
-    line = list(color = "#7b132b", width = 2),
-    name = sprintf("OLS: R² = %.3f", summary(ols_raw)$r.squared),
-    hoverinfo = "skip"
-  ) %>%
-  layout(
-    xaxis = list(title = "% Disadvantaged (FSM)"),
-    yaxis = list(title = "Attainment 8 — All Pupils"),
-    legend = list(orientation = "h", x = 1, xanchor = "right",
-                  y = 1.02, yanchor = "bottom"),
-    margin = list(t = 50)
-  )
-
-p_raw
+if (knitr::is_html_output()) {
+  p_raw <- plot_ly() %>%
+    add_markers(
+      data = bivar_df,
+      x = ~PTFSM6CLA1A, y = ~ATT8SCR,
+      color = ~year_label,
+      colors = yr_colours,
+      text = ~paste0(SCHNAME, " (", LANAME, ")"),
+      marker = list(opacity = 0.3, size = 4),
+      hovertemplate = "<b>%{text}</b><br>FSM: %{x:.1f}%<br>ATT8: %{y:.1f}<extra></extra>"
+    ) %>%
+    add_lines(
+      data = ols_raw_line, x = ~x, y = ~y,
+      line = list(color = "#7b132b", width = 2),
+      name = sprintf("OLS: R² = %.3f", summary(ols_raw)$r.squared),
+      hoverinfo = "skip"
+    ) %>%
+    layout(
+      xaxis = list(title = "% Disadvantaged (FSM)"),
+      yaxis = list(title = "Attainment 8 — All Pupils"),
+      legend = list(orientation = "h", x = 1, xanchor = "right",
+                    y = 1.02, yanchor = "bottom"),
+      margin = list(t = 50)
+    )
+  p_raw
+} else {
+  ggplot(bivar_df, aes(x = PTFSM6CLA1A, y = ATT8SCR, colour = year_label)) +
+    geom_point(alpha = 0.3, size = 0.8) +
+    geom_line(data = ols_raw_line, aes(x = x, y = y),
+              colour = "#7b132b", linewidth = 0.8, inherit.aes = FALSE) +
+    scale_colour_manual(values = yr_colours) +
+    labs(x = "% Disadvantaged (FSM)", y = "Attainment 8 — All Pupils",
+         colour = NULL,
+         caption = sprintf("OLS: R² = %.3f", summary(ols_raw)$r.squared)) +
+    theme_minimal(base_size = 10) +
+    theme(legend.position = "bottom")
+}
 ```
 
 This curved relationship can be flattened and made linear by taking the log of both variables. See @fig-bivariate-log below. The log-log relationship is linear and this is useful for our linear models, but perhaps less well appreciated is what this means in practical policy terms. Stating that as concentrations of disadvantage increase, attainment decreases is both true and misleading at the same time. The strength of the relationship is entirely dependent on where in the distribution a school sits. A detailed account of this can be found in the [supplementary material](https://adamdennett.github.io/school_attainment_tool/brighton_case_study.html#sec-nonlinear)[^15], but in short a log-log relationship is an elasticity which means that percentage changes are linear but percentage changes at one end of the distribution have far more or less impact than at the other.
@@ -766,31 +820,43 @@ ols_log_line <- tibble(
   y = predict(ols_log, newdata = tibble(log_FSM = seq(x_range_log[1], x_range_log[2], length.out = 100)))
 )
 
-p_log <- plot_ly() %>%
-  add_markers(
-    data = bivar_log,
-    x = ~log_FSM, y = ~log_ATT8,
-    color = ~year_label,
-    colors = yr_colours,
-    text = ~paste0(SCHNAME, " (", LANAME, ")"),
-    marker = list(opacity = 0.3, size = 4),
-    hovertemplate = "<b>%{text}</b><br>log(FSM): %{x:.2f}<br>log(ATT8): %{y:.2f}<extra></extra>"
-  ) %>%
-  add_lines(
-    data = ols_log_line, x = ~x, y = ~y,
-    line = list(color = "#7b132b", width = 2),
-    name = sprintf("OLS: R² = %.3f", summary(ols_log)$r.squared),
-    hoverinfo = "skip"
-  ) %>%
-  layout(
-    xaxis = list(title = "log(% Disadvantaged)"),
-    yaxis = list(title = "log(Attainment 8 — All Pupils)"),
-    legend = list(orientation = "h", x = 1, xanchor = "right",
+if (knitr::is_html_output()) {
+  p_log <- plot_ly() %>%
+    add_markers(
+      data = bivar_log,
+      x = ~log_FSM, y = ~log_ATT8,
+      color = ~year_label,
+      colors = yr_colours,
+      text = ~paste0(SCHNAME, " (", LANAME, ")"),
+      marker = list(opacity = 0.3, size = 4),
+      hovertemplate = "<b>%{text}</b><br>log(FSM): %{x:.2f}<br>log(ATT8): %{y:.2f}<extra></extra>"
+    ) %>%
+    add_lines(
+      data = ols_log_line, x = ~x, y = ~y,
+      line = list(color = "#7b132b", width = 2),
+      name = sprintf("OLS: R² = %.3f", summary(ols_log)$r.squared),
+      hoverinfo = "skip"
+    ) %>%
+    layout(
+      xaxis = list(title = "log(% Disadvantaged)"),
+      yaxis = list(title = "log(Attainment 8 — All Pupils)"),
+      legend = list(orientation = "h", x = 1, xanchor = "right",
                   y = 1.02, yanchor = "bottom"),
     margin = list(t = 50)
   )
-
-p_log
+  p_log
+} else {
+  ggplot(bivar_log, aes(x = log_FSM, y = log_ATT8, colour = year_label)) +
+    geom_point(alpha = 0.3, size = 0.8) +
+    geom_line(data = ols_log_line, aes(x = x, y = y),
+              colour = "#7b132b", linewidth = 0.8, inherit.aes = FALSE) +
+    scale_colour_manual(values = yr_colours) +
+    labs(x = "log(% Disadvantaged)", y = "log(Attainment 8 — All Pupils)",
+         colour = NULL,
+         caption = sprintf("OLS: R² = %.3f", summary(ols_log)$r.squared)) +
+    theme_minimal(base_size = 10) +
+    theme(legend.position = "bottom")
+}
 ```
 
 As we also detail in the [supplementary material](https://adamdennett.github.io/school_attainment_tool/data_overview.html#bivariate-relationships)[^16], non-linear associations are found between Attainment 8 (all, disadvantaged and non-disadvantaged) and most of the predictor variables in the model. To re-iterate, these non-linear relationships across all schools and years mean that individual local authorities need to carefully consider where each school lies on the scale across these different variables to fully appreciate what impacts changes in the values of these variables might mean for a particular school or collection of schools.
@@ -952,22 +1018,34 @@ names(full_tbl) <- c("Variable",
                       "Est.   ", "t   ",
                       "Est.    ", "t    ")
 
-kbl(full_tbl, format = "html", align = "lrlrlrlrlrl", escape = FALSE) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 10.5) %>%
-  add_header_above(c(" " = 1,
-                      "Model 1:\nFSM only" = 2,
-                      "Model 2:\n+ Absence" = 2,
-                      "Model 3:\n+ Prior att." = 2,
-                      "Model 4:\nAll fixed" = 2,
-                      "Model 5:\nFull multilevel" = 2)) %>%
-  row_spec(n_fixed + 1, bold = TRUE, extra_css = "border-top: 2px solid #666;") %>%
-  row_spec(n_fixed + nrow(re_rows) + 1, extra_css = "border-top: 2px solid #666;") %>%
-  row_spec(n_fixed + nrow(re_rows) + 2, bold = TRUE) %>%
-  row_spec(n_fixed + nrow(re_rows) + 3, bold = TRUE) %>%
-  row_spec(n_fixed + nrow(re_rows) + 4, bold = TRUE) %>%
-  footnote(general = "Significance: *** p < 0.001, ** p < 0.01, * p < 0.05. Models 1\u20134 are OLS; Model 5 is a multilevel model (lmer) with random intercepts. Random effects shown as standard deviations.",
-           general_title = "")
+if (knitr::is_html_output()) {
+  kbl(full_tbl, format = "html", align = "lrlrlrlrlrl", escape = FALSE) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 10.5) %>%
+    add_header_above(c(" " = 1,
+                        "Model 1:\nFSM only" = 2,
+                        "Model 2:\n+ Absence" = 2,
+                        "Model 3:\n+ Prior att." = 2,
+                        "Model 4:\nAll fixed" = 2,
+                        "Model 5:\nFull multilevel" = 2)) %>%
+    row_spec(n_fixed + 1, bold = TRUE, extra_css = "border-top: 2px solid #666;") %>%
+    row_spec(n_fixed + nrow(re_rows) + 1, extra_css = "border-top: 2px solid #666;") %>%
+    row_spec(n_fixed + nrow(re_rows) + 2, bold = TRUE) %>%
+    row_spec(n_fixed + nrow(re_rows) + 3, bold = TRUE) %>%
+    row_spec(n_fixed + nrow(re_rows) + 4, bold = TRUE) %>%
+    footnote(general = "Significance: *** p < 0.001, ** p < 0.01, * p < 0.05. Models 1\u20134 are OLS; Model 5 is a multilevel model (lmer) with random intercepts. Random effects shown as standard deviations.",
+             general_title = "")
+} else {
+  kbl(full_tbl, format = "latex", align = "lrlrlrlrlrl", escape = FALSE,
+      booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 8, latex_options = "hold_position") %>%
+    add_header_above(c(" " = 1,
+                        "Model 1: FSM only" = 2,
+                        "Model 2: + Absence" = 2,
+                        "Model 3: + Prior att." = 2,
+                        "Model 4: All fixed" = 2,
+                        "Model 5: Full multilevel" = 2))
+}
 ```
 
 ### Full Model
@@ -1105,8 +1183,12 @@ p_imp <- ggplot(importance_chart_data,
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom")
 
-ggplotly(p_imp, tooltip = "text") %>%
-  plotly::layout(legend = list(orientation = "h", y = -0.15))
+if (knitr::is_html_output()) {
+  ggplotly(p_imp, tooltip = "text") %>%
+    plotly::layout(legend = list(orientation = "h", y = -0.15))
+} else {
+  p_imp
+}
 ```
 
 While most predictor variables chosen have the same level and direction of effect for all variables, the third row of bars showing the importance of concentrations of disadvantaged pupils in schools and the impact on Attainment 8 across the groups reveals the direction of the effect is different for disadvantaged and non-disadvantaged pupils. The coefficient is negative for non-disadvantaged pupils — as the % of disadvantaged pupils in a school increases, Attainment 8 decreases. But *positive* for disadvantaged pupils — as the concentrations of disadvantaged pupils in a school increase, Attainment 8 also increases. Across the full 4-year panel — and in models for each individual year[^22] — after controlling for all other variables in the model, but particularly low-prior attainment[^23], the Attainment 8 score for disadvantaged pupils increases as concentrations of disadvantaged students also increase.
@@ -1484,7 +1566,7 @@ bh_row <- which(grepl("Brighton", abs_wide$LANAME))
 names(abs_wide)[1] <- "Local Authority"
 
 abs_wide %>%
-  kable(format = "html",
+  kable(format = tbl_fmt,
         align = paste0("l", paste(rep("r", length(all_years)), collapse = ""))) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                 full_width = FALSE, font_size = 10) %>%
@@ -1512,7 +1594,7 @@ nat_table <- above_nat_abs %>%
   select(School, `Current % Absence`, `National Average (Target)`, 
          `Reduction needed (pp)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
 
-knitr::kable(nat_table, format = "html") %>%
+knitr::kable(nat_table, format = tbl_fmt) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
                             full_width = FALSE, font_size = 10)
 ```
@@ -1542,7 +1624,7 @@ scenario_table <- high_fsm_schools %>%
   select(School, `Current % FSM`, `Target % FSM`,
          `Change in log(FSM)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
 
-knitr::kable(nat_table, format = "html") %>%
+knitr::kable(nat_table, format = tbl_fmt) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
                             full_width = FALSE, font_size = 10)
 
@@ -1728,10 +1810,14 @@ bh_long <- map_dfr(outcomes_bh, function(o) {
 
 # Colour formatting helper
 format_resid <- function(x) {
-  ifelse(is.na(x), "—",
-    ifelse(x > 0,
-      sprintf('<span style="color:#4eaf81;font-weight:bold">%+.1f</span>', x),
-      sprintf('<span style="color:#7b132b;font-weight:bold">%+.1f</span>', x)))
+  if (knitr::is_html_output()) {
+    ifelse(is.na(x), "—",
+      ifelse(x > 0,
+        sprintf('<span style="color:#4eaf81;font-weight:bold">%+.1f</span>', x),
+        sprintf('<span style="color:#7b132b;font-weight:bold">%+.1f</span>', x)))
+  } else {
+    ifelse(is.na(x), "—", sprintf("%+.1f", x))
+  }
 }
 ```
 
@@ -1759,8 +1845,8 @@ panel_all_display <- panel_all_wide %>%
   mutate(across(where(is.numeric) & !matches("Rank"), ~ format_resid(.x)))
 
 knitr::kable(panel_all_display,
-             format = "html", escape = FALSE,
-             caption = "All Pupils: value-added rankings (panel model residuals by year).[^residuals-all]",
+             format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
+             caption = "All Pupils: value-added rankings (panel model residuals by year).",
              align = c("r", "l", rep("r", ncol(panel_all_display) - 2))) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                             full_width = FALSE, font_size = 10) %>%
@@ -1791,7 +1877,7 @@ panel_dis_display <- panel_dis_wide %>%
   mutate(across(where(is.numeric) & !matches("Rank"), ~ format_resid(.x)))
 
 knitr::kable(panel_dis_display,
-             format = "html", escape = FALSE,
+             format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
              caption = "Disadvantaged Pupils: value-added rankings (panel model residuals by year).",
              align = c("r", "l", rep("r", ncol(panel_dis_display) - 2))) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
@@ -1898,11 +1984,7 @@ To this end, we have leant on the capabilities of Anthropic's Claude Opus 4.6[^3
 
 The tool can be accessed here — <https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/> — the tool is built on all of the open DfE data we have already described in the earlier analysis in this paper and in the supplementary materials linked to — mainly the last 4-years of attainment and other school-level statistics. It contains exactly the same underlying multilevel linear mixed effects model as has been described. The front page — @fig-simulator-front — introduces the tool and its functionality in more detail and is the gateway to analytical tabs, detailed in @tbl-simulator-tabs.
 
-::: {#fig-simulator-front}
-
-![Front Page of the Policy Simulator Tool.](output/figures/policy_sim.png)
-
-:::
+![Front Page of the Policy Simulator Tool.](output/figures/policy_sim.png){#fig-simulator-front}
 
 ```{r tbl-simulator-tabs}
 #| label: tbl-simulator-tabs
@@ -1930,12 +2012,7 @@ simulator_tabs %>%
 
 The tool allows for the easy visualisation of descriptive raw and modelled statistics at both the local authority and school levels. Perhaps most usefully for school leaders and policy makers, the simulator tab allows users to select a school and using the coefficients and linear or log-linear associations with the predictors used in the model, adjust sliders to see how changes in these variables might impact the attainment of all pupils, disadvantaged and non-disadvantaged pupils, at the school level.
 
-::: {#fig-simulator-sliders}
-
-![Front Page of the Policy Simulator Tool.](output/figures/policy_sim_sliders.png)
-
-Screenshot of the Dynamic Elements of the Policy Simulator.
-:::
+![Screenshot of the Dynamic Elements of the Policy Simulator.](output/figures/policy_sim_sliders.png){#fig-simulator-sliders}
 
 The simulator is not designed to give definitive school level predictions — this is not its intended purpose and the sliders when moved will not and cannot account for potential changes in the coefficient values or levels associated with other variables in a truly inter-connected way. However, what it can do is zoom in on the unique starting position of any school in the dataset and allow users to see what the most important variable influencing attainment might be at that school and, potentially, what the most impactful lever could be.
 
