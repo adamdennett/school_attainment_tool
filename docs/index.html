@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Attainment Tool — Reports</title>
+  <title>Pulling the Wrong Lever — School Attainment, Open Data Analytics and Policy</title>
+  <meta name="description" content="Multilevel modelling of KS4 Attainment 8 scores across English secondary schools, with a Brighton & Hove case study.">
   <style>
     @font-face {
       font-family: "UCL Sans";
@@ -34,59 +35,115 @@
       font-display: swap;
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: "UCL Sans", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: "UCL Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #ffffff;
       color: #1a1a2e;
-      line-height: 1.4;
+      line-height: 1.6;
     }
 
-    /* Header bar */
-    .header {
+    /* ── Top navigation bar ── */
+    .topnav {
       background: #361a54;
-      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2.5rem;
+    }
+    .topnav-logos {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+    .topnav-logos a { display: flex; align-items: center; }
+    .topnav-logos img { height: 32px; width: auto; }
+    .topnav-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .topnav-links a {
+      color: #ddbdff;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 400;
+      transition: color 0.2s;
+    }
+    .topnav-links a:hover { color: #ffffff; }
+
+    /* ── Hero section ── */
+    .hero {
+      position: relative;
+      min-height: 420px;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      background: #361a54;
+    }
+    .hero-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("hero-bg.png");
+      background-size: cover;
+      background-position: center 30%;
+      opacity: 0.35;
+    }
+    .hero-gradient {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(54, 26, 84, 0.3) 0%,
+        rgba(54, 26, 84, 0.6) 50%,
+        rgba(54, 26, 84, 0.95) 100%
+      );
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 900px;
+      padding: 3rem 3rem 2.5rem;
+    }
+    .hero-label {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #30d6ff;
+      margin-bottom: 0.8rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid rgba(48, 214, 255, 0.4);
+      border-radius: 3px;
+    }
+    .hero h1 {
+      color: #ffffff;
+      font-size: 2.8rem;
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .hero .subtitle {
+      color: #ddbdff;
+      font-size: 1.15rem;
+      font-weight: 200;
+      line-height: 1.5;
+      max-width: 680px;
+      margin-bottom: 1.5rem;
+    }
+    .hero-meta {
       display: flex;
       align-items: center;
       gap: 1.5rem;
+      flex-wrap: wrap;
+      color: #b982ff;
+      font-size: 0.85rem;
     }
-
-    .header .logo-left,
-    .header .logo-right {
-      flex-shrink: 0;
-    }
-
-    .header .logo-left img,
-    .header .logo-right img {
-      height: 48px;
-      width: auto;
-    }
-
-    .header .header-text {
-      color: #ffffff;
-      flex: 1;
-    }
-
-    .header h1 {
-      font-size: 1.6rem;
-      font-weight: 600;
-      letter-spacing: -0.04em;
-      line-height: 1.1;
-      color: #ffffff;
-      margin-bottom: 0.15rem;
-    }
-
-    .header .subtitle {
-      font-weight: 200;
-      font-size: 0.95rem;
-      color: #ddbdff;
-      letter-spacing: -0.01em;
-    }
+    .hero-meta .authors { color: #ddbdff; font-weight: 400; }
+    .hero-meta .date { color: #b982ff; font-weight: 200; }
+    .hero-meta .separator { color: #993bff; }
 
     /* Accent bar */
     .accent-bar {
@@ -94,14 +151,88 @@
       background: linear-gradient(90deg, #993bff, #30d6ff);
     }
 
-    /* Main content */
-    .container {
-      max-width: 860px;
+    /* ── Main content wrapper ── */
+    .main {
+      max-width: 1080px;
       margin: 0 auto;
-      padding: 2.5rem 2rem 4rem;
+      padding: 0 2.5rem;
     }
 
-    .section-label {
+    /* ── Key actions row ── */
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 2.5rem 0 2rem;
+      border-bottom: 1px solid #eedeff;
+    }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .action-btn svg { flex-shrink: 0; }
+    .action-btn.primary {
+      background: #361a54;
+      color: #ffffff;
+    }
+    .action-btn.primary:hover {
+      background: #993bff;
+    }
+    .action-btn.secondary {
+      background: #ffffff;
+      color: #361a54;
+      border: 2px solid #361a54;
+    }
+    .action-btn.secondary:hover {
+      background: #faf5ff;
+      border-color: #993bff;
+      color: #993bff;
+    }
+    .action-btn.accent {
+      background: linear-gradient(135deg, #993bff, #7a2ce0);
+      color: #ffffff;
+    }
+    .action-btn.accent:hover {
+      background: linear-gradient(135deg, #b060ff, #993bff);
+    }
+
+    /* ── Abstract / overview section ── */
+    .overview {
+      padding: 2.5rem 0;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 3rem;
+      align-items: start;
+    }
+    .overview-text h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #361a54;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .overview-text p {
+      font-size: 0.95rem;
+      color: #444466;
+      line-height: 1.7;
+      margin-bottom: 1rem;
+    }
+
+    /* Key stats sidebar */
+    .key-stats {
+      background: #faf5ff;
+      border-radius: 10px;
+      padding: 1.8rem;
+      border: 1px solid #eedeff;
+    }
+    .key-stats h3 {
       font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
@@ -109,148 +240,227 @@
       color: #993bff;
       margin-bottom: 1.2rem;
     }
-
-    /* Report cards */
-    .reports {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 0;
-    }
-
-    .report-card {
-      display: block;
-      padding: 1.4rem 1.6rem;
+    .stat-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
       border-bottom: 1px solid #eedeff;
-      text-decoration: none;
-      transition: background-color 0.2s ease, border-left-color 0.2s ease;
-      border-left: 4px solid transparent;
     }
-
-    .report-card:first-child {
-      border-top: 1px solid #eedeff;
+    .stat-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
     }
-
-    .report-card:hover {
-      background-color: #faf5ff;
-      border-left-color: #993bff;
-    }
-
-    .report-card .title {
+    .stat-number {
+      font-size: 1.6rem;
       font-weight: 600;
-      font-size: 1.1rem;
       color: #361a54;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.35rem;
-      transition: color 0.2s ease;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: #666688;
+      line-height: 1.4;
     }
 
-    .report-card:hover .title {
-      color: #993bff;
+    /* ── Findings highlight ── */
+    .finding-highlight {
+      background: linear-gradient(135deg, #361a54 0%, #4a2570 100%);
+      border-radius: 10px;
+      padding: 2rem 2.5rem;
+      margin: 0.5rem 0 2.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
     }
-
-    .report-card .desc {
-      font-size: 0.88rem;
-      color: #5a5a7a;
-      line-height: 1.5;
+    .finding-icon {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      background: rgba(153, 59, 255, 0.3);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .finding-highlight p {
+      color: #ffffff;
+      font-size: 1.05rem;
+      line-height: 1.6;
       font-weight: 400;
     }
-
-    /* Tag pills */
-    .tags {
-      display: flex;
-      gap: 0.4rem;
-      margin-top: 0.5rem;
-      flex-wrap: wrap;
+    .finding-highlight strong {
+      color: #30d6ff;
+      font-weight: 600;
     }
 
-    .tag {
+    /* ── Section headings ── */
+    .section-header {
+      padding-top: 2.5rem;
+      margin-bottom: 1.5rem;
+      border-top: 1px solid #eedeff;
+    }
+    .section-header h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #361a54;
+      letter-spacing: -0.02em;
+    }
+    .section-header p {
+      font-size: 0.9rem;
+      color: #666688;
+      margin-top: 0.3rem;
+    }
+    .section-label-sm {
       font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 0.15rem 0.5rem;
-      border-radius: 100px;
-      background: #eedeff;
+      letter-spacing: 0.12em;
+      color: #993bff;
+      margin-bottom: 0.3rem;
+    }
+
+    /* ── Resource cards (2-column grid) ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.2rem;
+      margin-bottom: 2.5rem;
+    }
+    .card {
+      display: block;
+      padding: 1.5rem;
+      border: 1px solid #e8e4f0;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      background: #ffffff;
+    }
+    .card:hover {
+      border-color: #993bff;
+      box-shadow: 0 4px 20px rgba(153, 59, 255, 0.1);
+      transform: translateY(-2px);
+    }
+    .card .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.8rem;
+    }
+    .card .card-icon.purple { background: #eedeff; }
+    .card .card-icon.blue { background: #d9f5ff; }
+    .card .card-icon.teal { background: #d4f5f4; }
+    .card .card-icon.orange { background: #ffe8d9; }
+    .card .card-title {
+      font-size: 1rem;
+      font-weight: 600;
       color: #361a54;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.01em;
+    }
+    .card:hover .card-title { color: #993bff; }
+    .card .card-desc {
+      font-size: 0.82rem;
+      color: #666688;
+      line-height: 1.5;
+    }
+    .card .card-tags {
+      display: flex;
+      gap: 0.35rem;
+      margin-top: 0.7rem;
+      flex-wrap: wrap;
+    }
+    .card .tag {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.12rem 0.45rem;
+      border-radius: 100px;
+      background: #f0edf5;
+      color: #5a5077;
     }
 
-    /* Footer */
-    .footer {
-      text-align: center;
-      padding: 2.5rem 2rem;
+    /* Full-width card spanning both columns */
+    .card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    /* ── Coefficient chart image ── */
+    .chart-embed {
+      margin: 1rem 0 2.5rem;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e8e4f0;
+    }
+    .chart-embed img {
+      width: 100%;
+      display: block;
+    }
+    .chart-caption {
+      padding: 0.8rem 1.2rem;
+      background: #faf5ff;
       font-size: 0.78rem;
-      color: #8a8aaa;
-      border-top: 1px solid #eedeff;
+      color: #666688;
+      line-height: 1.5;
     }
 
+    /* ── Footer ── */
+    .footer {
+      background: #f8f6fb;
+      border-top: 1px solid #eedeff;
+      padding: 2.5rem;
+      text-align: center;
+    }
     .footer-logos {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 1.8rem;
+      gap: 2rem;
       margin-bottom: 1.2rem;
     }
-
     .footer-logos a {
       display: flex;
       align-items: center;
-      opacity: 0.7;
-      transition: opacity 0.2s ease;
+      opacity: 0.65;
+      transition: opacity 0.2s;
     }
-
-    .footer-logos a:hover {
-      opacity: 1;
+    .footer-logos a:hover { opacity: 1; }
+    .footer-logos img { height: 44px; width: auto; }
+    .footer-divider { width: 1px; height: 32px; background: #ddbdff; }
+    .footer-text {
+      font-size: 0.78rem;
+      color: #8a8aaa;
+      line-height: 1.8;
     }
-
-    .footer-logos img {
-      height: 50px;
-      width: auto;
-    }
-
-    .footer-divider {
-      width: 1px;
-      height: 36px;
-      background: #ddbdff;
-    }
-
-    .footer a {
+    .footer-text a {
       color: #993bff;
       text-decoration: none;
     }
+    .footer-text a:hover { text-decoration: underline; }
 
-    .footer a:hover {
-      text-decoration: underline;
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .topnav { padding: 0.6rem 1.2rem; }
+      .topnav-links { display: none; }
+      .hero-content { padding: 2rem 1.5rem; }
+      .hero h1 { font-size: 2rem; }
+      .hero .subtitle { font-size: 1rem; }
+      .main { padding: 0 1.5rem; }
+      .actions { flex-direction: column; }
+      .action-btn { justify-content: center; }
+      .overview { grid-template-columns: 1fr; gap: 1.5rem; }
+      .cards { grid-template-columns: 1fr; }
+      .finding-highlight { flex-direction: column; gap: 1rem; padding: 1.5rem; }
     }
 
-    /* Responsive */
-    @media (max-width: 600px) {
-      .header {
-        flex-direction: column;
-        text-align: center;
-        gap: 0.8rem;
-      }
-      .container {
-        padding: 1.5rem 1rem 3rem;
-      }
-      .report-card {
-        padding: 1.2rem 1rem;
-      }
-      .footer-logos {
-        gap: 1.2rem;
-      }
-      .footer-logos img {
-        height: 40px;
-      }
-      .header {
-        gap: 0.8rem;
-      }
-      .header .logo-left img,
-      .header .logo-right img {
-        height: 36px;
-      }
-    }
-
-    /* Selection */
+    /* ── Selection ── */
     ::selection {
       background-color: rgba(153, 59, 255, 0.2);
       color: #361a54;
@@ -258,114 +468,219 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <a class="logo-left" href="https://ai4ci.ac.uk/" target="_blank" rel="noopener" title="AI4CI — AI for Collective Intelligence">
-      <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="filter: brightness(0) invert(1);">
-    </a>
-    <div class="header-text">
-      <h1>School Attainment Tool - Simulator and Supplementary Analysis</h1>
-      <div class="subtitle">Multilevel modelling of KS4 Attainment 8 scores across English secondary schools</div>
+
+  <!-- Top navigation -->
+  <nav class="topnav">
+    <div class="topnav-logos">
+      <a href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
+        <img src="fonts/casa-logo-white.svg" alt="CASA logo" style="height: 28px;">
+      </a>
+      <a href="https://ai4ci.ac.uk/" target="_blank" rel="noopener" title="AI for Collective Intelligence">
+        <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="height: 28px; filter: brightness(0) invert(1);">
+      </a>
     </div>
-    <a class="logo-right" href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
-      <img src="fonts/casa-logo-white.png" alt="CASA logo" style="filter: brightness(0) invert(1);">
-    </a>
-  </div>
+    <div class="topnav-links">
+      <a href="pulling_the_wrong_lever.html">Full Report</a>
+      <a href="https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/" target="_blank">Policy Simulator</a>
+      <a href="https://github.com/adamdennett/school_attainment_tool" target="_blank">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <div class="hero-label">Research Paper</div>
+      <h1>Pulling the Wrong Lever</h1>
+      <p class="subtitle">School Attainment, Open Data Analytics and Policy in England &mdash; Lessons from Brighton and Hove</p>
+      <div class="hero-meta">
+        <span class="authors">Adam Dennett, Natasha Priest, Tom Harrison &amp; Dan Campbell-Meiklejohn</span>
+        <span class="separator">&middot;</span>
+        <span class="date">UCL Centre for Advanced Spatial Analysis, 2025</span>
+      </div>
+    </div>
+  </section>
   <div class="accent-bar"></div>
 
-  <div class="container">
-    <div class="section-label">Main Paper</div>
+  <div class="main">
 
-    <div class="reports">
-      <a class="report-card" href="pulling_the_wrong_lever.html">
-        <div class="title">Pulling the Wrong Lever</div>
-        <div class="desc">The main paper: multilevel modelling of school-level Attainment 8 across England, with a Brighton &amp; Hove case study demonstrating how absence — not concentrations of disadvantage — is the most powerful and actionable policy lever for raising attainment.</div>
-        <div class="tags"><span class="tag">Paper</span><span class="tag">Policy</span><span class="tag">Case Study</span><span class="tag">Models</span></div>
+    <!-- Action buttons -->
+    <div class="actions">
+      <a class="action-btn primary" href="pulling_the_wrong_lever.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Read online
+      </a>
+      <a class="action-btn secondary" href="pulling_the_wrong_lever.pdf" download>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </a>
+      <a class="action-btn secondary" href="pulling_the_wrong_lever_slides.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        View slides
+      </a>
+      <a class="action-btn accent" href="https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Launch Policy Simulator
       </a>
     </div>
 
-    <div class="section-label" style="margin-top: 2.5rem;">Interactive Tools</div>
-
-    <div class="reports">
-      <a class="report-card" href="https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/" target="_blank" rel="noopener">
-        <div class="title">Policy Simulator ↗</div>
-        <div class="desc">Interactive Shiny app: explore school-level predictions, run "what-if" policy scenarios for FSM and absence, compare schools within and across local authorities, and view model diagnostics.</div>
-        <div class="tags"><span class="tag">Shiny</span><span class="tag">Interactive</span><span class="tag">Policy</span></div>
-      </a>
+    <!-- Overview + key stats -->
+    <div class="overview">
+      <div class="overview-text">
+        <h2>Overview</h2>
+        <p>
+          School league tables in England rank schools by raw attainment, but raw scores reflect the characteristics of a school's intake far more than its effectiveness. This paper uses four years of DfE open data (2021&ndash;25) and multilevel regression to model Attainment 8 scores across over 3,000 state secondary schools, separating the influence of disadvantage, absence, prior attainment, workforce, and school type.
+        </p>
+        <p>
+          The analysis reveals that <strong>overall absence rate</strong> is the single most powerful predictor of school-level attainment &mdash; more so than the proportion of disadvantaged pupils. Crucially, absence is also more <em>actionable</em> at the local level than deprivation. A Brighton &amp; Hove case study demonstrates how these insights can reshape local education policy.
+        </p>
+      </div>
+      <div class="key-stats">
+        <h3>Key figures</h3>
+        <div class="stat-row">
+          <span class="stat-number">13,419</span>
+          <span class="stat-label">school-year observations across four years</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">85%</span>
+          <span class="stat-label">of variation in Attainment 8 explained by the model</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">#1</span>
+          <span class="stat-label">Overall absence is the strongest predictor of attainment</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">152</span>
+          <span class="stat-label">local authorities included with random effects</span>
+        </div>
+      </div>
     </div>
 
-    <div class="section-label" style="margin-top: 2.5rem;">Presentation</div>
-
-    <div class="reports">
-      <a class="report-card" href="pulling_the_wrong_lever_slides.html">
-        <div class="title">Pulling the Wrong Lever — Slide Deck</div>
-        <div class="desc">Revealjs presentation covering the full analysis: motivation, literature, data &amp; methods, national results, Brighton &amp; Hove evidence, policy simulator, and recommendations.</div>
-        <div class="tags"><span class="tag">Slides</span><span class="tag">Presentation</span><span class="tag">RevealJS</span></div>
-      </a>
+    <!-- Key finding callout -->
+    <div class="finding-highlight">
+      <div class="finding-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <p>
+        If policymakers focus on reducing concentrations of disadvantage through admissions reform alone, they risk <strong>pulling the wrong lever</strong>. The evidence shows that tackling absence &mdash; especially persistent absence &mdash; offers a far more powerful and locally actionable route to raising school attainment.
+      </p>
     </div>
 
-    <div class="section-label" style="margin-top: 2.5rem;">Analysis Reports</div>
+    <!-- Coefficient chart -->
+    <div class="chart-embed">
+      <img src="std-coeffs.png" alt="Standardised model coefficients showing absence as the strongest predictor">
+      <div class="chart-caption">
+        Standardised coefficients from the multilevel model. Overall absence rate has the largest effect on Attainment 8 scores for all pupil groups, exceeding the impact of % FSM disadvantage.
+      </div>
+    </div>
 
-    <div class="reports">
-      <a class="report-card" href="data_overview.html">
-        <div class="title">Data Overview</div>
-        <div class="desc">Sources, panel construction, descriptive statistics, missing data patterns, imputation strategy, and variable definitions for the KS4 analysis dataset.</div>
-        <div class="tags"><span class="tag">Data</span><span class="tag">Panel</span><span class="tag">Descriptive</span></div>
+    <!-- Supplementary analysis reports -->
+    <div class="section-header">
+      <div class="section-label-sm">Supplementary Materials</div>
+      <h2>Analysis reports &amp; data</h2>
+      <p>Detailed technical reports underpinning the main paper.</p>
+    </div>
+
+    <div class="cards">
+      <a class="card" href="data_overview.html">
+        <div class="card-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="card-title">Data Overview</div>
+        <div class="card-desc">Sources, panel construction, descriptive statistics, missing data patterns, imputation strategy, and variable definitions.</div>
+        <div class="card-tags"><span class="tag">Data</span><span class="tag">Panel</span><span class="tag">Descriptive</span></div>
       </a>
 
-      <a class="report-card" href="model_results.html">
-        <div class="title">Model Results</div>
-        <div class="desc">Full analysis report: panel and per-year multilevel models, diagnostics, observed vs predicted plots, residual geography, and the disadvantage gap.</div>
-        <div class="tags"><span class="tag">Models</span><span class="tag">Diagnostics</span><span class="tag">Results</span></div>
+      <a class="card" href="model_results.html">
+        <div class="card-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="card-title">Model Results</div>
+        <div class="card-desc">Multilevel models, diagnostics, observed vs predicted plots, residual geography, and the disadvantage gap.</div>
+        <div class="card-tags"><span class="tag">Models</span><span class="tag">Diagnostics</span><span class="tag">Results</span></div>
       </a>
 
-      <a class="report-card" href="model_experiments.html">
-        <div class="title">Model Experiments</div>
-        <div class="desc">Human-readable lmer implementations for manual inspection, with coefficient commentary and variable importance analysis.</div>
-        <div class="tags"><span class="tag">lmer</span><span class="tag">Coefficients</span></div>
+      <a class="card" href="model_experiments.html">
+        <div class="card-icon teal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a19d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <div class="card-title">Model Experiments</div>
+        <div class="card-desc">Human-readable lmer implementations, coefficient commentary, and variable importance analysis.</div>
+        <div class="card-tags"><span class="tag">lmer</span><span class="tag">Coefficients</span></div>
       </a>
 
-      <a class="report-card" href="brighton_case_study.html">
-        <div class="title">Brighton &amp; Hove Case Study</div>
-        <div class="desc">Detailed application of the multilevel model to Brighton &amp; Hove: interactive maps, non-linear effect interpretation, school-level residuals, and policy recommendations.</div>
-        <div class="tags"><span class="tag">Case Study</span><span class="tag">Maps</span><span class="tag">Policy</span></div>
+      <a class="card" href="brighton_case_study.html">
+        <div class="card-icon orange">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f56300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="card-title">Brighton &amp; Hove Case Study</div>
+        <div class="card-desc">Interactive maps, non-linear effect interpretation, school-level residuals, and policy recommendations.</div>
+        <div class="card-tags"><span class="tag">Case Study</span><span class="tag">Maps</span><span class="tag">Policy</span></div>
       </a>
 
-      <a class="report-card" href="financial_data_overview.html">
-        <div class="title">Financial Data Overview</div>
-        <div class="desc">Overview of school financial returns (CFR &amp; AAR): coverage, descriptive statistics, spending composition, trends, and relationships with attainment.</div>
-        <div class="tags"><span class="tag">Finance</span><span class="tag">CFR</span><span class="tag">AAR</span></div>
+      <a class="card" href="financial_data_overview.html">
+        <div class="card-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="card-title">Financial Data Overview</div>
+        <div class="card-desc">School financial returns (CFR &amp; AAR): coverage, spending composition, trends, and relationships with attainment.</div>
+        <div class="card-tags"><span class="tag">Finance</span><span class="tag">CFR</span><span class="tag">AAR</span></div>
       </a>
 
-      <a class="report-card" href="financial_model_experiments.html">
-        <div class="title">Financial Model Experiments</div>
-        <div class="desc">Systematic test of whether school financial variables (income, spending ratios, balance) improve the baseline attainment models.</div>
-        <div class="tags"><span class="tag">Finance</span><span class="tag">Models</span></div>
+      <a class="card" href="financial_model_experiments.html">
+        <div class="card-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="card-title">Financial Model Experiments</div>
+        <div class="card-desc">Systematic test of whether school financial variables improve the baseline attainment models.</div>
+        <div class="card-tags"><span class="tag">Finance</span><span class="tag">Models</span></div>
       </a>
 
-      <a class="report-card" href="la_typology_report.html">
-        <div class="title">LA Typology Report</div>
-        <div class="desc">Local authority clustering analysis: methodology, cluster profiles, pen portraits, and typology maps across English LAs.</div>
-        <div class="tags"><span class="tag">Clustering</span><span class="tag">Typology</span><span class="tag">LA</span></div>
+      <a class="card" href="la_typology_report.html">
+        <div class="card-icon teal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a19d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        </div>
+        <div class="card-title">LA Typology Report</div>
+        <div class="card-desc">Local authority clustering analysis: methodology, cluster profiles, pen portraits, and typology maps.</div>
+        <div class="card-tags"><span class="tag">Clustering</span><span class="tag">Typology</span><span class="tag">LA</span></div>
+      </a>
+
+      <a class="card" href="JEP_Paper.pdf" download>
+        <div class="card-icon orange">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f56300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="card-title">Journal Paper (PDF)</div>
+        <div class="card-desc">Condensed version formatted for the Journal of Education Policy &mdash; Chicago Author-Date citations, ~6,000 words.</div>
+        <div class="card-tags"><span class="tag">Journal</span><span class="tag">JEP</span><span class="tag">PDF</span></div>
       </a>
     </div>
   </div>
 
-  <div class="footer">
+  <!-- Footer -->
+  <footer class="footer">
     <div class="footer-logos">
       <a href="https://www.ucl.ac.uk" target="_blank" rel="noopener" title="University College London">
         <img src="fonts/ucl-logo-dark.svg" alt="UCL logo">
+      </a>
+      <div class="footer-divider"></div>
+      <a href="https://ai4ci.ac.uk/" target="_blank" rel="noopener" title="AI for Collective Intelligence">
+        <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="height: 38px;">
       </a>
       <div class="footer-divider"></div>
       <a href="https://www.ukri.org" target="_blank" rel="noopener" title="UK Research and Innovation">
         <img src="fonts/ukri-logo.png" alt="UKRI logo">
       </a>
     </div>
-    <a href="https://www.ucl.ac.uk/bartlett/casa">UCL Centre for Advanced Spatial Analysis</a> &middot; School Attainment Tool
-    <br>
-    <a href="https://github.com/adamdennett/school_attainment_tool" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:0.3rem; margin-top:0.5rem;">
-      <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      View source code on GitHub
-    </a>
-  </div>
+    <div class="footer-text">
+      <a href="https://www.ucl.ac.uk/bartlett/casa">UCL Centre for Advanced Spatial Analysis</a> &middot; School Attainment Tool
+      <br>
+      <a href="https://github.com/adamdennett/school_attainment_tool" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:0.3rem; margin-top:0.4rem;">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View source on GitHub
+      </a>
+    </div>
+  </footer>
+
 </body>
 </html>
