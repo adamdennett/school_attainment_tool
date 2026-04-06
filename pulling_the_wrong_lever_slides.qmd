@@ -8,6 +8,11 @@ author:
   - name: Tom Harrison
   - name: Dan Campbell-Meiklejohn
 date: today
+title-slide-attributes:
+  data-background-image: "slides_assets/title-bg.png"
+  data-background-size: "cover"
+  data-background-position: "center"
+  data-background-opacity: "1"
 format:
   revealjs:
     theme: [default, ucl-slides-theme.scss]
@@ -29,6 +34,8 @@ format:
     embed-resources: true
     auto-stretch: true
     include-after-body: slides-footer.html
+    output-file: "pulling_the_wrong_lever_slides.html"
+output-dir: docs
 bibliography: SchoolAttainment.bib
 csl: sage-harvard.csl
 suppress-bibliography: true
@@ -574,7 +581,7 @@ m_orient
 
 - *"Strong preference for improving existing schools rather than redistributing students"*
 - Concerns about community cohesion and student wellbeing
-- National media coverage
+- National media coverage of vocal objections
 
 :::
 
@@ -585,6 +592,7 @@ m_orient
 - Labour majority + Leader & Cabinet system
 - Compressed consultation timeline
 - Limited scope for deliberative engagement
+- Privileged access for supportive pressure group, descenting voices marginalised
 
 :::
 
@@ -880,6 +888,8 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 ::: {.incremental}
 
 - For **disadvantaged pupils**, nearly half of school-level performance variation is explained by attendance alone
+
+- Absence affects disadvantaged pupils far more than non-disadvantaged
 
 - Disadvantaged pupils lack safety nets (tutors, engaged parents, revision guides) — they are **more reliant on classroom instruction**
 

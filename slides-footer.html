@@ -3,3 +3,24 @@
   <div class="footer-divider"></div>
   <img src="slides_assets/ai4ci-logo.svg" alt="AI4CI logo">
 </div>
+<script>
+// Hide default logo + footer logos on title & divider slides
+document.addEventListener('DOMContentLoaded', function() {
+  function updateLogos() {
+    var current = Reveal.getCurrentSlide();
+    var isTitle = current && current.id === 'title-slide';
+    var isDivider = current && current.classList.contains('divider-slide');
+    var hide = isTitle || isDivider;
+
+    var logo = document.querySelector('.slide-logo');
+    if (logo) logo.style.display = isDivider ? 'none' : '';
+
+    var footer = document.querySelector('.slide-footer-logos');
+    if (footer) footer.style.display = isTitle ? 'none' : '';
+  }
+  if (typeof Reveal !== 'undefined') {
+    Reveal.on('slidechanged', updateLogos);
+    Reveal.on('ready', updateLogos);
+  }
+});
+</script>

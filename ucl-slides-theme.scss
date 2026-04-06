@@ -82,39 +82,78 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
+// Title slide — gradient overlay on the background layer (covers the bg image)
+.reveal .slide-background:first-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    110deg,
+    rgba(58, 24, 87, 0.97) 0%,
+    rgba(58, 24, 87, 0.93) 42%,
+    rgba(58, 24, 87, 0.70) 62%,
+    rgba(58, 24, 87, 0.40) 80%,
+    rgba(58, 24, 87, 0.18) 100%
+  );
+  z-index: 1;
+}
+
 #title-slide {
-  background-color: $ucl-dark-purple !important;
   color: white !important;
   text-align: left;
   padding-left: 60px;
+  z-index: 2;
 
   h1.title {
     color: white !important;
     font-size: 1.6em;
     font-weight: 600;
-    margin-bottom: 0.1em;
+    margin-top: 0;
+    margin-bottom: 0.15em;
     line-height: 1.15;
+    max-width: 60%;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.5);
   }
 
   p.subtitle {
-    color: $ucl-mid-purple !important;
-    font-size: 0.8em;
+    color: $ucl-heritage-blue !important;
+    font-size: 0.7em;
     font-weight: 300;
     margin-top: 0;
-    margin-bottom: 0.8em;
+    margin-bottom: 1em;
+    max-width: 55%;
+    line-height: 1.4;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.4);
   }
 
   p.author {
     color: $ucl-light-purple !important;
-    font-size: 0.6em;
+    font-size: 0.55em;
     font-weight: 400;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.3);
   }
 
   p.date {
-    color: $ucl-light-purple !important;
-    font-size: 0.5em;
+    color: $ucl-mid-purple !important;
+    font-size: 0.45em;
     font-weight: 300;
+    margin-top: 0.5em;
   }
+}
+
+// Bottom accent bar on title slide background
+.reveal .slide-background:first-child::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, $ucl-bright-purple, $ucl-heritage-blue, $ucl-bright-purple);
+  z-index: 2;
 }
 
 // ---- Section / divider slides ----
@@ -242,6 +281,8 @@ section.divider-slide {
   max-height: 50px !important;
 }
 
+// Logo visibility on title/divider slides is handled via JS in slides-footer.html
+
 // ---- Code blocks ----
 .reveal pre {
   font-size: 0.45em;
@@ -327,8 +368,4 @@ section.divider-slide {
   }
 }
 
-// Hide the custom footer on the title slide
-#title-slide .slide-footer-logos,
-.reveal .slide-background[data-background-color] + .slide-footer-logos {
-  display: none;
-}
+// Footer visibility on title slide handled via JS in slides-footer.html
