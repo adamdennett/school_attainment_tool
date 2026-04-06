@@ -322,11 +322,12 @@ Attendance is the strongest individual predictor and perhaps the **ultimate equi
 **Ethnicity**
 
 - Persistent gaps, but substantially reduced when controlling for pupil characteristics
-- Disadvantaged White British boys particularly underperforming
+
 
 :::
 
 ::: {.column width="50%"}
+- Disadvantaged White British boys particularly underperforming
 
 **Selectivity**
 
@@ -380,7 +381,7 @@ Attendance is the strongest individual predictor and perhaps the **ultimate equi
 
 # Brighton and Hove: Context {background-color="#3A1857" .divider-slide}
 
-## The city's school landscape
+## The city's secondary school landscape
 
 ```{r fig-catchments}
 #| label: fig-catchments
@@ -555,6 +556,8 @@ m_orient
 > Attainment in the city was *"driven by economic advantage"*
 
 **The logic:** Redistribute disadvantaged pupils more evenly → narrow the attainment gap
+
+**Backup logic:** Give parents more "choice" - implication: "some schools are bad and some want to choose to go elsewhere" - claim affinity with the voiceless
 
 :::
 
