@@ -1,0 +1,334 @@
+/*-- scss:defaults --*/
+
+// UCL Brand Colours (from official 2024 PPTX template)
+$ucl-dark-purple:   #3A1857;
+$ucl-bright-purple: #993AFF;
+$ucl-mid-purple:    #B982FF;
+$ucl-light-purple:  #DDBDFF;
+$ucl-pale-purple:   #EEDEFF;
+$ucl-heritage-blue: #30D6FF;
+$ucl-off-white:     #FAFAFA;
+$ucl-light-grey:    #E8E8E8;
+$ucl-dark-red:      #781C1C;
+$ucl-pink:          #ED357D;
+$ucl-orange:        #F56300;
+$ucl-teal:          #00A19D;
+$ucl-dark-teal:     #005E5C;
+$ucl-deep-blue:     #002EA6;
+
+// Fonts — 42px is the revealjs default; good for readability
+$font-family-sans-serif: "UCL Sans", "Aptos", "Segoe UI", Helvetica, Arial, sans-serif;
+$presentation-font-size-root: 42px;
+$presentation-heading-font: "UCL Sans SemiBold", "UCL Sans", "Aptos Display", sans-serif;
+$presentation-heading-color: $ucl-dark-purple;
+$presentation-line-height: 1.4;
+
+// Colours
+$body-bg: $ucl-off-white;
+$body-color: #222222;
+$link-color: $ucl-bright-purple;
+$link-color-hover: $ucl-dark-purple;
+$selection-bg: $ucl-pale-purple;
+$code-block-bg: #f0edf5;
+
+// Headings
+$presentation-h1-font-size: 1.5em;
+$presentation-h2-font-size: 1.2em;
+$presentation-h3-font-size: 1.0em;
+
+/*-- scss:rules --*/
+
+// Font-face declarations for UCL Sans
+@font-face {
+  font-family: "UCL Sans";
+  src: url("../../../../../fonts/UCLSans-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "UCL Sans";
+  src: url("../../../../../fonts/UCLSans-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "UCL Sans SemiBold";
+  src: url("../../../../../fonts/UCLSans-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "UCL Sans";
+  src: url("../../../../../fonts/UCLSans-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "UCL Sans";
+  src: url("../../../../../fonts/UCLSans-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "UCL Sans";
+  src: url("../../../../../fonts/UCLSans-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+}
+
+// ---- Title Slide (dark purple background) ----
+#title-slide {
+  background-color: $ucl-dark-purple !important;
+  color: white !important;
+  text-align: left;
+  padding-left: 60px;
+
+  h1.title {
+    color: white !important;
+    font-size: 1.6em;
+    font-weight: 600;
+    margin-bottom: 0.1em;
+    line-height: 1.15;
+  }
+
+  p.subtitle {
+    color: $ucl-mid-purple !important;
+    font-size: 0.8em;
+    font-weight: 300;
+    margin-top: 0;
+    margin-bottom: 0.8em;
+  }
+
+  p.author {
+    color: $ucl-light-purple !important;
+    font-size: 0.6em;
+    font-weight: 400;
+  }
+
+  p.date {
+    color: $ucl-light-purple !important;
+    font-size: 0.5em;
+    font-weight: 300;
+  }
+}
+
+// ---- Section / divider slides ----
+section.divider-slide {
+  h2 {
+    color: white !important;
+    font-size: 1.5em;
+    font-weight: 600;
+  }
+  p {
+    color: $ucl-light-purple !important;
+  }
+}
+
+// ---- General slide styling ----
+.reveal .slides section {
+  text-align: left;
+
+  h2 {
+    color: $ucl-dark-purple;
+    border-bottom: 3px solid $ucl-bright-purple;
+    padding-bottom: 0.15em;
+    margin-bottom: 0.4em;
+    font-weight: 600;
+  }
+
+  h3 {
+    color: $ucl-bright-purple;
+    font-weight: 600;
+  }
+}
+
+// ---- Body text sizing ----
+.reveal .slides section p,
+.reveal .slides section li {
+  font-size: 0.8em;
+  line-height: 1.45;
+}
+
+// ---- Lists ----
+.reveal ul {
+  margin-left: 0.3em;
+
+  li {
+    margin-bottom: 0.3em;
+  }
+}
+
+.reveal ul li::marker {
+  color: $ucl-bright-purple;
+}
+
+.reveal ol li::marker {
+  color: $ucl-bright-purple;
+  font-weight: 600;
+}
+
+// ---- Emphasis colours ----
+.reveal strong {
+  color: $ucl-dark-purple;
+}
+
+.reveal em {
+  color: $ucl-bright-purple;
+  font-style: italic;
+}
+
+// ---- Tables ----
+.reveal table {
+  font-size: 0.55em;
+  border-collapse: collapse;
+  width: 100%;
+
+  th {
+    background-color: $ucl-dark-purple;
+    color: white;
+    font-weight: 600;
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  td {
+    padding: 6px 12px;
+    border-bottom: 1px solid $ucl-light-grey;
+  }
+
+  tr:nth-child(even) td {
+    background-color: rgba($ucl-pale-purple, 0.3);
+  }
+}
+
+// ---- Blockquotes / callouts ----
+.reveal blockquote {
+  background: $ucl-pale-purple;
+  border-left: 5px solid $ucl-bright-purple;
+  padding: 0.6em 1em;
+  margin: 0.6em 0;
+  font-size: 0.75em;
+  color: $ucl-dark-purple;
+  font-style: normal;
+
+  p {
+    margin: 0;
+  }
+}
+
+// ---- Figures ----
+.reveal figure {
+  text-align: center;
+
+  figcaption {
+    font-size: 0.45em;
+    color: #666;
+    margin-top: 0.3em;
+  }
+}
+
+.reveal .slide-number {
+  color: $ucl-bright-purple;
+  font-size: 0.5em;
+}
+
+// ---- Footer / logo bar ----
+.reveal .slide-logo {
+  max-height: 50px !important;
+}
+
+// ---- Code blocks ----
+.reveal pre {
+  font-size: 0.45em;
+  background: $code-block-bg;
+  border: 1px solid $ucl-light-grey;
+  border-radius: 4px;
+}
+
+// ---- Key finding highlight boxes ----
+.key-finding {
+  background: linear-gradient(135deg, $ucl-pale-purple, white);
+  border-left: 5px solid $ucl-bright-purple;
+  padding: 0.5em 0.8em;
+  margin: 0.5em 0;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.75em;
+
+  strong {
+    color: $ucl-dark-purple;
+  }
+}
+
+// ---- Stat highlight ----
+.reveal .slides .stat-highlight {
+  display: inline-block;
+  background: $ucl-dark-purple !important;
+  color: white !important;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-weight: 600;
+
+  strong, em, a {
+    color: white !important;
+  }
+}
+
+// ---- Two-column helper ----
+.columns-tight {
+  display: flex;
+  gap: 1.5em;
+
+  .column {
+    flex: 1;
+  }
+}
+
+// ---- Smaller text utility (only when explicitly applied) ----
+.smaller {
+  font-size: 0.7em;
+}
+
+.smallest {
+  font-size: 0.55em;
+}
+
+// ---- Fragment emphasis ----
+.reveal .fragment.highlight-purple.visible {
+  color: $ucl-bright-purple;
+  font-weight: 600;
+}
+
+// ---- Custom centre footer with logos ----
+.slide-footer-logos {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  z-index: 4;
+  opacity: 0.7;
+
+  img {
+    height: 30px;
+    width: auto;
+  }
+
+  .footer-divider {
+    width: 1px;
+    height: 22px;
+    background: #bbb;
+  }
+}
+
+// Hide the custom footer on the title slide
+#title-slide .slide-footer-logos,
+.reveal .slide-background[data-background-color] + .slide-footer-logos {
+  display: none;
+}
