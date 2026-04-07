@@ -1774,7 +1774,7 @@ ggplot(nat_long, aes(x = Predicted, y = Observed)) +
 
 @fig-obs-vs-pred is a visual representation of this. The diagonal line represents where observed and predicted (by our model) attainment match perfectly. The further vertically above or below the line an individual school falls (in statistical terms, the greater its residual), the better or worse it performs relative to expectations. Brighton and Hove schools are highlighted and reveal an interesting picture. Most schools are close to the attainment levels we would expect, given their situations. Some perform much better than expected — e.g. Dorothy Stringer School — which achieves higher Attainment 8 results than expected for both disadvantaged and non-disadvantaged pupils, whereas Longhill High School performs worse than expected on both fronts.
 
-The residuals in @fig-obs-vs-pred are captured in as set of what we might term value-added league tables below in @league-table-data. Perhaps the two most interesting schools in the city at other ends of this alternative spectrum are Brighton Aldridge Community Academy (BACA) and Patcham High School.
+The residuals in @fig-obs-vs-pred are captured in as set of what we might term value-added league tables below in @tbl-league-all & @tbl-league-dis. Perhaps the two most interesting schools in the city at other ends of this alternative spectrum are Brighton Aldridge Community Academy (BACA) and Patcham High School.
 
 ```{r league-table-data}
 #| label: league-table-data
@@ -1821,8 +1821,11 @@ format_resid <- function(x) {
 }
 ```
 
-```{r league-all}
-#| label: league-all
+
+
+```{r tbl-league-all}
+#| label: tbl-league-all
+#| tbl-cap: "All Pupils: value-added rankings (panel model residuals by year)."
 
 # --- Panel model table (All Pupils) ---
 panel_all <- bh_long %>%
@@ -1846,7 +1849,7 @@ panel_all_display <- panel_all_wide %>%
 
 knitr::kable(panel_all_display,
              format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
-             caption = "All Pupils: value-added rankings (panel model residuals by year).",
+             caption = "",
              align = c("r", "l", rep("r", ncol(panel_all_display) - 2))) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                             full_width = FALSE, font_size = 10) %>%
@@ -1854,8 +1857,9 @@ knitr::kable(panel_all_display,
                           bold = TRUE, background = "#f5f5f5")
 ```
 
-```{r league-dis}
-#| label: league-dis
+```{r tbl-league-dis}
+#| label: tbl-league-dis
+#| tbl-cap: "Disadvantaged Pupils: value-added rankings (panel model residuals by year)."
 
 panel_dis <- bh_long %>%
   filter(Group == "Disadvantaged")
@@ -1878,7 +1882,7 @@ panel_dis_display <- panel_dis_wide %>%
 
 knitr::kable(panel_dis_display,
              format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
-             caption = "Disadvantaged Pupils: value-added rankings (panel model residuals by year).",
+             caption = "",
              align = c("r", "l", rep("r", ncol(panel_dis_display) - 2))) %>%
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                             full_width = FALSE, font_size = 10) %>%
