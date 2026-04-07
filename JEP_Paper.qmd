@@ -189,7 +189,13 @@ relabel_terms <- function(term) {
   )
 }
 
-tbl_fmt <- if (knitr::is_html_output()) "html" else "latex"
+tbl_fmt <- if (knitr::is_html_output()) {
+  "html"
+} else if (knitr::is_latex_output()) {
+  "latex"
+} else {
+  "pipe"
+}
 
 # ---- LA-level rankings ----
 la_means_abs <- national_benchmarks %>%
@@ -390,12 +396,16 @@ full_tbl <- bind_rows(step_tbl, re_rows, footer_rows)
 names(full_tbl) <- c("Variable", "Est.", "t", "Est. ", "t ",
                       "Est.  ", "t  ", "Est.   ", "t   ", "Est.    ", "t    ")
 
-kbl(full_tbl, format = "latex", align = "lrlrlrlrlrl", escape = FALSE,
-    booktabs = TRUE, linesep = "") %>%
-  kable_styling(font_size = 7, latex_options = c("hold_position", "scale_down")) %>%
-  add_header_above(c(" " = 1, "M1: FSM" = 2, "M2: +Absence" = 2,
-                      "M3: +Prior" = 2, "M4: All fixed" = 2,
-                      "M5: Full LME" = 2))
+if (tbl_fmt == "latex") {
+  kbl(full_tbl, format = "latex", align = "lrlrlrlrlrl", escape = FALSE,
+      booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 7, latex_options = c("hold_position", "scale_down")) %>%
+    add_header_above(c(" " = 1, "M1: FSM" = 2, "M2: +Absence" = 2,
+                        "M3: +Prior" = 2, "M4: All fixed" = 2,
+                        "M5: Full LME" = 2))
+} else {
+  knitr::kable(full_tbl, format = "pipe", align = "lrlrlrlrlrl")
+}
 ```
 
 The stepwise progression in @tbl-stepwise reveals the mediating structure among the key predictors. In Model 1, we start with the % KS4 pupils who are disadvantaged (%FSM for short) as the only predictor - mainly as this was the variable that has dominated the policy discussion in Brighton and Hove in recent years, leading to the 2023 FSM priority policy and the 2024 mixing policy. the FSM coefficient is --0.201 and statistically significant, on its own accounting for almost 40% of the variation in Attainment 8 across schools in England. However, adding absence in Model 2 halves it to --0.122. Absence absorbs much of the explanatory power previously attributed to deprivation, although together they now account for over 60% of the variation in Attainment 8 scores. Adding prior attainment in Model 3 reduces both FSM and absence coefficients further. By Model 3, with just three variables, approximately two-thirds of attainment variation is explained, with the t-values (in some respects a standardised version of the coefficients allowing for a degree of relative comparison) showing that % absence (t = -65.28) is the most important variable, % of pupils with low prior attainment (t = -45.75) the next most important and % FSM the least influential (t = -33.46).
@@ -942,15 +952,20 @@ combined_tbl <- bind_rows(panel_all_wide, panel_dis_wide)
 n_all <- nrow(panel_all_wide)
 n_dis <- nrow(panel_dis_wide)
 
-kbl(combined_tbl, format = "latex", escape = FALSE,
-    booktabs = TRUE, linesep = "",
-    align = c("r", "l", rep("r", ncol(combined_tbl) - 2))) %>%
-  kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down")) %>%
-  column_spec(ncol(combined_tbl), bold = TRUE) %>%
-  pack_rows("All Pupils", 1, n_all, bold = TRUE, italic = TRUE,
-            hline_before = TRUE) %>%
-  pack_rows("Disadvantaged Pupils", n_all + 1, n_all + n_dis, bold = TRUE,
-            italic = TRUE, hline_before = TRUE)
+if (tbl_fmt == "latex") {
+  kbl(combined_tbl, format = "latex", escape = FALSE,
+      booktabs = TRUE, linesep = "",
+      align = c("r", "l", rep("r", ncol(combined_tbl) - 2))) %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down")) %>%
+    column_spec(ncol(combined_tbl), bold = TRUE) %>%
+    pack_rows("All Pupils", 1, n_all, bold = TRUE, italic = TRUE,
+              hline_before = TRUE) %>%
+    pack_rows("Disadvantaged Pupils", n_all + 1, n_all + n_dis, bold = TRUE,
+              italic = TRUE, hline_before = TRUE)
+} else {
+  knitr::kable(combined_tbl, format = "pipe",
+               align = c("r", "l", rep("r", ncol(combined_tbl) - 2)))
+}
 ```
 
 In the period of the 2024 consultation the public debate in the city shifted slightly, away from how the council's proposals were going to improve disadvantaged attainment to how they were facilitating parental choice. Choice in this instance was largely to do with parents perceiving their local options to be poor and wanting access to alternatives. An activist group (Equity in Education[^30] — supported by another more established activist group — Class Divide[^31]) emerged from within the BACA catchment advocating for parents to have more options available to *not* send their children to that school. At the time BACAs Ofsted rating was 'requires improvement' and its raw attainment scores were some of the lowest in the city — creating an impression of that school being a poor option.
