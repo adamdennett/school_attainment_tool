@@ -8,10 +8,6 @@ author:
     email: a.dennett@ucl.ac.uk
     orcid: 0000-0002-7493-3276
   - name: Natasha Priest
-  - name: Tom Harrison
-    affiliations:
-      - name: Institute of Development Studies, University of Sussex
-    email: t.harrison@ids.ac.uk
   - name: Dan Campbell-Meiklejohn
     affiliations:
       - name: School of Psychology, University of Sussex

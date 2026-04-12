@@ -6,7 +6,6 @@ author:
     affiliations:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
   - name: Natasha Priest
-  - name: Tom Harrison
   - name: Dan Campbell-Meiklejohn
 date: today
 format:

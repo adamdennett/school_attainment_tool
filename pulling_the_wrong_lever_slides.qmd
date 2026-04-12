@@ -5,7 +5,6 @@ author:
   - name: Adam Dennett
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
   - name: Natasha Priest
-  - name: Tom Harrison
   - name: Dan Campbell-Meiklejohn
 date: today
 title-slide-attributes:

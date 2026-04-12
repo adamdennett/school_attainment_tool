@@ -5,8 +5,6 @@ author:
   - name: Adam Dennett
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
   - name: Natasha Priest
-  - name: Tom Harrison
-    affiliations: "Institute of Development Studies, University of Sussex"
   - name: Dan Campbell-Meiklejohn
     affiliations: "School of Psychology, University of Sussex"
 date: today
@@ -218,21 +216,19 @@ r2_non <- performance::r2(mod_e_nondisadv)
 ::::
 
 
-## What drives attainment? The literature
+## What drives attainment at GCSE? The literature
 
 ::: {.incremental}
-
-- **Disadvantage** (FSM): ~18 months of learning behind by GCSE; gap narrowed post-2011, reversed post-COVID
 
 - **Attendance**: strongest predictor — persistently absent pupils: 36% pass rate vs 84% for full attenders
 
 - **Prior attainment** at KS2: reflects accumulated earlier inequalities
 
-- **Concentrations of disadvantage**: @gorard_how_2019 estimate 0.05--0.15 SD improvement from mixing — about 1 GCSE grade — and claim it can be achieved at "almost no cost"
+- **Disadvantage** (FSM): some residual effect remains after accounting for above.Gap narrowed post-2011, reversed post-COVID
 
-- **Workforce**: leadership quality, teacher retention, and sickness matter — especially for disadvantaged pupils
+- **Workforce**: leadership quality, teacher retention, and teacher sickness matter — especially for disadvantaged pupils
 
-- **Selectivity**: grammar school premium largely disappears after SES controls
+- **Selectivity**: creams-off rather than improves - grammar school premium largely disappears after SES controls
 
 :::
 
@@ -266,46 +262,83 @@ Separate models fitted for **all pupils**, **disadvantaged**, and **non-disadvan
 
 ## Stepwise decomposition: building the model
 
-```{r}
-#| label: fig-standardised-slide
-#| fig-height: 5
+```{r fig-std-coef-slide}
+#| label: fig-std-coef-slide
+#| fig-height: 5.5
 
-# ---- Standardised coefficients across all three models ----
-std_coef <- function(model, data, outcome_var) {
+standardised_importance <- function(model, data, outcome_var, group_label) {
   fe <- fixef(model)
   fe <- fe[names(fe) != "(Intercept)"]
-  sd_y <- sd(log(data[[outcome_var]]), na.rm = TRUE)
-  preds <- names(fe)
-  sd_x <- sapply(preds, function(p) {
-    vals <- tryCatch(eval(parse(text = p), envir = data), error = function(e) data[[p]])
-    sd(vals, na.rm = TRUE)
-  })
-  tibble(term = relabel_terms(preds), std_beta = abs(as.numeric(fe) * sd_x / sd_y))
+  coef_info <- tribble(
+    ~term, ~data_col, ~transform,
+    "log(PTFSM6CLA1A)", "PTFSM6CLA1A", "log",
+    "log(PERCTOT)", "PERCTOT", "log",
+    "log(PNUMEAL)", "PNUMEAL", "log",
+    "PTPRIORLO", "PTPRIORLO", "none",
+    "ADMPOL_PTSEL", "ADMPOL_PT", "dummy_SEL",
+    "gorard_segregation", "gorard_segregation", "none",
+    "remained_in_the_same_school", "remained_in_the_same_school", "none",
+    "teachers_on_leadership_pay_range_percent", "teachers_on_leadership_pay_range_percent", "none",
+    "log(average_number_of_days_taken)", "average_number_of_days_taken", "log"
+  )
+  results <- coef_info %>%
+    filter(term %in% names(fe)) %>%
+    rowwise() %>%
+    mutate(
+      coef = fe[term],
+      x_vals = list(
+        if (transform == "log") log(data[[data_col]][!is.na(data[[data_col]]) & data[[data_col]] > 0])
+        else if (transform == "dummy_SEL") as.numeric(data[[data_col]] == "SEL")[!is.na(data[[data_col]])]
+        else data[[data_col]][!is.na(data[[data_col]])]
+      ),
+      sd_x = sd(unlist(x_vals), na.rm = TRUE),
+      std_coef = coef * sd_x,
+      abs_std_coef = abs(std_coef),
+      Group = group_label
+    ) %>% ungroup() %>%
+    select(term, coef, sd_x, std_coef, abs_std_coef, Group)
+  results
 }
 
-std_all  <- std_coef(mod_e_all, imputed_full_data, "ATT8SCR") %>% mutate(Group = "All Pupils")
-std_dis  <- std_coef(mod_e_disadv, imputed_full_data, "ATT8SCR_FSM6CLA1A") %>% mutate(Group = "Disadvantaged")
-std_non  <- std_coef(mod_e_nondisadv, imputed_full_data, "ATT8SCR_NFSM6CLA1A") %>% mutate(Group = "Non-Disadvantaged")
+display_names <- c(
+  "log(PTFSM6CLA1A)" = "% Disadvantaged (FSM)",
+  "log(PERCTOT)" = "Overall Absence Rate",
+  "log(PNUMEAL)" = "% EAL",
+  "PTPRIORLO" = "% Low Prior Attainment",
+  "ADMPOL_PTSEL" = "Selective Admissions",
+  "gorard_segregation" = "Gorard Segregation Index",
+  "remained_in_the_same_school" = "Teacher Retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
+  "log(average_number_of_days_taken)" = "Teacher Sickness Days"
+)
 
-std_df <- bind_rows(std_all, std_dis, std_non) %>%
-  mutate(Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")))
+imp_all <- standardised_importance(mod_e_all, imputed_full_data, "ATT8SCR", "All Pupils")
+imp_dis <- standardised_importance(mod_e_disadv, imputed_full_data, "ATT8SCR_FSM6CLA1A", "Disadvantaged")
+imp_non <- standardised_importance(mod_e_nondisadv, imputed_full_data, "ATT8SCR_NFSM6CLA1A", "Non-Disadvantaged")
 
-term_order <- std_df %>%
-  filter(Group == "All Pupils") %>%
-  arrange(std_beta) %>%
-  pull(term)
-std_df$term <- factor(std_df$term, levels = term_order)
+importance_national <- bind_rows(imp_all, imp_dis, imp_non) %>%
+  mutate(display_name = display_names[term])
 
-ggplot(std_df, aes(x = std_beta, y = term, fill = Group)) +
-  geom_col(position = position_dodge(width = 0.7), width = 0.6) +
-  scale_fill_manual(values = c("All Pupils" = "#B982FF",
-                                "Disadvantaged" = "#ED357D",
-                                "Non-Disadvantaged" = "#00A19D")) +
-  labs(x = "|Standardised coefficient|",
-       y = NULL, fill = NULL,
-       title = "Relative variable importance across pupil groups") +
-  theme_slide +
-  theme(legend.position = "bottom")
+var_order <- importance_national %>%
+  group_by(display_name) %>%
+  summarise(avg_abs = mean(abs_std_coef)) %>%
+  arrange(avg_abs) %>% pull(display_name)
+
+importance_national <- importance_national %>%
+  mutate(
+    display_name = factor(display_name, levels = var_order),
+    Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged"))
+  )
+
+ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  coord_flip() +
+  scale_fill_manual(values = c("All Pupils" = "#3A1857",
+                                "Disadvantaged" = "#993AFF",
+                                "Non-Disadvantaged" = "#30D6FF")) +
+  labs(x = NULL, y = "Standardised Coefficient (signed)", fill = NULL) +
+  theme_slide
 ```
 
 
