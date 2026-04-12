@@ -224,7 +224,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 - **Prior attainment** at KS2: reflects accumulated earlier inequalities
 
-- **Disadvantage** (FSM): some residual effect remains after accounting for above.Gap narrowed post-2011, reversed post-COVID
+- **Disadvantage** (FSM): some residual effect remains after accounting for above. Gap narrowed post-2011, reversed post-COVID
 
 - **Workforce**: leadership quality, teacher retention, and teacher sickness matter — especially for disadvantaged pupils
 
@@ -356,7 +356,7 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 
 - The Gorard Segregation Index is **not significant** once other factors are controlled for
 
-- For disadvantaged pupils, the FSM concentration effect runs **in the opposite direction** to common assumption — they do slightly *better* in higher-poverty schools
+- For disadvantaged pupils, the FSM concentration effect runs **in the opposite direction** to common assumption — they do slightly *better* in schools with higher proportions of disadvantaged students
 
 :::
 
@@ -369,51 +369,54 @@ Attendance is the **ultimate equity lever** — and the most accessible one for 
 
 # Brighton and Hove Case Study {background-color="#3A1857" .divider-slide}
 
-## The city's school landscape
+## The city's secondary school landscape
 
-```{r}
-#| label: fig-catchments-slide
+```{r fig-catchments}
+#| label: fig-catchments
 
-# ---- Load catchment boundaries ----
 optionZ <- st_read(
-  "E:/BH_Schools_Consultation/data/optionZ_Mar25.geojson",
-  quiet = TRUE
-) %>%
-  st_transform(4326)
+  "E:/BH_Schools_Consultation/data/optionZ_Mar25.geojson", quiet = TRUE
+) %>% st_transform(4326)
 
-# ---- Catchment colour palette ----
 catchment_colours <- c(
-  "BACA"              = "#e41a1c",
-  "HoveBlatchington"  = "#377eb8",
-  "Longhill"          = "#4daf4a",
-  "PACA"              = "#984ea3",
-  "Patcham"           = "#ff7f00",
-  "VarndeanStringer"  = "#a65628"
+  "BACA" = "#e41a1c", "HoveBlatchington" = "#377eb8",
+  "Longhill" = "#4daf4a", "PACA" = "#984ea3",
+  "Patcham" = "#ff7f00", "VarndeanStringer" = "#a65628"
 )
-pal_catch <- colorFactor(palette = unname(catchment_colours),
-                          domain = names(catchment_colours))
-
 catchment_labels <- c(
-  "BACA"              = "BACA (Brighton Aldridge)",
-  "HoveBlatchington"  = "Hove Park / Blatchington Mill",
-  "Longhill"          = "Longhill",
-  "PACA"              = "PACA (Portslade Aldridge)",
-  "Patcham"           = "Patcham",
-  "VarndeanStringer"  = "Varndean / Dorothy Stringer"
+  "BACA" = "BACA (Brighton Aldridge)",
+  "HoveBlatchington" = "Hove Park / Blatchington Mill",
+  "Longhill" = "Longhill", "PACA" = "PACA (Portslade Aldridge)",
+  "Patcham" = "Patcham", "VarndeanStringer" = "Varndean / Dorothy Stringer"
 )
 
-# ---- School locations ----
 bh_map_data <- bh_latest %>%
   filter(!is.na(easting), !is.na(northing)) %>%
   st_as_sf(coords = c("easting", "northing"), crs = 27700) %>%
   st_transform(4326)
-
 map_coords <- st_coordinates(bh_map_data)
 bh_map_data$lon <- map_coords[, 1]
 bh_map_data$lat <- map_coords[, 2]
 
-# ---- Build interactive leaflet map ----
-m <- leaflet(width = "100%", height = 500) %>%
+logo_paths <- c(
+  "Blatchington Mill School"                = "output/school_logos/blatchington_mill.png",
+  "Brighton Aldridge Community Academy"      = "output/school_logos/brighton_aldridge.png",
+  "Cardinal Newman Catholic School"          = "output/school_logos/cardinal_newman.png",
+  "Dorothy Stringer School"                  = "output/school_logos/dorothy_stringer.png",
+  "Hove Park School and Sixth Form Centre"   = "output/school_logos/hove_park.png",
+  "King's School"                            = "output/school_logos/kings_school.png",
+  "Longhill High School"                     = "output/school_logos/longhill_high.png",
+  "Patcham High School"                      = "output/school_logos/patcham_high.png",
+  "Portslade Aldridge Community Academy"     = "output/school_logos/portslade_aldridge.png",
+  "Varndean School"                          = "output/school_logos/varndean.png"
+)
+
+pal_catch <- colorFactor(
+  palette = unname(catchment_colours),
+  domain = names(catchment_colours)
+)
+
+m_orient <- leaflet(width = "100%", height = 500) %>%
   addProviderTiles(providers$CartoDB.Positron) %>%
   addPolygons(
     data = optionZ,
@@ -426,17 +429,84 @@ m <- leaflet(width = "100%", height = 500) %>%
   )
 
 for (i in seq_len(nrow(bh_map_data))) {
+  sch_name <- bh_map_data$SCHNAME[i]
+  sch_lon  <- bh_map_data$lon[i]
+  sch_lat  <- bh_map_data$lat[i]
+
   popup_html <- sprintf(
     "<b>%s</b><br>ATT8: %.1f | FSM: %.1f%% | Absence: %.1f%%",
-    bh_map_data$SCHNAME[i], bh_map_data$ATT8SCR[i],
-    bh_map_data$PTFSM6CLA1A[i], bh_map_data$PERCTOT[i])
-  m <- m %>% addCircleMarkers(
-    lng = bh_map_data$lon[i], lat = bh_map_data$lat[i],
-    radius = 5, fillColor = "#333", fillOpacity = 0.9,
-    color = "white", weight = 1.5, popup = popup_html)
+    sch_name, bh_map_data$ATT8SCR[i],
+    bh_map_data$PTFSM6CLA1A[i], bh_map_data$PERCTOT[i]
+  )
+
+  m_orient <- m_orient %>%
+    addCircleMarkers(
+      lng = sch_lon, lat = sch_lat,
+      radius = 5, fillColor = "#333333", fillOpacity = 0.9,
+      color = "white", weight = 1.5, popup = popup_html
+    )
+
+  logo_file <- logo_paths[sch_name]
+  if (!is.na(logo_file) && file.exists(logo_file)) {
+    logo_b64 <- knitr::image_uri(logo_file)
+    logo_icon <- makeIcon(
+      iconUrl = logo_b64,
+      iconWidth = 36, iconHeight = 36,
+      iconAnchorX = -4, iconAnchorY = 40
+    )
+    m_orient <- m_orient %>%
+      addMarkers(lng = sch_lon, lat = sch_lat, icon = logo_icon, popup = popup_html)
+  }
 }
 
-m
+# CoMArt (Closed 2005)
+comart_lon <- -0.099449; comart_lat <- 50.823301
+m_orient <- m_orient %>%
+  addCircleMarkers(
+    lng = comart_lon, lat = comart_lat,
+    radius = 5, fillColor = "#e41a1c", fillOpacity = 0.9,
+    color = "white", weight = 1.5,
+    popup = "<b>CoMArt (Closed 2005)</b>"
+  )
+comart_logo <- "output/school_logos/comart.png"
+if (file.exists(comart_logo)) {
+  comart_b64 <- knitr::image_uri(comart_logo)
+  comart_icon <- makeIcon(iconUrl = comart_b64, iconWidth = 36, iconHeight = 36,
+                           iconAnchorX = -4, iconAnchorY = 40)
+  m_orient <- m_orient %>%
+    addMarkers(lng = comart_lon, lat = comart_lat, icon = comart_icon,
+               popup = "<b>CoMArt (Closed 2005)</b>")
+}
+
+# Legend
+legend_html <- paste0(
+  '<div style="font-size: 12px; line-height: 1.6;">',
+  paste0(
+    '<div style="display: flex; align-items: center; gap: 6px;">',
+    '<span style="display: inline-block; width: 14px; height: 14px; ',
+    'background:', unname(catchment_colours), '; ',
+    'border-radius: 2px; flex-shrink: 0;"></span>',
+    '<span>', unname(catchment_labels), '</span></div>',
+    collapse = ''
+  ),
+  '</div>'
+)
+
+m_orient <- m_orient %>%
+  addControl(
+    html = paste0(
+      '<div style="background: white; padding: 8px 12px; ',
+      'border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.3); ',
+      'font-family: sans-serif;">',
+      '<div style="font-weight: bold; margin-bottom: 4px; font-size: 12px;">',
+      '2025/26 Catchment Boundaries</div>',
+      legend_html,
+      '</div>'
+    ),
+    position = "topright"
+  )
+
+m_orient
 ```
 
 
