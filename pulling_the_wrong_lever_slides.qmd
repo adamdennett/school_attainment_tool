@@ -1,5 +1,5 @@
 ---
-title: "Pulling the Wrong Lever"
+title: "How to Pull the Right Lever"
 subtitle: "School Attainment, Open Data Analytics and Policy in England — Lessons from Brighton and Hove"
 author:
   - name: Adam Dennett
