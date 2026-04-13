@@ -1359,7 +1359,7 @@ kable(panel_dis_display, format = "html", escape = FALSE,
 - 4-year average: **--2.6 GCSE points**
 
 ::: {.key-finding}
-Parents, acting rationally on available information, were actively choosing the school with *lower* value-added for their children. They were operating in a **knowledge vacuum**.
+Parents, acting rationally on available information, may have been choosing the school with *lower* value-added for their children — if that is the most important factor. They were operating in a **knowledge vacuum**.
 :::
 
 :::
@@ -1390,7 +1390,7 @@ The city needs to **disaggregate the attendance problem** — different causes r
 
 - The council's proposals were built on the premise that attainment was **"driven by economic advantage"**
 
-- Our analysis: this is **at best incomplete**, at worst **fundamentally flawed**
+- This premise is false in the context of the DfE's own research (Macleod et al. 2015) — our modelling confirms this was **at best a flawed understanding**
 
 - Concentrations of disadvantage are one of the **weaker** levers available
 
@@ -1401,7 +1401,7 @@ The city needs to **disaggregate the attendance problem** — different causes r
 :::
 
 
-## Second-order effects: when the cure worsens the malady
+## Second-order effects: the risks of the chosen lever
 
 - The chosen policy if implemented as intended requires **longer journeys** for many children
 
@@ -1410,7 +1410,7 @@ The city needs to **disaggregate the attendance problem** — different causes r
 - Given absence is the city's **most acute problem** and the **strongest predictor** of attainment...
 
 ::: {.key-finding}
-A policy that even marginally increases absence could be **counterproductive** in attainment terms. The claim of "almost no cost" for social mixing is false when implemented through displacement.
+A policy that even marginally increases absence could be **counterproductive** in attainment terms. The claim of "almost no cost" for social mixing overlooks these second-order effects.
 :::
 
 ::: {.fragment}

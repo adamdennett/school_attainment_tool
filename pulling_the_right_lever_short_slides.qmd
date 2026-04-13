@@ -795,7 +795,7 @@ ggplot(nat_long, aes(x = Predicted, y = Observed)) +
 - BACA upgraded to **'Good'** by Ofsted in April 2025
 
 ::: {.key-finding}
-Parents, acting rationally on available information, were choosing the **objectively worse option** for their children. This is the cost of an intelligence gap.
+Parents, acting rationally on available information, may have been choosing a **worse option** for their children's attainment — if value-added is the most important factor. This is the cost of an intelligence gap.
 :::
 
 :::
