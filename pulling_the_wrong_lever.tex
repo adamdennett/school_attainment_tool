@@ -198,8 +198,8 @@
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
 \hypersetup{
-  pdftitle={Pulling the Wrong Lever: School Attainment, Open Data Analytics and Policy in England},
-  pdfauthor={Adam Dennett; Natasha Priest; Tom Harrison; Dan Campbell-Meiklejohn},
+  pdftitle={How to Pull the Right Lever: School Attainment, Open Data Analytics and Policy in England},
+  pdfauthor={Adam Dennett; Natasha Priest; Dan Campbell-Meiklejohn},
   colorlinks=true,
   linkcolor={blue},
   filecolor={Maroon},
@@ -208,8 +208,8 @@
   pdfcreator={LaTeX via pandoc}}
 
 
-\title{Pulling the Wrong Lever: School Attainment, Open Data Analytics
-and Policy in England}
+\title{How to Pull the Right Lever: School Attainment, Open Data
+Analytics and Policy in England}
 \usepackage{etoolbox}
 \makeatletter
 \providecommand{\subtitle}[1]{% add subtitle to \maketitle
@@ -217,9 +217,8 @@ and Policy in England}
 }
 \makeatother
 \subtitle{Lessons from Brighton and Hove}
-\author{Adam Dennett \and Natasha Priest \and Tom Harrison \and Dan
-Campbell-Meiklejohn}
-\date{2026-04-04}
+\author{Adam Dennett \and Natasha Priest \and Dan Campbell-Meiklejohn}
+\date{2026-04-13}
 \begin{document}
 \maketitle
 
@@ -2390,14 +2389,20 @@ both fronts.
 
 The residuals in Figure~\ref{fig-obs-vs-pred} are captured in as set of
 what we might term value-added league tables below in
-(\textbf{league-table-data?}). Perhaps the two most interesting schools
-in the city at other ends of this alternative spectrum are Brighton
-Aldridge Community Academy (BACA) and Patcham High School.
+Table~\ref{tbl-league-all} \& Table~\ref{tbl-league-dis}. Perhaps the
+two most interesting schools in the city at other ends of this
+alternative spectrum are Brighton Aldridge Community Academy (BACA) and
+Patcham High School.
 
 \begingroup\fontsize{10}{12}\selectfont
 
 \begin{longtable}[t]{rlrrrr>{}r}
-\caption{\label{tab:league-all}All Pupils: value-added rankings (panel model residuals by year).}\\
+
+\caption{\label{tbl-league-all}}
+
+\tabularnewline
+
+\caption{}\\
 \toprule
 Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean Residual\\
 \midrule
@@ -2413,13 +2418,20 @@ Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean Residual\\
 9 & Longhill High School & +0.4 & -2.2 & -2.2 & -3.4 & \cellcolor[HTML]{f5f5f5}{\textbf{-1.8}}\\
 10 & Patcham High School & -3.2 & -2.7 & -4.9 & -3.4 & \cellcolor[HTML]{f5f5f5}{\textbf{-3.6}}\\
 \bottomrule
+
 \end{longtable}
+
 \endgroup{}
 
 \begingroup\fontsize{10}{12}\selectfont
 
 \begin{longtable}[t]{rlrrrr>{}r}
-\caption{\label{tab:league-dis}Disadvantaged Pupils: value-added rankings (panel model residuals by year).}\\
+
+\caption{\label{tbl-league-dis}}
+
+\tabularnewline
+
+\caption{}\\
 \toprule
 Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean Residual\\
 \midrule
@@ -2435,7 +2447,9 @@ Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean Residual\\
 9 & Patcham High School & +3.8 & +1.6 & -11.9 & -3.7 & \cellcolor[HTML]{f5f5f5}{\textbf{-2.6}}\\
 10 & Longhill High School & -4.6 & -6.2 & +0.8 & -1.4 & \cellcolor[HTML]{f5f5f5}{\textbf{-2.9}}\\
 \bottomrule
+
 \end{longtable}
+
 \endgroup{}
 
 The residuals are measured in raw GSCE point-score terms and show, on
