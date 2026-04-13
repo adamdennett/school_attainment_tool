@@ -38,10 +38,8 @@ format:
           \renewcommand\Authfont{\normalsize}
           \author[1]{Adam Dennett\thanks{a.dennett@ucl.ac.uk, ORCID: 0000-0002-7493-3276}}
           \author[]{Natasha Priest}
-          \author[2]{Tom Harrison\thanks{t.harrison@ids.ac.uk}}
           \author[3]{Dan Campbell-Meiklejohn\thanks{daniel.cm@sussex.ac.uk, ORCID: 0000-0002-8916-265X}}
           \affil[1]{Bartlett Centre for Advanced Spatial Analysis, University College London}
-          \affil[2]{Institute of Development Studies, University of Sussex}
           \affil[3]{School of Psychology, University of Sussex}
           \renewcommand{\author}[2][]{}
           \renewcommand{\and}{}
@@ -748,7 +746,7 @@ Because the model uses log-transformed variables, the same percentage-point chan
 #| fig-height: 4.5
 #| fig-width: 7
 
-ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable)) +
+ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable, linetype = Variable)) +
   geom_line(linewidth = 0.8) +
   geom_point(data = bh_pts, aes(x = starting_value, y = att8_gain), size = 2, alpha = 0.8) +
   geom_text_repel(data = bh_pts,
@@ -767,12 +765,15 @@ ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable)) +
            colour = "#2e6260", size = 2, fontface = "italic", hjust = 0) +
   scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#4e3c56",
                                   "% Absence" = "#2e6260")) +
+  scale_linetype_manual(values = c("% FSM (Disadvantaged)" = "dashed",
+                                    "% Absence" = "solid")) +
   annotate("segment", x = 45, xend = 15, y = 1.9,
            yend = 1.9,
            arrow = arrow(length = unit(0.15, "cm")), colour = "grey50", linewidth = 0.3) +
   annotate("text", x = 30, y = 2.1,
            label = "direction of improvement", colour = "grey50", size = 2, fontface = "italic") +
-  labs(x = "Current level (%)", y = "Predicted ATT8 gain from 1pp reduction", colour = NULL) +
+  guides(colour = guide_legend(""), linetype = guide_legend("")) +
+  labs(x = "Current level (%)", y = "Predicted ATT8 gain from 1pp reduction") +
   theme_pub
 ```
 
