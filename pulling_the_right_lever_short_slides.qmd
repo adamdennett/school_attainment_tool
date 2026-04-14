@@ -4,7 +4,6 @@ subtitle: "School Attainment, Open Data Analytics and Local Education Policy in 
 author:
   - name: Adam Dennett
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
-  - name: Natasha Priest
   - name: Dan Campbell-Meiklejohn
     affiliations: "School of Psychology, University of Sussex"
 date: today
@@ -175,7 +174,16 @@ la_means_abs <- national_benchmarks %>%
   arrange(la_mean_abs) %>%
   mutate(rank = row_number(), pctile = rank / n() * 100)
 
+la_means_fsm <- national_benchmarks %>%
+  filter(year_label == latest_year) %>%
+  group_by(LANAME) %>%
+  summarise(la_mean_fsm = mean(PTFSM6CLA1A, na.rm = TRUE), .groups = "drop") %>%
+  arrange(la_mean_fsm) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+
+n_las_bench <- nrow(la_means_abs)
 bh_abs_rank <- la_means_abs %>% filter(grepl("Brighton", LANAME))
+bh_fsm_rank <- la_means_fsm %>% filter(grepl("Brighton", LANAME))
 
 # Model R2
 r2_all <- performance::r2(mod_e_all)
@@ -260,7 +268,7 @@ Separate models fitted for **all pupils**, **disadvantaged**, and **non-disadvan
 :::
 
 
-## Stepwise decomposition: building the model
+## Results: Relative Explanatory Variable Importance for Attainment 8
 
 ```{r fig-std-coef-slide}
 #| label: fig-std-coef-slide
@@ -510,7 +518,7 @@ m_orient
 ```
 
 
-## The 2024 consultation
+## The 2024 consultation (1)
 
 :::: {.columns}
 
@@ -522,6 +530,9 @@ m_orient
 - Redraw catchment boundaries
 - Reserve places for out-of-catchment children
 
+:::
+
+::: {.column width="50%"}
 **Premised on:**
 
 - Attainment "driven by economic advantage"
@@ -530,7 +541,10 @@ m_orient
 
 :::
 
-::: {.column width="50%"}
+::::
+
+
+## The 2024 consultation (2)
 
 **The response:**
 
@@ -541,10 +555,6 @@ m_orient
 ::: {.key-finding}
 Detailed local data and analytics were **not available** at the time of the consultation. The city was painted as a failure — but was it?
 :::
-
-:::
-
-::::
 
 
 ## How is Brighton & Hove actually performing?
@@ -590,7 +600,7 @@ ggplot(re_la_dis, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
 ```
 
 
-## A story of success — but with a problem
+## Brighton & Hove: a story of success, not failure
 
 :::: {.columns}
 
@@ -604,27 +614,58 @@ ggplot(re_la_dis, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
 | Non-disadvantaged | [**5th**]{.stat-highlight} |
 | All pupils | [**4th**]{.stat-highlight} |
 
-The random intercept ≈ **+2 GCSE points** above what structural factors predict.
+The positive random intercept ≈ **+2 GCSE points** above what structural factors predict.
 
 :::
 
 ::: {.column width="50%"}
 
 ::: {.key-finding}
-**This was entirely unknown** at the time of the 2024 consultation.
+**This was entirely unknown** at the time of the 2024 consultation and completely absent from the public narrative.
 
-The narrative was one of *failure*. The evidence says the opposite.
+The starting point was a narrative of *failure*. The evidence says the opposite: this is one of the **highest-performing LEAs in England**.
 :::
 
-**But there is a problem:**
-
-- B&H mean absence: **`r round(bh_mean_abs, 1)`%** vs national: **`r round(national_mean_abs, 1)`%**
-- **`r round(bh_abs_rank$pctile, 0)`th percentile** — among the worst in England
-- FSM levels are near the national average
+Rather than "what is the city doing wrong?", the question should be **"what is it doing right?"**
 
 :::
 
 ::::
+
+
+## But there is a problem — and it isn't segregation
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+**FSM (the lever they chose):**
+
+- City mean: `r round(bh_mean_fsm, 1)`%
+- National mean: `r round(national_mean_fsm, 1)`%
+- National percentile: **`r round(bh_fsm_rank$pctile, 0)`th**
+- *Completely unremarkable*
+
+:::
+
+::: {.column width="50%"}
+
+**Absence (the lever they ignored):**
+
+- City mean: `r round(bh_mean_abs, 1)`%
+- National mean: `r round(national_mean_abs, 1)`%
+- National percentile: [**`r round(bh_abs_rank$pctile, 0)`th**]{.stat-highlight}
+- *Among the very worst in England*
+
+:::
+
+::::
+
+::: {.fragment}
+::: {.key-finding}
+Brighton & Hove has **near-average disadvantage** but **near-worst absence**. The city's strong underlying performance is being dragged down by an absence problem at the extreme of the national distribution.
+:::
+:::
 
 
 ## Accelerating returns: comparing the two levers
@@ -781,27 +822,88 @@ ggplot(nat_long, aes(x = Predicted, y = Observed)) +
 
 - 'Requires Improvement' Ofsted
 - Low raw attainment scores
-- Campaign group encouraged parents to choose other schools
-- Many opted for **Patcham High School** ('Good' Ofsted, mid-table raw scores)
+- **→ narrative of "Avoid this school"**
+- Equity in Education campaign: parents opt for Patcham instead
+
+**What the data shows:**
+
+- [**Best performing school in the city**]{.stat-highlight} for disadvantaged pupils
+- +5 GCSE points above national peers (2024--25)
+- April 2025: Ofsted upgraded to **'Good'** in all areas
 
 :::
 
 ::: {.column width="50%"}
 
-**What the data shows:**
+**Patcham — "the safer choice":**
 
-- BACA is the **best-performing school** for disadvantaged pupils once intake is controlled for
-- Residual ≈ **+5 ATT8 points** in 2024--25
-- Patcham has **consistently negative** value-added for disadvantaged pupils (mean ≈ --2.6 points)
-- BACA upgraded to **'Good'** by Ofsted in April 2025
+- Rated 'Good' by Ofsted
+- Comfortable mid-table in raw terms
+- But **negative value-added** for disadvantaged pupils
+- 4-year average: **--2.6 GCSE points**
 
 ::: {.key-finding}
-Parents, acting rationally on available information, may have been choosing a **worse option** for their children's attainment — if value-added is the most important factor. This is the cost of an intelligence gap.
+Parents, acting rationally on available information, may have been choosing the school with *lower* value-added for their children — if that is the most important factor. They were operating in a **knowledge vacuum**.
 :::
 
 :::
 
 ::::
+
+# The Policy Simulator Tool {background-color="#3A1857" .divider-slide}
+
+## Bridging the gap
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+**What it does:**
+
+- Search for **any school** in England
+- See key statistics and contextual benchmarks
+- Compare **observed vs predicted** attainment
+- **Simulate** the impact of changes to absence, FSM, workforce etc.
+- Explore **LA-level** patterns and typologies
+- Find a school's contextual **"twin"**
+
+:::
+
+::: {.column width="50%"}
+
+**Built with:**
+
+- R Shiny
+- Same multilevel models as this analysis
+- DfE open data (updated annually)
+- Development accelerated by **Claude** (Anthropic) — AI4CI funded
+
+:::
+
+::::
+
+::: {.key-finding}
+Not the finished article — but a demonstration of what's possible when open data + appropriate methods + accessible tools come together.
+:::
+
+
+## The simulator in action
+
+![](output/figures/policy_sim.png){fig-align="center" height="400"}
+
+:::{.smaller}
+School Finder → select any school → view contextual statistics → send to the Policy Simulator
+:::
+
+[adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator](https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/)
+
+## Adjusting policy levers
+
+![](output/figures/policy_sim_sliders.png){fig-align="center" height="400"}
+
+:::{.smaller}
+Non-linear effects mean the same adjustment produces **different impacts** depending on the school's starting position
+:::
 
 
 # Discussion {background-color="#3A1857" .divider-slide}

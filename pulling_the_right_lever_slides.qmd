@@ -4,8 +4,8 @@ subtitle: "School Attainment, Open Data Analytics and Policy in England — Less
 author:
   - name: Adam Dennett
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
-  - name: Natasha Priest
   - name: Dan Campbell-Meiklejohn
+    affiliations: "School of Psychology, University of Sussex"
 date: today
 title-slide-attributes:
   data-background-image: "slides_assets/title-bg.png"

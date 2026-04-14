@@ -7,7 +7,6 @@ author:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
     email: a.dennett@ucl.ac.uk
     orcid: 0000-0002-7493-3276
-  - name: Natasha Priest
   - name: Dan Campbell-Meiklejohn
     affiliations:
       - name: School of Psychology, University of Sussex
