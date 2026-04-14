@@ -2101,6 +2101,14 @@ Our recommendations are directed at three audiences. For the Department for Educ
 
 Our case study of Brighton and Hove — motivated by experiences of the 2024 and 2025 public consultations, should serve as both a cautionary tale and a source of encouragement. The caution is that policy made in haste, anchored to a single causal narrative and implemented without adequate regard for the full range of evidence, risks doing more harm than good — particularly when it could disrupt a system that is, by most measures, working well. The encouragement is that the raw materials for better policy already exist in the open data the Department for Education publishes, and that with the right analytical tools and a commitment to evidence over ideology, it is possible to understand with considerable precision what drives attainment in any local context and where the most productive interventions lie. The challenge now is to ensure that this understanding reaches the people who need it, in a form they can use, before the decisions are made — not after.
 
+# CRediT authorship contribution statement {.unnumbered}
+
+**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing.
+
+# Declaration of generative AI use {.unnumbered}
+
+The authors used Anthropic's Claude Code (Claude Sonnet 4.5) to assist with the development of R data-processing pipelines, the implementation of multilevel model fitting and visualisation code, the formatting of tables and bibliography entries, and the rendering and deployment of Quarto outputs. Any analytical decisions, interpretations, and written content were reviewed, verified and approved by the authors, who take full responsibility for the work.
+
 # References {.unnumbered}
 
 ::: {#refs}
