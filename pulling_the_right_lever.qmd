@@ -1420,7 +1420,7 @@ But the two curves are not equal. @fig-accelerating-returns places both variable
 #| fig-width: 9
 
 p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
-                                       colour = Variable)) +
+                                       colour = Variable, linetype = Variable)) +
   geom_line(linewidth = 1) +
   geom_point(data = bh_pts, aes(x = starting_value, y = att8_gain),
              size = 2.5, alpha = 0.8) +
@@ -1443,6 +1443,8 @@ p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
            colour = "#2e6260", size = 2.5, fontface = "italic", hjust = 0) +
   scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#4e3c56",
                                   "% Absence" = "#2e6260")) +
+  scale_linetype_manual(values = c("% FSM (Disadvantaged)" = "dashed",
+                                    "% Absence" = "solid")) +
   annotate("segment", x = 45, xend = 15, y = max(marginal_df$att8_gain) * 0.15,
            yend = max(marginal_df$att8_gain) * 0.15,
            arrow = arrow(length = unit(0.2, "cm")),
@@ -1450,9 +1452,9 @@ p_combined <- ggplot(marginal_df, aes(x = starting_value, y = att8_gain,
   annotate("text", x = 30, y = max(marginal_df$att8_gain) * 0.12,
            label = "direction of policy improvement",
            colour = "grey50", size = 2.5, fontface = "italic") +
+  guides(colour = guide_legend(""), linetype = guide_legend("")) +
   labs(x = "Current level (%)",
        y = "Predicted ATT8 gain from 1pp reduction",
-       colour = NULL,
        title = "Accelerating returns: reducing absence vs reducing FSM",
        subtitle = "Each point shows the ATT8 gain from a 1pp reduction at that starting level — returns accelerate as values fall (right to left)") +
   theme_minimal(base_size = 11) +

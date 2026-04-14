@@ -1174,7 +1174,7 @@ bh_abs_pts <- bh_latest_model %>%
 
 bh_pts <- bind_rows(bh_fsm_pts, bh_abs_pts)
 
-ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable)) +
+ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable, linetype = Variable)) +
   geom_line(linewidth = 1) +
   geom_point(data = bh_pts, aes(x = starting_value, y = att8_gain), size = 2.5, alpha = 0.8) +
   geom_text_repel(data = bh_pts,
@@ -1189,8 +1189,9 @@ ggplot(marginal_df, aes(x = starting_value, y = att8_gain, colour = Variable)) +
   annotate("text", x = 30, y = max(marginal_df$att8_gain) * 0.85,
            label = "direction of improvement", colour = "grey50", size = 3.5, fontface = "italic") +
   scale_colour_manual(values = c("% FSM (Disadvantaged)" = "#3A1857", "% Absence" = "#005E5C")) +
+  scale_linetype_manual(values = c("% FSM (Disadvantaged)" = "dashed", "% Absence" = "solid")) +
+  guides(colour = guide_legend(""), linetype = guide_legend("")) +
   labs(x = "Current level (%)", y = "Predicted ATT8 gain from 1pp reduction",
-       colour = NULL,
        title = "Absence delivers larger gains at every starting level") +
   theme_slide
 ```
