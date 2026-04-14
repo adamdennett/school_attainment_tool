@@ -244,7 +244,7 @@ n_above_nat_abs <- sum(bh_latest_model$PERCTOT > national_mean_abs, na.rm = TRUE
 -   Brighton and Hove is one of the highest-performing LEAs in England — ranking 7th for disadvantaged attainment, 5th for non-disadvantaged, and 4th overall in our new analysis — once structural factors are accounted for. This was unknown at the time of the 2024 consultation and thus was entirely absent from the public narrative.
 -   The city's most acute problem is absence, not social segregation. It had the second worst absence rate in England in 2024–25, yet absence was not part of the policy conversation.
 -   The City Council's 2024 admissions proposals were built on the premise that attainment was "driven by economic advantage" and that redistributing disadvantaged pupils across schools would narrow the attainment gap. Our analysis challenges this on several fronts.
--   Bringing the city's worst-affected schools to the national average for absence could yield gains of 3-5 GCSE points. Even dramatic reductions in concentrations of disadvantage would yield gains closer to 1-2 points. The policy was pulling a lever with relatively little mechanical advantage while ignoring one with considerably more.
+-   Bringing the city's worst-affected schools to the national average for absence could yield gains of 3-5 GCSE points. Even dramatic reductions in concentrations of disadvantage would yield gains closer to 1-2 points - but crucially not for disadvantaged students (the intended beneficiaries of the council policy). The policy was pulling a lever with relatively little mechanical advantage in the wrong direction, while ignoring one with considerably more.
 -   An alternative, contextualised league table for the city reveals that Brighton Aldridge Community Academy (BACA) is the best-performing school in the city for disadvantaged pupils once intake is accounted for, while some other schools, widely perceived as 'better' in raw attainment terms, are found to be under-performing relative to their situations.
 
 **The School Attainment Policy Simulator**
@@ -273,17 +273,17 @@ These are laudable national ambitions and will certainly lead to concerted effor
 
 What will be required are very different sets of local and school-level approaches which are cognisant of the local conditions, in particular the interactions between local socio-economic and demographic profiles and the schools and their characteristics that serve these populations, the geography of the local school landscape and the balance and accessibility of provision available to serve different populations. No two local authorities are the same and as such, no single solution exists to achieve these national ambitions.
 
-This is a very broad backdrop which helps partially situate this paper. This is a paper which emerges from a unique local situation in Brighton and Hove, England — a city not new to experimental schools policies [@Allen2013] and a local case study which helps highlight the very real dangers and unintended outcomes of policy makers attempting to affect broad-brush 'solutions,' with ambitions identical to those in the new national white paper, but rapidly, and with an incomplete understanding of their local system and its unique facets and challenges. Policies which fail, firstly, to fully understand the specific nature of the local challenges and secondly to prescribe an effective treatment, will struggle to affect a desired outcome.
+This is a very broad backdrop which helps partially situate this report. It emerges from a unique local situation in Brighton and Hove, England — a city not new to experimental schools policies [@Allen2013] and a local case study which helps highlight the very real dangers and unintended outcomes of policy makers attempting to affect broad-brush 'solutions,' with ambitions identical to those in the new national white paper, but rapidly, and with an incomplete understanding of their local system and its unique facets and challenges. Policies which fail to fully understand the specific nature of the local challenges and consequently prescribe an effective treatment, will struggle to affect a desired outcome.
 
-We will argue in this paper that while the evidence base is vast and the data plentiful, in Brighton and Hove (and possibly therefore in other LEAs) there can be a crucial disconnect between theory, evidence and local policy making which must be addressed before considering policy changes. While any local education authority might outwardly claim to aspire to evidence-based or evidence-led policy, where good evidence is not easily to hand, where there is not the internal capacity within councils to be fully on-top of the theory and data that does exist, or where ideological blinkers intervene to selectively filter the evidence to fit a predetermined policy objective, then the risk of making poor decisions is high.
+We will argue in this report that while the evidence base is vast and the data plentiful, in Brighton and Hove (and possibly therefore in other LEAs) there can be a crucial disconnect between theory, evidence and local policy making which must be addressed before considering policy changes. While any local education authority might outwardly claim to aspire to evidence-based or evidence-led policy, where good evidence is not easily to hand, where there is not the internal capacity within councils to be fully on-top of the theory and data that does exist, or where ideological blinkers intervene to selectively filter the evidence to fit a predetermined policy objective, then the risk of making poor decisions is high.
 
-In this paper, we hope to offer a different evidence-based approach to this challenge through presenting both an analysis and an associated tool which goes some way to filling the to-hand, localised, evidence void that currently faces any LEA looking to follow through on the national government's objectives. Our assertion is that the Department for Education already provides most of the raw materials required for making better decisions through its open data publications, but these are under-utilised. If this data can be made easily accessible and digestible for those charged with improving the situation — the schools themselves, their leadership teams and governing boards or the local education authorities — it will be more feasible to convert good intentions into area-wide beneficial outcomes.
+This report offers a different evidence and analytics-based approach to this challenge through presenting both an analysis and an associated tool which should fill many of the localised evidence voids that currently face many LEAs looking to follow through on the national government's objectives. Our assertion is that the Department for Education already provides most of the raw materials required for making better decisions through its open data publications, but these are under-utilised. If this data can be made easily accessible and digestible for those charged with improving the situation — the schools themselves, their leadership teams and governing boards or the local education authorities — it will be more feasible to convert good intentions into area-wide beneficial outcomes.
 
-Of course, there will be some LEAs and schools who are already more on top of this than others. Brighton and Hove provides a particularly interesting case study as an area which, as we will see later in the paper, objectively out-performs most others in England but where new policy proposals in 2024 and 2025 reflected a poor grasp of the available evidence, and have controversially opened the door to unintended negative social, environmental, educational, and health outcomes while likely failing to meet its own educational policy goals. Critically, the approach has led to a confused and divided populace where parents might now be making sub-optimal choices for their children while living in a knowledge vacuum. We hope that through illustrating the particular issues in Brighton and Hove and offering potential practical solutions, those in other local education authorities might avoid similar mistakes. We note that the city is also likely to be one of the places targeted by the DfE's new "Mission Coastal" where issues with disadvantaged communities are relevant.
+Of course, there will be some LEAs and schools who are already more on top of this than others. Brighton and Hove provides a particularly interesting case study as it objectively out-performs most other LEAs in England but where new policy proposals in 2024 and 2025 reflected a poor grasp of the available evidence. Policy decisions have controversially opened the door to unintended negative social, environmental, educational, and health outcomes while our analysis shows its policy decisions are unlikely to lead to it meeting its own educational policy goals. Critically, the approach has led to a confused and divided populace where parents might now be making sub-optimal choices for their children while living in a knowledge vacuum. We hope that through illustrating the particular issues in Brighton and Hove and offering potential practical solutions, those in other local education authorities might avoid similar mistakes. We note that the city is also likely to be one of the places targeted by the DfE's new "Mission Coastal" where issues with disadvantaged communities are relevant, so an enhanced evidence-base will be timely.
 
-The authors of this paper are all residents of Brighton and Hove with lived experience of the effects of the policy development process on their families and community; some of us are academics familiar with data and quantitative methods, some are experienced in national policy making, some are involved in schools in the city either through their governing boards or as teaching staff and some are simply parents and residents who want to see good education policy making that will benefit all children in the city. As such, we bring a diverse range of perspectives to this issue which are relevant to the national government's ambitions.
+The authors of this paper are all residents of Brighton and Hove with lived experience of the effects of the policy development process on their families and community. This work has emerged from 18 months of discussions with a wider community of parents in the city keen that their children are not negatively impacted by erroneous policy decisions; some of us are academics familiar with data and quantitative methods, some are experienced in national policy making, some are involved in schools in the city either through their governing boards or as teaching staff and some are simply parents and residents who want to see good education policy making that will benefit all children in the city. As such, we bring a diverse range of perspectives to this issue which are relevant to the national government's ambitions.
 
-This paper will proceed with a brief review of the recent literature on secondary school attainment in England covering the received wisdom on the drivers of outcomes and identifying relevant gaps and challenges with this work in a policy context and informing our analysis section. We will then give an overview of the background to secondary schools, attainment and other relevant context for our case study city. This will be followed by an outline of the open data available from the Department for Education and a demonstration of the attainment-relevant insights that can be gained through the application of linear mixed effects models. We will then take time to show how new AI tools can be brought to bear to facilitate a more practical understanding of the outputs and how these can all be reconfigured into a dynamic policy tool allowing policy makers and school teams to understand the levels at their disposal and the potential impacts that can be expected. We will conclude with a synthesis and a set of recommendations.
+This paper will proceed with a review of the recent literature on secondary school attainment in England covering the received wisdom on the drivers of outcomes and identifying relevant gaps and challenges with this work in a policy context and informing our analysis section. We will then give an overview of the background to secondary schools, attainment and other relevant context for our case study city. This will be followed by an outline of the open data available from the Department for Education and a demonstration of the attainment-relevant insights that can be gained through the application of linear mixed effects models. We will then take time to show how new AI tools can be brought to bear to facilitate a more practical understanding of the outputs and how these can all be reconfigured into a dynamic policy tool allowing policy makers and school teams to understand the levels at their disposal and the potential impacts that can be expected. We will conclude with a synthesis and a set of recommendations.
 
 # Literature Review
 
@@ -700,14 +700,24 @@ full_table <- bind_rows(
 )
 
 # ---- Render ----
-full_table %>%
-  kable(align = "lrrrrrrr") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 11) %>%
-  pack_rows("Outcome", 1, 3) %>%
-  pack_rows("School composition", 4, 8) %>%
-  pack_rows("Segregation (LA-level)", 9, 9) %>%
-  pack_rows("Workforce", 10, 12)
+if (knitr::is_latex_output()) {
+  full_table %>%
+    kbl(format = "latex", align = "lrrrrrrr", booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 7, latex_options = c("hold_position", "scale_down")) %>%
+    pack_rows("Outcome", 1, 3) %>%
+    pack_rows("School composition", 4, 8) %>%
+    pack_rows("Segregation (LA-level)", 9, 9) %>%
+    pack_rows("Workforce", 10, 12)
+} else {
+  full_table %>%
+    kable(align = "lrrrrrrr") %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 11) %>%
+    pack_rows("Outcome", 1, 3) %>%
+    pack_rows("School composition", 4, 8) %>%
+    pack_rows("Segregation (LA-level)", 9, 9) %>%
+    pack_rows("Workforce", 10, 12)
+}
 ```
 
 Our model is an extension of a standard linear regression model known as a linear mixed effects model — and in this case we use a multi-level specification where we have schools nested within LEAs which exist within wider English Regions. Linear mixed effects models (LMEs) offer several advantages over standard ordinary least squares (OLS) regression when data have this hierarchical or nested structure [@Snijders2012]. For example, OLS regression assumes that all observations are independent, an assumption that is violated when individuals share a common context — pupils within the same school, for instance. We are not analysing pupil-level data, but in our example, schools within LEAs / regions or within the same Ofsted grade banding or assessment year might be more similar to each other within rather LMEs address this by explicitly modelling the variance at each level of the hierarchy through the inclusion of these grouping variables or 'random effects'. The effect is more correctly-adjusted standard errors and more reliable inference.
@@ -1037,7 +1047,7 @@ if (knitr::is_html_output()) {
 } else {
   kbl(full_tbl, format = "latex", align = "lrlrlrlrlrl", escape = FALSE,
       booktabs = TRUE, linesep = "") %>%
-    kable_styling(font_size = 8, latex_options = "hold_position") %>%
+    kable_styling(font_size = 7, latex_options = c("hold_position", "scale_down")) %>%
     add_header_above(c(" " = 1,
                         "Model 1: FSM only" = 2,
                         "Model 2: + Absence" = 2,
@@ -1564,12 +1574,20 @@ bh_row <- which(grepl("Brighton", abs_wide$LANAME))
 
 names(abs_wide)[1] <- "Local Authority"
 
-abs_wide %>%
-  kable(format = tbl_fmt,
+if (knitr::is_latex_output()) {
+  abs_wide %>%
+    kbl(format = "latex", booktabs = TRUE, linesep = "",
         align = paste0("l", paste(rep("r", length(all_years)), collapse = ""))) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 10) %>%
-  row_spec(bh_row, bold = TRUE, background = "#fce4f1")
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down")) %>%
+    row_spec(bh_row, bold = TRUE)
+} else {
+  abs_wide %>%
+    kable(format = tbl_fmt,
+          align = paste0("l", paste(rep("r", length(all_years)), collapse = ""))) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 10) %>%
+    row_spec(bh_row, bold = TRUE, background = "#fce4f1")
+}
 ```
 
 As @tbl-absence shows, Brighton and Hove had the 2nd worst absence rate in England in 2024-25 — it was in the top 10 in two of the other three years where we have data. The direction of travel is, if anything, deteriorating.
@@ -1593,9 +1611,14 @@ nat_table <- above_nat_abs %>%
   select(School, `Current % Absence`, `National Average (Target)`, 
          `Reduction needed (pp)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
 
-knitr::kable(nat_table, format = tbl_fmt) %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
-                            full_width = FALSE, font_size = 10)
+if (knitr::is_latex_output()) {
+  kbl(nat_table, format = "latex", booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down"))
+} else {
+  knitr::kable(nat_table, format = tbl_fmt) %>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                              full_width = FALSE, font_size = 10)
+}
 ```
 
 8 out of 10 Brighton & Hove schools currently have absence above the national average. The potential gains for the schools with the highest absence rates are substantial — 3 to 5 GCSE points. Across these schools, achieving the national average would produce predicted gains averaging +2.9 Attainment 8 points per school. For disadvantaged pupils, the gains would be even larger — an average of +3.3 Attainment 8 points — because the absence coefficient is larger for disadvantaged pupils. Closing the absence gap to the national average would therefore simultaneously raise overall attainment and narrow the disadvantage gap.
@@ -1623,9 +1646,14 @@ scenario_table <- high_fsm_schools %>%
   select(School, `Current % FSM`, `Target % FSM`,
          `Change in log(FSM)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
 
-knitr::kable(nat_table, format = tbl_fmt) %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
-                            full_width = FALSE, font_size = 10)
+if (knitr::is_latex_output()) {
+  kbl(nat_table, format = "latex", booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down"))
+} else {
+  knitr::kable(nat_table, format = tbl_fmt) %>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                              full_width = FALSE, font_size = 10)
+}
 
 avg_fsm_gain <- mean(high_fsm_schools$att8_point_change, na.rm = TRUE)
 
@@ -1846,14 +1874,20 @@ panel_all_wide <- panel_all %>%
 panel_all_display <- panel_all_wide %>%
   mutate(across(where(is.numeric) & !matches("Rank"), ~ format_resid(.x)))
 
-knitr::kable(panel_all_display,
-             format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
-             caption = "",
-             align = c("r", "l", rep("r", ncol(panel_all_display) - 2))) %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                            full_width = FALSE, font_size = 10) %>%
-  kableExtra::column_spec(ncol(panel_all_display),
-                          bold = TRUE, background = "#f5f5f5")
+if (knitr::is_latex_output()) {
+  kbl(panel_all_display, format = "latex", booktabs = TRUE, linesep = "", escape = FALSE,
+      align = c("r", "l", rep("r", ncol(panel_all_display) - 2))) %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down")) %>%
+    column_spec(ncol(panel_all_display), bold = TRUE)
+} else {
+  knitr::kable(panel_all_display,
+               format = "html", escape = FALSE, caption = "",
+               align = c("r", "l", rep("r", ncol(panel_all_display) - 2))) %>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                              full_width = FALSE, font_size = 10) %>%
+    kableExtra::column_spec(ncol(panel_all_display),
+                            bold = TRUE, background = "#f5f5f5")
+}
 ```
 
 ```{r tbl-league-dis}
@@ -1879,14 +1913,20 @@ panel_dis_wide <- panel_dis %>%
 panel_dis_display <- panel_dis_wide %>%
   mutate(across(where(is.numeric) & !matches("Rank"), ~ format_resid(.x)))
 
-knitr::kable(panel_dis_display,
-             format = if (knitr::is_html_output()) "html" else "pipe", escape = FALSE,
-             caption = "",
-             align = c("r", "l", rep("r", ncol(panel_dis_display) - 2))) %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                            full_width = FALSE, font_size = 10) %>%
-  kableExtra::column_spec(ncol(panel_dis_display),
-                          bold = TRUE, background = "#f5f5f5")
+if (knitr::is_latex_output()) {
+  kbl(panel_dis_display, format = "latex", booktabs = TRUE, linesep = "", escape = FALSE,
+      align = c("r", "l", rep("r", ncol(panel_dis_display) - 2))) %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down")) %>%
+    column_spec(ncol(panel_dis_display), bold = TRUE)
+} else {
+  knitr::kable(panel_dis_display,
+               format = "html", escape = FALSE, caption = "",
+               align = c("r", "l", rep("r", ncol(panel_dis_display) - 2))) %>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                              full_width = FALSE, font_size = 10) %>%
+    kableExtra::column_spec(ncol(panel_dis_display),
+                            bold = TRUE, background = "#f5f5f5")
+}
 ```
 
 The residuals are measured in raw GSCE point-score terms and show, on average, how disadvantaged and non-disadvantaged pupils fare in Attainment 8 terms, compared to other schools with similar profiles in England and Wales. To re-iterate, this is not a raw-attainment table, but an indication of the value-added (or taken away) by that school compared to their peers in different LEAs, nationally.
@@ -1911,7 +1951,9 @@ One thing other schools in the city certainly could learn from Patcham High Scho
 
 ### The Danger of Single-Lever Policy Thinking
 
-The Brighton and Hove experience illustrates what can happen when policy makers latch onto a single causal narrative and design interventions around it to the exclusion of other — potentially more impactful — factors. The council's 2024 proposals were built almost entirely on the premise that attainment in the city was "driven by economic advantage" and that redistributing disadvantaged pupils more evenly across the city's schools would narrow the attainment gap. While this premise is false in the context of the DfE's own research [@macleod_supporting_2015], our more up-to-date modelling confirms this was at best an incomplete understanding. At worst a policy with many losers and few clear winners.
+The Brighton and Hove experience illustrates what happens when policy makers latch onto a single causal narrative. The council's 2024 proposals were built almost entirely on the premise that redistributing disadvantaged pupils would narrow the attainment gap. In the consultation papers released to the public[^consultation], it was stated *"We also know that children from disadvantaged homes are less likely to do well at school and that can be made worse when more disadvantaged children all go to school together. We are looking at options for how we can help the city manage that issue better, including through our school admissions arrangements."* While this premise is false in the context of @macleod_supporting_2015's analysis for the DfE, our more up-to-date modelling confirms this was, at best, a flawed understanding; at worst a policy with many losers and few clear winners. 
+
+[^consultation]: Brighton and Hove Council 2024 Consultation Papers can be downloaded from here: <https://yourvoice.brighton-hove.gov.uk/en-GB/projects/school-admission-arrangements-public-consultation/1>
 
 As we have shown, concentrations of disadvantage are one of the weaker levers available for influencing school-level Attainment 8 — and for disadvantaged pupils specifically, the direction of the effect runs contrary to the assumptions underpinning the policy. Once absence and low prior attainment are accounted for, the residual direct effect of altering the social mix in schools is modest. As @fig-accelerating-returns makes concrete: reducing absence to the national average at the city's worst-affected schools could yield gains of 3–5 GCSE points, whereas even dramatic reductions in concentrations of disadvantage — halving the FSM proportion at BACA, for example — would yield gains closer to 1–2 points, but crucially, probably not for the disadvantaged pupils. The policy as designed was pulling a lever with relatively little mechanical advantage while ignoring one with considerably more.
 
@@ -2005,12 +2047,20 @@ simulator_tabs <- tribble(
   "Model Info", "Technical detail: model coefficients, fit statistics, diagnostics, and caveats. Useful for understanding the model's strengths and limitations."
 )
 
-simulator_tabs %>%
-  kable(align = "ll") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
-                full_width = FALSE, font_size = 11) %>%
-  column_spec(1, bold = TRUE, width = "10em") %>%
-  column_spec(2, width = "40em")
+if (knitr::is_latex_output()) {
+  simulator_tabs %>%
+    kbl(format = "latex", booktabs = TRUE, linesep = "") %>%
+    kable_styling(font_size = 8, latex_options = c("hold_position")) %>%
+    column_spec(1, bold = TRUE, width = "3cm") %>%
+    column_spec(2, width = "12cm")
+} else {
+  simulator_tabs %>%
+    kable(align = "ll") %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 11) %>%
+    column_spec(1, bold = TRUE, width = "10em") %>%
+    column_spec(2, width = "40em")
+}
 ```
 
 The tool allows for the easy visualisation of descriptive raw and modelled statistics at both the local authority and school levels. Perhaps most usefully for school leaders and policy makers, the simulator tab allows users to select a school and using the coefficients and linear or log-linear associations with the predictors used in the model, adjust sliders to see how changes in these variables might impact the attainment of all pupils, disadvantaged and non-disadvantaged pupils, at the school level.
