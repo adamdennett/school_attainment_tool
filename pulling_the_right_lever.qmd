@@ -1659,10 +1659,10 @@ scenario_table <- high_fsm_schools %>%
          `Change in log(FSM)`, `Predicted ATT8 change (%)`, `≈ ATT8 points`)
 
 if (knitr::is_latex_output()) {
-  kbl(nat_table, format = "latex", booktabs = TRUE, linesep = "") %>%
+  kbl(scenario_table, format = "latex", booktabs = TRUE, linesep = "") %>%
     kable_styling(font_size = 8, latex_options = c("hold_position", "scale_down"))
 } else {
-  knitr::kable(nat_table, format = tbl_fmt) %>%
+  knitr::kable(scenario_table, format = tbl_fmt) %>%
     kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
                               full_width = FALSE, font_size = 10)
 }
