@@ -393,7 +393,7 @@ Attendance is the strongest individual predictor and perhaps the **ultimate equi
 #| label: fig-catchments
 
 optionZ <- st_read(
-  "E:/BH_Schools_Consultation/data/optionZ_Mar25.geojson", quiet = TRUE
+  here::here("data", "optionZ_Mar25.geojson"), quiet = TRUE
 ) %>% st_transform(4326)
 
 catchment_colours <- c(
