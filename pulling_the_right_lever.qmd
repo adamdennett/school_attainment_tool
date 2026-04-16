@@ -5,9 +5,6 @@ author:
   - name: Adam Dennett
     affiliations:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
-  - name: Dan Campbell-Meiklejohn
-    affiliations:
-      - name: School of Psychology, University of Sussex
 date: today
 format:
   html:
@@ -2103,7 +2100,7 @@ Our case study of Brighton and Hove — motivated by experiences of the 2024 and
 
 # CRediT authorship contribution statement {.unnumbered}
 
-**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing.
+**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration.
 
 # Declaration of generative AI use {.unnumbered}
 
