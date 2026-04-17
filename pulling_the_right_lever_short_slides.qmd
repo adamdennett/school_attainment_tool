@@ -189,6 +189,21 @@ r2_dis <- performance::r2(mod_e_disadv)
 r2_non <- performance::r2(mod_e_nondisadv)
 ```
 
+## Headlines
+
+::: {.incremental}
+
+- Over the last 4-years, after accounting for structural factors, Brighton and Hove ranks (out of 152 LEAs):
+  -  **7th BEST** for Disadvantaged GCSE Attainment 
+  -  **5th BEST** for Non-Disadvantaged GCSE Attainment
+- Last year, Brighton and Hove was **2nd WORST** for absence. 
+- GCSE Attainment is very predictable at School Level - 80% variation explained by a handful of variables
+- The biggest factor affecting disadvantaged student attainment is absence
+- Data shows disadvantaged students in England do better in schools with more disadvantaged students in
+- Poor understanding of evidence --> poor policy --> poor parental choices
+
+:::
+
 # Motivation {background-color="#3A1857" .divider-slide}
 
 ## The problem
@@ -203,7 +218,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 - A crucial gap exists between **open data availability** and **accessible, contextualised intelligence**
 
-- This paper is motivated by **direct experience** of policy development in Brighton and Hove in 2024--25
+- This research is motivated by **direct experience** of policy development in Brighton and Hove in 2024--25
 
 :::
 
@@ -222,19 +237,21 @@ r2_non <- performance::r2(mod_e_nondisadv)
 ::::
 
 
-## What drives attainment at GCSE? The literature
+## What drives attainment at GCSE? The literature {.smaller}
 
 ::: {.incremental}
 
-- **Attendance**: strongest predictor — persistently absent pupils: 36% pass rate vs 84% for full attenders
+- **Attendance**: strongest predictor — persistently absent pupils: 36% pass rate vs 84% for full attenders [@DfE2022; @DfE2025a]
 
-- **Prior attainment** at KS2: reflects accumulated earlier inequalities
+- **Prior attainment** at KS2: reflects accumulated earlier inequalities [@gorard_how_2019; @StopforthGayle2025]
 
-- **Disadvantage** (FSM): some residual effect remains after accounting for above. Gap narrowed post-2011, reversed post-COVID
+- **Disadvantage** (FSM): some residual effect remains after accounting for above. Gap narrowed post-2011, reversed post-COVID [@Tuckett2023]
 
-- **Workforce**: leadership quality, teacher retention, and teacher sickness matter — especially for disadvantaged pupils
+- **Workforce**: leadership quality, teacher retention, and teacher sickness matter — especially for disadvantaged pupils [@Zuccollo2023; @Gibbons2018; @Menzies2023]
 
-- **Selectivity**: creams-off rather than improves - grammar school premium largely disappears after SES controls
+- **Selectivity**: creams-off rather than improves - grammar school premium largely disappears after SES controls [@gorard_how_2019; @Gorard2022a; @Anders2024]
+
+- **Individual Pupil characteristics** [@OConnellMarks2022; @houtepen_associations_2020]
 
 :::
 
@@ -246,6 +263,13 @@ The factors are **multifaceted, complex and interrelated**. What's needed is an 
 
 
 # Data and Model {background-color="#3A1857" .divider-slide}
+
+## What is the 'model'?
+
+- Statistical explanation of how GCSE Attainment varies between schools after accounting for things we know affect attainment
+- Raw league tables compare finishing positions, our model adjusts for the wind
+
+![](slides_assets/headwind.png){width="100%"}
 
 ## Model specification {.smaller}
 
@@ -760,7 +784,7 @@ Bringing absence to the national average → predicted gains of **3--5 GCSE poin
 :::
 
 
-## Observed vs predicted: all schools nationally (2024--25)
+## Observed vs predicted: disadvantaged pupils nationally (2024--25)
 
 ```{r}
 #| label: fig-obs-pred-slide
@@ -771,16 +795,12 @@ latest_yr <- max(bh_data$year_label, na.rm = TRUE)
 national_2425 <- imputed_full_data %>%
   filter(year_label == latest_yr) %>%
   mutate(
-    pred_all = predict(mod_e_all, newdata = ., allow.new.levels = TRUE),
     pred_dis = predict(mod_e_disadv, newdata = ., allow.new.levels = TRUE),
-    pred_non = predict(mod_e_nondisadv, newdata = ., allow.new.levels = TRUE),
     is_bh = grepl("Brighton", LANAME)
   )
 
 outcomes <- list(
-  list(obs = "ATT8SCR", pred = "pred_all", label = "All Pupils"),
-  list(obs = "ATT8SCR_FSM6CLA1A", pred = "pred_dis", label = "Disadvantaged"),
-  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "pred_non", label = "Non-Disadvantaged"))
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "pred_dis", label = "Disadvantaged"))
 
 nat_long <- map_dfr(outcomes, function(o) {
   national_2425 %>%
@@ -789,7 +809,7 @@ nat_long <- map_dfr(outcomes, function(o) {
               Observed = .data[[o$obs]], Predicted = exp(.data[[o$pred]]),
               is_bh = is_bh)
 }) %>%
-  mutate(Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged")))
+  mutate(Group = factor(Group, levels = c("Disadvantaged")))
 
 rng <- range(c(nat_long$Observed, nat_long$Predicted), na.rm = TRUE)
 rng <- c(max(0, rng[1] - 2), rng[2] + 2)
@@ -801,7 +821,7 @@ ggplot(nat_long, aes(x = Predicted, y = Observed)) +
   geom_point(data = bh_points, colour = "#ED357D", size = 2.5, alpha = 0.9) +
   geom_text_repel(data = bh_points, aes(label = School), colour = "#993AFF",
     size = 2.8, max.overlaps = 20, force = 6, segment.colour = "grey50", segment.size = 0.3) +
-  facet_wrap(~ Group, ncol = 3) +
+  facet_wrap(~ Group, ncol = 1) +
   coord_cartesian(xlim = rng, ylim = rng) +
   labs(x = "Predicted ATT8", y = "Observed ATT8",
        title = "Observed vs Predicted — Brighton & Hove highlighted") +
