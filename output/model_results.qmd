@@ -123,6 +123,59 @@ Academies account for ~80% of the losses. See the
 in the Model Experiments report for a full breakdown.
 :::
 
+# Measuring Model Fit: Marginal and Conditional R²
+
+Throughout this report we summarise the goodness-of-fit of each mixed-effects model using two quantities: **marginal R²** ($R^2_m$) and **conditional R²** ($R^2_c$). These are not the default fit statistics most readers will encounter in linear mixed-effects modelling, so this short section explains what they are, how they are calculated, and how they relate to the measures that are more commonly reported (log-likelihood, AIC, BIC, ICC).
+
+## Why not just use the ordinary R²?
+
+In ordinary least-squares regression, $R^2$ is unambiguous: it is the proportion of variance in the outcome explained by the fitted model, $1 - \mathrm{SS}_{\text{resid}}/\mathrm{SS}_{\text{total}}$. The intuition — "the model explains $X\%$ of the variation" — is easy to communicate to a non-technical audience, which is why it remains so widely used.
+
+In a linear mixed-effects model (LMM), this simple decomposition breaks down. The total variance in the outcome is no longer split neatly between "explained by the model" and "residual": it is partitioned into a **fixed-effects** component, one or more **random-effects** components (here: year, Ofsted rating, region, and local authority), and a residual. There is no single residual sum of squares to compare against, and naïvely plugging LMM predictions into the OLS formula gives a number that can misbehave (e.g. exceed 1, or decrease when predictors are added). For this reason, LMM output from `lme4` reports likelihood-based fit measures — **log-likelihood**, **AIC**, **BIC**, **deviance**, **REML criterion** — rather than an $R^2$. These are excellent for *comparing* nested or non-nested models, but they are not on the "percent of variance explained" scale and therefore do not translate easily for readers accustomed to OLS.
+
+## The Nakagawa & Schielzeth decomposition
+
+[Nakagawa and Schielzeth (2013)](https://doi.org/10.1111/j.2041-210x.2012.00261.x), extended by [Nakagawa, Johnson and Schielzeth (2017)](https://doi.org/10.1098/rsif.2017.0213), provide a variance-partitioning definition of $R^2$ that does generalise to mixed models. The total variance is decomposed as:
+
+$$
+\sigma^2_{\text{total}} \;=\; \underbrace{\sigma^2_f}_{\text{fixed effects}} \;+\; \underbrace{\textstyle\sum_{k} \sigma^2_{u_k}}_{\text{random effects}} \;+\; \underbrace{\sigma^2_{\varepsilon}}_{\text{residual}}
+$$
+
+where $\sigma^2_f = \mathrm{var}(\mathbf{X}\boldsymbol{\beta})$ is the variance of the linear predictor from the **fixed** effects alone, $\sigma^2_{u_k}$ is the variance component estimated for each **random** intercept (here: year, Ofsted, region, LA-within-region), and $\sigma^2_{\varepsilon}$ is the residual variance. From this, two $R^2$ quantities follow naturally:
+
+$$
+R^2_m \;=\; \frac{\sigma^2_f}{\sigma^2_f + \sum_k \sigma^2_{u_k} + \sigma^2_{\varepsilon}}
+\qquad\qquad
+R^2_c \;=\; \frac{\sigma^2_f + \sum_k \sigma^2_{u_k}}{\sigma^2_f + \sum_k \sigma^2_{u_k} + \sigma^2_{\varepsilon}}
+$$
+
+- **Marginal R² ($R^2_m$)** is the share of total variance explained by the **fixed effects only** — i.e. by the predictors (Ofsted rating, FSM, EAL, teacher sickness, etc.). It answers: *"How much of the between-school variation can I attribute to the measured characteristics of the school?"*
+- **Conditional R² ($R^2_c$)** is the share of total variance explained by the **fixed and random effects together** — i.e. by the predictors *plus* the structural grouping (year, Ofsted, region, LA). It answers: *"How much of the variation can I account for once I also allow systematic differences between years, regions, and local authorities?"*
+
+By construction, $R^2_c \geq R^2_m$, and the **difference $R^2_c - R^2_m$** is the share of variance absorbed by the random effects — i.e. by the grouping structure itself. This is conceptually very close to the **intraclass correlation coefficient (ICC)**, which is a common LMM summary: in a model with a single random intercept and no fixed effects, $R^2_c - R^2_m$ reduces exactly to the ICC.
+
+All $R^2$ values reported in this document are computed with `performance::r2()`, which implements the Nakagawa & Schielzeth definitions above.
+
+## How this relates to the fit measures usually reported for LMMs
+
+| Measure | What it tells you | Best used for | Limitation |
+|---|---|---|---|
+| **Log-likelihood / REML criterion** | Fit of the model to the data, on the likelihood scale | Formal tests (likelihood-ratio tests for nested models) | Not on a "% explained" scale; scale-dependent |
+| **AIC / BIC** | Likelihood penalised for model complexity | Comparing candidate models (lower = better) | Relative only — no absolute interpretation |
+| **Residual variance ($\sigma^2_{\varepsilon}$)** | Unexplained variance after fixed + random effects | Diagnostics; combined with random variances to form ICC / $R^2$ | Not standardised |
+| **ICC** | Share of residual variance attributable to a grouping level | Quantifying clustering (e.g. how school-like are schools within an LA?) | Defined per random effect; no fixed-effects contribution |
+| **Marginal R² ($R^2_m$)** | Variance explained by **fixed effects only** | Communicating the predictive value of the measured variables | Ignores the grouping structure |
+| **Conditional R² ($R^2_c$)** | Variance explained by **fixed + random effects** | Communicating the full explanatory reach of the model | Includes structural variation the analyst did not directly measure |
+
+In practice, AIC/BIC and likelihood-ratio tests are what one uses to *choose between* model specifications; $R^2_m$ and $R^2_c$ are what one uses to *communicate how much* of the outcome the chosen model accounts for. The two roles are complementary rather than competing, and both are reported throughout the fit tables that follow.
+
+## How to read the numbers in this report
+
+When inspecting a fit table for any of the models below, the two most useful quick reads are:
+
+1. **$R^2_m$** — a large marginal R² means the measured school-level predictors (FSM, EAL, Ofsted band, teacher sickness, etc.) themselves account for a lot of the variation in attainment. If $R^2_m$ is small, the fixed-effect story is weak even if overall fit looks good.
+2. **$R^2_c - R^2_m$** — the *gap* between conditional and marginal R² tells you how much additional variance is soaked up by the random-effects structure (year, Ofsted, region, LA). A large gap indicates that *where* and *when* a school sits matters substantially over and above its measured characteristics; a small gap indicates the fixed effects are doing most of the work.
+
 # Panel Models (Analysis A)
 
 The panel models pool all four academic years, with `year_label` entering as a random intercept alongside Ofsted rating and local authority (nested within region). This specification treats year-to-year variation as a variance component rather than a fixed trend.
