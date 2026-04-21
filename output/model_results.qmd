@@ -156,6 +156,17 @@ By construction, $R^2_c \geq R^2_m$, and the **difference $R^2_c - R^2_m$** is t
 
 All $R^2$ values reported in this document are computed with `performance::r2()`, which implements the Nakagawa & Schielzeth definitions above.
 
+### Isn't this just the squared correlation between observed and fitted values?
+
+A reasonable first instinct — and the one that gives the "right answer" in OLS — is to simply produce fitted values $\hat{y}$ from the model and compute $\mathrm{cor}(y, \hat{y})^2$. In an ordinary linear regression this reproduces $R^2$ exactly. In a linear mixed-effects model it *approximates* the Nakagawa quantities but is not the same thing, and the differences are worth being explicit about:
+
+- **Which fitted values?** An LMM has two natural flavours of prediction. The **marginal prediction** uses fixed effects only, $\hat{y}_{\text{marg}} = \mathbf{X}\hat{\boldsymbol{\beta}}$; the **conditional prediction** adds the random-effect contributions (the BLUPs), $\hat{y}_{\text{cond}} = \mathbf{X}\hat{\boldsymbol{\beta}} + \mathbf{Z}\hat{\mathbf{u}}$. Squaring the correlation with observed $y$ therefore gives you two different numbers depending on which you use — there is no single "fitted value" the way there is in OLS. $R^2_m$ and $R^2_c$ correspond (roughly) to these two cases.
+- **Variance components vs. sample variances.** The Nakagawa definition uses the *model-estimated* variance components ($\sigma^2_f$, $\sigma^2_{u_k}$, $\sigma^2_{\varepsilon}$) in the denominator, whereas $\mathrm{cor}(y, \hat{y})^2$ uses the *empirical* variance of the observed $y$. If the model is well-specified these are similar, but they will not be identical in finite samples.
+- **Shrinkage bites the conditional version.** The random-effect predictions $\hat{\mathbf{u}}$ returned by `lme4` are BLUPs — best *linear unbiased predictors*, which are deliberately shrunk toward zero for groups with little data. As a result, $\mathrm{var}(\mathbf{Z}\hat{\mathbf{u}})$ is systematically **smaller** than the estimated random-effect variance $\sum_k \sigma^2_{u_k}$. Computing $\mathrm{cor}(y, \hat{y}_{\text{cond}})^2$ therefore tends to **under**-state the full explanatory reach of the model relative to $R^2_c$. Nakagawa's $R^2_c$ sidesteps this by using the raw variance components directly.
+- **For the marginal version, the two are very close.** $\mathrm{cor}(y, \mathbf{X}\hat{\boldsymbol{\beta}})^2$ and $R^2_m$ will usually agree to within rounding when the model is well-specified and the sample is large, because no shrinkage issue arises for the fixed-effects prediction.
+
+So the squared correlation is a perfectly sensible back-of-the-envelope sanity check — and you will see it used in some of the observed-vs-predicted plots later in this report — but it is not a substitute for the variance-partitioning $R^2_m$ / $R^2_c$, which have a clean, theoretically grounded decomposition and behave predictably as predictors and random effects are added to the model.
+
 ## How this relates to the fit measures usually reported for LMMs
 
 | Measure | What it tells you | Best used for | Limitation |
