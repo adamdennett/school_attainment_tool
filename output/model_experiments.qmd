@@ -3556,6 +3556,107 @@ Schools where `vadd_M2` is high *and* `resid_abs_pp` is negative are doing well 
 :::
 
 
+## Worked examples: reading the B&H combined view school-by-school
+
+To make the combined view concrete, here are worked readings for the city's secondaries, grouped to highlight the different combinations of value-added and attendance management. Numbers below are pulled programmatically from `bh_local_view` so they stay in sync with the model fit.
+
+```{r bh-worked-examples}
+#| label: bh-worked-examples
+#| output: asis
+
+# Helper: pull a single school's row by partial name match, return a list
+get_school <- function(pattern) {
+  row <- bh_local_view %>% filter(grepl(pattern, SCHNAME, ignore.case = TRUE))
+  if (nrow(row) == 0) return(NULL)
+  if (nrow(row) > 1) row <- row %>% slice(1)
+  list(
+    name      = row$SCHNAME,
+    vadd_M1   = row$vadd_M1,
+    vadd_M2   = row$vadd_M2,
+    obs_abs   = row$mean_obs_abs,
+    exp_abs   = row$mean_expected_abs,
+    resid_pp  = row$resid_abs_pp,
+    swing     = row$absence_implied_att8_swing
+  )
+}
+
+# Helper: format a value-added comment
+va_label <- function(v) {
+  if (is.na(v)) return("data missing")
+  if (v >  1.5) return(sprintf("strongly positive (+%.1f pts)", v))
+  if (v >  0.3) return(sprintf("positive (+%.1f pts)",          v))
+  if (v > -0.3) return(sprintf("around zero (%.1f pts)",        v))
+  if (v > -1.5) return(sprintf("negative (%.1f pts)",           v))
+  return(             sprintf("strongly negative (%.1f pts)",   v))
+}
+
+# Helper: format an absence comment
+abs_label <- function(pp) {
+  if (is.na(pp)) return("data missing")
+  if (pp >  1.5) return(sprintf("substantially worse than predicted (+%.1f pp)", pp))
+  if (pp >  0.4) return(sprintf("worse than predicted (+%.1f pp)",                pp))
+  if (pp > -0.4) return(sprintf("close to predicted (%.1f pp)",                   pp))
+  if (pp > -1.5) return(sprintf("better than predicted (%.1f pp)",                pp))
+  return(             sprintf("substantially better than predicted (%.1f pp)",   pp))
+}
+
+cat_school <- function(s, lead = "") {
+  if (is.null(s)) return(invisible(NULL))
+  cat(sprintf("- **%s** --- value-added %s; absence %s (observed %.1f%%, intake-predicted %.1f%%).%s\n",
+              s$name,
+              va_label(s$vadd_M2),
+              abs_label(s$resid_pp),
+              s$obs_abs, s$exp_abs,
+              if (nzchar(lead)) paste0(" ", lead) else ""))
+}
+
+varndean   <- get_school("Varndean")
+kings      <- get_school("^King")
+baca       <- get_school("Aldridge.*Brighton|Brighton.*Aldridge|^Brighton Aldridge")
+paca       <- get_school("Portslade.*Aldridge|Aldridge.*Portslade")
+stringer   <- get_school("Stringer")
+cardinal   <- get_school("Cardinal Newman")
+blatch     <- get_school("Blatchington")
+longhill   <- get_school("Longhill")
+hovepark   <- get_school("Hove Park")
+patcham    <- get_school("Patcham")
+
+cat("### Two similar profiles: Varndean and King's\n\n")
+cat("These two are often spoken about in the same breath in city debates. The combined view shows whether they really do behave alike on both signals.\n\n")
+cat_school(varndean)
+cat_school(kings)
+cat("\nIf both schools land in the same value-added range *and* the same residual-absence range, the popular twinning is empirically reasonable. If one has materially better attendance management than the other given its intake, that is a real difference behind the apparent similarity.\n\n")
+
+cat("### High-FSM city schools: BACA, PACA and the rest of the picture\n\n")
+cat("BACA and PACA both serve more disadvantaged catchments than the city average, which is the kind of intake stage 1 is built to expect higher absence from. The decomposition tells us how each school is performing relative to that expectation.\n\n")
+cat_school(baca,    "If `vadd_M2` is positive, BACA is adding attainment value over and above what its intake predicts (the headline finding from the main paper). The absence reading then says whether that value-added comes through unusually good attendance management or despite an attendance profile that is harder to shift.")
+cat_school(paca,    "PACA's reading sits alongside BACA's --- if both have positive `vadd_M2` the city has *two* high-FSM schools punching above their weight. Differences in `resid_abs_pp` between them say whether they get there through different routes (e.g. one through attendance, one despite it).")
+cat_school(stringer,   "Dorothy Stringer is the canonical 'desirable' city school. The interesting question is whether its attainment record sits comfortably *above* its intake-predicted attainment (large positive `vadd_M2`) or close to it (around-zero `vadd_M2`) --- the latter would mean its raw attainment is largely intake-driven rather than school-driven.")
+cat_school(cardinal,   "Cardinal Newman has a faith-school admissions profile that often draws a different intake mix from the local catchment. A positive `vadd_M2` paired with negative `resid_abs_pp` would suggest the school's apparent strength rests partly on better attendance management than its intake would predict.")
+cat_school(blatch,     "Blatchington Mill is a good test case for the joint signal: a large central catchment school where the question is whether its size and position translate into above-expected outcomes once intake is properly accounted for.")
+
+cat("\n### A high-absence pair: Longhill and Hove Park\n\n")
+cat("Both schools have featured in city debates around absence. The combined view tells us whether their high observed absence is mostly intake-driven (and so largely outside the school's day-to-day control) or whether the school is contributing to it.\n\n")
+cat_school(longhill)
+cat_school(hovepark)
+cat("\nFor either school, a positive `resid_abs_pp` says the school is running higher absence than even its (already-disadvantaged) intake would predict --- attendance is then the cleanest single lever for local intervention. A near-zero `resid_abs_pp` says the headline absence number is largely structural and the school is doing about what its intake predicts on attendance.\n\n")
+
+cat("### A negative-negative case: Patcham\n\n")
+cat_school(patcham)
+cat("\nIf both signals are negative, Patcham's mid-table raw position hides a value-added signal that is *worse* than its intake predicts, and its observed absence is *better* than predicted given intake. The two signals point in different directions: attendance is being managed unusually well, but the attainment outcome is still falling short of what the intake would imply. That is the most awkward combination for a school to face --- it cannot point at attendance as the underlying problem, and the gap shows up most clearly when the value-added is computed under the M2 specification (which gives credit for the better-than-predicted attendance).\n")
+```
+
+::: {.callout-tip}
+## Why these worked examples matter
+
+The pairings above illustrate why the *joint* reading is more informative than either signal alone:
+
+- **Two schools with the same value-added** can have very different residual-absence stories --- one earning its value-added through attendance management, the other through pedagogy *despite* attendance.
+- **Two schools with similar high observed absence** can split between "the absence is what we'd predict from this intake" (structural) and "the absence is worse than the intake predicts" (school-controllable). Only the second is a clean attendance-policy target.
+- **A negative-negative case** like Patcham complicates simple reform narratives: a school that handles attendance well but underperforms on attainment cannot be "fixed" through attendance interventions, and the next-most-likely lever (curriculum, pedagogy, leadership) is harder for an LA to act on directly.
+:::
+
+
 ## Per-year breakdown: does the decomposition behave differently year-on-year?
 
 The models above pool all four years (2021-22 to 2024-25) and absorb between-year shifts via a year-level random intercept. But absence rose sharply during and after the pandemic, and the relationship between intake and absence may itself have changed across years. This sub-section refits stages 1 and 2 separately within each year and reports how the key quantities move.
