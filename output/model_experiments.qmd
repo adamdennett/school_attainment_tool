@@ -3556,104 +3556,166 @@ Schools where `vadd_M2` is high *and* `resid_abs_pp` is negative are doing well 
 :::
 
 
-## Worked examples: reading the B&H combined view school-by-school
+## Worked examples: reading the joint signal across Brighton & Hove's schools
 
-To make the combined view concrete, here are worked readings for the city's secondaries, grouped to highlight the different combinations of value-added and attendance management. Numbers below are pulled programmatically from `bh_local_view` so they stay in sync with the model fit.
+The framing principle is simple. Under M2, `vadd_M2` measures what the school contributes to attainment over and above what its intake would predict --- with attendance management already credited to the school. `resid_abs_pp` then isolates how much of that attendance management is the school's own work as opposed to a structural feature of its intake. Reading the two side by side answers the question that a single value-added residual hides: **how much of a school's strength or weakness comes through attendance management, and how much comes through everything else?**
 
-```{r bh-worked-examples}
-#| label: bh-worked-examples
+Sorted on the two signals, Brighton & Hove's secondaries fall into four meaningful groups, each telling a different policy story.
+
+```{r bh-classify}
+#| label: bh-classify
+#| include: false
+
+# Programmatic classification of named B&H schools into four quadrants
+school_patterns <- list(
+  "Varndean"           = "Varndean",
+  "King's"             = "^King",
+  "BACA"               = "Aldridge.*Brighton|Brighton.*Aldridge|^Brighton Aldridge",
+  "PACA"               = "Portslade.*Aldridge|Aldridge.*Portslade",
+  "Dorothy Stringer"   = "Stringer",
+  "Cardinal Newman"    = "Cardinal Newman",
+  "Blatchington Mill"  = "Blatchington",
+  "Longhill"           = "Longhill",
+  "Hove Park"          = "Hove Park",
+  "Patcham"            = "Patcham"
+)
+
+bh_named <- map_dfr(names(school_patterns), function(short) {
+  pat <- school_patterns[[short]]
+  row <- bh_local_view %>%
+    filter(grepl(pat, SCHNAME, ignore.case = TRUE)) %>%
+    slice(1)
+  if (nrow(row) == 0) return(NULL)
+  tibble(
+    short        = short,
+    full_name    = row$SCHNAME,
+    vadd_M2      = row$vadd_M2,
+    resid_abs_pp = row$resid_abs_pp,
+    obs_abs      = row$mean_obs_abs,
+    exp_abs      = row$mean_expected_abs
+  )
+}) %>% mutate(
+  va_sign = case_when(vadd_M2      >  0.3 ~ "pos",
+                       vadd_M2      < -0.3 ~ "neg",
+                       TRUE                ~ "near"),
+  ab_sign = case_when(resid_abs_pp >  0.4 ~ "pos",
+                       resid_abs_pp < -0.4 ~ "neg",
+                       TRUE                ~ "near"),
+  quadrant = case_when(
+    va_sign == "pos" & ab_sign == "neg"  ~ "Q1: value-added with attendance helping",
+    va_sign == "pos" & ab_sign == "pos"  ~ "Q2: value-added despite worse-than-predicted attendance",
+    va_sign == "neg" & ab_sign == "pos"  ~ "Q3: underperforming with attendance as the obvious lever",
+    va_sign == "neg" & ab_sign == "neg"  ~ "Q4: underperforming despite better-than-predicted attendance",
+    TRUE                                  ~ "Q5: close to intake expectations on at least one axis"
+  )
+)
+
+# Build an inline-formatting helper used in the prose below
+fmt_school <- function(short) {
+  r <- bh_named %>% filter(short == !!short)
+  if (nrow(r) == 0) return(short)
+  sprintf("**%s** (`vadd_M2` = %+.2f pts, `resid_abs_pp` = %+.1f pp)",
+          short, r$vadd_M2, r$resid_abs_pp)
+}
+
+# Pre-compose the school strings for each quadrant
+in_quad <- function(q) bh_named %>% filter(grepl(q, quadrant, fixed = TRUE)) %>% pull(short)
+schools_q1 <- in_quad("Q1")
+schools_q2 <- in_quad("Q2")
+schools_q3 <- in_quad("Q3")
+schools_q4 <- in_quad("Q4")
+schools_q5 <- in_quad("Q5")
+```
+
+```{r bh-narrative}
+#| label: bh-narrative
 #| output: asis
 
-# Helper: pull a single school's row by partial name match, return a list
-get_school <- function(pattern) {
-  row <- bh_local_view %>% filter(grepl(pattern, SCHNAME, ignore.case = TRUE))
-  if (nrow(row) == 0) return(NULL)
-  if (nrow(row) > 1) row <- row %>% slice(1)
-  list(
-    name      = row$SCHNAME,
-    vadd_M1   = row$vadd_M1,
-    vadd_M2   = row$vadd_M2,
-    obs_abs   = row$mean_obs_abs,
-    exp_abs   = row$mean_expected_abs,
-    resid_pp  = row$resid_abs_pp,
-    swing     = row$absence_implied_att8_swing
-  )
+# Short list-formatter
+list_schools <- function(shorts) {
+  if (length(shorts) == 0) return(NULL)
+  paste(map_chr(shorts, fmt_school), collapse = "; ")
 }
 
-# Helper: format a value-added comment
-va_label <- function(v) {
-  if (is.na(v)) return("data missing")
-  if (v >  1.5) return(sprintf("strongly positive (+%.1f pts)", v))
-  if (v >  0.3) return(sprintf("positive (+%.1f pts)",          v))
-  if (v > -0.3) return(sprintf("around zero (%.1f pts)",        v))
-  if (v > -1.5) return(sprintf("negative (%.1f pts)",           v))
-  return(             sprintf("strongly negative (%.1f pts)",   v))
+cat("### Group 1 --- Adding value, with attendance management helping\n\n")
+cat("These schools sit above their intake-predicted attainment *and* run lower absence than their intake would predict. The story is internally consistent: strong attainment outcomes earned at least partly through getting more pupils into class than the structural intake profile would lead you to expect.\n\n")
+if (length(schools_q1) > 0) {
+  cat("In Brighton and Hove this group contains: ", list_schools(schools_q1), ".\n\n", sep = "")
+} else {
+  cat("No named B&H schools currently land in this quadrant.\n\n")
 }
 
-# Helper: format an absence comment
-abs_label <- function(pp) {
-  if (is.na(pp)) return("data missing")
-  if (pp >  1.5) return(sprintf("substantially worse than predicted (+%.1f pp)", pp))
-  if (pp >  0.4) return(sprintf("worse than predicted (+%.1f pp)",                pp))
-  if (pp > -0.4) return(sprintf("close to predicted (%.1f pp)",                   pp))
-  if (pp > -1.5) return(sprintf("better than predicted (%.1f pp)",                pp))
-  return(             sprintf("substantially better than predicted (%.1f pp)",   pp))
+cat("### Group 2 --- Adding value *despite* worse-than-predicted attendance\n\n")
+cat("These schools are above their intake line on attainment, but their absence is *worse* than the intake stage 1 model expects. The headline reading is pedagogically impressive: the school is delivering attainment outcomes above intake expectations even with an attendance profile that argues against it. Attendance is then the obvious next lever to pull --- if residual absence were closed, the value-added gain in `vadd_M2` would compound.\n\n")
+if (length(schools_q2) > 0) {
+  cat("In Brighton and Hove this group contains: ", list_schools(schools_q2), ". ", sep = "")
+  if ("BACA" %in% schools_q2) {
+    cat("BACA is the most striking case here --- a strongly positive `vadd_M2` paired with worse-than-predicted attendance, suggesting the school is doing well by the pupils who get into class while still leaving real ground to recover on attendance management.\n\n")
+  } else {
+    cat("\n\n")
+  }
+} else {
+  cat("No named B&H schools currently land in this quadrant.\n\n")
 }
 
-cat_school <- function(s, lead = "") {
-  if (is.null(s)) return(invisible(NULL))
-  cat(sprintf("- **%s** --- value-added %s; absence %s (observed %.1f%%, intake-predicted %.1f%%).%s\n",
-              s$name,
-              va_label(s$vadd_M2),
-              abs_label(s$resid_pp),
-              s$obs_abs, s$exp_abs,
-              if (nzchar(lead)) paste0(" ", lead) else ""))
+cat("### Group 3 --- Underperforming, with attendance as the cleanest lever\n\n")
+cat("Both signals point the same way: attainment is below intake-predicted, and absence is worse than intake-predicted. This is the simplest local-policy reading because there is no contradiction to resolve --- attendance management is plausibly contributing to the attainment shortfall, and improving it is the most direct route to closing the value-added gap.\n\n")
+if (length(schools_q3) > 0) {
+  cat("In Brighton and Hove this group contains: ", list_schools(schools_q3), ".", sep = "")
+  if (all(c("Longhill", "Hove Park") %in% schools_q3)) {
+    cat(" Longhill and Hove Park sitting together here echoes the city's wider absence problem at the school level.")
+  }
+  cat("\n\n")
+} else {
+  cat("No named B&H schools currently land in this quadrant.\n\n")
 }
 
-varndean   <- get_school("Varndean")
-kings      <- get_school("^King")
-baca       <- get_school("Aldridge.*Brighton|Brighton.*Aldridge|^Brighton Aldridge")
-paca       <- get_school("Portslade.*Aldridge|Aldridge.*Portslade")
-stringer   <- get_school("Stringer")
-cardinal   <- get_school("Cardinal Newman")
-blatch     <- get_school("Blatchington")
-longhill   <- get_school("Longhill")
-hovepark   <- get_school("Hove Park")
-patcham    <- get_school("Patcham")
+cat("### Group 4 --- Underperforming *despite* unusually good attendance management\n\n")
+cat("This is the hardest quadrant to read. Attainment is below intake-predicted, but absence is *better* than intake-predicted --- the school is already doing more on attendance than its intake would lead you to expect, and yet its outcomes still fall short. The implication is that the gap between observed and predicted attainment cannot be blamed on absence and must come from somewhere else: curriculum, pedagogy, leadership, cohort effects, or unmeasured intake characteristics. It is also the quadrant where the M2 specification is most diagnostic --- under the raw-absence M1 view, the school's strong attendance management would partly mask the attainment shortfall.\n\n")
+if (length(schools_q4) > 0) {
+  cat("In Brighton and Hove this group contains: ", list_schools(schools_q4), ".", sep = "")
+  if ("Patcham" %in% schools_q4) {
+    cat(" Patcham is the city's clearest example: it sits comfortably mid-table on raw attainment but the intake-adjusted view is less flattering, and the relatively healthy attendance figures rule out the simplest improvement story.")
+  }
+  cat("\n\n")
+} else {
+  cat("No named B&H schools currently land in this quadrant.\n\n")
+}
 
-cat("### Two similar profiles: Varndean and King's\n\n")
-cat("These two are often spoken about in the same breath in city debates. The combined view shows whether they really do behave alike on both signals.\n\n")
-cat_school(varndean)
-cat_school(kings)
-cat("\nIf both schools land in the same value-added range *and* the same residual-absence range, the popular twinning is empirically reasonable. If one has materially better attendance management than the other given its intake, that is a real difference behind the apparent similarity.\n\n")
+if (length(schools_q5) > 0) {
+  cat("### Group 5 --- Close to intake expectations on at least one axis\n\n")
+  cat("These schools sit close to zero on either value-added or residual absence (or both), so the joint reading is less directional. They are doing roughly what their intake predicts on at least one of the two signals.\n\n")
+  cat("In Brighton and Hove this group contains: ", list_schools(schools_q5), ".\n\n", sep = "")
+}
 
-cat("### High-FSM city schools: BACA, PACA and the rest of the picture\n\n")
-cat("BACA and PACA both serve more disadvantaged catchments than the city average, which is the kind of intake stage 1 is built to expect higher absence from. The decomposition tells us how each school is performing relative to that expectation.\n\n")
-cat_school(baca,    "If `vadd_M2` is positive, BACA is adding attainment value over and above what its intake predicts (the headline finding from the main paper). The absence reading then says whether that value-added comes through unusually good attendance management or despite an attendance profile that is harder to shift.")
-cat_school(paca,    "PACA's reading sits alongside BACA's --- if both have positive `vadd_M2` the city has *two* high-FSM schools punching above their weight. Differences in `resid_abs_pp` between them say whether they get there through different routes (e.g. one through attendance, one despite it).")
-cat_school(stringer,   "Dorothy Stringer is the canonical 'desirable' city school. The interesting question is whether its attainment record sits comfortably *above* its intake-predicted attainment (large positive `vadd_M2`) or close to it (around-zero `vadd_M2`) --- the latter would mean its raw attainment is largely intake-driven rather than school-driven.")
-cat_school(cardinal,   "Cardinal Newman has a faith-school admissions profile that often draws a different intake mix from the local catchment. A positive `vadd_M2` paired with negative `resid_abs_pp` would suggest the school's apparent strength rests partly on better attendance management than its intake would predict.")
-cat_school(blatch,     "Blatchington Mill is a good test case for the joint signal: a large central catchment school where the question is whether its size and position translate into above-expected outcomes once intake is properly accounted for.")
+# Pairwise commentary
+cat("### Two paired readings worth noting explicitly\n\n")
 
-cat("\n### A high-absence pair: Longhill and Hove Park\n\n")
-cat("Both schools have featured in city debates around absence. The combined view tells us whether their high observed absence is mostly intake-driven (and so largely outside the school's day-to-day control) or whether the school is contributing to it.\n\n")
-cat_school(longhill)
-cat_school(hovepark)
-cat("\nFor either school, a positive `resid_abs_pp` says the school is running higher absence than even its (already-disadvantaged) intake would predict --- attendance is then the cleanest single lever for local intervention. A near-zero `resid_abs_pp` says the headline absence number is largely structural and the school is doing about what its intake predicts on attendance.\n\n")
+varndean_row <- bh_named %>% filter(short == "Varndean")
+kings_row    <- bh_named %>% filter(short == "King's")
+if (nrow(varndean_row) == 1 && nrow(kings_row) == 1) {
+  if (varndean_row$quadrant == kings_row$quadrant) {
+    cat("**Varndean and King's** are often twinned in city debate, and on this combined view they land in the same quadrant (", varndean_row$quadrant, "), so the popular pairing is empirically reasonable: similar attainment story, similar attendance story.\n\n", sep = "")
+  } else {
+    cat("**Varndean and King's** are often twinned in city debate, but on this combined view they land in different quadrants --- ", fmt_school("Varndean"), " sits in *", varndean_row$quadrant, "*, while ", fmt_school("King's"), " sits in *", kings_row$quadrant, "*. The popular twinning papers over a real difference in either attainment story or attendance management.\n\n", sep = "")
+  }
+}
 
-cat("### A negative-negative case: Patcham\n\n")
-cat_school(patcham)
-cat("\nIf both signals are negative, Patcham's mid-table raw position hides a value-added signal that is *worse* than its intake predicts, and its observed absence is *better* than predicted given intake. The two signals point in different directions: attendance is being managed unusually well, but the attainment outcome is still falling short of what the intake would imply. That is the most awkward combination for a school to face --- it cannot point at attendance as the underlying problem, and the gap shows up most clearly when the value-added is computed under the M2 specification (which gives credit for the better-than-predicted attendance).\n")
+longhill_row <- bh_named %>% filter(short == "Longhill")
+hovepark_row <- bh_named %>% filter(short == "Hove Park")
+if (nrow(longhill_row) == 1 && nrow(hovepark_row) == 1) {
+  if (longhill_row$quadrant == hovepark_row$quadrant) {
+    cat("**Longhill and Hove Park** are similarly often discussed together as the city's high-absence schools. They land in the same quadrant here (", longhill_row$quadrant, "), so the joint reading reinforces rather than complicates the conventional pairing.\n\n", sep = "")
+  } else {
+    cat("**Longhill and Hove Park** both have high observed absence, but the joint reading splits them: ", fmt_school("Longhill"), " sits in *", longhill_row$quadrant, "*, while ", fmt_school("Hove Park"), " sits in *", hovepark_row$quadrant, "*. The headline absence figure conceals different underlying stories --- only one of the two has absence that runs materially above its intake-predicted level.\n\n", sep = "")
+  }
+}
 ```
 
 ::: {.callout-tip}
-## Why these worked examples matter
+## What this grouping makes visible
 
-The pairings above illustrate why the *joint* reading is more informative than either signal alone:
-
-- **Two schools with the same value-added** can have very different residual-absence stories --- one earning its value-added through attendance management, the other through pedagogy *despite* attendance.
-- **Two schools with similar high observed absence** can split between "the absence is what we'd predict from this intake" (structural) and "the absence is worse than the intake predicts" (school-controllable). Only the second is a clean attendance-policy target.
-- **A negative-negative case** like Patcham complicates simple reform narratives: a school that handles attendance well but underperforms on attainment cannot be "fixed" through attendance interventions, and the next-most-likely lever (curriculum, pedagogy, leadership) is harder for an LA to act on directly.
+The single Analysis E residual hides at least three distinct school stories that look identical on the headline number: a school adding value through attendance management, a school adding value despite an attendance gap, and a school whose value-added signal is washed out by particular intake characteristics. The combined view doesn't just rank schools more accurately --- it points each school at the most plausible single lever for improvement, which is a different question from "is this school any good?".
 :::
 
 
