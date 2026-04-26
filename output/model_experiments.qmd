@@ -3555,11 +3555,21 @@ if (ratio < 0.5) {
   cat(sprintf("The residual-absence coefficient is **larger** than the expected-absence coefficient (about %.1fx). What schools do about attendance --- conditional on intake --- shifts attainment more, percentage point for percentage point, than the intake-driven baseline. This would be a strong policy finding.\n\n", ratio))
 }
 
+bh_resid_range <- stage2_data %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  group_by(URN) %>%
+  summarise(
+    obs_abs = mean(PERCTOT, na.rm = TRUE),
+    exp_abs = mean(expected_absence, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(resid_pp = obs_abs - exp_abs)
+
 cat(sprintf(
   "**The local-vs-national distinction still holds.** Even if the population-level residual-absence coefficient is small (here %.3f), individual schools can sit at very different points on the residual-absence distribution (B&H secondaries span from roughly %+.1f to %+.1f percentage points away from their intake-predicted absence). For *those* schools the relevant question is not the population-average elasticity but the actionable gap between observed and predicted attendance. The combined model tells us how to weigh the two components for *coefficient interpretation*; it doesn't tell us that residual absence is uninformative for individual school diagnostics.\n\n",
   beta_res,
-  min(bh_named$resid_abs_pp, na.rm = TRUE),
-  max(bh_named$resid_abs_pp, na.rm = TRUE)))
+  min(bh_resid_range$resid_pp, na.rm = TRUE),
+  max(bh_resid_range$resid_pp, na.rm = TRUE)))
 
 cat(sprintf(
   "**Caveat on the M1 raw-absence elasticity.** With a coefficient of %.3f, M1 is implicitly weighting the structural and school-controllable components equally per percentage point. The combined model splits this into %.3f for the structural part and %.3f for the school-controllable part. If your policy question is \"how much would national-average attainment move if every school's intake-driven absence dropped by 1pp?\", the relevant coefficient is the expected-absence one (%.3f), not the raw-absence one (%.3f).\n",
@@ -4257,3 +4267,51 @@ knitr::kable(per_year_rank_cor, digits = 3,
 - **Pandemic anomalies (2021-22)**: this was the year when post-pandemic absence patterns were most disrupted; if the M1↔M2 rank correlation drops here relative to later years, that's a signal that pooled estimates are partly driven by an unusual year.
 - **B&H year-on-year**: if a school's value-added or residual absence changes substantially across years, that's information --- either a real shift in the school's performance, or genuine year-to-year volatility that single-year reporting would over-interpret.
 :::
+
+
+## Policy summary: what this experiment says for Brighton and Hove
+
+The two-stage decomposition was set up to answer a specific, locally-relevant question: **how much of Brighton and Hove's attainment story runs through structural features the city's schools cannot easily change, and how much sits within a manageable distance of school-level action?** Pulling the threads from sections 13.7--13.13 together, a reasonably clear picture emerges.
+
+### The headline reading
+
+Brighton and Hove is, by national standards, a city whose attainment pattern is **dominated by a structural absence problem**. The wider paper has already established that the city ranks at the extreme high end of England for school-level absence, and that this matters for attainment more than the FSM-mixing narrative that drove the 2024 consultation. What this experiment adds is the next layer of nuance: most of the school-level absence variance in England is intake-driven (stage 1 absorbs a substantial share before stage 2 sees the data), and the school-controllable residual is comparatively small at population level. The headline raw-absence elasticity in M1 is borrowing force from the structural component.
+
+That doesn't make the absence finding less actionable for B&H --- it sharpens it. The city's absence problem is high in absolute terms *and* sits across schools whose intakes already predict elevated absence. The structural component is exactly what needs cross-departmental action (health, social services, area-level deprivation policy); the residual component is what individual schools can reasonably be asked to act on.
+
+### Where progress could plausibly be made
+
+Several levers fall out of the joint-signal view as candidates for council and school-level effort:
+
+1. **Schools in the "underperforming with attendance worse" quadrant (Q3) are the cleanest targets.** Both signals point the same way --- attendance is worse than intake predicts and attainment is below intake-predicted. There is no contradiction to resolve, and standard attendance management practice (early-warning systems, persistent-absentee follow-up, parental engagement, in-school pastoral capacity) has the strongest theoretical claim to deliver simultaneous gains on both axes.
+
+2. **Schools in the "value-added despite worse attendance" quadrant (Q2) are the highest-ROI targets.** Where pedagogy is already working (positive `vadd_M2`) but attendance is running above intake-predicted, closing the residual-absence gap should compound directly onto an existing strength. BACA is the city's clearest example: a school that is already doing more for its disadvantaged pupils than its intake predicts, with the attendance lever still on the table.
+
+3. **Knowledge-sharing from the Q1 group** (positive value-added with better-than-expected attendance) --- whatever these schools are doing on attendance management is, by definition, beating the intake-predicted baseline. Council-led practice exchange between Q1 schools and Q2/Q3 schools is a low-cost intervention with no realistic downside.
+
+4. **System-level work on the structural absence component.** The intake-driven component of absence is large, and the gap between the city's mean absence (~10.8%) and the national mean (~8.2%) is partly a structural inheritance --- post-pandemic recovery, area-level deprivation patterns, family-circumstance and health drivers. Closing it requires the council to work outside the school system itself: public health, children's services, transport, housing, and the Department for Education's wider resources. The wider paper's argument that absence has been absent from the city's policy narrative is the relevant call to action here.
+
+### Where the issues are harder
+
+The same analysis flags a category of city schools where the policy recipe is not as obvious:
+
+1. **Schools in the "underperforming despite better attendance" quadrant (Q4) are the most difficult cases.** Patcham is the canonical city example. Attendance is already being managed well, so the attainment shortfall must come from elsewhere --- curriculum, pedagogy, leadership, cohort effects not picked up by the model, or unmeasured intake characteristics. These are levers a council can rarely pull directly, and they sit awkwardly inside accountability frameworks built around raw league tables (where Patcham looks comfortably mid-table) rather than intake-adjusted value-added.
+
+2. **The intake-driven absence component is largely outside school-level control.** A school cannot change its catchment's deprivation profile, family-circumstance distribution, SEN/EHCP rate, or local health context. The decomposition is honest about this: a substantial share of the city's absence problem is structural, and treating individual schools as if they could fix it on their own under-credits attendance interventions that *are* working and over-blames schools whose intake leaves them at a starting disadvantage.
+
+3. **The disadvantage attainment gap is not a primarily-school-level problem either.** The wider paper's central modelling finding --- that concentrations of disadvantage have a small and possibly positive direct effect on disadvantaged attainment once intake is accounted for --- means redistribution policies of the kind proposed in 2024 are unlikely to deliver the gap-closing the consultation premise assumed. The gap that matters is the *intake* gap (who ends up at which school with what prior attainment, support need, and absence baseline), and that has roots well outside the council's admissions remit.
+
+4. **Single-year volatility makes year-on-year reactions risky.** The per-year breakdown above shows that some movement in a school's value-added or residual absence between years is genuine signal and some is sample noise --- the bootstrap intervals make this concrete. Council-level interventions premised on a single year of league-table movement are vulnerable to over-interpreting noise; multi-year averages and explicit uncertainty intervals are the safer reporting unit.
+
+### What this analysis cannot tell you
+
+A few honest caveats that should sit alongside any policy use of this work:
+
+- **None of these models are causal.** All three specifications (M0, M1, M2, plus M_combined) are observational. The two-stage approach reduces one specific bias (over-attributing exogenous absence to school behaviour) but does not rule out omitted-variable bias from intake characteristics we don't measure. A school looking strong on `vadd_M2` may have unobserved intake advantages the model has not seen.
+- **Stage 1 is constrained by what we have.** The exogenous-absence model uses only the FSM, EAL, prior-attainment-low and segregation variables that the wider paper already considers, plus LA and region random effects. Adding richer area-level controls (IDACI, neighbourhood deprivation, area health indicators, SEN/EHCP rates, free-school-meals-ever counts) would sharpen the decomposition meaningfully. Until that is done, residual absence carries some intake signal that should have been in expected absence.
+- **Pupil-level data would change everything.** A pupil-level version of this analysis (linked NPD records with attendance, intake, and outcomes) would let the city ask sharper questions: which pupils within each school account for the residual absence, and is school-level value-added concentrated in particular sub-groups? That is well beyond what published school-level data can support.
+- **The school-controllable absence coefficient is small at population level but the local diagnostics are still informative.** This is the key conceptual point of the section. A small national-average elasticity does not mean residual absence is uninformative for individual school management --- it means the *average* effect across England of a 1pp shift in residual absence is modest. For a specific B&H school sitting +3pp from its intake-predicted absence, the locally relevant question is whether closing that gap is feasible given the school's circumstances, not whether the population-average coefficient is large.
+
+### A two-line conclusion
+
+For Brighton and Hove, the most defensible read of this experiment is: **the absence problem is real and large, but the school-only fraction of it is smaller than M1 alone suggests --- the bulk of the lever is structural and cross-departmental.** Within the school-only fraction, the joint-signal quadrants point at where council and school effort would compound (Q2/Q3) versus where the most plausible single intervention is already being run (Q4). Reporting value-added and residual absence side-by-side, with explicit uncertainty intervals, is more honest than the single-residual reporting that the headline Analysis E specification produces --- and would help align the city's policy conversation with what the data can actually support.
