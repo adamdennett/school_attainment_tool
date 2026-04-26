@@ -3502,6 +3502,72 @@ knitr::kable(fit_combined, digits = 4,
 Note that the residual-absence coefficient here is the **partial** effect: the marginal contribution of school-controllable absence after intake-driven absence is already in the model. It is not the same as the unconditional correlation between residual absence and attainment.
 :::
 
+```{r m-combined-interpretation}
+#| label: m-combined-interpretation
+#| output: asis
+
+s_comb <- summary(mod_M_combined)$coefficients
+beta_exp  <- s_comb["log_expected_absence",  "Estimate"]
+se_exp    <- s_comb["log_expected_absence",  "Std. Error"]
+p_exp     <- s_comb["log_expected_absence",  "Pr(>|t|)"]
+beta_res  <- s_comb["residual_absence_log",  "Estimate"]
+se_res    <- s_comb["residual_absence_log",  "Std. Error"]
+p_res     <- s_comb["residual_absence_log",  "Pr(>|t|)"]
+
+s_M1 <- summary(mod_M1)$coefficients
+beta_M1_abs <- s_M1["log(PERCTOT)", "Estimate"]
+
+ratio <- abs(beta_res) / abs(beta_exp)
+
+stars <- function(p) {
+  if (is.na(p)) return("")
+  if (p < 0.001) return("\\*\\*\\*")
+  if (p < 0.01)  return("\\*\\*")
+  if (p < 0.05)  return("\\*")
+  return(" (n.s.)")
+}
+
+cat("::: {.callout-tip}\n")
+cat("## What the combined model is actually saying here\n\n")
+
+cat(sprintf(
+  "In our fit, the coefficient on **expected absence** is %.3f%s (SE %.3f) and the coefficient on **residual absence** is %.3f%s (SE %.3f). For comparison, M1's single coefficient on raw absence sits at %.3f --- effectively a weighted average of the two components.\n\n",
+  beta_exp, stars(p_exp), se_exp,
+  beta_res, stars(p_res), se_res,
+  beta_M1_abs))
+
+if (ratio < 0.5) {
+  cat(sprintf(
+    "The residual-absence coefficient is materially **smaller** than the expected-absence coefficient (about %.0f%% of its magnitude). Practically, this means a one-percentage-point movement in the *intake-predicted* component of absence is associated with roughly %.1f times the attainment shift that the same movement in the *school-controllable* component is associated with. ",
+    100 * ratio, 1 / ratio))
+  if (p_res > 0.05) {
+    cat("And the residual-absence coefficient is not statistically significant in this model, so we cannot rule out that the school-controllable component has *no* marginal effect on attainment at population level once intake-driven absence is held constant.\n\n")
+  } else {
+    cat("Despite the gap, the residual-absence coefficient is statistically distinguishable from zero --- school-controllable absence does carry signal, just less per percentage point than the intake-driven component.\n\n")
+  }
+  cat("Interpreted in the framing we set out at the start: at national level the absence → attainment story is mostly *structural*. The bit of school-level absence that schools could plausibly act on (residual absence) shifts attainment less, percentage point for percentage point, than the bit baked in by intake. This is consistent with two non-exclusive readings:\n\n")
+  cat("1. **Mechanically**, the variation in residual absence is small enough that even modest measurement noise dilutes its signal in the model. Stage 1 explains a meaningful share of school-level absence variance; what remains is partly noise and partly the school-controllable component, and the model cannot fully separate them.\n")
+  cat("2. **Substantively**, attainment may be more responsive to absence when absence is high *for structural reasons* (a school where absence is high because the intake brings particular needs and circumstances) than when it's high *for management reasons* (a school whose pastoral systems aren't catching the same proportion of pupils). The marginal pupil whose attendance moves in the first case may be a higher-risk pupil whose presence in school carries more attainment lift; the marginal pupil in the second case may already be relatively well-supported.\n\n")
+  cat("Either way, the implication is the same: **at population level, attendance management on its own is a smaller lever than the headline raw-absence elasticity from M1 implies.** That headline number borrows force from the structural component.\n\n")
+} else if (ratio < 1.5) {
+  cat(sprintf("The two coefficients are roughly **comparable in magnitude** (residual at about %.0f%% of expected). Both components contribute independently to the attainment association, and the M1 raw-absence elasticity is genuinely a fair summary of both at once.\n\n", 100 * ratio))
+} else {
+  cat(sprintf("The residual-absence coefficient is **larger** than the expected-absence coefficient (about %.1fx). What schools do about attendance --- conditional on intake --- shifts attainment more, percentage point for percentage point, than the intake-driven baseline. This would be a strong policy finding.\n\n", ratio))
+}
+
+cat(sprintf(
+  "**The local-vs-national distinction still holds.** Even if the population-level residual-absence coefficient is small (here %.3f), individual schools can sit at very different points on the residual-absence distribution (B&H secondaries span from roughly %+.1f to %+.1f percentage points away from their intake-predicted absence). For *those* schools the relevant question is not the population-average elasticity but the actionable gap between observed and predicted attendance. The combined model tells us how to weigh the two components for *coefficient interpretation*; it doesn't tell us that residual absence is uninformative for individual school diagnostics.\n\n",
+  beta_res,
+  min(bh_named$resid_abs_pp, na.rm = TRUE),
+  max(bh_named$resid_abs_pp, na.rm = TRUE)))
+
+cat(sprintf(
+  "**Caveat on the M1 raw-absence elasticity.** With a coefficient of %.3f, M1 is implicitly weighting the structural and school-controllable components equally per percentage point. The combined model splits this into %.3f for the structural part and %.3f for the school-controllable part. If your policy question is \"how much would national-average attainment move if every school's intake-driven absence dropped by 1pp?\", the relevant coefficient is the expected-absence one (%.3f), not the raw-absence one (%.3f).\n",
+  beta_M1_abs, beta_exp, beta_res, beta_exp, beta_M1_abs))
+
+cat(":::\n")
+```
+
 
 ## Brighton & Hove combined view: value-added + residual absence
 
