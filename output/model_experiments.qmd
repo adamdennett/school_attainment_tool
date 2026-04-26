@@ -3406,6 +3406,156 @@ The width of the 5--95% interval gives an honest sense of how much each school's
 :::
 
 
+## Direct test: expected vs residual absence in the same model
+
+The M1↔M2 FSM equality is partly mechanical (stage 1 residuals are orthogonal to stage 1 regressors by construction), so the cleanest test of whether the school-controllable absence component matters at population level is to put **both components into the same attainment model** and read off their coefficients side by side.
+
+```{r m-combined}
+#| label: m-combined
+
+mod_M_combined <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log_expected_absence + residual_absence_log +
+    log(PNUMEAL) + PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data,
+  REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_M_combined)
+```
+
+```{r m-combined-compare}
+#| label: m-combined-compare
+
+# Pull the absence-related coefficients into a single table
+absence_coef_table <- bind_rows(
+  extract_fixef_table(mod_M1, "M1: raw absence")          %>%
+    filter(term == "log(PERCTOT)") %>% mutate(component = "raw absence"),
+  extract_fixef_table(mod_M2, "M2: expected absence")     %>%
+    filter(term == "log_expected_absence") %>% mutate(component = "expected absence"),
+  extract_fixef_table(mod_M_combined, "M_combined: both") %>%
+    filter(term %in% c("log_expected_absence", "residual_absence_log")) %>%
+    mutate(component = ifelse(term == "log_expected_absence",
+                               "expected absence", "residual absence"))
+) %>%
+  select(model, component, estimate, std_error, p_value)
+
+knitr::kable(absence_coef_table, digits = 4,
+             caption = "Absence-coefficient comparison across M1, M2 and the combined model. The M_combined row for residual absence is the direct test of whether school-controllable absence carries marginal predictive power.")
+```
+
+```{r m-combined-r2}
+#| label: m-combined-r2
+
+cat("Model fit comparison:\n")
+fit_combined <- tibble(
+  model         = c("M1", "M2", "M_combined"),
+  n_obs         = c(nobs(mod_M1), nobs(mod_M2), nobs(mod_M_combined)),
+  R2_marginal   = c(as.numeric(performance::r2(mod_M1)$R2_marginal),
+                     as.numeric(performance::r2(mod_M2)$R2_marginal),
+                     as.numeric(performance::r2(mod_M_combined)$R2_marginal)),
+  R2_conditional = c(as.numeric(performance::r2(mod_M1)$R2_conditional),
+                      as.numeric(performance::r2(mod_M2)$R2_conditional),
+                      as.numeric(performance::r2(mod_M_combined)$R2_conditional)),
+  AIC           = c(AIC(mod_M1), AIC(mod_M2), AIC(mod_M_combined))
+)
+knitr::kable(fit_combined, digits = 4,
+             caption = "Fit statistics: M_combined vs M1 vs M2")
+```
+
+::: {.callout-note}
+## How to read the combined-model output
+
+- **If the residual-absence coefficient is small relative to the expected-absence coefficient** (and/or non-significant), the school-controllable component of absence carries little marginal predictive power for attainment at the population level after intake is accounted for. Read this as: at national average, the bulk of the absence → attainment association runs through structural/intake factors that schools don't directly control.
+- **If the two coefficients are similar in magnitude**, both components matter independently --- intake-driven absence and school-management absence have comparable per-percentage-point effects on attainment.
+- **If residual absence has a larger coefficient than expected absence**, then conditional on intake, what schools *do* about attendance matters more than the intake-driven baseline. This would be a strong finding for actionable policy.
+
+Note that the residual-absence coefficient here is the **partial** effect: the marginal contribution of school-controllable absence after intake-driven absence is already in the model. It is not the same as the unconditional correlation between residual absence and attainment.
+:::
+
+
+## Brighton & Hove combined view: value-added + residual absence
+
+The local question is sharper than the national one. Even if at the population level residual absence carries modest marginal effect, individual B&H schools can sit at very different points on the residual-absence distribution, and those differences are the actionable signal for local policy.
+
+```{r bh-combined-view}
+#| label: bh-combined-view
+
+# Re-pull B&H school-level summaries with both signals on one row
+bh_local_view <- va_complete %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  left_join(
+    stage2_data %>%
+      filter(grepl("Brighton", LANAME)) %>%
+      group_by(URN, SCHNAME) %>%
+      summarise(
+        mean_obs_abs       = mean(PERCTOT, na.rm = TRUE),
+        mean_expected_abs  = mean(expected_absence, na.rm = TRUE),
+        n_years_obs        = n(),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        resid_abs_pp = mean_obs_abs - mean_expected_abs,
+        # Approximate ATT8 implication of that residual absence under the
+        # M2 expected-absence elasticity (illustrative only)
+        absence_implied_att8_swing = NA_real_  # placeholder; populated below
+      ),
+    by = c("URN", "SCHNAME")
+  )
+
+# Use the M2 expected-absence elasticity to translate residual absence into
+# an indicative attainment-points equivalent, IF residual absence behaved like
+# expected absence (this is illustrative — see caveat above).
+beta_exp_abs <- fixef(mod_M2)["log_expected_absence"]
+
+bh_local_view <- bh_local_view %>%
+  mutate(
+    # mean_att8 from earlier work; recompute robustly here
+    mean_att8 = NA_real_
+  )
+
+bh_att8_means <- stage2_data %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  group_by(URN) %>%
+  summarise(mean_att8 = mean(ATT8SCR, na.rm = TRUE), .groups = "drop")
+
+bh_local_view <- bh_local_view %>%
+  select(-mean_att8) %>%
+  left_join(bh_att8_means, by = "URN") %>%
+  mutate(
+    # log-scale change in absence implied by residual_abs_pp at school's mean
+    delta_log_abs = log(mean_obs_abs) - log(mean_expected_abs),
+    # Indicative ATT8 points equivalent if M2 elasticity applied
+    absence_implied_att8_swing = mean_att8 *
+      (exp(beta_exp_abs * delta_log_abs) - 1)
+  ) %>%
+  arrange(desc(vadd_M2))
+
+bh_summary_table <- bh_local_view %>%
+  select(SCHNAME,
+         vadd_M1, vadd_M2,
+         mean_obs_abs, mean_expected_abs, resid_abs_pp,
+         absence_implied_att8_swing)
+
+knitr::kable(bh_summary_table, digits = 2,
+             caption = "Brighton & Hove combined view: model value-added (M1 vs M2) alongside residual absence (pp). The 'absence_implied_att8_swing' column gives an indicative translation of residual absence into ATT8 points under the M2 expected-absence elasticity --- illustrative only, since residual absence's true elasticity is what the combined model above estimates.")
+```
+
+::: {.callout-tip}
+## Reading this table for B&H
+
+For each school, three signals sit side by side:
+
+1. **`vadd_M2`** --- attainment value-added under the expected-absence specification (the "school does more than its intake would predict" indicator, with attendance management credited).
+2. **`resid_abs_pp`** --- the school-controllable absence indicator. Positive = more absence than intake predicts; negative = less.
+3. **`absence_implied_att8_swing`** --- the indicative ATT8 implication of that residual absence, *if* residual absence were translated through the same elasticity as expected absence. This is illustrative; the actual residual-absence elasticity is the one in the combined-model table above.
+
+Schools where `vadd_M2` is high *and* `resid_abs_pp` is negative are doing well on attainment partly *through* unusually good attendance --- a coherent management story. Schools where `vadd_M2` is high but `resid_abs_pp` is positive are adding value *despite* a worse-than-expected absence profile --- pedagogically impressive, with attendance still the obvious lever to pull. Schools where `vadd_M2` is negative *and* `resid_abs_pp` is positive have attendance as the most plausible single point of intervention.
+:::
+
+
 ## Per-year breakdown: does the decomposition behave differently year-on-year?
 
 The models above pool all four years (2021-22 to 2024-25) and absorb between-year shifts via a year-level random intercept. But absence rose sharply during and after the pandemic, and the relationship between intake and absence may itself have changed across years. This sub-section refits stages 1 and 2 separately within each year and reports how the key quantities move.
