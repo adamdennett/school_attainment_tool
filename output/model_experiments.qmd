@@ -2889,3 +2889,510 @@ if (pct_pos >= 0.75 && pct_sig_pos >= 0.4) {
   cat(":::\n")
 }
 ```
+
+
+# Two-Stage Absence Decomposition: Separating Exogenous from School-Controllable Absence {#sec-two-stage-absence}
+
+## Motivation
+
+The headline Analysis E model treats `log(PERCTOT)` (% absence) as a regressor on the same footing as intake variables like FSM, EAL and prior attainment. Conceptually this is awkward, because absence sits in two roles at once:
+
+- **Partly exogenous to the school** --- driven by disadvantage, family circumstances, local health, SEN status, EAL, and the broader area context the school inherits.
+- **Partly an outcome the school helps produce** --- through ethos, pastoral systems, follow-up on persistent absentees, attendance officers, parental engagement, and so on.
+
+If we **control for raw absence**, we strip both components from the value-added residual. Schools that lift attendance through deliberate effort get no credit for it --- their work is absorbed into the absence coefficient and removed from what remains in the residual.
+
+If we **don't control for absence at all**, we treat all attendance variation as the school's doing, and over-penalise schools whose intake brings high absence for reasons they cannot influence.
+
+What we want for an honest value-added measure is something closer to the *total school effect* --- direct effect on attainment plus indirect effect via attendance --- conditioned on the parts of absence that are genuinely outside the school's control.
+
+This section implements the **two-stage decomposition** that delivers that.
+
+::: {.callout-note}
+## The decomposition in brief
+
+1. **Stage 1.** Regress school-year-level absence on **exogenous intake variables only** (FSM, EAL, prior attainment, area-level structural factors). Save the fitted values --- *expected absence* --- and the residuals --- *residual absence*, which captures the school-controllable component plus noise.
+
+2. **Stage 2.** Predict attainment from intake variables and **expected absence** (not raw absence), and **drop** workforce variables (which are also school-controllable). Residual absence is *not* a regressor: its variance flows into the attainment residual, where it can show up as part of the value-added signal.
+
+The school-level random effect from stage 2 is then a more honest value-added measure: it reflects what the school adds over and above what its intake (including the disadvantage-driven portion of absence) would predict, while still giving credit for the school's contribution to attendance and workforce stability.
+:::
+
+A practical caveat: **if disadvantage is essentially the only exogenous predictor of absence, expected absence becomes collinear with disadvantage and the two-stage approach collapses to "just don't control for absence"**. The decomposition only buys something when stage 1 can put the absence variable on a different footing from the variables already entering stage 2 directly. We rely on the **LA-level and region-level random effects** in stage 1 to soak up area health, deprivation and demographic structure that the attainment model otherwise treats only via fixed effects on FSM/EAL/prior attainment.
+
+
+## Stage 1: Modelling expected absence
+
+We regress `log(PERCTOT)` on the intake variables we treat as exogenous to the school's own behaviour, plus year and place random effects:
+
+```{r stage1-fit}
+#| label: stage1-fit
+
+# Stage 1 dataset: any school-year with absence + the predictors
+stage1_data <- imputed_full_data %>%
+  filter(!is.na(PERCTOT), PERCTOT > 0,
+         !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+         !is.na(PNUMEAL), PNUMEAL > 0,
+         !is.na(PTPRIORLO),
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+cat("Stage 1 observations:", nrow(stage1_data), "\n\n")
+
+mod_stage1 <- lmer(
+  log(PERCTOT) ~
+    log(PTFSM6CLA1A) + log(PNUMEAL) +
+    PTPRIORLO + gorard_segregation +
+    (1 | year_label) + (1 | gor_name/LANAME),
+  data = stage1_data,
+  REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+summary(mod_stage1)
+```
+
+```{r stage1-checks}
+#| label: stage1-checks
+
+cat("Stage 1 R²:\n")
+print(r2(mod_stage1))
+cat("\nVariance components:\n")
+print(VarCorr(mod_stage1))
+```
+
+The marginal R² tells us how much absence is explained by intake variables alone (fixed effects); the conditional R² adds the place + year random effects --- i.e. the share of absence variance that can be attributed to factors **outside the school's direct day-to-day control**. The gap between the two is the share of "expected absence" coming through area context rather than measured intake.
+
+```{r stage1-decompose}
+#| label: stage1-decompose
+
+# Compute expected absence (fitted) and residual absence (residuals on the log scale)
+stage1_data <- stage1_data %>%
+  mutate(
+    log_expected_absence  = predict(mod_stage1, newdata = ., re.form = NULL,
+                                    allow.new.levels = TRUE),
+    expected_absence      = exp(log_expected_absence),
+    residual_absence_log  = log(PERCTOT) - log_expected_absence
+  )
+
+# How does observed absence split between expected and residual?
+exp_summary <- stage1_data %>%
+  summarise(
+    var_log_obs       = var(log(PERCTOT)),
+    var_log_expected  = var(log_expected_absence),
+    var_log_residual  = var(residual_absence_log),
+    cor_obs_expected  = cor(log(PERCTOT), log_expected_absence)
+  )
+print(exp_summary)
+
+cat(sprintf(
+  "\nApprox. share of log-absence variance attributed to exogenous (expected) component: %.1f%%\n",
+  100 * exp_summary$var_log_expected /
+        (exp_summary$var_log_expected + exp_summary$var_log_residual)
+))
+```
+
+
+## Stage 2: Three attainment specifications
+
+We now refit Analysis E's *all-pupils* attainment model under three specifications on the **same dataset**, so that residuals and rankings are directly comparable:
+
+- **M0 --- No absence control, no workforce.** Drops `log(PERCTOT)` and the three workforce variables entirely. Treats both attendance and workforce stability as part of the school's value-added.
+- **M1 --- Raw absence + workforce (= Analysis E).** The current production specification.
+- **M2 --- Expected absence, no workforce.** Replaces `log(PERCTOT)` with `log(expected_absence)` from stage 1 and drops the workforce predictors. Residual absence and workforce variation flow into the value-added residual.
+
+```{r stage2-data}
+#| label: stage2-data
+
+# Join expected absence back onto the full attainment dataset
+stage2_data <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  inner_join(
+    stage1_data %>%
+      select(URN, year_label,
+             expected_absence, log_expected_absence, residual_absence_log),
+    by = c("URN", "year_label")
+  ) %>%
+  droplevels()
+
+contrasts(stage2_data$OFSTEDRATING_1) <- contr.treatment(levels(stage2_data$OFSTEDRATING_1))
+
+cat("Stage 2 observations:", nrow(stage2_data), "\n")
+```
+
+```{r stage2-fits}
+#| label: stage2-fits
+
+# M0: no absence, no workforce
+mod_M0 <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data,
+  REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+# M1: raw absence + workforce (Analysis E spec, refit on stage2_data)
+mod_M1 <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    remained_in_the_same_school +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data,
+  REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+# M2: expected absence, no workforce
+mod_M2 <- lmer(
+  log(ATT8SCR) ~
+    log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data,
+  REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+```
+
+```{r stage2-fit-summary}
+#| label: stage2-fit-summary
+
+mod_list <- list(M0 = mod_M0, M1 = mod_M1, M2 = mod_M2)
+
+fit_summary <- map_dfr(names(mod_list), function(nm) {
+  m <- mod_list[[nm]]
+  r <- performance::r2(m)
+  tibble(
+    model         = nm,
+    description   = c(M0 = "No absence, no workforce",
+                       M1 = "Raw absence + workforce (Analysis E)",
+                       M2 = "Expected absence, no workforce")[nm],
+    n_obs         = nobs(m),
+    n_fixed       = length(fixef(m)),
+    R2_marginal   = as.numeric(r$R2_marginal),
+    R2_conditional = as.numeric(r$R2_conditional),
+    AIC           = AIC(m),
+    BIC           = BIC(m)
+  )
+})
+
+knitr::kable(fit_summary, digits = 3,
+             caption = "Fit statistics across the three Stage 2 specifications")
+```
+
+
+## Coefficient comparison
+
+```{r stage2-coefs}
+#| label: stage2-coefs
+
+extract_fixef_table <- function(m, label) {
+  s <- summary(m)$coefficients
+  tibble(
+    term = rownames(s),
+    estimate = s[, "Estimate"],
+    std_error = s[, "Std. Error"],
+    p_value = s[, "Pr(>|t|)"],
+    model = label
+  )
+}
+
+coef_long <- bind_rows(
+  extract_fixef_table(mod_M0, "M0"),
+  extract_fixef_table(mod_M1, "M1"),
+  extract_fixef_table(mod_M2, "M2")
+)
+
+coef_wide <- coef_long %>%
+  mutate(value = sprintf("%.3f%s",
+                         estimate,
+                         case_when(p_value < 0.001 ~ "***",
+                                   p_value < 0.01  ~ "**",
+                                   p_value < 0.05  ~ "*",
+                                   TRUE            ~ ""))) %>%
+  select(term, model, value) %>%
+  pivot_wider(names_from = model, values_from = value, values_fill = "—")
+
+knitr::kable(coef_wide,
+             caption = "Fixed-effects coefficients across specifications (* p<.05, ** p<.01, *** p<.001)")
+```
+
+::: {.callout-note}
+## Reading the coefficient table
+
+The FSM coefficient is the most diagnostic. If it inflates substantially as we move from M1 → M0 → M2, that tells us the absence variable was previously absorbing a chunk of the disadvantage signal, and our two-stage decomposition has redistributed it. If the coefficient on `log_expected_absence` in M2 is close to the M1 coefficient on `log(PERCTOT)`, the elasticity-on-absence reading we have been using is robust to the decomposition.
+:::
+
+
+## School-level value-added under each specification
+
+For each model we extract the school-level random effects (the `LANAME:gor_name`-nested intercepts pull out *LA × region* effects, but the school's own value-added shows up via the fitted-vs-observed residual at the school-year level). We aggregate to school level by taking each school's mean residual on the log scale across the years it appears.
+
+```{r school-vadd}
+#| label: school-vadd
+
+# Per-school average of the school-year residual on the log scale,
+# converted to an approximate "GCSE-points value-added" via the school's mean ATT8.
+school_value_added <- function(m, label) {
+  d_used <- model.frame(m)
+  d_used$log_resid <- residuals(m)
+  # We need URN/SCHNAME/LANAME — pull them from stage2_data via row index
+  d_used <- bind_cols(
+    stage2_data %>%
+      slice(as.integer(rownames(d_used))) %>%
+      select(URN, SCHNAME, LANAME, gor_name, ATT8SCR),
+    d_used %>% select(log_resid)
+  )
+  d_used %>%
+    group_by(URN, SCHNAME, LANAME, gor_name) %>%
+    summarise(
+      mean_log_resid = mean(log_resid, na.rm = TRUE),
+      mean_att8      = mean(ATT8SCR, na.rm = TRUE),
+      n_years        = n(),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      vadd_points = mean_att8 * (exp(mean_log_resid) - 1),
+      model = label
+    )
+}
+
+va_M0 <- school_value_added(mod_M0, "M0")
+va_M1 <- school_value_added(mod_M1, "M1")
+va_M2 <- school_value_added(mod_M2, "M2")
+
+va_all <- bind_rows(va_M0, va_M1, va_M2)
+
+va_wide <- va_all %>%
+  select(URN, SCHNAME, LANAME, model, vadd_points) %>%
+  pivot_wider(names_from = model, values_from = vadd_points,
+              names_prefix = "vadd_") %>%
+  mutate(
+    rank_M0 = rank(-vadd_M0, na.last = "keep"),
+    rank_M1 = rank(-vadd_M1, na.last = "keep"),
+    rank_M2 = rank(-vadd_M2, na.last = "keep"),
+    n_schools = sum(!is.na(vadd_M1))
+  )
+
+cat("Schools with value-added under all three models:", sum(complete.cases(va_wide[, c("vadd_M0","vadd_M1","vadd_M2")])), "\n")
+```
+
+```{r vadd-correlations}
+#| label: vadd-correlations
+
+va_complete <- va_wide %>%
+  filter(!is.na(vadd_M0), !is.na(vadd_M1), !is.na(vadd_M2))
+
+cor_table <- tibble(
+  pair = c("M0 vs M1", "M0 vs M2", "M1 vs M2"),
+  pearson_vadd = c(
+    cor(va_complete$vadd_M0, va_complete$vadd_M1),
+    cor(va_complete$vadd_M0, va_complete$vadd_M2),
+    cor(va_complete$vadd_M1, va_complete$vadd_M2)
+  ),
+  spearman_rank = c(
+    cor(va_complete$rank_M0, va_complete$rank_M1, method = "spearman"),
+    cor(va_complete$rank_M0, va_complete$rank_M2, method = "spearman"),
+    cor(va_complete$rank_M1, va_complete$rank_M2, method = "spearman")
+  )
+)
+
+knitr::kable(cor_table, digits = 3,
+             caption = "Cross-specification correlations of school value-added and rank")
+```
+
+If the rank correlation between **M1 and M2** is very high (say > 0.95), the absence-vs-expected-absence choice barely moves the rankings overall --- the two specifications largely agree about who is doing well. The interesting cases sit where they disagree.
+
+
+## Where the specifications disagree most
+
+```{r vadd-shifts}
+#| label: vadd-shifts
+
+shifts <- va_complete %>%
+  mutate(
+    rank_shift_M2_vs_M1 = rank_M1 - rank_M2,    # positive = M2 ranks them better
+    rank_shift_M0_vs_M1 = rank_M1 - rank_M0
+  ) %>%
+  arrange(desc(abs(rank_shift_M2_vs_M1)))
+
+cat("Top 15 schools where M2 (expected absence) ranks the school higher than M1:\n")
+shifts %>%
+  filter(rank_shift_M2_vs_M1 > 0) %>%
+  slice_head(n = 15) %>%
+  select(SCHNAME, LANAME, rank_M1, rank_M2,
+         rank_shift_M2_vs_M1, vadd_M1, vadd_M2) %>%
+  knitr::kable(digits = 2)
+
+cat("\nTop 15 schools where M2 (expected absence) ranks the school *lower* than M1:\n")
+shifts %>%
+  filter(rank_shift_M2_vs_M1 < 0) %>%
+  arrange(rank_shift_M2_vs_M1) %>%
+  slice_head(n = 15) %>%
+  select(SCHNAME, LANAME, rank_M1, rank_M2,
+         rank_shift_M2_vs_M1, vadd_M1, vadd_M2) %>%
+  knitr::kable(digits = 2)
+```
+
+The pattern that should emerge: **schools that work hard to lift attendance** (low residual absence given their intake) rank higher under M2 than under M1, because M2 returns the credit for that work to the school's residual. **Schools coasting on a low-absence intake** see no such uplift --- their attendance is already explained by who walks through the door.
+
+
+## Brighton & Hove: school-by-school under all three specifications
+
+```{r bh-vadd}
+#| label: bh-vadd
+
+bh_va <- va_complete %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  arrange(desc(vadd_M1))
+
+# Pull each school's residual absence (school mean, log-scale, then converted to %-pts)
+bh_resid_abs <- stage2_data %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  group_by(URN, SCHNAME) %>%
+  summarise(
+    mean_obs_abs       = mean(PERCTOT, na.rm = TRUE),
+    mean_expected_abs  = mean(expected_absence, na.rm = TRUE),
+    mean_resid_abs_log = mean(residual_absence_log, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(resid_abs_pp = mean_obs_abs - mean_expected_abs)
+
+bh_combined <- bh_va %>%
+  left_join(bh_resid_abs, by = c("URN", "SCHNAME")) %>%
+  select(SCHNAME,
+         vadd_M0, vadd_M1, vadd_M2,
+         mean_obs_abs, mean_expected_abs, resid_abs_pp)
+
+knitr::kable(bh_combined, digits = 2,
+             caption = "Brighton & Hove schools: value-added (ATT8 points) under each specification, plus the residual-absence indicator")
+```
+
+The `resid_abs_pp` column is the **school-controllable absence indicator** described in the motivation: positive values mean the school has more absence than the stage-1 model would expect from its intake; negative values mean the school is doing better on attendance than its intake would predict.
+
+The combination of **`vadd_M2` plus `resid_abs_pp`** is the transparent two-component view: how much the school adds to attainment (with attendance management already credited), and *separately* how much of that comes through unusually good (or bad) attendance management.
+
+
+## Sensitivity: bootstrap stability of B&H rankings
+
+We resample LAs-with-replacement (clustered bootstrap, since school-years within an LA are not independent) and refit stages 1 and 2. For each replicate we record each B&H school's value-added rank under M1 and M2.
+
+```{r boot-setup}
+#| label: boot-setup
+
+set.seed(42)
+n_boot <- 50  # keep small to bound render time; bump for production use
+
+la_pool <- unique(stage2_data$LANAME)
+
+boot_rank <- function() {
+  # Sample LAs with replacement
+  la_sample <- sample(la_pool, length(la_pool), replace = TRUE)
+  d_boot <- map_dfr(seq_along(la_sample), function(i) {
+    stage2_data %>% filter(LANAME == la_sample[i]) %>% mutate(.boot_la = i)
+  })
+  if (nrow(d_boot) < 1000) return(NULL)
+
+  # Refit stage 1 on the bootstrap sample
+  s1_b <- try(lmer(
+    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+      gorard_segregation +
+      (1 | year_label) + (1 | gor_name),
+    data = d_boot, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+  if (inherits(s1_b, "try-error")) return(NULL)
+
+  d_boot$log_expected_absence <- predict(s1_b, newdata = d_boot,
+                                          re.form = NULL,
+                                          allow.new.levels = TRUE)
+
+  # Refit M1 and M2
+  m1_b <- try(lmer(
+    log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      remained_in_the_same_school +
+      teachers_on_leadership_pay_range_percent +
+      log(average_number_of_days_taken) +
+      (1 | year_label) + (1 | gor_name),
+    data = d_boot, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+
+  m2_b <- try(lmer(
+    log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      (1 | year_label) + (1 | gor_name),
+    data = d_boot, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+
+  if (inherits(m1_b, "try-error") || inherits(m2_b, "try-error")) return(NULL)
+
+  d_boot$resid_M1 <- residuals(m1_b)
+  d_boot$resid_M2 <- residuals(m2_b)
+
+  d_boot %>%
+    group_by(URN, SCHNAME, LANAME) %>%
+    summarise(va_M1 = mean(resid_M1), va_M2 = mean(resid_M2), .groups = "drop") %>%
+    mutate(rank_M1 = rank(-va_M1), rank_M2 = rank(-va_M2))
+}
+
+boot_results <- map_dfr(1:n_boot, function(i) {
+  res <- boot_rank()
+  if (!is.null(res)) res$rep <- i
+  res
+})
+
+cat("Successful bootstrap replicates:", length(unique(boot_results$rep)), "/", n_boot, "\n")
+```
+
+```{r boot-summary}
+#| label: boot-summary
+
+bh_boot <- boot_results %>%
+  filter(grepl("Brighton", LANAME)) %>%
+  group_by(SCHNAME) %>%
+  summarise(
+    rank_M1_median = median(rank_M1),
+    rank_M1_q05    = quantile(rank_M1, 0.05),
+    rank_M1_q95    = quantile(rank_M1, 0.95),
+    rank_M2_median = median(rank_M2),
+    rank_M2_q05    = quantile(rank_M2, 0.05),
+    rank_M2_q95    = quantile(rank_M2, 0.95),
+    .groups = "drop"
+  ) %>%
+  arrange(rank_M2_median)
+
+knitr::kable(bh_boot, digits = 0,
+             caption = "Brighton & Hove school rank uncertainty under M1 and M2 (clustered bootstrap, n_boot replicates above)")
+```
+
+The width of the 5--95% interval gives an honest sense of how much each school's position can move purely through sampling. Schools whose interval brackets stay tight under both M1 and M2 are *robustly* ranked; wide intervals signal cases where the methodological choice or a small change in sample matters.
+
+
+## Take-aways
+
+::: {.callout-tip}
+## What this experiment tells us
+
+1. **Most rankings are likely robust to the absence specification.** If M1 and M2 produce a Spearman rank correlation above ~0.9, then for parental-choice purposes the simpler Analysis E specification is fine.
+2. **Where they disagree, the disagreement is informative.** A school whose M2 rank is materially better than its M1 rank is plausibly *managing attendance unusually well* given its intake; the reverse pattern flags a school whose M1 advantage rests on an attendance profile its intake would have predicted anyway.
+3. **The combined indicator (value-added + residual absence) is the most transparent reporting unit.** It separates "this school adds points to attainment" from "this school's pupils attend more than their intake predicts" --- two distinct signals that the single-residual M1 reporting fuses together.
+4. **Stage 1 is the binding constraint.** With only FSM, EAL, low prior attainment and segregation as fixed exogenous predictors, stage 1's discriminating power leans heavily on the LA random effect. Adding richer area-level controls (IDACI, area health indicators, SEN/EHCP rates, neighbourhood deprivation deciles) would sharpen the decomposition substantially.
+5. **Bootstrap confidence intervals are wide for many schools.** A single point estimate of value-added is almost always more precise than the underlying data warrants. Reporting the interval alongside the point estimate is honest practice.
+:::
+
+::: {.callout-warning}
+## What this experiment does not do
+
+- **It does not establish causality.** All three specifications are observational. The two-stage approach reduces one specific bias (over-attributing exogenous absence to school behaviour) but does not eliminate omitted-variable bias from unmeasured intake characteristics.
+- **It does not address measurement error in stage 1.** Expected absence enters stage 2 as if it were known with certainty. Properly accounting for the generated-regressor problem requires either a full bootstrap of standard errors (the small simulation above is a start) or an instrumental-variable / structural-equation framing.
+- **It does not test pupil-level decompositions.** Pupil-level NPD data with linked attendance, intake and outcomes would allow a much sharper version of this analysis, including who within each school benefits from attendance management.
+:::
