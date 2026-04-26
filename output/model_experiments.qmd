@@ -3396,3 +3396,215 @@ The width of the 5--95% interval gives an honest sense of how much each school's
 - **It does not address measurement error in stage 1.** Expected absence enters stage 2 as if it were known with certainty. Properly accounting for the generated-regressor problem requires either a full bootstrap of standard errors (the small simulation above is a start) or an instrumental-variable / structural-equation framing.
 - **It does not test pupil-level decompositions.** Pupil-level NPD data with linked attendance, intake and outcomes would allow a much sharper version of this analysis, including who within each school benefits from attendance management.
 :::
+
+
+## Per-year breakdown: does the decomposition behave differently year-on-year?
+
+The models above pool all four years (2021-22 to 2024-25) and absorb between-year shifts via a year-level random intercept. But absence rose sharply during and after the pandemic, and the relationship between intake and absence may itself have changed across years. This sub-section refits stages 1 and 2 separately within each year and reports how the key quantities move.
+
+```{r per-year-fit}
+#| label: per-year-fit
+
+years_to_fit <- levels(stage2_data$year_label)
+
+per_year_results <- map(years_to_fit, function(yr) {
+
+  d_y <- stage2_data %>% filter(year_label == yr) %>% droplevels()
+  if (nrow(d_y) < 500) return(NULL)
+
+  # Stage 1: single-year (no year random effect needed)
+  s1_y <- try(lmer(
+    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+      gorard_segregation +
+      (1 | gor_name/LANAME),
+    data = d_y, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+  if (inherits(s1_y, "try-error")) return(NULL)
+
+  d_y$log_expected_absence <- predict(s1_y, newdata = d_y,
+                                       re.form = NULL, allow.new.levels = TRUE)
+  d_y$residual_absence_log <- log(d_y$PERCTOT) - d_y$log_expected_absence
+
+  # Stage 2: M1 and M2 (drop year RE since within-year)
+  m1_y <- try(lmer(
+    log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      remained_in_the_same_school +
+      teachers_on_leadership_pay_range_percent +
+      log(average_number_of_days_taken) +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d_y, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+
+  m2_y <- try(lmer(
+    log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+    data = d_y, REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+  ), silent = TRUE)
+
+  if (inherits(m1_y, "try-error") || inherits(m2_y, "try-error")) return(NULL)
+
+  list(year = yr, data = d_y, s1 = s1_y, M1 = m1_y, M2 = m2_y)
+}) %>% setNames(years_to_fit) %>% compact()
+
+cat("Years successfully fit:", paste(names(per_year_results), collapse = ", "), "\n")
+```
+
+### Stage 1 coefficients by year
+
+How much do intake → absence relationships shift across years?
+
+```{r per-year-s1-coefs}
+#| label: per-year-s1-coefs
+
+s1_year_coefs <- map_dfr(per_year_results, function(yr_res) {
+  s <- summary(yr_res$s1)$coefficients
+  tibble(
+    year = yr_res$year,
+    term = rownames(s),
+    estimate = s[, "Estimate"],
+    std_error = s[, "Std. Error"],
+    p_value = s[, "Pr(>|t|)"]
+  )
+})
+
+s1_year_wide <- s1_year_coefs %>%
+  mutate(value = sprintf("%.3f%s",
+                         estimate,
+                         case_when(p_value < 0.001 ~ "***",
+                                   p_value < 0.01  ~ "**",
+                                   p_value < 0.05  ~ "*",
+                                   TRUE            ~ ""))) %>%
+  select(term, year, value) %>%
+  pivot_wider(names_from = year, values_from = value, values_fill = "—")
+
+knitr::kable(s1_year_wide,
+             caption = "Stage 1 (expected absence) fixed-effects coefficients by year")
+```
+
+### Stage 2 attainment coefficients by year — M1 vs M2
+
+```{r per-year-s2-coefs}
+#| label: per-year-s2-coefs
+
+s2_year_coefs <- map_dfr(per_year_results, function(yr_res) {
+  bind_rows(
+    extract_fixef_table(yr_res$M1, "M1") %>% mutate(year = yr_res$year),
+    extract_fixef_table(yr_res$M2, "M2") %>% mutate(year = yr_res$year)
+  )
+})
+
+# Focus on the absence-related coefficient + FSM (the variable most likely to absorb absence's influence)
+focus_terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log_expected_absence",
+                 "PTPRIORLO", "log(PNUMEAL)")
+
+s2_focus <- s2_year_coefs %>%
+  filter(term %in% focus_terms) %>%
+  mutate(value = sprintf("%.3f%s",
+                         estimate,
+                         case_when(p_value < 0.001 ~ "***",
+                                   p_value < 0.01  ~ "**",
+                                   p_value < 0.05  ~ "*",
+                                   TRUE            ~ ""))) %>%
+  select(term, model, year, value) %>%
+  pivot_wider(names_from = year, values_from = value, values_fill = "—") %>%
+  arrange(term, model)
+
+knitr::kable(s2_focus,
+             caption = "Stage 2 attainment-model coefficients (M1 vs M2) on key variables, by year")
+```
+
+### Fit comparison by year
+
+```{r per-year-fit-stats}
+#| label: per-year-fit-stats
+
+per_year_fit_stats <- map_dfr(per_year_results, function(yr_res) {
+  r1 <- performance::r2(yr_res$M1)
+  r2 <- performance::r2(yr_res$M2)
+  rs <- performance::r2(yr_res$s1)
+  tibble(
+    year = yr_res$year,
+    n_obs = nrow(yr_res$data),
+    s1_R2_marginal    = as.numeric(rs$R2_marginal),
+    s1_R2_conditional = as.numeric(rs$R2_conditional),
+    M1_R2_marginal    = as.numeric(r1$R2_marginal),
+    M1_R2_conditional = as.numeric(r1$R2_conditional),
+    M2_R2_marginal    = as.numeric(r2$R2_marginal),
+    M2_R2_conditional = as.numeric(r2$R2_conditional)
+  )
+})
+
+knitr::kable(per_year_fit_stats, digits = 3,
+             caption = "Per-year R² for stage 1 (absence) and stage 2 (attainment) under M1 and M2")
+```
+
+### Brighton & Hove value-added by year, M1 vs M2
+
+```{r per-year-bh}
+#| label: per-year-bh
+
+per_year_bh_va <- map_dfr(per_year_results, function(yr_res) {
+  d <- yr_res$data
+  d$resid_M1 <- residuals(yr_res$M1)
+  d$resid_M2 <- residuals(yr_res$M2)
+  d %>%
+    filter(grepl("Brighton", LANAME)) %>%
+    group_by(URN, SCHNAME) %>%
+    summarise(
+      year = yr_res$year,
+      vadd_M1 = mean_att8 <- mean(ATT8SCR, na.rm = TRUE) * (exp(mean(resid_M1)) - 1),
+      vadd_M2 = mean(ATT8SCR, na.rm = TRUE) * (exp(mean(resid_M2)) - 1),
+      mean_obs_abs      = mean(PERCTOT, na.rm = TRUE),
+      mean_expected_abs = mean(exp(d$log_expected_absence[d$URN == first(URN)]), na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(resid_abs_pp = mean_obs_abs - mean_expected_abs)
+})
+
+bh_va_year_table <- per_year_bh_va %>%
+  select(SCHNAME, year, vadd_M1, vadd_M2, resid_abs_pp) %>%
+  arrange(SCHNAME, year)
+
+knitr::kable(bh_va_year_table, digits = 2,
+             caption = "Brighton & Hove schools: value-added (ATT8 points) and residual absence by year, M1 vs M2")
+```
+
+### Year-on-year M1 vs M2 rank correlations
+
+If the rank correlation between M1 and M2 is stable across years, the choice of absence specification is similarly consequential each year. If it drifts, particular years may need different treatment (most likely: the 2021-22 post-pandemic year, when absence was historically anomalous).
+
+```{r per-year-rank-cor}
+#| label: per-year-rank-cor
+
+per_year_rank_cor <- map_dfr(per_year_results, function(yr_res) {
+  d <- yr_res$data
+  d$resid_M1 <- residuals(yr_res$M1)
+  d$resid_M2 <- residuals(yr_res$M2)
+  va_y <- d %>%
+    group_by(URN) %>%
+    summarise(va_M1 = mean(resid_M1), va_M2 = mean(resid_M2), .groups = "drop")
+  tibble(
+    year = yr_res$year,
+    n_schools = nrow(va_y),
+    pearson  = cor(va_y$va_M1, va_y$va_M2),
+    spearman = cor(va_y$va_M1, va_y$va_M2, method = "spearman")
+  )
+})
+
+knitr::kable(per_year_rank_cor, digits = 3,
+             caption = "Year-by-year correlation of school value-added between M1 and M2")
+```
+
+::: {.callout-note}
+## Reading the per-year results
+
+- **Stable stage-1 coefficients across years** would suggest the intake → absence relationship is structural rather than period-specific, supporting the validity of pooling.
+- **Drift in the FSM coefficient between M1 and M2 within a year** quantifies how much disadvantage signal absence is absorbing in that particular year.
+- **Pandemic anomalies (2021-22)**: this was the year when post-pandemic absence patterns were most disrupted; if the M1↔M2 rank correlation drops here relative to later years, that's a signal that pooled estimates are partly driven by an unusual year.
+- **B&H year-on-year**: if a school's value-added or residual absence changes substantially across years, that's information --- either a real shift in the school's performance, or genuine year-to-year volatility that single-year reporting would over-interpret.
+:::
