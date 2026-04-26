@@ -3291,6 +3291,33 @@ The combination of **`vadd_M2` plus `resid_abs_pp`** is the transparent two-comp
 
 We resample LAs-with-replacement (clustered bootstrap, since school-years within an LA are not independent) and refit stages 1 and 2. For each replicate we record each B&H school's value-added rank under M1 and M2.
 
+::: {.callout-note}
+## How the bootstrap works, in lay terms
+
+A single value-added number for a school is just a point estimate --- it's the answer that comes out *if the data we have is exactly the right sample to learn from*. In practice, England's ~3,000 secondaries are themselves a kind of sample of "schools that could exist", and the LAs they sit in are not independent of each other (schools in the same LA share intake, funding, policy and management context). The model's standard errors handle some of that, but not all of it. The bootstrap gives us a more honest picture of how much a school's ranking could move just because of who else is in the comparison set.
+
+The procedure is essentially: **pretend the data we have is the population, then draw lots of "alternative Englands" from it and see how stable each school's answer is across them.**
+
+Concretely, one replicate looks like this:
+
+1. **Resample LAs.** Take the list of England's local authorities and draw from it 152 times *with replacement* --- so some LAs end up in the new sample twice or three times, and others not at all. This is the "clustered" part: we resample whole LAs rather than individual schools, because schools within the same LA are not independent observations.
+2. **Build a synthetic England.** For each LA picked, pull in all that LA's school-years as they appear in the real data. The result is a synthetic dataset of similar size to the original, but with a slightly different mix of LAs --- some over-represented, some absent.
+3. **Re-run the whole pipeline.** Refit stage 1 (expected absence) and the two stage-2 attainment models (M1 and M2) on the synthetic dataset.
+4. **Record each B&H school's rank.** For every Brighton and Hove school that appears in the synthetic dataset, log its value-added rank under M1 and under M2.
+5. **Repeat n times** (here `n = `r n_boot`` --- bumped up to a few hundred or a thousand for production reporting).
+
+After all replicates, each school has a *distribution* of ranks rather than a single rank. The **5th--95th percentile interval** of that distribution is a 90% bootstrap interval: a school whose interval runs from rank 800 to rank 850 is *robustly* placed; a school whose interval runs from rank 400 to rank 1,800 is in a position the data cannot pin down precisely.
+
+Why this matters: a single point-estimate rank looks much more authoritative than the underlying data warrants. Reporting the interval alongside the point estimate is honest practice and helps regulators, parents and school leaders avoid over-interpreting small year-on-year or specification-driven movements.
+
+A few practical caveats specific to this setup:
+
+- **Resampling LAs (not schools)** preserves the within-LA correlation structure. Resampling individual school-years would make the intervals look artificially tight.
+- **Why with replacement?** This is what makes each replicate a "different draw" from the same underlying population. Without replacement we'd just get back the original sample every time.
+- **Stage 1 is refit each replicate.** Expected absence is recomputed inside each synthetic England, so the uncertainty in the *first* stage is propagated into the second --- this addresses the generated-regressor problem mentioned in the caveats below.
+- **Bootstrap size matters.** With only 50 replicates, the 5th--95th interval is itself estimated noisily. The structure is sound but the intervals are wider than a 1,000-replicate run would give. Treat the table below as illustrative of the *method* rather than the final word on each school's interval.
+:::
+
 ```{r boot-setup}
 #| label: boot-setup
 
