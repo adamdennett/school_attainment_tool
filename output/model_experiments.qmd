@@ -3304,7 +3304,7 @@ Concretely, one replicate looks like this:
 2. **Build a synthetic England.** For each LA picked, pull in all that LA's school-years as they appear in the real data. The result is a synthetic dataset of similar size to the original, but with a slightly different mix of LAs --- some over-represented, some absent.
 3. **Re-run the whole pipeline.** Refit stage 1 (expected absence) and the two stage-2 attainment models (M1 and M2) on the synthetic dataset.
 4. **Record each B&H school's rank.** For every Brighton and Hove school that appears in the synthetic dataset, log its value-added rank under M1 and under M2.
-5. **Repeat n times** (here `n = `r n_boot`` --- bumped up to a few hundred or a thousand for production reporting).
+5. **Repeat n times** (here `n = 50` --- bumped up to a few hundred or a thousand for production reporting).
 
 After all replicates, each school has a *distribution* of ranks rather than a single rank. The **5th--95th percentile interval** of that distribution is a 90% bootstrap interval: a school whose interval runs from rank 800 to rank 850 is *robustly* placed; a school whose interval runs from rank 400 to rank 1,800 is in a position the data cannot pin down precisely.
 
@@ -3580,6 +3580,29 @@ For each school, three signals sit side by side:
 3. **`absence_implied_att8_swing`** --- the indicative ATT8 implication of that residual absence, *if* residual absence were translated through the same elasticity as expected absence. This is illustrative; the actual residual-absence elasticity is the one in the combined-model table above.
 
 Schools where `vadd_M2` is high *and* `resid_abs_pp` is negative are doing well on attainment partly *through* unusually good attendance --- a coherent management story. Schools where `vadd_M2` is high but `resid_abs_pp` is positive are adding value *despite* a worse-than-expected absence profile --- pedagogically impressive, with attendance still the obvious lever to pull. Schools where `vadd_M2` is negative *and* `resid_abs_pp` is positive have attendance as the most plausible single point of intervention.
+:::
+
+::: {.callout-note}
+## What `absence_implied_att8_swing` is, in lay terms
+
+This column is best read as a **rough translation** of "this school's attendance is X percentage points off what its intake predicts" into "what would that be worth in Attainment 8 points if the school's residual absence behaved like its intake-predicted absence?". It's a back-of-envelope conversion, useful for orientation rather than for precise prediction. Worked through step by step:
+
+1. **Start with the gap.** `resid_abs_pp` (in percentage points) is the difference between the school's observed absence and the absence stage 1 predicts from its intake. A school running at 11% absence with an intake-predicted 9% has a `resid_abs_pp` of +2 percentage points.
+
+2. **Use the M2 elasticity as a yardstick.** The M2 attainment model gives us a coefficient on `log_expected_absence` --- a number that says, on the log scale, how much Attainment 8 moves when (intake-predicted) absence moves by 1%. We borrow that yardstick and apply it to the *gap* between observed and predicted absence, asking: if that 2-percentage-point gap were closed (or, equivalently, if the school's residual absence behaved the way its intake-predicted absence does), how many ATT8 points would the model expect that to be worth?
+
+3. **Convert back to ATT8 points at the school's level.** Multilevel models work on the log scale, so we exponentiate the change implied by the elasticity and multiply through by the school's mean ATT8 to get the answer in raw points rather than log-scale units.
+
+Mechanically: `absence_implied_att8_swing = mean_att8 × (exp(β × Δlog_absence) − 1)`, where `β` is the M2 elasticity and `Δlog_absence = log(observed) − log(predicted)`.
+
+**What it does and doesn't tell you:**
+
+- **It does** give a usable order-of-magnitude sense of how much each school's attendance gap "costs" or "gains" them in Attainment 8 terms, expressed in the same ATT8 units as `vadd_M2`. A swing of +1.5 means roughly "if this school's residual absence were closed, the model implies +1.5 ATT8 points worth of attainment".
+- **It doesn't** establish that the swing would actually be realised in practice if the school changed its attendance management. The M2 elasticity is fitted on intake-driven absence variation across England, not on the kind of variation a single school's attendance interventions would produce. Closing residual absence might be harder than this number suggests, or it might unlock other effects this single coefficient cannot capture.
+- **It is sensitive to the choice of yardstick.** We use the M2 elasticity for `log_expected_absence` because it is the most stable absence coefficient in the model. The combined-model table above estimates a *separate* elasticity for residual absence specifically; if that estimate is much smaller than the expected-absence elasticity, this column will overstate the policy-actionable swing. If it is similar, this column is a fair indicative read.
+- **The sign is the most reliable part.** Treat the magnitude as illustrative, but the sign tells you which direction attendance management would push attainment for each school.
+
+In short: this column is a translation device, not a prediction. It puts the attendance signal into the same units as the value-added signal so they can be compared at a glance, with the caveats that the conversion is approximate and the underlying causal story is what the rest of this section is trying to disentangle.
 :::
 
 
