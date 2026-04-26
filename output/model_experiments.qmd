@@ -3126,7 +3126,15 @@ knitr::kable(coef_wide,
 ::: {.callout-note}
 ## Reading the coefficient table
 
-The FSM coefficient is the most diagnostic. If it inflates substantially as we move from M1 → M0 → M2, that tells us the absence variable was previously absorbing a chunk of the disadvantage signal, and our two-stage decomposition has redistributed it. If the coefficient on `log_expected_absence` in M2 is close to the M1 coefficient on `log(PERCTOT)`, the elasticity-on-absence reading we have been using is robust to the decomposition.
+There are two diagnostic comparisons worth making.
+
+**1. M0 vs (M1, M2) on FSM.** M0 has no absence control, so the FSM coefficient there absorbs both the *direct* disadvantage → attainment channel and the *indirect* disadvantage → absence → attainment channel. Adding any absence variable --- raw (M1) or expected (M2) --- should shrink FSM substantially. The size of that shrinkage is a rough indicator of how much of FSM's apparent influence on attainment runs *through* attendance rather than directly. In our results, the FSM elasticity is roughly **-0.115 in M0** and **-0.067 / -0.069 in M1 / M2** --- the absence channel accounts for almost half of FSM's "raw" association with attainment.
+
+**2. M1 vs M2 on FSM.** This is where the two-stage decomposition either earns its keep or doesn't. If raw absence and expected absence behave very differently in the attainment model, then the *school-controllable* component of absence (the part removed in M1 but left in the residual in M2) carries unique predictive power, and the decomposition is doing real work. If M1 and M2 produce near-identical FSM coefficients (as they do here, -0.067 vs -0.069), then within this fixed-effects view of attainment, **raw and expected absence are near-substitutes** --- residual absence carries little marginal predictive power beyond what expected absence already captures.
+
+This second finding is the more interesting one. It does *not* mean the decomposition is pointless --- it means its main effect lands on the **value-added residual at the school level** (where residual absence flows into M2's residual but not M1's), not on the population-level coefficients. The downstream school-by-school comparisons below are where the decomposition pays off, not the fixed-effects table above.
+
+A third comparison --- the coefficient on `log(PERCTOT)` in M1 vs the coefficient on `log_expected_absence` in M2 --- tells us whether the elasticity-on-absence reading we have been using elsewhere in the analysis is robust to the decomposition. If they are close, the "1pp absence reduction → ATT8 gain" story holds whether you take "absence" to mean raw absence or the intake-predicted component.
 :::
 
 
