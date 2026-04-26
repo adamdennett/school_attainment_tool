@@ -3719,6 +3719,218 @@ The single Analysis E residual hides at least three distinct school stories that
 :::
 
 
+## Quadrant plots: where each school sits in the joint-signal space
+
+The four-quadrant narrative above is much easier to read as a scatter plot. Each school is a single point, with `resid_abs_pp` (school-controllable absence, in percentage points) on the x-axis and `vadd_M2` (value-added in ATT8 points) on the y-axis. The reference lines at zero on each axis split the plot into the four quadrants discussed in the previous section.
+
+```{r build-national-quadrant-data}
+#| label: build-national-quadrant-data
+#| include: false
+
+# National table: every school's vadd_M2 + resid_abs_pp on a single row
+school_va_resid <- va_complete %>%
+  select(URN, SCHNAME, LANAME, vadd_M0, vadd_M1, vadd_M2) %>%
+  left_join(
+    stage2_data %>%
+      distinct(URN, gor_name) %>%
+      group_by(URN) %>%
+      slice(1) %>%
+      ungroup(),
+    by = "URN"
+  ) %>%
+  inner_join(
+    stage2_data %>%
+      group_by(URN, SCHNAME) %>%
+      summarise(
+        mean_obs_abs       = mean(PERCTOT, na.rm = TRUE),
+        mean_expected_abs  = mean(expected_absence, na.rm = TRUE),
+        n_years_obs        = n(),
+        .groups = "drop"
+      ) %>%
+      mutate(resid_abs_pp = mean_obs_abs - mean_expected_abs) %>%
+      select(URN, mean_obs_abs, mean_expected_abs, resid_abs_pp, n_years_obs),
+    by = "URN"
+  ) %>%
+  filter(!is.na(vadd_M2), !is.na(resid_abs_pp))
+
+# Sensible plotting limits — clip extreme outliers for readability
+qx <- quantile(school_va_resid$resid_abs_pp, c(0.005, 0.995), na.rm = TRUE)
+qy <- quantile(school_va_resid$vadd_M2,      c(0.005, 0.995), na.rm = TRUE)
+xlim_pad <- c(min(qx[1], -3), max(qx[2], 3))
+ylim_pad <- c(min(qy[1], -8), max(qy[2], 8))
+
+cat("National quadrant dataset:", nrow(school_va_resid), "schools\n")
+```
+
+### Brighton and Hove: quadrant view
+
+```{r bh-quadrant-plot}
+#| label: fig-bh-quadrant
+#| fig-cap: "Brighton & Hove secondaries on the value-added (vadd_M2) vs school-controllable absence (resid_abs_pp) plane. The four quadrants correspond to the four narrative groups in the worked-examples section above."
+#| fig-height: 6
+#| fig-width: 9
+
+library(ggrepel)
+
+bh_plot_data <- school_va_resid %>%
+  filter(grepl("Brighton", LANAME))
+
+# Quadrant shading
+quad_alpha <- 0.05
+quadrant_rects <- tibble(
+  xmin = c(-Inf,  0,    0, -Inf),
+  xmax = c(   0, Inf,  Inf,    0),
+  ymin = c(   0,   0, -Inf, -Inf),
+  ymax = c( Inf, Inf,    0,    0),
+  fill = c("#2e6260", "#cc8033", "#993333", "#4e3c56"),
+  label = c("Q1: value-added\n+ attendance helping",
+            "Q2: value-added\ndespite worse attendance",
+            "Q3: underperforming\n+ attendance worse",
+            "Q4: underperforming\ndespite better attendance")
+)
+
+ggplot() +
+  geom_rect(data = quadrant_rects,
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
+                fill = fill),
+            alpha = quad_alpha, show.legend = FALSE) +
+  scale_fill_identity() +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_point(data = bh_plot_data,
+             aes(x = resid_abs_pp, y = vadd_M2),
+             size = 3, colour = "#361a54", alpha = 0.9) +
+  geom_text_repel(data = bh_plot_data,
+                  aes(x = resid_abs_pp, y = vadd_M2, label = SCHNAME),
+                  size = 3.2, max.overlaps = 20, force = 4,
+                  segment.colour = "grey60", segment.size = 0.3,
+                  colour = "#1a1a2e") +
+  annotate("text", x = xlim_pad[1] * 0.9, y = ylim_pad[2] * 0.92,
+           label = "Q1: value-added\n+ attendance helping",
+           hjust = 0, vjust = 1, size = 2.8, colour = "#2e6260",
+           fontface = "italic") +
+  annotate("text", x = xlim_pad[2] * 0.9, y = ylim_pad[2] * 0.92,
+           label = "Q2: value-added\ndespite worse attendance",
+           hjust = 1, vjust = 1, size = 2.8, colour = "#7a4e1a",
+           fontface = "italic") +
+  annotate("text", x = xlim_pad[2] * 0.9, y = ylim_pad[1] * 0.92,
+           label = "Q3: underperforming\n+ attendance worse",
+           hjust = 1, vjust = 0, size = 2.8, colour = "#993333",
+           fontface = "italic") +
+  annotate("text", x = xlim_pad[1] * 0.9, y = ylim_pad[1] * 0.92,
+           label = "Q4: underperforming\ndespite better attendance",
+           hjust = 0, vjust = 0, size = 2.8, colour = "#4e3c56",
+           fontface = "italic") +
+  coord_cartesian(xlim = xlim_pad, ylim = ylim_pad) +
+  labs(x = "School-controllable absence (residual_absence_pp)\n← better than predicted     |     worse than predicted →",
+       y = "Value-added under M2 (ATT8 points)\n← below intake-predicted     |     above intake-predicted →",
+       title = "Brighton and Hove: where each school sits on the joint signal",
+       subtitle = "Each point is one school; reference lines at zero define the four narrative quadrants") +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40", size = 9),
+        panel.grid.minor = element_blank())
+```
+
+### National view with LA selector
+
+The same plotting plane applied to all `r nrow(school_va_resid)` schools nationally. Use the dropdown to highlight a single local authority — selected schools render in colour, while the rest of the system stays as faint grey context. Hover over any point for the school name and exact values.
+
+```{r national-quadrant-plotly}
+#| label: fig-national-quadrant
+#| fig-cap: "All schools nationally on the value-added vs school-controllable absence plane. Use the LA filter to highlight schools in a single authority."
+#| fig-height: 7
+#| fig-width: 10
+
+library(crosstalk)
+
+# Trim to two decimal places for tooltip readability and clip extreme outliers
+plot_dat <- school_va_resid %>%
+  mutate(
+    LANAME       = as.character(LANAME),
+    vadd_M2_clip = pmin(pmax(vadd_M2,      ylim_pad[1]), ylim_pad[2]),
+    resid_clip   = pmin(pmax(resid_abs_pp, xlim_pad[1]), xlim_pad[2]),
+    tooltip = sprintf("<b>%s</b><br>LA: %s<br>vadd_M2: %+.2f pts<br>resid_abs_pp: %+.1f pp<br>obs absence: %.1f%%<br>expected absence: %.1f%%",
+                      SCHNAME, LANAME, vadd_M2, resid_abs_pp,
+                      mean_obs_abs, mean_expected_abs)
+  )
+
+shared_dat <- SharedData$new(plot_dat, key = ~URN, group = "schools")
+
+p_nat <- plot_ly(shared_dat,
+                 x = ~resid_clip, y = ~vadd_M2_clip,
+                 type = "scatter", mode = "markers",
+                 text = ~tooltip, hoverinfo = "text",
+                 marker = list(size = 5, opacity = 0.45,
+                               color = "#361a54",
+                               line = list(width = 0))) %>%
+  layout(
+    shapes = list(
+      list(type = "line", x0 = 0, x1 = 0,
+           y0 = ylim_pad[1], y1 = ylim_pad[2],
+           line = list(color = "grey50", width = 1)),
+      list(type = "line", x0 = xlim_pad[1], x1 = xlim_pad[2],
+           y0 = 0, y1 = 0,
+           line = list(color = "grey50", width = 1))
+    ),
+    annotations = list(
+      list(x = xlim_pad[1] * 0.95, y = ylim_pad[2] * 0.95,
+           text = "Q1: value-added<br>+ attendance helping",
+           showarrow = FALSE, xanchor = "left",  yanchor = "top",
+           font = list(size = 11, color = "#2e6260"), align = "left"),
+      list(x = xlim_pad[2] * 0.95, y = ylim_pad[2] * 0.95,
+           text = "Q2: value-added<br>despite worse attendance",
+           showarrow = FALSE, xanchor = "right", yanchor = "top",
+           font = list(size = 11, color = "#7a4e1a"), align = "right"),
+      list(x = xlim_pad[2] * 0.95, y = ylim_pad[1] * 0.95,
+           text = "Q3: underperforming<br>+ attendance worse",
+           showarrow = FALSE, xanchor = "right", yanchor = "bottom",
+           font = list(size = 11, color = "#993333"), align = "right"),
+      list(x = xlim_pad[1] * 0.95, y = ylim_pad[1] * 0.95,
+           text = "Q4: underperforming<br>despite better attendance",
+           showarrow = FALSE, xanchor = "left",  yanchor = "bottom",
+           font = list(size = 11, color = "#4e3c56"), align = "left")
+    ),
+    xaxis = list(title = "School-controllable absence (resid_abs_pp, percentage points)",
+                 range = xlim_pad,
+                 zeroline = FALSE),
+    yaxis = list(title = "Value-added under M2 (ATT8 points)",
+                 range = ylim_pad,
+                 zeroline = FALSE),
+    margin = list(l = 70, r = 30, t = 50, b = 70),
+    showlegend = FALSE
+  ) %>%
+  highlight(
+    on  = "plotly_selected",
+    off = "plotly_deselect",
+    selectize = FALSE,
+    persistent = FALSE,
+    color = "#cc6633",
+    opacityDim = 0.15
+  )
+
+# Compose the LA dropdown alongside the plot
+bscols(
+  widths = c(3, 9),
+  filter_select(id        = "la_filter",
+                label     = "Select local authority to highlight",
+                sharedData = shared_dat,
+                group     = ~LANAME,
+                multiple  = TRUE),
+  p_nat
+)
+```
+
+::: {.callout-note}
+## How to read the plots
+
+- **Reference lines at zero** on both axes split the plane into the four quadrants from the worked-examples narrative above.
+- **The cluster around the origin** in the national plot is the typical case --- most schools sit close to their intake-predicted attainment with attendance close to what their intake predicts. The interesting cases are the schools furthest from the origin in any direction.
+- **Diagonal patterns** are informative: a positive correlation between `vadd_M2` and `-resid_abs_pp` (better attendance → higher value-added) would suggest school attendance management is part of the same management bundle as pedagogical effectiveness. A flat or noisy relationship suggests the two signals are largely independent at school level.
+- **The B&H scatter** can be compared to the national point cloud: are B&H schools spread similarly to the national distribution, or do they cluster in particular quadrants?
+:::
+
+
 ## Per-year breakdown: does the decomposition behave differently year-on-year?
 
 The models above pool all four years (2021-22 to 2024-25) and absorb between-year shifts via a year-level random intercept. But absence rose sharply during and after the pandemic, and the relationship between intake and absence may itself have changed across years. This sub-section refits stages 1 and 2 separately within each year and reports how the key quantities move.
