@@ -868,6 +868,130 @@ Parents, acting rationally on available information, may have been choosing the 
 
 ::::
 
+
+## Absence isn't just one number
+
+::: incremental
+- Absence is the single biggest predictor of attainment — but it sits in **two roles** at once
+    - Part is **structural** (intake, area health, deprivation, family circumstances)
+    - Part is **school-managed** (pastoral systems, attendance practice)
+- A two-stage decomposition[^twostage-short] separates them, giving each school a **value-added** *and* a **residual absence** indicator
+- Most absence variance nationally is structural; school-controllable share is the smaller part — but it's the one local policy can actually move
+:::
+
+::: {.key-finding}
+Closing a city's absence problem needs **both** school-level attention **and** cross-departmental work — public health, children's services, area deprivation policy. Schools cannot fix the structural component alone.
+:::
+
+[^twostage-short]: Full analysis: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
+
+
+## Brighton and Hove on the joint-signal plane
+
+```{r quadrant-fits-short}
+#| label: quadrant-fits-short
+#| include: false
+
+stage1_data_s <- imputed_full_data %>%
+  filter(!is.na(PERCTOT), PERCTOT > 0,
+         !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+         !is.na(PNUMEAL), PNUMEAL > 0,
+         !is.na(PTPRIORLO),
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+mod_stage1_s <- lmer(
+  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO + gorard_segregation +
+    (1 | year_label) + (1 | gor_name/LANAME),
+  data = stage1_data_s, REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+stage1_data_s$log_expected_absence <- predict(mod_stage1_s, newdata = stage1_data_s,
+                                                re.form = NULL, allow.new.levels = TRUE)
+stage1_data_s$expected_absence <- exp(stage1_data_s$log_expected_absence)
+
+stage2_data_s <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  inner_join(stage1_data_s %>% select(URN, year_label, expected_absence, log_expected_absence),
+             by = c("URN", "year_label")) %>%
+  droplevels()
+contrasts(stage2_data_s$OFSTEDRATING_1) <- contr.treatment(levels(stage2_data_s$OFSTEDRATING_1))
+
+mod_M2_s <- lmer(
+  log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data_s, REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+stage2_data_s$resid_M2_log <- residuals(mod_M2_s)
+
+quadrant_data_s <- stage2_data_s %>%
+  group_by(URN, SCHNAME, LANAME) %>%
+  summarise(
+    mean_log_resid    = mean(resid_M2_log, na.rm = TRUE),
+    mean_att8         = mean(ATT8SCR, na.rm = TRUE),
+    mean_obs_abs      = mean(PERCTOT, na.rm = TRUE),
+    mean_expected_abs = mean(expected_absence, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    vadd_M2 = mean_att8 * (exp(mean_log_resid) - 1),
+    resid_abs_pp = mean_obs_abs - mean_expected_abs,
+    is_bh = grepl("Brighton", LANAME)
+  )
+
+qx_s <- quantile(quadrant_data_s$resid_abs_pp, c(0.005, 0.995), na.rm = TRUE)
+qy_s <- quantile(quadrant_data_s$vadd_M2,      c(0.005, 0.995), na.rm = TRUE)
+quad_xlim_s <- c(min(qx_s[1], -3), max(qx_s[2], 3))
+quad_ylim_s <- c(min(qy_s[1], -8), max(qy_s[2], 8))
+```
+
+```{r fig-bh-quadrant-short}
+#| label: fig-bh-quadrant-short
+#| fig-height: 5
+
+bh_q_s <- quadrant_data_s %>% filter(is_bh)
+
+ggplot() +
+  annotate("rect", xmin = -Inf, xmax = 0, ymin = 0,    ymax = Inf, fill = "#005E5C", alpha = 0.06) +
+  annotate("rect", xmin = 0,    xmax = Inf, ymin = 0,    ymax = Inf, fill = "#cc8033", alpha = 0.06) +
+  annotate("rect", xmin = 0,    xmax = Inf, ymin = -Inf, ymax = 0,   fill = "#993333", alpha = 0.06) +
+  annotate("rect", xmin = -Inf, xmax = 0,   ymin = -Inf, ymax = 0,   fill = "#3A1857", alpha = 0.06) +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_point(data = bh_q_s,
+             aes(x = resid_abs_pp, y = vadd_M2),
+             size = 3.5, colour = "#3A1857", alpha = 0.95) +
+  geom_text_repel(data = bh_q_s,
+                  aes(x = resid_abs_pp, y = vadd_M2, label = SCHNAME),
+                  size = 3.5, max.overlaps = 25, force = 4,
+                  segment.colour = "grey60", segment.size = 0.3) +
+  annotate("text", x = quad_xlim_s[1] * 0.95, y = quad_ylim_s[2] * 0.92,
+           label = "Q1: value-added\n+ attendance helping",
+           hjust = 0, vjust = 1, size = 3, colour = "#005E5C", fontface = "italic") +
+  annotate("text", x = quad_xlim_s[2] * 0.95, y = quad_ylim_s[2] * 0.92,
+           label = "Q2: value-added\ndespite worse attendance",
+           hjust = 1, vjust = 1, size = 3, colour = "#7a4e1a", fontface = "italic") +
+  annotate("text", x = quad_xlim_s[2] * 0.95, y = quad_ylim_s[1] * 0.92,
+           label = "Q3: underperforming\n+ attendance worse",
+           hjust = 1, vjust = 0, size = 3, colour = "#993333", fontface = "italic") +
+  annotate("text", x = quad_xlim_s[1] * 0.95, y = quad_ylim_s[1] * 0.92,
+           label = "Q4: underperforming\ndespite better attendance",
+           hjust = 0, vjust = 0, size = 3, colour = "#3A1857", fontface = "italic") +
+  coord_cartesian(xlim = quad_xlim_s, ylim = quad_ylim_s) +
+  labs(x = "School-controllable absence (residual absence, pp)",
+       y = "Value-added under M2 (ATT8 points)",
+       title = "Brighton and Hove on the joint-signal plane") +
+  theme_slide
+```
+
+::: {.key-finding}
+**BACA**: Q2 — adding value despite worse attendance. **Patcham**: Q4 — underperforming despite better attendance management. Two very different policy stories the headline league table conceals.
+:::
+
 # The Policy Simulator Tool {background-color="#3A1857" .divider-slide}
 
 ## Bridging the gap
