@@ -44,6 +44,7 @@ format:
     keep-tex: true
 bibliography: SchoolAttainment.bib
 csl: sage-harvard.csl
+prefer-html: true
 execute:
   echo: false
   warning: false
@@ -1332,18 +1333,166 @@ quad_xlim <- c(min(qx[1], -3), max(qx[2], 3))
 quad_ylim <- c(min(qy[1], -8), max(qy[2], 8))
 ```
 
-@fig-quadrant-overview previews this four-quadrant view for England's secondary schools. The shaded cloud shows the national distribution; the orange dots highlight Brighton and Hove's ten secondaries to give a first sense of where the city sits within the wider system. A dense cluster around the origin is the typical case — most schools nationally sit close to their intake-predicted attainment with attendance close to what their intake predicts. The interesting cases are the schools furthest from the origin, in any direction.
+@fig-quadrant-overview previews this four-quadrant view for England's secondary schools. Each dot is one school. In the HTML version of this paper the plot is interactive: hover over any dot to see the school's name, local authority, region, Ofsted rating and the two underlying values; switch between Ofsted-rating and region colourings using the tabs; and use the dropdown filter to focus on a single local authority's schools at a time. The dense cluster around the origin is the typical case — most schools nationally sit close to their intake-predicted attainment with attendance close to what their intake predicts. The interesting cases are the schools furthest from the origin, in any direction.
+
+```{r quadrant-plot-data}
+#| label: quadrant-plot-data
+#| include: false
+
+# Add Ofsted rating + region (using each school's most recent year of data)
+quadrant_data_plot <- quadrant_data %>%
+  left_join(
+    imputed_full_data %>%
+      arrange(URN, desc(year_label)) %>%
+      group_by(URN) %>%
+      slice(1) %>%
+      ungroup() %>%
+      select(URN, OFSTEDRATING_1, gor_name),
+    by = "URN"
+  ) %>%
+  mutate(
+    OFSTEDRATING_1 = as.character(OFSTEDRATING_1),
+    OFSTEDRATING_1 = ifelse(is.na(OFSTEDRATING_1), "Unknown", OFSTEDRATING_1),
+    gor_name       = as.character(gor_name),
+    gor_name       = ifelse(is.na(gor_name), "Unknown", gor_name),
+    LANAME         = as.character(LANAME),
+    tooltip = sprintf(
+      "<b>%s</b><br>LA: %s<br>Region: %s<br>Ofsted: %s<br>Value-added (M2): %+.2f pts<br>Residual absence: %+.1f pp",
+      SCHNAME, LANAME, gor_name, OFSTEDRATING_1, vadd_M2, resid_abs_pp
+    )
+  )
+
+# Build helper layout (axes, quadrant lines, quadrant labels) used by every plotly
+quadrant_layout <- function(p) {
+  p %>% plotly::layout(
+    shapes = list(
+      list(type = "line", x0 = 0, x1 = 0,
+           y0 = quad_ylim[1], y1 = quad_ylim[2],
+           line = list(color = "grey50", width = 1)),
+      list(type = "line", x0 = quad_xlim[1], x1 = quad_xlim[2],
+           y0 = 0, y1 = 0,
+           line = list(color = "grey50", width = 1))
+    ),
+    annotations = list(
+      list(x = quad_xlim[1] * 0.95, y = quad_ylim[2] * 0.95,
+           text = "Q1: value-added<br>+ attendance helping",
+           showarrow = FALSE, xanchor = "left",  yanchor = "top",
+           font = list(size = 10, color = "#2e6260"), align = "left"),
+      list(x = quad_xlim[2] * 0.95, y = quad_ylim[2] * 0.95,
+           text = "Q2: value-added<br>despite worse attendance",
+           showarrow = FALSE, xanchor = "right", yanchor = "top",
+           font = list(size = 10, color = "#7a4e1a"), align = "right"),
+      list(x = quad_xlim[2] * 0.95, y = quad_ylim[1] * 0.95,
+           text = "Q3: underperforming<br>+ attendance worse",
+           showarrow = FALSE, xanchor = "right", yanchor = "bottom",
+           font = list(size = 10, color = "#993333"), align = "right"),
+      list(x = quad_xlim[1] * 0.95, y = quad_ylim[1] * 0.95,
+           text = "Q4: underperforming<br>despite better attendance",
+           showarrow = FALSE, xanchor = "left",  yanchor = "bottom",
+           font = list(size = 10, color = "#4e3c56"), align = "left")
+    ),
+    xaxis = list(title = "School-controllable absence (residual absence, percentage points)",
+                 range = quad_xlim, zeroline = FALSE),
+    yaxis = list(title = "Value-added under M2 (Attainment 8 points)",
+                 range = quad_ylim, zeroline = FALSE),
+    margin = list(l = 70, r = 30, t = 30, b = 60),
+    legend = list(orientation = "v", x = 1.02, y = 1)
+  )
+}
+
+# Ofsted palette (consistent ordering)
+quadrant_data_plot$OFSTEDRATING_1 <- factor(
+  quadrant_data_plot$OFSTEDRATING_1,
+  levels = c("Outstanding", "Good", "Requires Improvement", "Inadequate", "Unknown")
+)
+ofsted_pal <- c("Outstanding" = "#2e6260",
+                "Good" = "#7fb88f",
+                "Requires Improvement" = "#cc8033",
+                "Inadequate" = "#993333",
+                "Unknown" = "#bbbbbb")
+```
+
+::: {.content-visible when-format="html"}
+
+```{r quadrant-plot-html}
+#| label: quadrant-plot-html
+#| eval: !expr knitr::is_html_output()
+
+library(crosstalk)
+library(plotly)
+
+shared_q <- SharedData$new(quadrant_data_plot, key = ~URN, group = "quadrant")
+
+fig_ofsted <- plot_ly(shared_q,
+                       x = ~resid_abs_pp, y = ~vadd_M2,
+                       color = ~OFSTEDRATING_1,
+                       colors = ofsted_pal,
+                       text = ~tooltip, hoverinfo = "text",
+                       type = "scatter", mode = "markers",
+                       marker = list(size = 6, opacity = 0.7,
+                                     line = list(width = 0))) %>%
+  quadrant_layout()
+
+fig_region <- plot_ly(shared_q,
+                       x = ~resid_abs_pp, y = ~vadd_M2,
+                       color = ~gor_name,
+                       colors = "Set1",
+                       text = ~tooltip, hoverinfo = "text",
+                       type = "scatter", mode = "markers",
+                       marker = list(size = 6, opacity = 0.7,
+                                     line = list(width = 0))) %>%
+  quadrant_layout()
+
+# Filter widget at the top, plots below in a tabset
+bscols(
+  widths = 12,
+  filter_select(
+    id        = "la_filter",
+    label     = "Filter to a local authority (leave blank for all schools)",
+    sharedData = shared_q,
+    group     = ~LANAME,
+    multiple  = FALSE
+  )
+)
+```
+
+::: {.panel-tabset}
+
+## Coloured by Ofsted rating
+
+```{r quadrant-plot-ofsted}
+#| label: quadrant-plot-ofsted
+#| eval: !expr knitr::is_html_output()
+#| fig-cap: "All English secondary schools on the joint-signal plane, coloured by their most recent Ofsted rating. Use the filter above to focus on a single local authority."
+fig_ofsted
+```
+
+## Coloured by region
+
+```{r quadrant-plot-region}
+#| label: quadrant-plot-region
+#| eval: !expr knitr::is_html_output()
+#| fig-cap: "All English secondary schools on the joint-signal plane, coloured by region. Use the filter above to focus on a single local authority."
+fig_region
+```
+
+:::
+
+:::
+
+::: {.content-visible when-format="pdf"}
 
 ```{r fig-quadrant-overview}
 #| label: fig-quadrant-overview
-#| fig-cap: "All English secondary schools on the joint-signal plane: school-level value-added (vertical) versus the school-controllable absence component (horizontal). The shaded background shows the national point cloud; orange dots are Brighton and Hove's secondaries. The reference lines at zero on each axis split the plane into the four narrative quadrants discussed in the text."
+#| fig-cap: "All English secondary schools on the joint-signal plane: school-level value-added (vertical) versus the school-controllable absence component (horizontal). The shaded background shows the national point cloud; orange dots are Brighton and Hove's secondaries. The reference lines at zero on each axis split the plane into the four narrative quadrants discussed in the text. (The HTML version of this paper renders this as an interactive plot with Ofsted/region colouring and a local-authority filter.)"
 #| fig-height: 6
 #| fig-width: 9
 
 ggplot(quadrant_data, aes(x = resid_abs_pp, y = vadd_M2)) +
-  geom_hex(bins = 45, alpha = 0.85) +
-  scale_fill_gradient(low = "#ece1f1", high = "#361a54",
-                      name = "Schools\nper bin") +
+  geom_hex(bins = 45) +
+  scale_fill_viridis_c(option = "magma", direction = -1,
+                        name = "Schools\nper bin",
+                        trans = "log1p", breaks = c(1, 5, 20, 80)) +
   geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
   geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
   geom_point(data = quadrant_data %>% filter(is_bh),
@@ -1374,6 +1523,8 @@ ggplot(quadrant_data, aes(x = resid_abs_pp, y = vadd_M2)) +
   theme_pub +
   theme(legend.position = "right")
 ```
+
+:::
 
 A small but striking pattern is already visible. Brighton and Hove's schools cluster noticeably to the right of the national distribution on the horizontal axis — a city-wide tendency to run higher absence than even the city's intake mix would predict. On the vertical axis the city is more mixed, with several schools sitting comfortably above the national centre of mass and a handful below it. We return to the labelled, school-by-school version of this plot in the case study below, where the named identity of each dot adds the local context this overview cannot.
 

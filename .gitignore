@@ -93,3 +93,4 @@ cluster_data_explorer.html
 # OS
 .DS_Store
 Thumbs.db
+.positai
