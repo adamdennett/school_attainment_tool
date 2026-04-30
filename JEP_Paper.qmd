@@ -851,6 +851,121 @@ ggplot(nat_long, aes(x = Predicted, y = Observed)) +
 
 @fig-obs-vs-pred shows observed versus predicted Attainment 8 for the latest year across all schools in England (grey) with Brighton and Hove schools highlighted (pink). The close clustering of the points around the diagonal line is a visual representation of the $R^2$ values show on the plot and in the tabular model outputs shown earlier - observed values for most schools are close to the model predictions. The model residuals --- the vertical distance from the diagonal --- show whether a school is doing better (above) or worse (below) than the model predicts and provides what we might think of as contextualised 'value-added' measures - more nuanced than Progress 8 - as this model-based value added accounts for far more than just prior attainment in its representation.
 
+## Decomposing absence: structural intake versus school management
+
+The contextualised value-added reading above hides a complication we should make explicit. Our headline model treats school-level absence as a single regressor on the same footing as the school's intake variables, but absence is not a single causal entity. Some of school-level absence is exogenous to the school: driven by family circumstances, area health, deprivation patterns, the SEN profile of the catchment and other features of the intake the school inherits but cannot directly choose. Some of it is produced by the school: through pastoral systems, attendance officers, parental engagement and the broader ethos around getting children into class. When we control for raw absence in our headline model, both components are absorbed together --- the school-level residual we have just been calling 'value-added' reflects what the school does *given* its attendance, not what it does *to* its attendance.
+
+A two-stage decomposition[^twostage-jep] separates these. First, we fit an absence model in which school-level absence is regressed only on the variables we treat as exogenous to the school (FSM, EAL, low prior attainment, segregation, plus place and year random effects). This yields two derived quantities for every school-year: an *expected absence* (the part the intake predicts) and a *residual absence* (what is left over --- broadly, the school-controllable component). Second, we refit the attainment model with the intake-predicted absence in place of raw absence, and we drop the workforce predictors. The school-level residual from this refitted attainment model is a more honest value-added measure: it gives credit for what the school adds to attainment over and above its intake, *with* attendance management already counted as part of the school's contribution rather than stripped away as a control.
+
+[^twostage-jep]: Full technical details, model fits, sensitivity checks and a 50-replicate clustered bootstrap of school rank uncertainty are in the supplementary material: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
+
+The national-level picture this paints is informative. Most of the school-year variation in absence is explained by the intake-only first stage --- absence at school level is dominated by intake and place-level structural factors. The school-controllable residual is the smaller share, and a model that fits expected absence and residual absence as separate regressors confirms that the marginal contribution of residual absence to attainment is modest at population level once intake-driven absence is already accounted for. This does not mean attendance management is unimportant. It means **the headline raw-absence coefficient borrows much of its statistical force from the structural component**. The lever is real, but the school-only portion of it is smaller than the single coefficient implies. For local education authorities this has direct policy consequences: closing a city's absence problem requires both school-level attention *and* cross-departmental work --- public health, children's services, area-level deprivation policy --- because much of what schools are dealing with on attendance is inherited rather than generated.
+
+```{r jep-quadrant-fits}
+#| label: jep-quadrant-fits
+#| include: false
+
+stage1_data_j <- imputed_full_data %>%
+  filter(!is.na(PERCTOT), PERCTOT > 0,
+         !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+         !is.na(PNUMEAL), PNUMEAL > 0,
+         !is.na(PTPRIORLO),
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+mod_stage1_j <- lmer(
+  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO + gorard_segregation +
+    (1 | year_label) + (1 | gor_name/LANAME),
+  data = stage1_data_j, REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+stage1_data_j$log_expected_absence <- predict(mod_stage1_j, newdata = stage1_data_j,
+                                                re.form = NULL, allow.new.levels = TRUE)
+stage1_data_j$expected_absence <- exp(stage1_data_j$log_expected_absence)
+
+stage2_data_j <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  inner_join(stage1_data_j %>% select(URN, year_label, expected_absence, log_expected_absence),
+             by = c("URN", "year_label")) %>%
+  droplevels()
+contrasts(stage2_data_j$OFSTEDRATING_1) <- contr.treatment(levels(stage2_data_j$OFSTEDRATING_1))
+
+mod_decomp <- lmer(
+  log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = stage2_data_j, REML = TRUE,
+  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+)
+
+stage2_data_j$resid_decomp_log <- residuals(mod_decomp)
+
+quadrant_data_j <- stage2_data_j %>%
+  group_by(URN, SCHNAME, LANAME) %>%
+  summarise(
+    mean_log_resid    = mean(resid_decomp_log, na.rm = TRUE),
+    mean_att8         = mean(ATT8SCR, na.rm = TRUE),
+    mean_obs_abs      = mean(PERCTOT, na.rm = TRUE),
+    mean_expected_abs = mean(expected_absence, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    value_added  = mean_att8 * (exp(mean_log_resid) - 1),
+    resid_abs_pp = mean_obs_abs - mean_expected_abs,
+    is_bh        = grepl("Brighton", LANAME)
+  )
+
+qx_j <- quantile(quadrant_data_j$resid_abs_pp, c(0.005, 0.995), na.rm = TRUE)
+qy_j <- quantile(quadrant_data_j$value_added,  c(0.005, 0.995), na.rm = TRUE)
+quad_xlim_j <- c(min(qx_j[1], -3), max(qx_j[2], 3))
+quad_ylim_j <- c(min(qy_j[1], -8), max(qy_j[2], 8))
+```
+
+```{r}
+#| label: fig-quadrant
+#| fig-cap: "Brighton and Hove secondaries on the joint-signal plane: contextualised value-added (vertical, in Attainment 8 points) versus the school-controllable absence component (horizontal, in percentage points). The reference lines at zero on each axis split the plane into four narrative quadrants discussed in the text. The full national version with a local-authority filter is available interactively in the project's HTML report."
+#| fig-height: 5
+#| fig-width: 7
+
+bh_q_j <- quadrant_data_j %>% filter(is_bh)
+
+ggplot() +
+  annotate("rect", xmin = -Inf, xmax = 0, ymin = 0,    ymax = Inf, fill = "#2e6260", alpha = 0.05) +
+  annotate("rect", xmin = 0,    xmax = Inf, ymin = 0,    ymax = Inf, fill = "#cc8033", alpha = 0.05) +
+  annotate("rect", xmin = 0,    xmax = Inf, ymin = -Inf, ymax = 0,   fill = "#993333", alpha = 0.05) +
+  annotate("rect", xmin = -Inf, xmax = 0,   ymin = -Inf, ymax = 0,   fill = "#4e3c56", alpha = 0.05) +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_point(data = bh_q_j,
+             aes(x = resid_abs_pp, y = value_added),
+             size = 2.5, colour = "#361a54", alpha = 0.95) +
+  geom_text_repel(data = bh_q_j,
+                  aes(x = resid_abs_pp, y = value_added, label = SCHNAME),
+                  size = 2.5, max.overlaps = 25, force = 4,
+                  segment.colour = "grey60", segment.size = 0.3) +
+  annotate("text", x = quad_xlim_j[1] * 0.95, y = quad_ylim_j[2] * 0.92,
+           label = "Q1: value-added\n+ attendance helping",
+           hjust = 0, vjust = 1, size = 2.4, colour = "#2e6260", fontface = "italic") +
+  annotate("text", x = quad_xlim_j[2] * 0.95, y = quad_ylim_j[2] * 0.92,
+           label = "Q2: value-added\ndespite worse attendance",
+           hjust = 1, vjust = 1, size = 2.4, colour = "#7a4e1a", fontface = "italic") +
+  annotate("text", x = quad_xlim_j[2] * 0.95, y = quad_ylim_j[1] * 0.92,
+           label = "Q3: underperforming\n+ attendance worse",
+           hjust = 1, vjust = 0, size = 2.4, colour = "#993333", fontface = "italic") +
+  annotate("text", x = quad_xlim_j[1] * 0.95, y = quad_ylim_j[1] * 0.92,
+           label = "Q4: underperforming\ndespite better attendance",
+           hjust = 0, vjust = 0, size = 2.4, colour = "#4e3c56", fontface = "italic") +
+  coord_cartesian(xlim = quad_xlim_j, ylim = quad_ylim_j) +
+  labs(x = "School-controllable absence (residual absence, percentage points)",
+       y = "Contextualised value-added (Attainment 8 points)") +
+  theme_pub
+```
+
+For local school-level diagnostics the decomposition becomes considerably more informative. Two signals can now be read side by side: the school's contextualised value-added, and its residual absence (positive when the school runs more absence than its intake would predict, negative when less). Sorted on these two axes (@fig-quadrant), schools fall into four meaningful policy stories: schools adding value with attendance management helping (Q1, top-left); schools adding value despite worse-than-predicted attendance (Q2, top-right); schools underperforming with attendance the cleanest single lever (Q3, bottom-right); and schools underperforming despite unusually good attendance management (Q4, bottom-left).
+
+For Brighton and Hove the joint-signal view sharpens the case-study reading. **BACA** sits firmly in Q2: the school is delivering attainment well above what its intake would predict and is doing so while running more absence than its intake-driven absence model expects. The pedagogical work happening at BACA is the more impressive for it; closing the school's residual-absence gap would compound directly onto an already-strong value-added signal. **Patcham**, by contrast, sits in Q4: its attendance management is genuinely strong, but once intake is properly accounted for its attainment outcomes fall short of what its profile predicts, so the simple "fix attendance" improvement story is not available. Schools in Q3 are the most natural targets for council-led attendance interventions, and Q1 schools are where the city should look for practice worth sharing. Reporting **value-added alongside residual absence**, with explicit uncertainty intervals, is a more honest framing than the single number that conventional benchmarking produces, and would help align local policy conversation with what the data can support.
+
 # Discussion
 
 ## The danger of single-lever policy thinking
