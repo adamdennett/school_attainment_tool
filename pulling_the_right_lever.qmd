@@ -245,7 +245,6 @@ n_above_nat_abs <- sum(bh_latest_model$PERCTOT > national_mean_abs, na.rm = TRUE
 -   The City Council's 2024 admissions proposals were built on the premise that attainment was "driven by economic advantage" and that redistributing disadvantaged pupils across schools would narrow the attainment gap. Our analysis challenges this on several fronts.
 -   Bringing the city's worst-affected schools to the national average for absence could yield gains of 3-5 GCSE points. Even dramatic reductions in concentrations of disadvantage would yield gains closer to 1-2 points - but crucially not for disadvantaged students (the intended beneficiaries of the council policy). The policy was pulling a lever with relatively little mechanical advantage in the wrong direction, while ignoring one with considerably more.
 -   An alternative, contextualised league table for the city reveals that Brighton Aldridge Community Academy (BACA) is the best-performing school in the city for disadvantaged pupils once intake is accounted for, while some other schools, widely perceived as 'better' in raw attainment terms, are found to be under-performing relative to their situations.
--   A two-stage decomposition of absence — separating the structural intake-driven component from the smaller, school-controllable component — shows that much of what schools are dealing with on attendance is *inherited* from intake and area context, not generated. Closing a city's absence problem therefore needs both school-level attention *and* cross-departmental work (public health, children's services, area deprivation policy). Reading school value-added alongside its school-controllable absence indicator separates "this school adds points to attainment" from "this school's pupils attend more than intake predicts" — two distinct signals that single-residual league tables fold together. Repeating this analysis with disadvantaged-pupil Attainment 8 as the outcome — the cohort the 2024 consultation was explicitly framed around — sharpens the picture further: BACA's value-added for disadvantaged pupils is more striking, not less, than its all-pupils signal.
 
 **The School Attainment Policy Simulator**
 
@@ -1249,13 +1248,13 @@ Some of school-level absence is **exogenous to the school**: driven by family ci
 
 When we control for raw absence in our headline model, both components are absorbed together. The school-level residual that remains — what we have been calling its "value-added" — reflects what the school does *given* its attendance, not what it does *to* its attendance. A school that has worked hard to lift attendance for an intake that would otherwise carry high absence rates gets no specific credit for that work; it shows up in the absence variable and is removed from the residual. The reverse is true too: a school that runs higher absence than even its already-disadvantaged intake would predict cannot easily be distinguished from one whose absence is wholly structural.
 
-In supplementary analyses[^twostage], we have implemented a two-stage decomposition that addresses this. **Stage 1** regresses school-level absence on the intake variables we treat as exogenous (FSM, EAL, low prior attainment, segregation, plus place and year random effects), yielding two derived quantities for every school-year: an *expected absence* (the part the intake predicts) and a *residual absence* (what is left over — broadly, the school-controllable component). **Stage 2** refits the attainment model using expected absence in place of raw absence, and drops the workforce predictors. The school-level residual from this revised attainment model is a more honest value-added measure: it gives credit for what the school adds to attainment over and above its intake, *with* attendance management already counted as part of the school's contribution rather than stripped away as a control.
+In supplementary analyses[^twostage], we have implemented a two-stage decomposition that addresses this. **Stage 1** models school-level absence on the intake variables we treat as exogenous (FSM, EAL, low prior attainment, segregation, plus place and year random effects), yielding two derived quantities for every school-year: an *expected absence* (the part the intake predicts) and a *residual absence* (what is left over — broadly, the school-controllable component). **Stage 2** refits the attainment model using expected absence in place of raw absence, and drops the workforce predictors. The school-level residual from this revised attainment model is a more honest value-added measure: it gives credit for what the school adds to attainment over and above its intake, *with* attendance management already counted as part of the school's contribution rather than stripped away as a control.
 
 [^twostage]: Full technical details, model fits and diagnostics: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
 
 The national-level picture this paints is informative. Most of the school-year variation in absence is explained at stage 1 — it is dominated by intake and place-level structural factors. The school-controllable residual is the smaller share, and at population level its marginal contribution to attainment is modest after intake-driven absence is already accounted for. This does not mean attendance management is unimportant — it means **the headline raw-absence coefficient borrows much of its statistical force from the structural component**. The lever is real, but the school-only portion of it is smaller than the single coefficient implies. For local education authorities, the implication is clear: closing a city's absence problem will require both school-level attention *and* cross-departmental work — public health, children's services, area-level deprivation policy — because much of what schools are dealing with on attendance is inherited rather than generated.
 
-For local school-level diagnostics, however, the decomposition becomes considerably more informative. Two signals can now be read side by side: the school's value-added in the revised model, and its residual absence (positive when the school runs more absence than its intake would predict, negative when less). Sorted on these two axes, schools fall into four meaningful policy stories. Schools that add value *and* manage attendance better than their intake predicts present an internally consistent strong-management profile. Schools that add value *despite* worse-than-predicted attendance are pedagogically impressive cases where the obvious next lever is attendance. Schools that underperform *and* run worse-than-predicted absence are the cleanest single-lever targets — both signals point the same way. Schools that underperform *despite* unusually good attendance management are the most awkward cases for an LA to act on, since the gap must come from somewhere other than absence and the levers available are all harder to pull.
+For local school-level diagnostics, however, the decomposition becomes considerably more informative. Two signals can now be read side by side: the school's value-added in the revised model, and its residual absence (positive when the school runs more absence than its intake would predict, negative when less). Sorted on these two axes, schools fall into four meaningful policy stories. Schools that add value *and* manage attendance better than their intake predicts present an internally consistent strong-management profile. Schools that add value *despite* worse-than-predicted attendance are pedagogically impressive cases where the obvious next lever is attendance. Schools that underperform *and* run worse-than-predicted absence are the cleanest single-lever targets — both signals point the same way. Schools that underperform *despite* unusually good attendance management are the most awkward cases for an LEA to act on, since the gap must come from somewhere other than absence and the levers available are all harder to pull.
 
 ```{r quadrant-fits}
 #| label: quadrant-fits
@@ -2248,7 +2247,7 @@ One thing other schools in the city certainly could learn from Patcham High Scho
 
 ## The joint-signal view applied locally
 
-The decomposition introduced at the end of section 6 lets us look at Brighton and Hove's secondary schools through a sharper lens. Each school can now be placed on a two-axis plane (@fig-bh-quadrant): vertically by its M2 value-added in Attainment 8 points (positive = adding value above intake expectations, with attendance management already credited as part of that contribution), and horizontally by its residual absence in percentage points (positive = running more absence than intake predicts, negative = running less). The four quadrants correspond to the four school stories described earlier: schools adding value with attendance helping (top-left), schools adding value despite worse-than-predicted attendance (top-right), schools underperforming with attendance the cleanest single lever (bottom-right), and schools underperforming despite unusually good attendance management (bottom-left).
+The decomposition introduced at the end of section 5 lets us look at Brighton and Hove's secondary schools through a sharper lens. Each school can now be placed on a two-axis plane (@fig-bh-quadrant): vertically by its Expected Absence value-added in Attainment 8 points (positive = adding value above intake expectations, with attendance management already credited as part of that contribution), and horizontally by its residual absence in percentage points (positive = running more absence than intake predicts, negative = running less). The four quadrants correspond to the four school stories described earlier: schools adding value with attendance helping (top-left), schools adding value despite worse-than-predicted attendance (top-right), schools underperforming with attendance the cleanest single lever (bottom-right), and schools underperforming despite unusually good attendance management (bottom-left).
 
 ```{r fig-bh-quadrant}
 #| label: fig-bh-quadrant
@@ -2302,120 +2301,9 @@ ggplot() +
   theme_pub
 ```
 
-The local pattern this view reveals would have been near-impossible to draw out from the headline league tables alone. Several features deserve specific comment. **BACA sits firmly in the top-right "value-added despite worse attendance" quadrant** — the school is delivering attainment well above what its intake would predict, and is doing so while simultaneously running more absence than its intake-driven absence model expects. The pedagogical work happening at BACA is the more impressive for it, and the city's focus on the school's attendance challenges should not detract from a recognition of what the school is achieving for its disadvantaged pupils with the time it has them in class. The implication is clear though: closing BACA's residual-absence gap would compound directly onto an already-strong value-added signal, and is the most plausible single intervention available. The city should be supporting BACA in this work, not penalising it through accountability frameworks that read raw absence as the school's failure.
-
-**Patcham, by contrast, sits in the bottom-left "underperforming despite better attendance" quadrant** — the city's clearest example of the awkward case. Its attendance management is genuinely strong, and Patcham deserves the recognition we noted above for being one of only two city secondaries with attendance below the national average. But the M2 value-added reading is unflattering: once intake is properly accounted for, Patcham's attainment outcomes fall short of what its profile predicts. The two signals point in different directions, and the simple improvement story of "fix attendance" is not available here. Where the gap actually comes from — curriculum, pedagogy, leadership, cohort effects, or unmeasured intake characteristics — is harder to diagnose from this analysis alone, and harder still for an LA to act on directly. But the public discourse around Patcham as a clearly-better-than-BACA option for parents from the BACA catchment is empirically very difficult to defend on this evidence.
-
-The **bottom-right "underperforming with attendance worse" quadrant** is where the simplest local-policy reading lies. Schools whose value-added is below intake-predicted *and* whose absence is above intake-predicted have both signals pointing the same way, and standard attendance-management practice has the strongest claim to deliver simultaneous gains on both axes. Several B&H schools sit here, and they are the most natural candidates for council-led attendance interventions — practice-sharing with Patcham (whose attendance is well managed) being one obvious form that work could take. The **top-left "adding value with attendance helping" quadrant** is correspondingly where the city should look for examples of schools whose internal attendance management is part of the same management bundle as their pedagogical effectiveness — the schools whose practice is most worth sharing.
+For Brighton and Hove the joint-signal view sharpens the case-study reading. Most of the city's schools sit in Q2 in the top-right: they are delivering attainment above what their intake would predict and is doing so while running more absence than their intake-driven absence model expects. In these schools, the pedagogical work happening is the more impressive for it; closing any of these school's residual-absence gap would compound directly onto an already-strong value-added signal. Any schools in Q4 provide a challenge: their attendance management is genuinely strong, but once intake is properly accounted for their attainment outcomes fall short of what their profile predicts, so the simple "fix attendance" improvement story is not available. Schools in Q3 are the most natural targets for council-led attendance interventions, and Q1 schools are where the city should look for practice worth sharing. Reporting **value-added alongside residual absence**, with explicit uncertainty intervals, is a more honest framing than the single number that conventional benchmarking produces, and would help align local policy conversation with what the data can support.
 
 This local view reinforces the broader conclusion of this paper. The 2024 admissions consultation framed Brighton and Hove's attainment story as one of disadvantage concentration, and the proposed remedy was redistribution. Both the headline modelling and this finer-grained joint-signal view tell a different story: the city's attainment problem is overwhelmingly an absence problem, but **the school-controllable component of that absence is the smaller share — much of what individual schools are dealing with is structural, inherited from intake and area context**. Closing the city's absence problem requires both school-level attention (clearest in the bottom-right quadrant) *and* cross-departmental work the council cannot delegate to schools alone. The attainment gains that would follow are real and substantial, and dwarf anything achievable by changes to admissions arrangements.
-
-## Through a disadvantaged-pupil lens
-
-The 2024 consultation was framed around the disadvantage attainment gap specifically. If that is the policy question the council was actually trying to answer, then the most directly relevant version of the joint-signal view is the one that uses **disadvantaged-pupil Attainment 8** as the value-added outcome rather than Attainment 8 across all pupils. The decomposition is otherwise identical — same Stage 1, same residual-absence indicator, same axes — only the Stage 2 attainment model is refit with the disadvantaged-pupil cohort as the outcome. @fig-bh-quadrant-disadv shows the result for Brighton and Hove[^twostage-disadv].
-
-[^twostage-disadv]: Full technical details, including a comparison plot of all-pupils versus disadvantaged-pupil value-added across England and an interactive national version of the plot below: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#disadvantaged-pupil-version-same-decomposition-different-outcome>
-
-```{r quadrant-disadv-fits}
-#| label: quadrant-disadv-fits
-#| include: false
-
-# Re-use the existing Stage 1 expected-absence values, refit Stage 2 on the
-# disadvantaged-pupil outcome
-stage2_data_disadv <- imputed_full_data %>%
-  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
-  inner_join(
-    stage1_data %>%
-      select(URN, year_label, expected_absence, log_expected_absence),
-    by = c("URN", "year_label")
-  ) %>%
-  droplevels()
-
-contrasts(stage2_data_disadv$OFSTEDRATING_1) <-
-  contr.treatment(levels(stage2_data_disadv$OFSTEDRATING_1))
-
-mod_M2_disadv <- lmer(
-  log(ATT8SCR_FSM6CLA1A) ~
-    log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
-    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
-  data = stage2_data_disadv,
-  REML = TRUE,
-  control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
-)
-
-stage2_data_disadv$resid_M2_disadv_log <- residuals(mod_M2_disadv)
-
-quadrant_data_disadv <- stage2_data_disadv %>%
-  group_by(URN, SCHNAME, LANAME) %>%
-  summarise(
-    mean_log_resid    = mean(resid_M2_disadv_log, na.rm = TRUE),
-    mean_att8_disadv  = mean(ATT8SCR_FSM6CLA1A, na.rm = TRUE),
-    mean_obs_abs      = mean(PERCTOT, na.rm = TRUE),
-    mean_expected_abs = mean(expected_absence, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    vadd_M2_disadv = mean_att8_disadv * (exp(mean_log_resid) - 1),
-    resid_abs_pp   = mean_obs_abs - mean_expected_abs,
-    is_bh          = grepl("Brighton", LANAME)
-  )
-
-# Use a wider y-axis range — disadvantaged-pupil cohorts have more variance per school
-qx_d <- quantile(quadrant_data_disadv$resid_abs_pp,    c(0.005, 0.995), na.rm = TRUE)
-qy_d <- quantile(quadrant_data_disadv$vadd_M2_disadv,  c(0.005, 0.995), na.rm = TRUE)
-quad_xlim_d <- c(min(qx_d[1], -3), max(qx_d[2], 3))
-quad_ylim_d <- c(min(qy_d[1], -10), max(qy_d[2], 10))
-```
-
-```{r fig-bh-quadrant-disadv}
-#| label: fig-bh-quadrant-disadv
-#| fig-cap: "Brighton and Hove secondaries on the disadvantaged-pupil joint-signal plane: contextualised value-added for disadvantaged pupils (vertical, ATT8 points) versus the school-controllable absence component (horizontal, percentage points). Each point is one school; quadrants correspond to the same four narrative groups as in the all-pupils plot, now read as 'value-added for disadvantaged pupils'."
-#| fig-height: 6
-#| fig-width: 9
-
-bh_quadrant_disadv <- quadrant_data_disadv %>% filter(is_bh)
-
-ggplot() +
-  annotate("rect", xmin = -Inf, xmax = 0, ymin = 0, ymax = Inf,
-           fill = "#2e6260", alpha = 0.05) +
-  annotate("rect", xmin = 0, xmax = Inf, ymin = 0, ymax = Inf,
-           fill = "#cc8033", alpha = 0.05) +
-  annotate("rect", xmin = 0, xmax = Inf, ymin = -Inf, ymax = 0,
-           fill = "#993333", alpha = 0.05) +
-  annotate("rect", xmin = -Inf, xmax = 0, ymin = -Inf, ymax = 0,
-           fill = "#4e3c56", alpha = 0.05) +
-  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
-  geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
-  geom_point(data = bh_quadrant_disadv,
-             aes(x = resid_abs_pp, y = vadd_M2_disadv),
-             size = 3, colour = "#361a54", alpha = 0.95) +
-  geom_text_repel(data = bh_quadrant_disadv,
-                  aes(x = resid_abs_pp, y = vadd_M2_disadv, label = SCHNAME),
-                  size = 3.2, max.overlaps = 25, force = 4,
-                  segment.colour = "grey60", segment.size = 0.3,
-                  colour = "#1a1a2e") +
-  annotate("text", x = quad_xlim_d[1] * 0.95, y = quad_ylim_d[2] * 0.92,
-           label = "Q1: disadv. value-added\n+ attendance helping",
-           hjust = 0, vjust = 1, size = 2.8, colour = "#2e6260", fontface = "italic") +
-  annotate("text", x = quad_xlim_d[2] * 0.95, y = quad_ylim_d[2] * 0.92,
-           label = "Q2: disadv. value-added\ndespite worse attendance",
-           hjust = 1, vjust = 1, size = 2.8, colour = "#7a4e1a", fontface = "italic") +
-  annotate("text", x = quad_xlim_d[2] * 0.95, y = quad_ylim_d[1] * 0.92,
-           label = "Q3: underperforming for\ndisadv. + attendance worse",
-           hjust = 1, vjust = 0, size = 2.8, colour = "#993333", fontface = "italic") +
-  annotate("text", x = quad_xlim_d[1] * 0.95, y = quad_ylim_d[1] * 0.92,
-           label = "Q4: underperforming for\ndisadv. despite better attendance",
-           hjust = 0, vjust = 0, size = 2.8, colour = "#4e3c56", fontface = "italic") +
-  coord_cartesian(xlim = quad_xlim_d, ylim = quad_ylim_d) +
-  labs(x = "School-controllable absence (residual absence, percentage points)\n← better than predicted     |     worse than predicted →",
-       y = "Disadvantaged-pupil value-added (Attainment 8 points)\n← below intake-predicted     |     above intake-predicted →",
-       title = "Brighton and Hove: disadvantaged-pupil joint-signal plane",
-       subtitle = "Each point is one school; quadrants now read as 'value-added for disadvantaged pupils'") +
-  theme_pub
-```
-
-The disadvantaged-pupil version sharpens the case-study reading. **BACA's signal becomes more striking, not less, when we restrict the outcome to disadvantaged pupils** — the school's pedagogical work is concentrated where it matters most for the policy framing the council adopted in 2024. The fact that the consultation discourse pushed parents away from BACA, and toward schools whose disadvantaged-pupil value-added is materially weaker, is the sharpest single illustration of what an absence of contextualised benchmarking can cost a city's policy conversation. Patcham's pattern is also clearer in this view: the school's attendance management is genuinely strong, but its disadvantaged-pupil outcomes fall short of what its profile would predict, leaving the gap on the cohort the consultation specifically identified as the policy concern. For other Brighton and Hove schools, those whose disadvantaged-pupil signal sits visibly above their all-pupils signal are doing relatively better for the cohort the policy was supposedly aimed at; those whose disadvantaged-pupil signal is materially weaker are the cases where the council should be asking why the school's overall strengths do not extend evenly across its pupil groups.
 
 ## Brighton and Hove Reflections
 
@@ -2556,8 +2444,6 @@ We are yet to see the outcome of some follow-up work that the council has commis
 A further finding from this work, developed through the two-stage absence decomposition introduced in section 6, deserves explicit acknowledgement. While absence consistently emerges as the most powerful predictor of school-level attainment in our headline models, much of that statistical force is borrowed from a structural component — the part of school-level absence that is inherited from intake, area context, family circumstances, local health and the broader social geography the school cannot itself choose. The school-controllable share of absence — what management, pastoral systems and attendance practice can actually move — is the smaller part. This does not diminish the absence finding; it sharpens it. **Closing a city's absence problem will require both school-level attention and cross-departmental work — public health, children's services, housing, transport, area deprivation policy — because much of what schools are dealing with on attendance is not within their gift to fix alone.** For Brighton and Hove specifically, the city's extreme position on absence is partly a structural inheritance and partly a school-management story, and the policy response needs to engage both.
 
 The same decomposition surfaces a fairer way of reporting school-level performance. Reading a school's value-added alongside its residual absence — what we have called the joint-signal view — separates "this school adds points to attainment" from "this school's pupils attend more than their intake predicts" into two distinct signals that the conventional single-residual league table folds together. Schools delivering strong attainment outcomes through unusually good attendance management are visible as a coherent management story; schools delivering strong outcomes despite an attendance gap (BACA being the city's clearest example) are visible as pedagogically impressive cases with attendance still on the table as the next lever; and schools whose mid-table raw attainment hides an attainment shortfall once intake is properly accounted for (Patcham being the city's clearest example) are visible as the most awkward cases for an LA to act on, where attendance management is *not* the available answer. Reporting both signals side by side, with explicit uncertainty intervals, is a more honest framing than the single number that conventional benchmarking produces — and would help align local policy conversation with what the data can actually support.
-
-Repeating this decomposition with **disadvantaged-pupil Attainment 8** as the outcome — the cohort the 2024 consultation was explicitly framed around — sharpens the policy reading further. BACA's value-added signal becomes *more* striking, not less, when restricted to disadvantaged pupils, confirming that the school's pedagogical strength is concentrated where the council's stated priority sits. Patcham's pattern is correspondingly less flattering on this cohort-specific view. For the wider city, schools whose disadvantaged-pupil value-added sits materially above their all-pupils value-added are doing relatively better for the cohort the policy was supposedly aimed at; schools where the disadvantaged signal is much weaker than the all-pupils signal are the most natural places to ask why a school's overall strengths do not extend to its disadvantaged pupils. If the disadvantage attainment gap is the policy question — and the 2024 consultation, the 2026 white paper and the council's stated focus all say it is — then this is the version of the value-added view that should sit at the centre of local benchmarking and accountability conversations.
 
 The School Attainment Policy Simulator developed as part of this work represents an attempt to bridge the gap between available open data and the actionable, contextualised intelligence that the people making decisions actually need. We do not claim it is the finished article — it can and should be refined, extended and subjected to critical scrutiny. But we believe it demonstrates what is possible when open data is combined with appropriate analytical methods and made accessible through interactive tools. Its development was substantially accelerated by the use of large language model assistance — specifically Anthropic's Claude — as part of work funded by the UKRI AI4CI hub, and stands as an example of how emerging AI capabilities can enhance collective intelligence around complex policy questions, especially where capacity is low. We should make clear that expert interaction and iteration was crucial throughout — this was not an experience of 'letting an AI do it all' but more akin to working with a highly skilled junior front-end developer who, while technically adept, needed careful guidance around architecture and scrutiny of outputs along the way.
 
