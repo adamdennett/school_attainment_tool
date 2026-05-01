@@ -158,6 +158,7 @@
 \renewcommand\Authfont{\normalsize}
 \author[1]{Adam Dennett\thanks{a.dennett@ucl.ac.uk, ORCID: 0000-0002-7493-3276}}
 \author[3]{Dan Campbell-Meiklejohn\thanks{daniel.cm@sussex.ac.uk, ORCID: 0000-0002-8916-265X}}
+\author[1]{Beatrice Taylor\thanks{beatrice.taylor@ucl.ac.uk, ORCID: 0000-0002-3630-5047 }}
 \affil[1]{Bartlett Centre for Advanced Spatial Analysis, University College London}
 \affil[3]{School of Psychology, University of Sussex}
 \renewcommand{\author}[2][]{}
@@ -208,7 +209,7 @@
 \urlstyle{same}
 \hypersetup{
   pdftitle={How to Pull the Right Lever: School Attainment, Open Data Analytics and Local Education Policy in England},
-  pdfauthor={Adam Dennett; Dan Campbell-Meiklejohn},
+  pdfauthor={Adam Dennett; Dan Campbell-Meiklejohn; Beatrice Taylor},
   pdfkeywords={school attainment, education policy, school
 absence, disadvantage gap, multilevel modelling, open data},
   colorlinks=true,
@@ -228,8 +229,8 @@ Analytics and Local Education Policy in England}
 }
 \makeatother
 \subtitle{Lessons from Brighton and Hove}
-\author{Adam Dennett \and Dan Campbell-Meiklejohn}
-\date{2026-04-30}
+\author{Adam Dennett \and Dan Campbell-Meiklejohn \and Beatrice Taylor}
+\date{2026-05-01}
 \begin{document}
 \maketitle
 \begin{abstract}
@@ -256,13 +257,12 @@ moving children around a large city to increase mixing of socioeconomic
 status in schools. Our analysis revealed this policy would likely have
 little impact on attainment in the context of the city, but could have
 considerable social costs. In contrast, Brighton and Hove has the second
-worst absence rate in England. The council policy was pulling a costly
-lever with relatively little mechanical advantage while ignoring one
-with considerably more. We argue that the Department for Education's
-open data provides the raw materials for better local policy making, but
-a crucial gap exists between available data and accessible,
-contextualised intelligence - a gap we address with a new Policy
-Simulator tool.
+worst absence rate in England, with the effects on attainment of
+improving this, dwarfing any other intervention. The council policy was
+pulling a costly lever with relatively little mechanical advantage while
+ignoring one with considerably more. Here we introduce a new policy
+simulator tool, addressing the gap that exists between the Department
+for Education's open data and accessible, contextualised intelligence.
 \end{abstract}
 
 
@@ -379,7 +379,8 @@ most and how they interact, before applying these findings to Brighton
 and Hove. We conclude with implications for local and national education
 policy.
 
-\section{Literature review}\label{literature-review}
+\section{Literature review: factors affecting pupil
+attainment}\label{literature-review-factors-affecting-pupil-attainment}
 
 \subsection{Socio-economic background and
 disadvantage}\label{socio-economic-background-and-disadvantage}
@@ -472,10 +473,11 @@ Workforce factors including effective leadership (Zuccollo et al. 2023),
 teaching quality (Simon Burgess et al. 2023; S. Burgess et al. 2022),
 and teacher retention (Gibbons et al. 2018; Menzies 2023) contribute to
 variation in attainment, with effects felt most acutely by disadvantaged
-students (Allen et al. 2018). The `London Effect' (Ross et al. 2020)
-reflects a localised concentration of agency factors --- parental
-expectations, homework hours, lower unauthorised absence --- rather than
-a purely geographic phenomenon.
+students (Allen et al. 2018). The `London Effect' (the apparent boost to
+attainment for disadvantaged pupils who live in the Capital) (Ross et
+al. 2020) reflects a localised concentration of agency factors ---
+parental expectations, homework hours, lower unauthorised absence ---
+rather than a purely geographic phenomenon.
 
 It's clear from the review above that the factors affecting attainment
 are multifaceted, complex and interrelated. The research is extensive
@@ -484,10 +486,15 @@ high-quality studies on thousands of pupils over long periods of time.
 As such, with so much evidence on the various different drivers of
 attainment it can be challenging for anyone comparing different studies
 to make a judgement on which driver(s) might be most relevant or
-important in a particular context. To do this, what is required is an
-analysis which is able to combine as many of these drivers at the same
-time so that their relative influences and interactions can be assessed
-concurrently --- which is where we now turn.
+important in a particular context. It is also the case that many of the
+factors affecting attainment are associated with each other, so
+unpicking issues of mediation (where a variable sits on the causal
+pathway between another and an outcome) and confounding (where another
+variable is a common cause of both explanatory and predictor variables)
+needs to occur. To do this, what is required is an analysis which is
+able to combine as many of these drivers at the same time so that their
+relative influences and interactions can be assessed concurrently ---
+which is where we now turn.
 
 \section{Data and methods}\label{data-and-methods}
 
@@ -499,21 +506,27 @@ academic years (2021--22 to 2024--25), linking school performance,
 absence, pupil population, workforce and Ofsted data. Data
 pre-processing details are available in the supplementary
 material.\footnote{Supplementary material:
-  \url{https://adamdennett.github.io/school_attainment_tool/}} The full
-panel comprises 13,419 school-year observations from 3,523 academies and
-maintained schools across 152 LEAs. Independent schools, colleges and
-special schools are excluded. After listwise exclusion of cases with
-missing predictor values required for the log-linear specification
-(principally missing workforce or Ofsted data), the analysis sample used
-in the models is approximately 12,200 observations. All data are
-school-level aggregates; interpretations relate to this level of
-aggregation.
+  \url{https://adamdennett.github.io/school_attainment_tool/} - with
+  links through to the source code on Github.} The full panel comprises
+13,419 school-year observations from 3,523 academies and maintained
+schools across 152 LEAs. Independent schools, colleges and `special
+schools' (those catering more for pupils with special educational needs
+and disabilities) are excluded. After the exclusion of cases with
+missing predictor values or imputation of those values required for the
+log-linear specification (principally missing workforce or Ofsted data
+in 2024-25{[}\^{}missing{]}), the analysis sample used in the models is
+approximately 12,200 observations. All data are school-level aggregates;
+interpretations relate to this level of aggregation.
+
+{[}\^{}missing{]} missing data and imputation:
+\url{https://adamdennett.github.io/school_attainment_tool/data_overview.html\#missing-data}
 
 \subsection{Model specification}\label{model-specification}
 
 We fit multilevel linear mixed effects models (LMEs) with schools nested
 within LEAs within regions (Snijders 2012). The outcome is
-log-transformed Attainment 8, the measure of interest cited in the DfE
+log-transformed Attainment 8 (for all, disadvantaged and
+non-disadvantaged pupils), the measure of interest cited in the DfE
 (2026) white paper. We have selected Attainment 8 over Progress 8 as we
 want to assess the influence and interaction variables like prior
 attainment on other predictor variables, not just as a partial outcome.
@@ -532,33 +545,38 @@ random-effect intercepts for year, Ofsted rating, region, and LEA nested
 within region.
 
 Fixed-effect predictors comprise: log(\% KS4 pupils who are
-disadvantaged), log(\% overall absence), log(\% pupils with English not
-first language), \% low prior attainment at KS2, selective admissions
-(dummy), Gorard Segregation Index (LA-level), teacher retention rate,
-leadership pay proportion, and log(teacher sickness days). Variable
-selection was informed by the literature review and by the policy
-narrative in Brighton and Hove, where segregation featured prominently
-in the council justification. Full details of the variables and the full
-analysis panel can be found in the supplementary material \footnote{See
-  data overview for details
+disadvantaged - \%FSM), log(\% overall absence - \% Absence), log(\%
+pupils with English as an additional language - \%EAL), \% low prior
+attainment at KS2, selective admissions (dummy), Gorard Segregation
+Index (LA-level), teacher retention rate, leadership pay proportion, and
+log(teacher sickness days). Variable selection was informed by the
+literature review and by the policy narrative in Brighton and Hove,
+where segregation featured prominently in the council justification.
+Full details of the variables and the full analysis panel can be found
+in the supplementary material \footnote{See data overview for details
   \url{https://adamdennett.github.io/school_attainment_tool/data_overview.html}}.
 
 We fit separate models for overall Attainment 8, disadvantaged-pupil
 Attainment 8, and non-disadvantaged-pupil Attainment 8, as both panel
 models (all four years) and individual year models. Models were
-estimated using the \texttt{lme4} package in R with REML estimation.
+estimated using the \texttt{lme4} package in R with Restricted Maximum
+Likelihood estimation.
 
 \section{Results}\label{results}
 
 \subsection{Model fit}\label{model-fit}
 
 The models explain a substantial proportion of variance in school-level
-Attainment 8. For all pupils, the conditional \(R^2\) (fixed plus random
-effects) is 0.77, with marginal \(R^2\) (fixed effects alone) of 0.63.
-For disadvantaged pupils the conditional \(R^2\) is 0.73; for
-non-disadvantaged pupils, 0.79. School-level attainment is remarkably
-predictable from these structural factors, which makes them very useful
-for exploring the effectiveness of local policy levers.
+Attainment 8. In order that these fits are more intuitive for those used
+to interpreting OLS regression models, we use the method described by
+Nakagawa and Schielzeth (2013) and Nakagawa et al. (2017) to general to
+calculate indicative \(R^2\) values. For all pupils, the conditional
+\(R^2\) (fixed plus random effects) is 0.77, with marginal \(R^2\)
+(fixed effects alone) of 0.63. For disadvantaged pupils the conditional
+\(R^2\) is 0.73; for non-disadvantaged pupils, 0.79. School-level
+attainment is remarkably predictable from these structural factors,
+which makes them very useful for exploring the effectiveness of local
+policy levers.
 
 \subsection{Stepwise decomposition}\label{stepwise-decomposition}
 
@@ -691,16 +709,16 @@ the variation in school-level performance for this group is explained by
 attendance alone.
 
 The most contentious finding in our analysis concerns concentrations of
-disadvantage (contentious in Brighton and Hove - the findings echo the
-analysis of Macleod et al. (2015) a decade ago). For non-disadvantaged
-pupils, higher FSM proportions are associated with lower attainment. But
-for disadvantaged pupils, the coefficient is \emph{positive} --- after
-controlling for absence and low prior attainment, disadvantaged pupils
-perform slightly better in schools with higher concentrations of other
-disadvantaged pupils. This finding is robust across individual year
-models and alternative specifications of disadvantaged attainment and
-disadvantage measures.\footnote{See supplementary material for
-  robustness checks:
+disadvantage (contentious in Brighton and Hove - although the findings
+echo the analysis of Macleod et al. (2015) a decade ago). For
+non-disadvantaged pupils, higher FSM proportions are associated with
+lower attainment. But for disadvantaged pupils, the coefficient is
+\emph{positive} --- after controlling for absence and low prior
+attainment, disadvantaged pupils perform slightly better in schools with
+higher concentrations of other disadvantaged pupils. This finding is
+robust across individual year models and alternative specifications of
+disadvantaged attainment and disadvantage measures.\footnote{See
+  supplementary material for robustness checks:
   \url{https://adamdennett.github.io/school_attainment_tool/model_experiments.html}}
 In the full multilevel model, this positive coefficient shrinks
 substantially, suggesting the effect operates through LEA-level and
@@ -793,7 +811,18 @@ on community cohesion and student wellbeing'}. The proposals would, by
 the council's own calculations, force significant numbers of children
 from central catchments to attend schools at the periphery of the city,
 potentially requiring over two hours of daily school commuting for many
-pupils.
+pupils. The council's own transport-implications appendix to the
+consultation papers\footnote{Brighton and Hove City Council (2024)
+  \emph{School Admission Arrangements 2026/27 --- Appendix 9: Transport
+  Implications and Considerations}. Cabinet papers accompanying the
+  secondary school admissions consultation, available via the
+  consultation portal:
+  \url{https://yourvoice.brighton-hove.gov.uk/en-GB/projects/school-admission-arrangements-public-consultation/1}.}
+reports that approximately £339,000 per year is already spent on
+supported bus routes in the city and a further £267,000 per year on
+around 600 bus passes for qualifying pupils, with provision likely to
+need re-prioritising and in some cases extending to accommodate the
+additional pupil flows the admissions changes would generate.
 
 From the papers accompanying the proposals and the content of the
 scrutiny committee meetings, it was clear the council had settled on
@@ -1642,6 +1671,19 @@ Education.
 Menzies, Loic. 2023. {``Continuity and Churn: Understanding and
 Responding to the Impact of Teacher Turnover.''} \emph{London Review of
 Education} 21 (1). \url{https://doi.org/10.14324/LRE.21.1.20}.
+
+\bibitem[\citeproctext]{ref-nakagawa_coefficient_2017}
+Nakagawa, Shinichi, Paul C. D. Johnson, and Holger Schielzeth. 2017.
+{``The Coefficient of Determination {R2} and Intra-Class Correlation
+Coefficient from Generalized Linear Mixed-Effects Models Revisited and
+Expanded.''} \emph{Journal of The Royal Society Interface} 14 (134):
+20170213. \url{https://doi.org/10.1098/rsif.2017.0213}.
+
+\bibitem[\citeproctext]{ref-nakagawa_general_2013}
+Nakagawa, Shinichi, and Holger Schielzeth. 2013. {``A General and Simple
+Method for Obtaining {R2} from Generalized Linear Mixed-Effects
+Models.''} \emph{Methods in Ecology and Evolution} 4 (2): 133--42.
+\url{https://doi.org/10.1111/j.2041-210x.2012.00261.x}.
 
 \bibitem[\citeproctext]{ref-Nakajima2024}
 Nakajima, Sakurako, Yuichiro Otsuka, Osamu Itani, Yoshifumi Kaneko,
