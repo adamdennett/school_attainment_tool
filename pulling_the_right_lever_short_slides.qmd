@@ -388,6 +388,8 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 
 - For disadvantaged pupils, the FSM concentration effect runs **in the opposite direction** to common assumption — they do slightly *better* in schools with higher proportions of disadvantaged students
 
+- On the council's own framing — *"reducing some schools' barriers to success"* — **attendance is the largest, best-evidenced barrier** the model can quantify
+
 :::
 
 ::: {.fragment}
@@ -555,11 +557,11 @@ m_orient
 :::
 
 ::: {.column width="50%"}
-**Premised on:**
+**Council's stated objectives** (Dec 2024 Cabinet papers):
 
-- Attainment "driven by economic advantage"
-- Redistributing pupils would narrow the gap
-- Drawing on @gorard_how_2019 on segregation
+- *"reducing some schools' barriers to success"* for disadvantaged pupils
+- *"a more mixed pupil intake creates better outcomes"*
+- Stated premise: attainment *"driven by economic advantage"*
 
 :::
 

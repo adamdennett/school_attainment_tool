@@ -557,13 +557,13 @@ m_orient
 :::
 
 ::: {.column width="50%"}
-**The stated premise:**
+**Council's stated objectives** (Dec 2024 Cabinet papers):
 
-> Attainment in the city was *"driven by economic advantage"*
+> *"reducing some schools' barriers to success"* for disadvantaged pupils
 
-**Primary logic:** Redistribute disadvantaged pupils more evenly → narrow the attainment gap
+> *"a more mixed pupil intake creates better outcomes for disadvantaged pupils"*
 
-**Backup logic:** Give parents more *"choice"* - implication: *"some schools are bad and some want to choose to go elsewhere"* - choice is rational and well evidenced
+**Stated premise:** results in the city were *"driven by economic advantage"* --- so redistribute → narrow the gap
 :::
 :::::
 
@@ -912,6 +912,8 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 -   Disadvantaged pupils lack safety nets (tutors, engaged parents, revision guides) — they are **more reliant on classroom instruction**
 
 -   Attendance is the **ultimate equity lever**
+
+-   On the council's own framing — *"reducing some schools' barriers to success"* for disadvantaged pupils — **attendance is the largest, best-evidenced barrier** the model can quantify
 :::
 
 ## The contentious finding: concentrations of disadvantage (1)
