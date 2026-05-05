@@ -1002,7 +1002,7 @@ Brighton and Hove's absence rates are not a necessary consequence of its intake 
 
 ## A new value-added view to support better local decisions
 
-A second contribution of this work is methodological. The multilevel model lets us look beyond a school's raw attainment outcomes and ask how much it is adding *over and above* the structural intake characteristics it inherits --- characteristics that the school cannot itself choose. The school-level random intercept, plus the school-level residual from the fitted model, gives us a contextualised value-added view that is fairer than the headline attainment number and more informative than a single (or multi)-word Ofsted rating, both for parents making school choices and for policy makers assessing where local effort is best directed. Brighton and Hove provides a particularly sharp illustration of why this matters: the local school for one of the city's most disadvantaged catchments is, on this view, doing materially better for its disadvantaged pupils than the schools to which a number of those pupils' families have been opting to travel.
+Another contribution of this work is methodological. The multilevel model lets us look beyond a school's raw attainment outcomes and ask how much it is adding *over and above* the structural intake characteristics it inherits --- characteristics that the school cannot itself choose. The school-level random intercept, plus the school-level residual from the fitted model, gives us a contextualised value-added view that is fairer than the headline attainment number and more informative than a single (or multi)-word Ofsted rating, both for parents making school choices and for policy makers assessing where local effort is best directed. Brighton and Hove provides a particularly sharp illustration of why this matters: the local school for one of the city's most disadvantaged catchments is, on this view, doing materially better for its disadvantaged pupils than the schools to which a number of those pupils' families have been opting to travel.
 
 ```{r}
 #| label: league-table-data
@@ -1152,7 +1152,7 @@ Our recommendations follow. For the DfE: invest in analytical infrastructure at 
 
 # CRediT authorship contribution statement {.unnumbered}
 
-**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing.
+**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing. **Beatrice Taylor:** Methodology – refining and review; Writing – review & editing.
 
 # Declaration of generative AI use {.unnumbered}
 
