@@ -7,16 +7,16 @@ author:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
     email: a.dennett@ucl.ac.uk
     orcid: 0000-0002-7493-3276
-  - name: Dan Campbell-Meiklejohn
-    affiliations:
-      - name: School of Psychology, University of Sussex
-    email: daniel.cm@sussex.ac.uk
-    orcid: 0000-0002-8916-265X
   - name: Beatrice Taylor
     affiliations:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
     email: beatrice.taylor@ucl.ac.uk
-    orcid: 0000-0002-3630-5047    
+    orcid: 0000-0002-3630-5047
+  - name: Dan Campbell-Meiklejohn
+    affiliations:
+      - name: School of Psychology, University of Sussex
+    email: daniel.cm@sussex.ac.uk
+    orcid: 0000-0002-8916-265X      
 date: today
 format:
   pdf:
@@ -42,8 +42,8 @@ format:
           \renewcommand\Affilfont{\small\itshape}
           \renewcommand\Authfont{\normalsize}
           \author[1]{Adam Dennett\thanks{a.dennett@ucl.ac.uk, ORCID: 0000-0002-7493-3276}}
-          \author[3]{Dan Campbell-Meiklejohn\thanks{daniel.cm@sussex.ac.uk, ORCID: 0000-0002-8916-265X}}
           \author[1]{Beatrice Taylor\thanks{beatrice.taylor@ucl.ac.uk, ORCID: 0000-0002-3630-5047 }}
+          \author[3]{Dan Campbell-Meiklejohn\thanks{daniel.cm@sussex.ac.uk, ORCID: 0000-0002-8916-265X}}
           \affil[1]{Bartlett Centre for Advanced Spatial Analysis, University College London}
           \affil[3]{School of Psychology, University of Sussex}
           \renewcommand{\author}[2][]{}
@@ -226,6 +226,8 @@ The discussions that led to this paper took place over an 18 month period spanni
 We are not claiming that the model outlined in this paper is the best possible or that our variable selection is optimal, or indeed novel (the variables and effects are very similar to those reported by @macleod_supporting_2015 over 10 years ago). Our intention is to show that with open, freely available data and variables that are along the right lines, it is possible to build a model explaining over 80% of the variation in school-level attainment with just a handful of predictors. Then, when we know the vast majority of influences on attainment and how they interact in different local contexts, we can answer locally targeted questions such as: 'is changing the social mix in schools likely to improve disadvantaged pupil attainment?', 'what is the most important factor affecting attainment in a particular LEA?', and 'which schools are doing better or worse than expected?'.
 
 We are also acutely aware that statistical analysis does not always translate effectively into accessible policy relevant intelligence. While the reporting of standard deviation improvements is more statistically sound, trying to translate such an effect into a tangible outcome would be a challenge for most. Therefore in this paper we try to present the effects we observe in more readily understandable GCSE points so that they have more real-world meaning and potentially more resonance with policy makers.
+
+Before examining the Brighton and Hove proposals specifically later in the paper, we wish to be explicit about the scope of our argument. Our models measure attainment outcomes only; they cannot speak to the broader social, civic and developmental value of diverse school communities, which we do not dispute. We are also aware that our findings regarding concentrations of disadvantaged students could be read selectively to justify resistance to integration efforts in general — that is not our argument. Our claim is specific: in this city, at this time, with this evidence base, the proposed mixing intervention was not the most impactful lever available for disadvantaged student attainment, and carried costs the consultation did not adequately weigh.
 
 The paper proceeds as follows. We briefly review the literature on secondary school attainment drivers, then outline our modelling approach using DfE open data. We present results showing which factors matter most and how they interact, before applying these findings to Brighton and Hove. We conclude with implications for local and national education policy.
 
@@ -1164,7 +1166,7 @@ Development of the Policy Simulator tool was substantially accelerated by large 
 
 # Declaration of interest {.unnumbered}
 
-The authors are residents of Brighton and Hove with lived experience of the effects of the admissions policy process described. Some authors are involved in local school governance. No financial conflicts of interest exist.
+Some of the authors are residents of Brighton and Hove with school aged children and lived experience of the effects of the admissions policy process described. No financial conflicts of interest exist.
 
 # References {.unnumbered}
 
