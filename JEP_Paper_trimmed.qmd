@@ -1152,7 +1152,7 @@ Development of the Policy Simulator tool was substantially accelerated by large 
 
 # Declaration of interest {.unnumbered}
 
-The authors are residents of Brighton and Hove with lived experience of the effects of the admissions policy process described. Some authors are involved in local school governance. No financial conflicts of interest exist.
+Some of the authors are residents of Brighton and Hove with school aged children and lived experience of the effects of the admissions policy process described. No financial conflicts of interest exist.
 
 # References {.unnumbered}
 
