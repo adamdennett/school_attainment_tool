@@ -234,36 +234,26 @@ Analytics and Local Education Policy in England}
 \begin{document}
 \maketitle
 \begin{abstract}
-In its 2026 White Paper, the UK government has set a worthwhile and
-ambitious target to halve the disadvantage attainment gap in education.
-Achieving improvements in disadvantaged student attainment requires
-local education authorities to understand their local situations and the
-specific drivers in their areas. But it is all too easy to pull the
-wrong policy lever when the research is complex and local intelligence
-is incomplete. Recent experiences in Brighton and Hove have highlighted
-the gap between open data and actionable information for Policy Makers,
-Schools and anyone wanting to actively contribute to statutory public
-consultations. Using multilevel linear mixed effects models fitted to
-all state-funded secondary schools in England over four years (2021--22
-to 2024--25), we show that school-level Attainment 8 is highly
-predictable from a small number of readily available variables, but
-non-linearities mean understanding local context is key. We apply these
-models to a case study of Brighton and Hove, where admissions policy
-proposals in 2024 were designed around the premise that attainment is
-reduced by lower socio-economic mixing across schools. Our analysis
-suggests these proposals are unlikely to deliver the targeted gains in
-disadvantaged attainment, and that the wider literature on long school
-commutes points to social and educational costs that the proposals did
-not consider. By contrast, Brighton and Hove has the second worst
-absence rate in England, and our modelling indicates that improving
-attendance in the city would be the most impactful single lever
-available for raising attainment --- particularly for disadvantaged
-pupils. We also introduce a school-level value-added view that allows
-parents and policy makers to assess how a school is performing
-\emph{over and above} the structural intake characteristics it inherits,
-helping support better-informed local decisions. We introduce a new
-policy simulator tool to help bridge the gap between the Department for
-Education's open data and accessible, contextualised intelligence.
+The UK's 2026 White Paper targets halving the disadvantage attainment
+gap. Achieving this requires local education authorities to understand
+the drivers of attainment in their areas, but the wrong lever is easily
+pulled when research is complex and local intelligence incomplete. Using
+multilevel mixed-effects models fitted to all state-funded secondary
+schools in England over four years (2021--22 to 2024--25), we show
+school-level Attainment 8 is highly predictable from a handful of
+readily available variables, though non-linearities mean local context
+is key. We apply the models to Brighton and Hove, where 2024 admissions
+proposals were premised on the idea that attainment is reduced by lower
+socio-economic mixing. Our analysis suggests these proposals are
+unlikely to deliver the targeted gains, and the wider literature on long
+school commutes points to social and educational costs they did not
+consider. By contrast, the city has the second-worst absence rate in
+England, and our modelling indicates improving attendance would be the
+most impactful single lever, particularly for disadvantaged pupils. We
+also introduce a school-level value-added view that lets parents and
+policy makers assess how a school performs \emph{above} its inherited
+intake characteristics, and a policy simulator tool to bridge the gap
+between open data and accessible, contextualised intelligence.
 \end{abstract}
 
 
@@ -292,16 +282,16 @@ Brighton and Hove provides a particularly instructive case. The city
 already has a distinctive admissions landscape featuring catchment areas
 with a lottery tie-break for oversubscribed schools, introduced
 following a secondary school closure in 2005 (Allen et al. 2013), and an
-admissions priority for FSM-eligible pupils across its community
-schools. In 2024, the council launched proposals to reduce Published
-Admission Numbers at popular central-catchment schools, reserve places
-for out-of-catchment children in those catchments ahead of in-catchment
-children, and redraw catchment boundaries. The proposals were promoted
-on the premise that attainment in the city was `driven by economic
-advantage' and that redistributing pupils would narrow the attainment
-gap. The response was overwhelmingly negative, yet parents and schools
-lacked the tools to challenge the proposals effectively and the core
-policy direction persisted, albeit slightly watered down.
+admissions priority for Free-School-Meal (FSM)-eligible pupils across
+its community schools. In 2024, the council launched proposals to reduce
+Published Admission Numbers at popular central-catchment schools,
+reserve places for out-of-catchment children in those catchments ahead
+of in-catchment children, and redraw catchment boundaries. The proposals
+were promoted on the premise that attainment in the city was `driven by
+economic advantage' and that redistributing pupils would narrow the
+attainment gap. The response was overwhelmingly negative, yet parents
+and schools lacked the tools to challenge the proposals effectively and
+the core policy direction persisted, albeit slightly watered down.
 
 Raw data on the attainment gap, without context, was presented to the
 city alongside statements correlating concentrations of disadvantage
@@ -337,6 +327,18 @@ most important factor affecting attainment in a particular LEA?', and
 `which schools are doing better or worse than expected?'. We report
 effects in GCSE-point units rather than standard deviations so that they
 have more direct meaning for policy makers.
+
+Before examining the Brighton and Hove proposals specifically later in
+the paper, we wish to be explicit about the scope of our argument. Our
+models measure attainment outcomes only; they cannot speak to the
+broader social, civic and developmental value of diverse school
+communities, which we do not dispute. We are also aware that our
+findings regarding concentrations of disadvantaged students could be
+read selectively to justify resistance to integration efforts in general
+--- that is not our argument. Our claim is specific: in this city, at
+this time, with this evidence base, the proposed mixing intervention was
+not the most impactful lever available for disadvantaged student
+attainment, and carried costs the consultation did not adequately weigh.
 
 The paper proceeds as follows. We briefly review the literature on
 secondary school attainment drivers, then outline our modelling approach
@@ -738,11 +740,12 @@ single-school catchment areas for out-of-catchment children.
 Underpinning the case was a reading of Gorard and Siddiqui (2019) in
 which more mixed intakes produce better outcomes for disadvantaged
 pupils, plus a premise that attainment in the city was \emph{`driven by
-economic advantage'} --- a characterisation challenged in this context
-by Tan and Dennett (2025). This built on a 2023 policy giving
-FSM-eligible pupils priority at schools below the city-average (30\%)
-FSM share, which was already producing flows from peripheral to central
-catchments.
+economic advantage'} --- a framing that implied that those who could
+afford to do so paid a housing premium to be near better schools in the
+city, but a characterisation empirically challenged in this context by
+Tan and Dennett (2025). This built on a 2023 policy giving FSM-eligible
+pupils priority at schools below the city-average (30\%) FSM share,
+which was already producing flows from peripheral to central catchments.
 
 The public response was overwhelmingly negative, with the council's
 pre-consultation feedback summary noting \emph{`a strong preference for
