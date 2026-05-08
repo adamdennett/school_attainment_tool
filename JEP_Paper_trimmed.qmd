@@ -7,16 +7,16 @@ author:
       - name: Bartlett Centre for Advanced Spatial Analysis, University College London
     email: a.dennett@ucl.ac.uk
     orcid: 0000-0002-7493-3276
+  - name: Beatrice Taylor
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+    email: beatrice.taylor@ucl.ac.uk
+    orcid: 0000-0002-3630-5047
   - name: Dan Campbell-Meiklejohn
     affiliations:
       - name: School of Psychology, University of Sussex
     email: daniel.cm@sussex.ac.uk
     orcid: 0000-0002-8916-265X
-  - name: Beatrice Taylor
-    affiliations:
-      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
-    email: beatrice.taylor@ucl.ac.uk
-    orcid: 0000-0002-3630-5047    
 date: today
 format:
   pdf:
@@ -42,8 +42,8 @@ format:
           \renewcommand\Affilfont{\small\itshape}
           \renewcommand\Authfont{\normalsize}
           \author[1]{Adam Dennett\thanks{a.dennett@ucl.ac.uk, ORCID: 0000-0002-7493-3276}}
+          \author[1]{Beatrice Taylor\thanks{beatrice.taylor@ucl.ac.uk, ORCID: 0000-0002-3630-5047}}
           \author[3]{Dan Campbell-Meiklejohn\thanks{daniel.cm@sussex.ac.uk, ORCID: 0000-0002-8916-265X}}
-          \author[1]{Beatrice Taylor\thanks{beatrice.taylor@ucl.ac.uk, ORCID: 0000-0002-3630-5047 }}
           \affil[1]{Bartlett Centre for Advanced Spatial Analysis, University College London}
           \affil[3]{School of Psychology, University of Sussex}
           \renewcommand{\author}[2][]{}
@@ -1140,7 +1140,7 @@ Our recommendations follow. For the DfE: invest in analytical infrastructure at 
 
 # CRediT authorship contribution statement {.unnumbered}
 
-**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing. **Beatrice Taylor:** Methodology – refining and review; Writing – review & editing.
+**Adam Dennett:** Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing – original draft, Writing – review & editing, Visualisation, Project administration. **Beatrice Taylor:** Methodology – refining and review; Writing – review & editing. **Dan Campbell-Meiklejohn:** Methodology – refining and review; Writing – review & editing.
 
 # Declaration of generative AI use {.unnumbered}
 
