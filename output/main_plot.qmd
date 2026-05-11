@@ -1,0 +1,136 @@
+---
+title: "figure"
+format: html
+editor: visual
+---
+
+```{r fig-caterpillar-la}
+#| label: fig-caterpillar-la
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, All Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
+#| fig-height: 8
+#| fig-width: 10
+
+library(ggrepel)
+
+# Extract LA random effects with conditional variances
+re_list_imp <- ranef(imputed_models$all, condVar = TRUE)
+re_la <- as.data.frame(re_list_imp$`LANAME:gor_name`)
+re_la$group <- rownames(re_list_imp$`LANAME:gor_name`)
+
+# Posterior standard errors
+se_la <- sqrt(attr(re_list_imp$`LANAME:gor_name`, "postVar")[1, 1, ])
+re_la$se <- se_la
+
+re_la <- re_la %>%
+  mutate(
+    la_name = sub(":.*$", "", group),
+    ci_lo = `(Intercept)` - 1.96 * se,
+    ci_hi = `(Intercept)` + 1.96 * se,
+    sig = ci_lo > 0 | ci_hi < 0,
+    highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
+  )
+
+# Top and bottom 10 for labelling (+ always include Brighton)
+extreme_la <- c(
+  head(re_la$la_name[order(re_la$`(Intercept)`)], 10),
+  tail(re_la$la_name[order(re_la$`(Intercept)`)], 10)
+)
+if (any(grepl("Brighton", re_la$la_name))) {
+  extreme_la <- unique(c(extreme_la,
+                          re_la$la_name[grepl("Brighton", re_la$la_name)]))
+}
+
+ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                width = 0, colour = "grey60", linewidth = 0.3) +
+  # Map size to highlight and increase Brighton's size
+  geom_point(aes(colour = highlight, size = highlight)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+#  geom_text_repel(
+#    data = re_la %>% filter(la_name %in% extreme_la),
+#    aes(label = la_name),
+#    size = 2.5, max.overlaps = 25, force = 4, nudge_y = 0.005,
+#    segment.colour = "grey60", segment.size = 0.3
+#  ) +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca"),
+                      guide = "none") +
+  # Adjust sizes specifically here
+  scale_size_manual(values = c("Other" = 1.2, 
+                                "Brighton and Hove" = 3.5),
+                    guide = "none") +
+  theme_pub +
+  theme(
+    # Remove axis text and ticks
+    axis.text.x = element_blank(), 
+    axis.ticks.x = element_blank(),
+    # Remove axis labels (titles)
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    # Remove vertical grid lines
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+```
+
+```{r}
+#| label: fig-caterpillar-la
+#| fig-cap: "Caterpillar plot of LA random intercepts (imputed full panel model, All Pupils). Top and bottom 10 LAs labelled; Brighton and Hove in pink."
+#| fig-height: 8
+#| fig-width: 10
+
+library(ggrepel)
+library(ggplot2)
+library(dplyr)
+
+# 1. Prepare Data
+re_list_imp <- ranef(imputed_models$all, condVar = TRUE)
+re_la <- as.data.frame(re_list_imp$`LANAME:gor_name`)
+re_la$group <- rownames(re_list_imp$`LANAME:gor_name`)
+se_la <- sqrt(attr(re_list_imp$`LANAME:gor_name`, "postVar")[1, 1, ])
+re_la$se <- se_la
+
+re_la <- re_la %>%
+  mutate(
+    la_name = sub(":.*$", "", group),
+    ci_lo = `(Intercept)` - 1.96 * se,
+    ci_hi = `(Intercept)` + 1.96 * se,
+    sig = ci_lo > 0 | ci_hi < 0,
+    highlight = ifelse(grepl("Brighton", la_name), "Brighton and Hove", "Other")
+  )
+
+# 2. Create Plot Object
+p <- ggplot(re_la, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi),
+                width = 0, colour = "grey60", linewidth = 0.3) +
+  geom_point(aes(colour = highlight, size = highlight)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  scale_colour_manual(values = c("Other" = "#49a0c4",
+                                  "Brighton and Hove" = "#e16fca"),
+                      guide = "none") +
+  scale_size_manual(values = c("Other" = 1.2, 
+                                "Brighton and Hove" = 3.5),
+                    guide = "none") +
+  theme_pub +
+  theme(
+    axis.text.x = element_blank(), 
+    axis.ticks.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+
+# 3. Print to screen (optional)
+print(p)
+
+# 4. Save High-Res
+ggsave(
+  filename = "la_caterpillar_highres.png", 
+  plot = p,               # Explicitly use the object 'p' to avoid plotly errors
+  width = 10, 
+  height = 8, 
+  dpi = 600, 
+  bg = "white"
+)
+```
