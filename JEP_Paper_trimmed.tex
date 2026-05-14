@@ -163,6 +163,13 @@
 \affil[3]{School of Psychology, University of Sussex}
 \renewcommand{\author}[2][]{}
 \renewcommand{\and}{}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[C]{Pulling the Right Lever in School Attainment}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
 \makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \AtBeginDocument{%
@@ -230,30 +237,31 @@ Analytics and Local Education Policy in England}
 \makeatother
 \subtitle{Lessons from Brighton and Hove}
 \author{Adam Dennett \and Beatrice Taylor \and Dan Campbell-Meiklejohn}
-\date{2026-05-08}
+\date{2026-05-14}
 \begin{document}
 \maketitle
 \begin{abstract}
-The UK's 2026 White Paper targets halving the disadvantage attainment
-gap. Achieving this requires local education authorities to understand
-the drivers of attainment in their areas, but the wrong lever is easily
-pulled when research is complex and local intelligence incomplete. Using
-multilevel mixed-effects models fitted to all state-funded secondary
-schools in England over four years (2021--22 to 2024--25), we show
-school-level Attainment 8 is highly predictable from a handful of
-readily available variables, though non-linearities mean local context
-is key. We apply the models to Brighton and Hove, where 2024 admissions
-proposals were premised on the idea that attainment is reduced by lower
-socio-economic mixing. Our analysis suggests these proposals are
-unlikely to deliver the targeted gains, and the wider literature on long
-school commutes points to social and educational costs they did not
-consider. By contrast, the city has the second-worst absence rate in
-England, and our modelling indicates improving attendance would be the
-most impactful single lever, particularly for disadvantaged pupils. We
-also introduce a school-level value-added view that lets parents and
-policy makers assess how a school performs \emph{above} its inherited
-intake characteristics, and a policy simulator tool to bridge the gap
-between open data and accessible, contextualised intelligence.
+The UK government's 2026 White Paper targets halving the disadvantage
+attainment gap. Achieving this requires local education authorities to
+understand the drivers of attainment in their areas, but challenges in
+evidence synthesis and locally relevant data analytics mean the risk of
+pulling the wrong policy lever is high. Using linear mixed-effects
+models fitted to 4-years of DfE data, we show school-level Attainment 8
+is highly predictable. Focusing on Brighton and Hove, where 2024
+secondary admissions changes were premised on the idea that
+disadvantaged student attainment could be improved through even more
+social mixing in the school system, our analysis suggests that through
+omitted variables, non-linearities and counter-intuitive relationships,
+the policy is unlikely to deliver the targeted gains, while the wider
+literature on long school commutes points to social and educational
+costs not adequately considered. The city has the second-worst absence
+rate in England, and our modelling indicates improving attendance would
+be the most impactful single policy lever, particularly for
+disadvantaged pupils. We also introduce a school-level value-added view
+that lets parents and policy makers assess how a school performs above
+its inherited intake characteristics, and a policy simulator tool to
+bridge the gap between open data and accessible, contextualised
+intelligence.
 \end{abstract}
 
 
@@ -266,17 +274,17 @@ economic productivity (Grant 2017). The UK Government's 2026 schools
 white paper (DfE 2026) sets ambitious targets including halving the
 disadvantage attainment gap, improving attendance, reforming admissions
 and tackling place-based disadvantage. These ambitions will require
-local education authorities (LEAs) to understand the specific drivers of
-attainment in their areas and choose interventions accordingly.
+local education authorities (LEAs) to understand the specific drivers in
+their areas and choose interventions accordingly.
 
-This paper argues that the Department for Education's (DfE) open data
-provides most of the raw materials needed for such nuanced localised
-understanding, but a crucial gap exists between data availability and
-accessible, contextualised intelligence for decision makers. We
-demonstrate this through an analysis of school-level attainment across
-England, combined with a case study of Brighton and Hove where a policy
-direction would be predicted by our model, to potentially do more harm
-than good.
+Focusing on the secondary school attainment, this paper argues that the
+Department for Education's (DfE) open data provides most of the raw
+materials needed for such nuanced localised understanding, but a crucial
+gap exists between data availability and accessible, contextualised
+intelligence for decision makers. We demonstrate this through an
+analysis of school-level attainment across England, combined with a case
+study of Brighton and Hove where a policy direction would be predicted
+by our model, to potentially do more harm than good.
 
 Brighton and Hove provides a particularly instructive case. The city
 already has a distinctive admissions landscape featuring catchment areas
@@ -289,44 +297,48 @@ reserve places for out-of-catchment children in those catchments ahead
 of in-catchment children, and redraw catchment boundaries. The proposals
 were promoted on the premise that attainment in the city was `driven by
 economic advantage' and that redistributing pupils would narrow the
-attainment gap. The response was overwhelmingly negative, yet parents
-and schools lacked the tools to challenge the proposals effectively and
-the core policy direction persisted, albeit slightly watered down.
+attainment gap. The public response was overwhelmingly negative, yet
+parents and schools lacked the tools to challenge the proposals
+effectively and the core policy direction persisted, albeit slightly
+watered down.
 
 Raw data on the attainment gap, without context, was presented to the
 city alongside statements correlating concentrations of disadvantage
 with lower attainment. The gap was framed as a unique failure requiring
 urgent action; the second-order impacts of the proposed interventions
 --- longer school journeys, displacement from local communities, effects
-on well-being --- were not scrutinised in depth. What we (the citizens
-of Brighton and Hove, including the councillors developing policy) did
-not know at the time was that, prior to the proposals, Brighton and Hove
-was one of the best performing LEAs in the country for both
-disadvantaged (7th out of 152) and non-disadvantaged (5th out of 152)
-GCSE attainment once the factors known to influence attainment are
-accounted for. With this knowledge, the approach to improving outcomes
-for disadvantaged pupils could have been more effective: ``what can we
-learn from what the city is doing right?'' and ``would asking pupils to
-travel out of their communities to schools jeopardise this success?''
+on well-being --- were not scrutinised in depth. Our modelling addresses
+a critical blind spot in local decision-making: without the ability to
+account for structural factors like absence and prior attainment,
+councillors and citizens were unaware that Brighton and Hove was already
+among the highest-performing LEAs nationally for taking students beyond
+those factors---ranking 7th out of 152 for disadvantaged pupils and 5th
+for non-disadvantaged pupils. These insights come from the analysis of
+open data presented in this paper and carried out after the consultation
+had closed. However, with more timely analysis and with this knowledge,
+the approach to improving outcomes for disadvantaged pupils in the city
+could have been more effective and different questions asked: ``what can
+we learn from what the city is doing right?'' and ``would asking pupils
+to travel out of their communities to schools jeopardise this success?''
 Some rapidly-produced analysis was put into the public domain by some of
 the authors of this paper\footnote{\url{https://adamdennett.github.io/BH_Schools_Consultation/about.html}},
 but as a response to, not a contribution to, policy formation.
 
 The discussions that led to this paper took place over an 18-month
 period spanning the 2024 and 2025 admissions consultations and involved
-a diverse group of parents, academics, policy practitioners, school
-governors and council staff. We do not claim our model is optimal or
-novel --- the variables and effects are very similar to those reported
-by Macleod et al. (2015) over a decade ago. Our intention is to show
-that with freely available open data and a small set of well-chosen
-variables, it is possible to build a model explaining over 80\% of the
-variation in school-level Attainment 8, and then to use it to answer
-locally targeted questions such as: `is changing the social mix in
-schools likely to improve disadvantaged pupil attainment?', `what is the
-most important factor affecting attainment in a particular LEA?', and
-`which schools are doing better or worse than expected?'. We report
-effects in GCSE-point units rather than standard deviations so that they
-have more direct meaning for policy makers.
+a diverse group of parents, academics, policy practitioners and school
+governors. We do not claim our model is optimal or novel --- the
+variables and effects are very similar to those reported by Macleod et
+al. (2015) over a decade ago. Our intention is to show that with freely
+available open data and a small set of well-chosen variables, it is
+possible to build a model explaining over 80\% of the variation in
+school-level Attainment 8, and then to use it to answer locally targeted
+questions such as: ``is changing the social mix in schools likely to
+improve disadvantaged pupil attainment?'', ``what is the most important
+factor affecting attainment in a particular LEA?'', and ``which schools
+are doing better or worse than expected?''. We report effects in
+GCSE-point units rather than standard deviations so that they have more
+direct meaning for policy makers.
 
 Before examining the Brighton and Hove proposals specifically later in
 the paper, we wish to be explicit about the scope of our argument. Our
@@ -465,12 +477,11 @@ schools' (those catering more for pupils with special educational needs
 and disabilities) are excluded. After the exclusion of cases with
 missing predictor values or imputation of those values required for the
 log-linear specification (principally missing workforce or Ofsted data
-in 2024-25{[}\^{}missing{]}), the analysis sample used in the models is
-approximately 12,200 observations. All data are school-level aggregates;
-interpretations relate to this level of aggregation.
-
-{[}\^{}missing{]} missing data and imputation:
-\url{https://adamdennett.github.io/school_attainment_tool/data_overview.html\#missing-data}
+in 2024-25\footnote{missing data and imputation:
+  \url{https://adamdennett.github.io/school_attainment_tool/data_overview.html\#missing-data}}),
+the analysis sample used in the models is approximately 12,200
+observations. All data are school-level aggregates; interpretations
+relate to this level of aggregation.
 
 \subsection{Model specification}\label{model-specification}
 
@@ -743,9 +754,11 @@ pupils, plus a premise that attainment in the city was \emph{`driven by
 economic advantage'} --- a framing that implied that those who could
 afford to do so paid a housing premium to be near better schools in the
 city, but a characterisation empirically challenged in this context by
-Tan and Dennett (2025). This built on a 2023 policy giving FSM-eligible
-pupils priority at schools below the city-average (30\%) FSM share,
-which was already producing flows from peripheral to central catchments.
+Tan and Dennett (2025) who found that proximity to good schools in the
+city had a very small impact on prices. The 2024 proposals built on a
+2023 policy giving FSM-eligible pupils priority at schools below the
+city-average (30\%) FSM share, which was already producing flows from
+peripheral to central catchments.
 
 The public response was overwhelmingly negative, with the council's
 pre-consultation feedback summary noting \emph{`a strong preference for
@@ -823,8 +836,6 @@ disadvantage}\label{comparing-policy-levers-absence-versus-disadvantage}
 Because the model uses log-transformed variables, the same
 percentage-point change produces different effects depending on where a
 school starts --- returns \emph{accelerate} as values improve.
-Figure~\ref{fig-accelerating-returns} places both the absence and FSM
-levers on a common y-axis.
 
 \begin{figure}
 
@@ -842,11 +853,17 @@ curve.}
 
 \end{figure}%
 
-Three features are immediately visible. First, the absence curve sits
-above the FSM curve at every starting level. Second, the gap
-\emph{widens} as values improve. Third, Brighton and Hove schools
-cluster in the flatter right-hand portion for both variables, but the
-city's position is far more extreme for absence.
+Figure~\ref{fig-accelerating-returns} places both the absence and FSM
+levers on a common y-axis. Four features are immediately visible. First,
+the absence curve sits above the FSM curve at every starting level,
+indicating how much more effective changes in absence are than changes
+in disadvantage, for improving attainment. Second, the gap \emph{widens}
+as values improve. Third, schools with the highest proportions of
+disadvantage and to a lesser extent, absence, will notice the least
+impact on attainment if those levels change. Fourth, Brighton and Hove
+schools cluster in the flatter right-hand portion for both variables,
+but for every school, changes in absence are likely to affect more
+noticable changes in attainment than changes in disadvantage.
 
 Brighton and Hove's mean school FSM rate (28.8\%) is close to the
 national average (28.3\%). But the city's mean absence rate (10.8\%)
@@ -881,17 +898,18 @@ nationally, 2024--25.}
 \end{figure}%
 
 Figure~\ref{fig-obs-vs-pred} shows observed versus predicted Attainment
-8 for the latest year across all schools in England (grey) with Brighton
-and Hove schools highlighted (pink). The close clustering of the points
-around the diagonal line is a visual representation of the \(R^2\)
-values show on the plot and in the tabular model outputs shown earlier -
-observed values for most schools are close to the model predictions. The
-model residuals --- the vertical distance from the diagonal --- show
-whether a school is doing better (above) or worse (below) than the model
-predicts and provides what we might think of as contextualised
-`value-added' measures - more nuanced than Progress 8 - as this
-model-based value added accounts for far more than just prior attainment
-in its representation.
+8 for all, disadvantaged and non-disadvantaged students for the latest
+year across all schools in England (grey) with Brighton and Hove schools
+highlighted (pink). The close clustering of the points around the
+diagonal line is a visual representation of the \(R^2\) values show on
+the plot and in the tabular model outputs shown earlier - observed
+values for most schools are close to the model predictions. The model
+residuals --- the vertical distance from the diagonal --- show whether a
+school is doing better (above) or worse (below) than the model predicts
+and provides what we might think of as contextualised `value-added'
+measures - more nuanced than Progress 8 - as this model-based value
+added accounts for far more than just prior attainment in its
+representation.
 
 \subsection{Decomposing absence: structural intake versus school
 management}\label{decomposing-absence-structural-intake-versus-school-management}
@@ -948,16 +966,14 @@ on attendance is inherited rather than generated.
 joint-signal plane: contextualised value-added (vertical, in Attainment
 8 points) versus the school-controllable absence component (horizontal,
 in percentage points). The reference lines at zero on each axis split
-the plane into four narrative quadrants discussed in the text. The full
-national version with a local-authority filter is available
-interactively in the project's HTML report.}
+the plane into four narrative quadrants discussed in the text.}
 
 \end{figure}%
 
 For local school-level diagnostics the decomposition becomes
 considerably more informative. Two signals can now be read side by side:
 the school's contextualised value-added, and its residual absence
-(positive when the school runs more absence than its intake would
+(positive when the school has more absence than its intake would
 predict, negative when less). Sorted on these two axes
 (Figure~\ref{fig-quadrant}), schools fall into four meaningful policy
 stories: schools adding value with attendance management helping (Q1,
@@ -968,22 +984,29 @@ unusually good attendance management (Q4, bottom-left).
 
 For Brighton and Hove the joint-signal view sharpens the case-study
 reading. Most of the city's schools sit in Q2 in the top-right: they are
-delivering attainment above what their intake would predict and is doing
-so while running more absence than their intake-driven absence model
-expects. In these schools, the pedagogical work happening is the more
-impressive for it; closing any of these school's residual-absence gap
-would compound directly onto an already-strong value-added signal. Any
-schools in Q4 provide a challenge: their attendance management is
-genuinely strong, but once intake is properly accounted for their
-attainment outcomes fall short of what their profile predicts, so the
-simple ``fix attendance'' improvement story is not available. Schools in
-Q3 are the most natural targets for council-led attendance
-interventions, and Q1 schools are where the city should look for
-practice worth sharing. Reporting \textbf{value-added alongside residual
-absence}, with explicit uncertainty intervals, is a more honest framing
-than the single number that conventional benchmarking produces, and
-would help align local policy conversation with what the data can
-support.
+delivering attainment above what their intake would predict and are
+doing so while experiencing more absence than their intake-driven
+absence model expects. In these schools, the pedagogical work happening
+is the more impressive for it; closing any of these school's
+residual-absence gap would compound directly onto an already-strong
+value-added signal. Any schools in Q4 provide a challenge: their
+attendance management is genuinely strong, but once intake is properly
+accounted for their attainment outcomes fall short of what their profile
+predicts, so the simple ``fix attendance'' improvement story is not
+available. Schools in Q3 are the most natural targets for council-led
+attendance interventions, and Q1 schools are where the city should look
+for practice worth sharing.
+
+We are aware that Progress 8 is an attempt to bring a degree of value
+added into the reporting of attainment, but we would advocate for a more
+sophisticated, model-based measure of value added as outlined here.
+Controlling for many more of the exogenous variables that influence
+attainment allow us to dig deeper into the impact that schools are
+having, and as we have shown here, the reporting of measures such as
+\emph{value-added alongside residual absence} means we can achieve a
+more honest framing than the single number that conventional
+benchmarking produces. This would help align local policy conversations
+with what the data can support them.
 
 \section{Discussion}\label{discussion}
 
@@ -1073,7 +1096,7 @@ absence rate in England, and the wider evidence indicates that closing
 this gap would yield attainment gains for disadvantaged pupils that
 comfortably exceed anything achievable through changes to admissions
 arrangements --- and would do so \emph{without} the social, health and
-travel costs that a redistribution-led approach implies.
+travel costs that a redistribution-led approach might produce.
 
 Brighton and Hove's absence rates are not a necessary consequence of its
 intake. The city has near-average FSM eligibility but near-worst
@@ -1105,7 +1128,7 @@ characteristics it inherits --- characteristics that the school cannot
 itself choose. The school-level random intercept, plus the school-level
 residual from the fitted model, gives us a contextualised value-added
 view that is fairer than the headline attainment number and more
-informative than a single (or multi)-word Ofsted rating, both for
+informative than a single (or now multi)-word Ofsted rating, both for
 parents making school choices and for policy makers assessing where
 local effort is best directed. Brighton and Hove provides a particularly
 sharp illustration of why this matters: the local school for one of the
@@ -1174,7 +1197,7 @@ rated, mid-table on raw attainment, in a more prosperous neighbouring
 catchment.
 
 The contextualised picture differs sharply. BACA sits in one of the most
-deprived parts of the city, runs absence well above the high city
+deprived parts of the city, experiences absence well above the high city
 average, has around 50\% FSM and 30\% low prior attainment; Patcham has
 below-national-average absence, around 25\% FSM and 16\% low prior
 attainment. Once these cohort differences are accounted for, the league
@@ -1271,14 +1294,19 @@ well-educated population with a strong civic culture. It could relate to
 the quality of school leadership and governance across the city, or to
 effective local authority support services and school improvement
 programmes. It could be something about the collaborative relationships
-between schools, or community factors that are difficult to quantify.
-Identifying the sources of this over-performance is an important
+between schools, or community factors that are difficult to quantify. It
+could even be that if otherwise disruptive students switch to being
+absent students at a higher rate in Brighton and Hove, this may even
+have a positive impact on learning for those who remain in school. But
+without pupil and class-level longitudinal analysis, this hypothesis
+would be impossible to test. What all of these hypotheses show, however,
+it that identifying the sources of this over-performance is an important
 research question in its own right, and one that could require
 additional qualitative investigation or access to pupil-level data that
-goes beyond what is publicly available. What is clear, however, is that
-policy interventions which risk disrupting a well-functioning system
-without understanding what makes it function well carry substantial
-downside risk.
+goes beyond what is publicly available. But what is clear is that policy
+interventions which risk disrupting a well-functioning system without
+understanding what makes it function well carry substantial downside
+risks.
 
 \subsection{Implications for national
 policy}\label{implications-for-national-policy}
@@ -1390,8 +1418,8 @@ statement}\label{credit-authorship-contribution-statement}
 analysis, Data curation, Writing -- original draft, Writing -- review \&
 editing, Visualisation, Project administration. \textbf{Beatrice
 Taylor:} Methodology -- refining and review; Writing -- review \&
-editing. \textbf{Dan Campbell-Meiklejohn:} Methodology -- refining and
-review; Writing -- review \& editing.
+editing. \textbf{Daniel Campbell-Meiklejohn:} Methodology -- refining
+and review; Writing -- review \& editing.
 
 \section*{Declaration of generative AI
 use}\label{declaration-of-generative-ai-use}
@@ -1405,6 +1433,11 @@ Quarto outputs. Any analytical decisions and interpretations during the
 iterative analytical process were reviewed, verified and approved by the
 authors, who take full responsibility for the work.
 
+\section*{Funding Details}\label{funding-details}
+\addcontentsline{toc}{section}{Funding Details}
+
+This work was supported by: EPSRC under grant EP/Y028392/1
+
 \section*{Acknowledgements}\label{acknowledgements}
 \addcontentsline{toc}{section}{Acknowledgements}
 
@@ -1417,8 +1450,8 @@ parents in Brighton and Hove who have come together under the banner of
 the `Parent Support Group'. The range of perspectives and breadth of
 expertise within this group has been inspirational.
 
-\section*{Declaration of interest}\label{declaration-of-interest}
-\addcontentsline{toc}{section}{Declaration of interest}
+\section*{Disclosure Statement}\label{disclosure-statement}
+\addcontentsline{toc}{section}{Disclosure Statement}
 
 Some of the authors are residents of Brighton and Hove with school aged
 children and lived experience of the effects of the admissions policy
