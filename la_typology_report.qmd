@@ -10,7 +10,9 @@ format:
     number-sections: true
     theme: ucl-theme.scss
     embed-resources: true
-    include-in-header: header-logos.html
+    include-in-header:
+      - header-logos.html
+      - google-analytics.html
     include-after-body: footer-logos.html
     code-fold: true
     fig-width: 9

@@ -30,6 +30,7 @@ format:
     code-summary: "Code"
     embed-resources: true
     auto-stretch: true
+    include-in-header: google-analytics.html
     include-after-body: slides-footer.html
     output-file: "pulling_the_right_lever_short_slides.html"
 output-dir: docs

@@ -24,7 +24,9 @@ format:
     link-external-newwindow: true
     df-print: kable
     embed-resources: true
-    include-in-header: header-logos.html
+    include-in-header:
+      - header-logos.html
+      - google-analytics.html
     include-after-body:
       - footer-logos.html
       - collect-bibliography.html

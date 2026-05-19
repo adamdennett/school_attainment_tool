@@ -352,6 +352,26 @@ saveWidget(
   title         = "LA School Typology - Interactive Map"
 )
 
+# Inject Google Analytics gtag snippet into the saved widget so visits to
+# the standalone map page are tracked alongside the rest of the site.
+ga_snippet <- paste(
+  '<!-- Google tag (gtag.js) -->',
+  '<script async src="https://www.googletagmanager.com/gtag/js?id=G-D88ZNBVGS4"></script>',
+  '<script>',
+  '  window.dataLayer = window.dataLayer || [];',
+  '  function gtag(){dataLayer.push(arguments);}',
+  "  gtag('js', new Date());",
+  "  gtag('config', 'G-D88ZNBVGS4');",
+  '</script>',
+  sep = "\n"
+)
+html <- readLines(out_path, warn = FALSE)
+head_idx <- grep("<head>", html, fixed = TRUE)[1]
+if (!is.na(head_idx) && !any(grepl("G-D88ZNBVGS4", html, fixed = TRUE))) {
+  html <- append(html, ga_snippet, after = head_idx)
+  writeLines(html, out_path, useBytes = TRUE)
+}
+
 message("\nSaved interactive map: ", out_path)
 message("Open in browser: file://", gsub("\\\\", "/", out_path))
 
