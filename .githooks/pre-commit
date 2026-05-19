@@ -1,0 +1,67 @@
+#!/bin/sh
+#
+# Pre-commit hook: sync rendered outputs to docs/ (GitHub Pages)
+# 1. HTML files from output/ → docs/
+# 2. Any *.pdf from repo root → docs/ where docs/ already has a copy
+# 3. Slide HTML files (pulling_the_right_lever*slides*) from root → docs/
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+OUTPUT_DIR="$REPO_ROOT/output"
+DOCS_DIR="$REPO_ROOT/docs"
+
+# Only proceed if docs directory exists
+if [ ! -d "$DOCS_DIR" ]; then
+    exit 0
+fi
+
+synced=0
+
+# ---- Sync output/*.html → docs/ ----
+if [ -d "$OUTPUT_DIR" ]; then
+    for html_file in "$OUTPUT_DIR"/*.html; do
+        [ -f "$html_file" ] || continue
+        basename="$(basename "$html_file")"
+        docs_file="$DOCS_DIR/$basename"
+
+        if [ -f "$docs_file" ]; then
+            if [ "$html_file" -nt "$docs_file" ]; then
+                cp "$html_file" "$docs_file"
+                git add "$docs_file"
+                synced=$((synced + 1))
+            fi
+        fi
+    done
+fi
+
+# ---- Sync *.pdf from repo root → docs/ (only where docs/ already has a copy) ----
+for pdf_src in "$REPO_ROOT"/*.pdf; do
+    [ -f "$pdf_src" ] || continue
+    basename="$(basename "$pdf_src")"
+    pdf_dst="$DOCS_DIR/$basename"
+    if [ -f "$pdf_dst" ] && [ "$pdf_src" -nt "$pdf_dst" ]; then
+        cp "$pdf_src" "$pdf_dst"
+        git add "$pdf_dst"
+        synced=$((synced + 1))
+    fi
+done
+
+# ---- Sync slide decks (pulling_the_right_lever*slides*.html) → docs/ ----
+for slide_html in "$REPO_ROOT"/pulling_the_right_lever*slides*.html; do
+    [ -f "$slide_html" ] || continue
+    basename="$(basename "$slide_html")"
+    docs_file="$DOCS_DIR/$basename"
+
+    if [ -f "$docs_file" ]; then
+        if [ "$slide_html" -nt "$docs_file" ]; then
+            cp "$slide_html" "$docs_file"
+            git add "$docs_file"
+            synced=$((synced + 1))
+        fi
+    fi
+done
+
+if [ $synced -gt 0 ]; then
+    echo "pre-commit: synced $synced file(s) to docs/"
+fi
+
+exit 0
