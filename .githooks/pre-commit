@@ -4,6 +4,9 @@
 # 1. HTML files from output/ → docs/
 # 2. Any *.pdf from repo root → docs/ where docs/ already has a copy
 # 3. Slide HTML files (pulling_the_right_lever*slides*) from root → docs/
+#
+# One-time setup on a fresh clone (so git actually uses this file):
+#   git config core.hooksPath .githooks
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 OUTPUT_DIR="$REPO_ROOT/output"
