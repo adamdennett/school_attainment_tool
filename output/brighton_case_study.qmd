@@ -180,6 +180,131 @@ The panel covers academic years 2021-22 to 2024-25. For 2024-25, four predictor 
 :::
 
 
+# Segregation in Brighton & Hove: National Context {#sec-gorard-context}
+
+A useful orientation before looking at individual schools is to ask how Brighton & Hove looks on the **Gorard segregation index** — a measure of how unevenly disadvantaged pupils are distributed across schools within a Local Authority. Values close to zero indicate that disadvantaged pupils are spread evenly across schools; higher values indicate concentration in particular schools. The index enters the national model as a fixed effect; see the [Derived Variables section of the data overview](https://adamdennett.github.io/school_attainment_tool/data_overview.html#derived-variables) for the formula and the cross-LA distribution.
+
+```{r gorard-bh-prep}
+#| label: gorard-bh-prep
+#| include: false
+
+# Distinct LA-year Gorard values
+gorard_la <- panel %>%
+  filter(!is.na(gorard_segregation), !is.na(LANAME)) %>%
+  distinct(LANAME, year_label, gorard_segregation)
+
+# Per-year ranks (rank 1 = most segregated LA in that year)
+gorard_per_year <- gorard_la %>%
+  group_by(year_label) %>%
+  mutate(
+    rank_high = rank(-gorard_segregation, ties.method = "min"),
+    n_la      = n()
+  ) %>%
+  ungroup()
+
+bh_per_year <- gorard_per_year %>%
+  filter(LANAME == HIGHLIGHT_LA) %>%
+  arrange(year_label)
+
+# All-years mean Gorard, ranked
+gorard_mean <- gorard_la %>%
+  group_by(LANAME) %>%
+  summarise(mean_gorard = mean(gorard_segregation),
+            n_years     = n(),
+            .groups     = "drop") %>%
+  arrange(desc(mean_gorard)) %>%
+  mutate(rank_high = row_number(),
+         n_la      = n())
+
+bh_mean_row <- gorard_mean %>% filter(LANAME == HIGHLIGHT_LA)
+
+# National reference values for the narrative
+nat_overall_median <- median(gorard_la$gorard_segregation)
+nat_overall_mean   <- mean(gorard_mean$mean_gorard)
+```
+
+```{r tbl-gorard-bh}
+#| label: tbl-gorard-bh
+#| tbl-cap: "Brighton & Hove on the Gorard segregation index, ranked against all English local authorities. Rank 1 = most segregated; 100th percentile = most segregated."
+
+tbl_gorard <- bh_per_year %>%
+  transmute(
+    Year           = as.character(year_label),
+    `Gorard index` = sprintf("%.3f", gorard_segregation),
+    `B&H rank`     = sprintf("%d of %d", rank_high, n_la),
+    `Percentile`   = sprintf("%dth",
+                             round((1 - (rank_high - 1) / (n_la - 1)) * 100))
+  ) %>%
+  bind_rows(
+    tibble(
+      Year           = "All years (mean)",
+      `Gorard index` = sprintf("%.3f", bh_mean_row$mean_gorard),
+      `B&H rank`     = sprintf("%d of %d",
+                                bh_mean_row$rank_high, bh_mean_row$n_la),
+      `Percentile`   = sprintf("%dth",
+        round((1 - (bh_mean_row$rank_high - 1) / (bh_mean_row$n_la - 1)) * 100))
+    )
+  )
+
+kbl(tbl_gorard, format = "html", align = "lrrr", escape = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(0, bold = TRUE) %>%
+  row_spec(nrow(tbl_gorard), bold = TRUE, background = "#ffe7f0")
+```
+
+```{r fig-gorard-bh}
+#| label: fig-gorard-bh
+#| fig-cap: "Distribution of the Gorard segregation index across all English LAs, by year. Brighton & Hove is marked with the pink vertical line."
+#| fig-height: 3.2
+#| fig-width: 9
+
+ggplot(gorard_la, aes(x = gorard_segregation)) +
+  geom_histogram(bins = 30, fill = "grey75", colour = "white",
+                 linewidth = 0.2) +
+  geom_vline(data = bh_per_year,
+             aes(xintercept = gorard_segregation),
+             colour = "#e63a8e", linewidth = 0.9) +
+  facet_wrap(~ year_label, nrow = 1) +
+  labs(x = "Gorard segregation index", y = "Number of LAs") +
+  theme_minimal(base_size = 11) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r gorard-bh-narrative}
+#| label: gorard-bh-narrative
+#| output: asis
+
+bh_mean_pctile <- round(
+  (1 - (bh_mean_row$rank_high - 1) / (bh_mean_row$n_la - 1)) * 100
+)
+
+direction <- if (bh_mean_row$mean_gorard < nat_overall_median) "below" else "above"
+side      <- if (bh_mean_row$mean_gorard < nat_overall_median) "more"  else "less"
+
+yearly_ranks <- paste(
+  sprintf("%s: %d of %d", as.character(bh_per_year$year_label),
+          bh_per_year$rank_high, bh_per_year$n_la),
+  collapse = "; "
+)
+
+cat(sprintf(
+  paste0(
+    "Across the four-year panel, Brighton & Hove averages a Gorard index of **%.3f**, ",
+    "which sits **%s** the national median of %.3f — so disadvantaged pupils are spread ",
+    "**%s evenly** across B&H secondary schools than in a typical English LA. ",
+    "By mean rank it places **%d of %d** local authorities (the %dth percentile, ",
+    "where the 100th percentile is the most segregated). ",
+    "Year-by-year ranks (%s) move by only a handful of places, consistent with the ",
+    "general finding that segregation is a slow-moving structural feature of local school markets."
+  ),
+  bh_mean_row$mean_gorard, direction, nat_overall_median, side,
+  bh_mean_row$rank_high, bh_mean_row$n_la, bh_mean_pctile,
+  yearly_ranks
+))
+```
+
+
 # The National Model {#sec-national-model}
 
 The results presented in this case study are derived from a **multilevel linear model** (also known as a mixed-effects or hierarchical model) fitted to all mainstream secondary schools in England over four academic years (2021–22 to 2024–25). The model predicts **log-transformed Attainment 8** as a function of nine school-level characteristics, with random intercepts that allow the baseline to vary by year, Ofsted rating, and local authority (nested within region).
@@ -1282,10 +1407,10 @@ nat_table <- above_nat_abs %>%
     `National Average (Target)` = round(target_abs, 1),
     `Reduction needed (pp)` = round(reduction_pp, 1),
     `Predicted ATT8 change (%%)` = round(pct_att8_change, 2),
-    `\u2248 ATT8 points` = round(att8_point_change, 1)
+    `≈ ATT8 points` = round(att8_point_change, 1)
   ) %>%
   select(School, `Current % Absence`, `National Average (Target)`,
-         `Reduction needed (pp)`, `Predicted ATT8 change (%%)`, `\u2248 ATT8 points`)
+         `Reduction needed (pp)`, `Predicted ATT8 change (%%)`, `≈ ATT8 points`)
 
 print(knitr::kable(nat_table, format = "html",
              caption = sprintf("Scenario: if all schools above the national average (%.1f%%) reduced to it — predicted ATT8 effect (All Pupils model)",
@@ -1317,10 +1442,10 @@ scenario_table <- high_fsm_schools %>%
     `Target % FSM` = round(target_fsm, 1),
     `Change in log(FSM)` = round(log_shift, 3),
     `Predicted ATT8 change (%%)` = round(pct_att8_change, 2),
-    `\u2248 ATT8 points` = round(att8_point_change, 1)
+    `≈ ATT8 points` = round(att8_point_change, 1)
   ) %>%
   select(School, `Current % FSM`, `Target % FSM`,
-         `Change in log(FSM)`, `Predicted ATT8 change (%%)`, `\u2248 ATT8 points`)
+         `Change in log(FSM)`, `Predicted ATT8 change (%%)`, `≈ ATT8 points`)
 
 print(knitr::kable(scenario_table, format = "html",
              caption = sprintf("Scenario: if schools above the city average (%.0f%% FSM) reduced to it — predicted ATT8 effect (All Pupils model)",
