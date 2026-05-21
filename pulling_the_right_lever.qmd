@@ -1523,21 +1523,17 @@ fig_region
 
 ```{r fig-quadrant-overview}
 #| label: fig-quadrant-overview
-#| fig-cap: "All English secondary schools on the joint-signal plane: school-level value-added (vertical) versus the school-controllable absence component (horizontal). The shaded background shows the national point cloud; orange dots are Brighton and Hove's secondaries. The reference lines at zero on each axis split the plane into the four narrative quadrants discussed in the text. (The HTML version of this paper renders this as an interactive plot with Ofsted/region colouring and a local-authority filter.)"
+#| fig-cap: "All English secondary schools on the joint-signal plane, coloured by their most recent Ofsted rating. Vertical axis: school-level value-added (Attainment 8 points). Horizontal axis: the school-controllable absence component (percentage points). The reference lines at zero on each axis split the plane into the four narrative quadrants discussed in the text. (The HTML version of this paper renders this as an interactive plot with a local-authority filter and a region-coloured alternative view.)"
 #| fig-height: 6
 #| fig-width: 9
 
-ggplot(quadrant_data, aes(x = resid_abs_pp, y = vadd_M2)) +
-  geom_hex(bins = 45) +
-  scale_fill_viridis_c(option = "magma", direction = -1,
-                        name = "Schools\nper bin",
-                        trans = "log1p", breaks = c(1, 5, 20, 80)) +
+ggplot(quadrant_data_plot,
+       aes(x = resid_abs_pp, y = vadd_M2, colour = OFSTEDRATING_1)) +
   geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
   geom_vline(xintercept = 0, colour = "grey40", linewidth = 0.4) +
-  geom_point(data = quadrant_data %>% filter(is_bh),
-             aes(x = resid_abs_pp, y = vadd_M2),
-             colour = "#cc6633", size = 2.5, alpha = 0.95,
-             inherit.aes = FALSE) +
+  geom_point(size = 1.2, alpha = 0.7) +
+  scale_colour_manual(values = ofsted_pal, name = "Ofsted rating",
+                      drop = FALSE) +
   annotate("text", x = quad_xlim[1] * 0.95, y = quad_ylim[2] * 0.92,
            label = "Q1: value-added\n+ attendance helping",
            hjust = 0, vjust = 1, size = 2.8, colour = "#2e6260",
@@ -1558,7 +1554,8 @@ ggplot(quadrant_data, aes(x = resid_abs_pp, y = vadd_M2)) +
   labs(x = "School-controllable absence (residual absence, percentage points)\n← better than predicted     |     worse than predicted →",
        y = "School value-added under M2 (Attainment 8 points)\n← below intake-predicted     |     above intake-predicted →",
        title = "Where do schools sit on the joint-signal plane?",
-       subtitle = "England's secondary schools (shaded), with Brighton and Hove highlighted in orange") +
+       subtitle = "All English secondary schools, coloured by most recent Ofsted rating") +
+  guides(colour = guide_legend(override.aes = list(size = 3, alpha = 1))) +
   theme_pub +
   theme(legend.position = "right")
 ```
