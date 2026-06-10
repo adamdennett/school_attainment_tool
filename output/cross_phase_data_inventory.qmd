@@ -346,10 +346,54 @@ The holdings above already constitute the data layer of a cross-phase monitoring
 1. **Growth-curve / trajectory models** — with 3-4 years per school (9 for suspensions), model school *trajectories* rather than levels; classify improving/declining schools and lead-lag between behaviour and attainment.
 2. **Early-warning classification** — predict next year's attainment band or RISE-eligibility from current absence, suspensions, workforce churn and composition; validate against DfE's published RISE list.
 3. **Closure event studies & survival models** — time-to-closure hazard from falling rolls, finances and performance; matched-area before/after estimates of closure effects on receiving schools.
-4. **Cross-phase linked models** — feed each secondary school's modelled *feeder-area* KS2 position (via GIAS geography) into its KS4 model: a structural pipeline model rather than separate phase models.
-5. **Spatio-temporal models** — explicit spatial autocorrelation (CAR/BYM-type) for the geography of disadvantage and recovery, beyond the current LA random effects.
-6. **Bayesian estimation throughout** — full uncertainty propagation into simulator scenarios and small-school shrinkage (most valuable at KS2, where one-form-entry schools are noisy).
-7. **Anomaly detection** — flag schools whose observed outcomes depart sharply from contextual expectation in either direction; the positive outliers are the system's transferable-practice candidates.
+4. **Bayesian estimation throughout** — full uncertainty propagation into simulator scenarios and small-school shrinkage (most valuable at KS2, where one-form-entry schools are noisy).
+5. **Anomaly detection** — flag schools whose observed outcomes depart sharply from contextual expectation in either direction; the positive outliers are the system's transferable-practice candidates.
+6. **The spatial programme** — feeder-area estimation, spatio-temporal structure, and the geography of the whole pipeline: expanded in @sec-spatial below.
+
+## The spatial programme in detail {#sec-spatial}
+
+The motivating fact comes from the existing KS4 models: **prior attainment at KS2 is the second-strongest predictor of Attainment 8** — much of a secondary school's outcome distribution is inherited, not produced. But the panel measures that inheritance only as the composition of each school's intake (`PTPRIORLO`/`PTPRIORHI`). It cannot say *where* the inheritance comes from, which primaries produce it, or how the geography of transition — who travels where, who chooses what — sorts it between schools. Making the link explicit turns three separate phase panels into one spatial system. Everything below uses data already in the project: coordinates for every establishment (GIAS), three years of KS2 outcomes for ~15,600 primaries, intake prior-attainment for every secondary in every year, KS4 destinations route shares for every secondary (newly ingested), KS5 provider cohorts with KS4 baselines, ONS boundaries and IMD.
+
+### S1 — Estimating feeder areas: the KS2→KS4 transition as an inverse problem
+
+England publishes no school-to-school pupil flow matrix. But it publishes both ends of the flow: each primary's Year 6 cohort and outcomes, and each secondary's intake size and intake prior-attainment composition. That makes the unobserved flow matrix $W = [w_{ij}]$ (share of secondary $i$'s intake drawn from primary $j$) an **estimable latent quantity**, three ways, in increasing order of ambition:
+
+- **(a) Spatial interaction baseline.** A production-constrained model in the classic form: each primary's Y6 leavers $O_j$ allocated across secondaries by $w_{ij} \propto A_i \, f(d_{ij})$, with attractiveness $A_i$ (capacity or NOR) and decay $f(d) = e^{-\beta d}$. Pure geography — no behaviour — and therefore the natural null model.
+- **(b) Calibration against observed intakes** — the key move. The SIM-implied intake prior attainment for secondary $i$ is $\hat{x}_i(\beta) = \sum_j w_{ij}(\beta)\, \text{KS2}_{j,t-5}$, and the *observed* counterpart $x_i$ (from `PTPRIORLO`/`PTPRIORHI`) exists for every secondary in every year. Choosing $\beta$ (and the attractiveness specification) to minimise $\sum_i (\hat{x}_i - x_i)^2$ turns the unobservable flow problem into a well-posed calibration, repeated annually. Letting $\beta$ vary regionally — or estimating it as a spatially varying parameter — yields a **map of selection intensity**: where intake geography is close to the distance-decay null (children attend nearby schools) versus where choice, selection and travel stretch it. That map is a new, publishable object in its own right.
+- **(c) Direct deconvolution.** With several cohorts of lagged primary outcome vectors and observed secondary intakes, estimate sparse $W$ directly: non-negative least squares with row-sum and distance-support constraints (each secondary draws only from primaries within a feasible travel set). More data-hungry, fewer behavioural assumptions; the comparison between (b) and (c) is itself informative about how stable feeder geography is.
+
+**What the estimated $W$ buys:** a *pipeline inheritance* covariate $\sum_j w_{ij}\,\text{KS2}_{j,t-5}$ for every secondary — richer and decomposable where `PTPRIORLO` is a black box. The KS4 model can then separate "this school's local primary system is weak" from "this school's intake is adversely selected *given* its local primary system" — two problems with entirely different policy responses (improve feeder primaries vs. examine admissions). **Validation:** the Brighton & Hove catchment boundaries already in the repository provide one ground truth; several LAs publish named feeder-school lists; and pupil-level NPD flows via the ONS SRS are the definitive follow-on check, flagged for the funded project.
+
+### S2 — Spatio-temporal structure alongside the multilevel models
+
+The current models treat geography as a 152-level LA random effect — administrative, flat within boundaries, and blind to neighbourhood continuity. Three upgrades, each answerable with the panels as they stand:
+
+- **(a) Continuous spatial fields at school level.** Replace (or contest) the LA effect with a spatially structured random effect: a GP/SPDE surface over coordinates (R-INLA) or a CAR/BYM2 effect on a school k-nearest-neighbour graph. The decisive output is the **variance partition**: how much "place" effect is genuinely administrative (LA-shaped — policy, admissions, services) versus continuous neighbourhood geography that ignores boundaries? If the field dominates, LA-targeted national programmes (RISE, Mission Coastal) are mistargeting by construction; if the LA effect survives the field, that is real evidence that local government *as a unit* matters. Either answer is consequential.
+- **(b) Space-time interaction.** Knorr-Held-type decomposition at LA (or MSOA-aggregated) level: a stable spatial pattern, a common time trend, and the interaction — *which places are departing from their own history*. Applied to absence this maps post-COVID recovery geography; applied to attainment it is an emergent-hotspot detector for the monitoring system, flagging deterioration before it shows in league tables.
+- **(c) Spatially varying coefficients.** The accelerating-returns finding says the same intervention buys different returns at different points of the distribution; the SVC question is whether it also buys different returns in different *places*: is the absence lever stronger in coastal towns? Does workforce instability bite harder where labour markets are thin? MGWR as the exploratory pass, Bayesian SVC (brms/Stan or INLA) for inference. This directly upgrades the Policy Simulator: lever strengths become local, not national.
+
+### S3 — Carrying the spatial dimension through to KS5
+
+The 16+ transition is where geography matters most — provision is sparse, heterogeneous and travel distances lengthen — and the newly ingested data makes it tractable:
+
+- **(a) A calibrated 16+ travel-to-learn model.** The KS4 destinations data now provides each secondary's outflow *route shares* (school sixth form / sixth-form college / FE / apprenticeship), and the KS5 panel provides each provider's cohort size and KS4-baseline intake. Both margins of the 16+ flow are therefore observed in aggregate — supporting a doubly-constrained interaction model, calibrated exactly as in S1(b). Distances are longer and route-specific (an FE college and a school sixth form have different catchment physics), so decay parameters are estimated per provider group.
+- **(b) Provider market areas and post-16 deserts.** From the calibrated model: each provider's market area, the overlap/competition intensity between providers (a Herfindahl-type index per neighbourhood), and — the policy payoff — **accessibility-weighted offer quality**: for any small area, the expected L3VA and route breadth reachable within feasible travel. Mapping this against the LA-level NEET and participation data identifies *post-16 deserts*, where weak accessible offer plausibly drives non-participation. With T-level rollout and sixth-form college academisation both in motion, a credible desert map is immediately useful to DfE and combined authorities.
+- **(c) The full pipeline as one structural model.** Chaining S1 and S3a: KS2 outcomes → (feeder model) → KS4 attainment → (destinations model) → KS5/destinations, estimated with Bayesian uncertainty propagated end-to-end. The simulator question becomes genuinely systemic: *improve absence in this LA's primaries by one point — what happens to its post-16 participation in eight years, and with what credible interval?* No such tool exists for England.
+
+### Data, tools and caveats
+
+| Ingredient | Status |
+|---|---|
+| Coordinates (every establishment), URN succession | ✔ GIAS, in pipeline |
+| KS2 outcomes / KS4 intake composition / KS4 route shares / KS5 cohorts | ✔ all panels, ingested |
+| Boundaries, IMD, urban-rural | ✔ ONS open geography |
+| Residence-based absence by IDACI (pupil geography, not school geography) | EES dataset identified, not yet ingested — low effort |
+| Pupil projections + housing yield (demand side of S3b) | EES, not yet ingested — low effort |
+| Ground-truth flows | B&H catchments in repo; LA feeder lists; NPD/SRS as funded follow-on |
+
+Toolchain: `sf`/`spdep` for structure; R-INLA (SPDE, BYM2, Knorr-Held) for the spatial fields at school scale (~15k primaries is comfortably within SPDE range); `mgcv` tensor smooths `ti(x, y, t)` as the fast frequentist cross-check; brms/Stan where SVC inference or full pipeline propagation demands it; `GWmodel` for exploratory MGWR.
+
+Caveats to design in, not discover: **MAUP** (feeder estimates are support-dependent — report sensitivity across aggregations); **endogeneity of choice** (catchments respond to performance, so calibrated $\beta$ is descriptive, not causal — instrument with capacity constraints and fixed geography where causal claims are needed); **independent-sector leakage** (private schools absorb flows invisibly at 11 and visibly at 16 — the KS5 panel's independents help bound this); and **ecological inference** throughout, stated plainly as in the pseudo-cohort work.
 
 ## Delivery surfaces
 
