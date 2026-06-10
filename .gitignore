@@ -94,3 +94,10 @@ cluster_data_explorer.html
 .DS_Store
 Thumbs.db
 .positai
+
+# Data - phase-extension outputs (regenerate via R/10, R/20, R/30 scripts)
+data/ks2/
+data/ks5/
+data/gias/
+# GIAS daily extracts (~62MB; re-downloaded by R/10_gias_closures.R)
+data-raw/gias/
