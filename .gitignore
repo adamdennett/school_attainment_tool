@@ -101,3 +101,6 @@ data/ks5/
 data/gias/
 # GIAS daily extracts (~62MB; re-downloaded by R/10_gias_closures.R)
 data-raw/gias/
+
+# Funding bid drafts (local only for now)
+funding/
