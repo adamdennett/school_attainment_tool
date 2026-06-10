@@ -34,6 +34,9 @@ ks4dest  <- readRDS(here("data", "ks4_destinations.rds"))
 abs_yg   <- readRDS(here("data", "engagement", "absence_by_yeargroup.rds"))
 susp_sch <- readRDS(here("data", "engagement", "suspensions_school.rds"))
 susp_yg  <- readRDS(here("data", "engagement", "suspensions_by_yeargroup.rds"))
+abs_res  <- readRDS(here("data", "place", "absence_residence_idaci.rds"))
+proj     <- readRDS(here("data", "place", "pupil_projections.rds"))
+yield    <- readRDS(here("data", "place", "pupil_yield.rds"))
 
 pct <- function(x) round(100 * mean(!is.na(x)))
 ```
@@ -52,7 +55,8 @@ This document inventories every analytical dataset now held in the project, foll
 | 4 | `R/01–08` (existing) | The original KS4 pipeline |
 | 5 | `R/09_ks4_destinations.R` | Rebuilds the KS4 destinations dataset |
 | 6 | `R/11_ees_engagement.R` | Refreshes absence-by-year-group and suspensions data from EES |
-| 7 | `R/30_extract_ks5.R` | Rebuilds the KS5 provider panel |
+| 7 | `R/12_ees_place_demand.R` | Refreshes residence-based absence, pupil projections and housing yield |
+| 8 | `R/30_extract_ks5.R` | Rebuilds the KS5 provider panel |
 
 # The estate at a glance
 
@@ -61,15 +65,20 @@ tibble(
   Dataset = c("KS2 panel (primary)", "KS4 panel (secondary)", "KS4 destinations",
               "KS5 panel (post-16)", "GIAS register", "GIAS closures",
               "Absence by year group", "Suspensions (school level)",
-              "Suspensions by year group"),
+              "Suspensions by year group", "Absence by pupil residence (IDACI)",
+              "Pupil projections", "Pupil yield from housing"),
   `Pupil ages` = c("7–11", "11–16", "16–17", "16–18", "all", "all",
-                   "5–18 by NC year", "5–16", "5–18 by NC year"),
+                   "5–18 by NC year", "5–16", "5–18 by NC year",
+                   "5–16", "0–16+ by age", "all phases"),
   File = c("data/ks2/ks2_panel.rds", "data/panel_data.rds",
            "data/ks4_destinations.rds", "data/ks5/ks5_panel.rds",
            "data/gias/gias_establishments.rds", "data/gias/school_closures.rds",
            "data/engagement/absence_by_yeargroup.rds",
            "data/engagement/suspensions_school.rds",
-           "data/engagement/suspensions_by_yeargroup.rds"),
+           "data/engagement/suspensions_by_yeargroup.rds",
+           "data/place/absence_residence_idaci.rds",
+           "data/place/pupil_projections.rds",
+           "data/place/pupil_yield.rds"),
   Years = c(
     paste(range(ks2$year_label), collapse = " to "),
     paste(range(ks4$year_label), collapse = " to "),
@@ -79,13 +88,18 @@ tibble(
     paste0("all-time (to ", format(max(closures$close_date, na.rm = TRUE), "%b %Y"), ")"),
     paste(range(abs_yg$time_period), collapse = " to "),
     paste(range(susp_sch$time_period), collapse = " to "),
-    paste(range(susp_yg$time_period), collapse = " to ")
+    paste(range(susp_yg$time_period), collapse = " to "),
+    paste(range(abs_res$time_period), collapse = " to "),
+    paste0("actuals 2010–25 + projections to ", max(proj$model_year)),
+    paste(range(yield$time_period), collapse = " to ")
   ),
   Rows = format(c(nrow(ks2), nrow(ks4), nrow(ks4dest), nrow(ks5), nrow(gias),
-                  nrow(closures), nrow(abs_yg), nrow(susp_sch), nrow(susp_yg)),
+                  nrow(closures), nrow(abs_yg), nrow(susp_sch), nrow(susp_yg),
+                  nrow(abs_res), nrow(proj), nrow(yield)),
                 big.mark = ","),
   Level = c("school", "school", "school", "provider", "establishment",
-            "establishment", "national/region/LA", "school", "national/region/LA")
+            "establishment", "national/region/LA", "school", "national/region/LA",
+            "national/region/LA/LAD", "national by age", "LA/LAD by dwelling type")
 ) %>% kable()
 ```
 
@@ -209,6 +223,46 @@ closures %>%
 ```
 
 Closure flags (`closed_date`, `closure_reason`, `closure_class`, `successor_urn`) are joined onto the KS2 panel: `r ks2 %>% filter(!is.na(closed_date)) %>% distinct(URN) %>% nrow()` panel primaries have since closed, the large majority being academisation URN changes — which is also why the links file is essential panel hygiene, not just closure analysis.
+
+# Place and demand layer (new, June 2026)
+
+Three datasets supporting the spatial programme (@sec-spatial) and the falling-rolls/closure work, built by `R/12_ees_place_demand.R` into `data/place/`.
+
+**Absence by pupil residence** — the residence-geography counterpart to the school-based absence in the panels: absence by IDACI decile of *where pupils live* (× rurality), down to local authority district. The deprivation gradient is steep and remarkably linear:
+
+```{r abs-residence}
+abs_res %>%
+  filter(geographic_level == "National", measure == "IDACI",
+         education_phase == "Total", time_period == max(time_period),
+         !grepl("unclassified", idaci, ignore.case = TRUE)) %>%
+  transmute(
+    `IDACI decile (residence)` = idaci,
+    `Overall absence %` = round(overall_absence_rate, 1),
+    `Unauthorised %` = round(unauthorised_rate, 1)
+  ) %>%
+  kable(caption = paste0("Absence by IDACI decile of pupil residence, ",
+                         max(abs_res$time_period),
+                         " — children from the most deprived neighbourhoods miss ~75% more school"))
+```
+
+Because this is *residence*-based, differencing it against the school-based rates separates neighbourhood disadvantage from school-level factors — directly relevant to the feeder-area work, where the same residence/school distinction drives the selection-intensity map. (Currently 2023-24 onwards only — a new DfE breakdown.)
+
+**National pupil projections** — the demographic driver of the closures analysis, by single year of age, actuals from 2010 plus the principal projection to `r max(proj$model_year)`:
+
+```{r projections}
+proj %>%
+  filter(pupil_status == "FTE", pupil_age == "All",
+         establishment_type_group %in% c("State primary", "State secondary"),
+         model_year %in% c(2015, 2019, 2022, 2025, 2027, 2030)) %>%
+  select(model_year, population_measure, establishment_type_group, pupil_count) %>%
+  pivot_wider(names_from = establishment_type_group, values_from = pupil_count) %>%
+  arrange(model_year) %>%
+  rename(Year = model_year, ` ` = population_measure) %>%
+  kable(caption = "State-funded FTE pupils: primary peaked 2019 and falls ~440k by 2030; secondary crests now and follows",
+        format.args = list(big.mark = ","))
+```
+
+**Pupil yield from housing developments** — pupils generated per new dwelling by LA/LAD, tenure, dwelling type and bedrooms (`r format(nrow(yield), big.mark = ",")` rows, `r n_distinct(yield$lad_name)` districts). National means: ~`r round(mean(yield$pupil_yield[yield$education_phase == "Primary"], na.rm = TRUE), 2)` primary and ~`r round(mean(yield$pupil_yield[yield$education_phase == "Secondary"], na.rm = TRUE), 2)` secondary pupils per dwelling, with wide local variation — the demand-side input that places housing growth against falling rolls in the place-planning module.
 
 # KS3 — the missing middle {#sec-ks3}
 
@@ -387,8 +441,8 @@ The 16+ transition is where geography matters most — provision is sparse, hete
 | Coordinates (every establishment), URN succession | ✔ GIAS, in pipeline |
 | KS2 outcomes / KS4 intake composition / KS4 route shares / KS5 cohorts | ✔ all panels, ingested |
 | Boundaries, IMD, urban-rural | ✔ ONS open geography |
-| Residence-based absence by IDACI (pupil geography, not school geography) | EES dataset identified, not yet ingested — low effort |
-| Pupil projections + housing yield (demand side of S3b) | EES, not yet ingested — low effort |
+| Residence-based absence by IDACI (pupil geography, not school geography) | ✔ ingested (`data/place/absence_residence_idaci.rds`, LAD level) |
+| Pupil projections + housing yield (demand side of S3b) | ✔ ingested (`data/place/`, projections to 2030; yield by LAD × dwelling type) |
 | Ground-truth flows | B&H catchments in repo; LA feeder lists; NPD/SRS as funded follow-on |
 
 Toolchain: `sf`/`spdep` for structure; R-INLA (SPDE, BYM2, Knorr-Held) for the spatial fields at school scale (~15k primaries is comfortably within SPDE range); `mgcv` tensor smooths `ti(x, y, t)` as the fast frequentist cross-check; brms/Stan where SVC inference or full pipeline propagation demands it; `GWmodel` for exploratory MGWR.

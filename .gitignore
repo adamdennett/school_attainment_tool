@@ -108,3 +108,4 @@ funding/
 # Data - destinations + engagement outputs (regenerate via R/09, R/11)
 data/ks4_destinations.rds
 data/engagement/
+data/place/
