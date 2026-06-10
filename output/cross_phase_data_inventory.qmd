@@ -1,0 +1,356 @@
+---
+title: "Cross-Phase Data Inventory"
+subtitle: "Everything in the pipeline: KS2 (primary), KS4 (secondary), KS5 (post-16), GIAS — and the KS3 hole in the middle"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    embed-resources: true
+    df-print: kable
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(here)
+
+ks2  <- readRDS(here("data", "ks2", "ks2_panel.rds"))
+ks4  <- readRDS(here("data", "panel_data.rds"))
+ks5  <- readRDS(here("data", "ks5", "ks5_panel.rds"))
+gias <- readRDS(here("data", "gias", "gias_establishments.rds"))
+closures <- readRDS(here("data", "gias", "school_closures.rds"))
+ks4dest  <- readRDS(here("data", "ks4_destinations.rds"))
+abs_yg   <- readRDS(here("data", "engagement", "absence_by_yeargroup.rds"))
+susp_sch <- readRDS(here("data", "engagement", "suspensions_school.rds"))
+susp_yg  <- readRDS(here("data", "engagement", "suspensions_by_yeargroup.rds"))
+
+pct <- function(x) round(100 * mean(!is.na(x)))
+```
+
+# Purpose
+
+This document inventories every analytical dataset now held in the project, following the June 2026 extension of the original secondary-phase (KS4) pipeline to primary (KS2) and post-16 (KS5), plus the GIAS establishment register and closures data. All tables below are computed live from the data files, so re-rendering this document after a pipeline refresh updates every figure.
+
+**How to refresh everything** (from the project root):
+
+| Step | Script | What it does |
+|---|---|---|
+| 1 | `R/00_download_cscp.R` | Fetches any missing performance-table files (all phases) from the CSCP service — add new years to `CSCP_PHASE_CONFIG` |
+| 2 | `R/10_gias_closures.R` | Downloads the daily GIAS register + links; rebuilds the establishment spine and classified closures |
+| 3 | `R/20_extract_ks2.R` | Rebuilds the KS2 panel (incl. closure flags) |
+| 4 | `R/01–08` (existing) | The original KS4 pipeline |
+| 5 | `R/09_ks4_destinations.R` | Rebuilds the KS4 destinations dataset |
+| 6 | `R/11_ees_engagement.R` | Refreshes absence-by-year-group and suspensions data from EES |
+| 7 | `R/30_extract_ks5.R` | Rebuilds the KS5 provider panel |
+
+# The estate at a glance
+
+```{r glance}
+tibble(
+  Dataset = c("KS2 panel (primary)", "KS4 panel (secondary)", "KS4 destinations",
+              "KS5 panel (post-16)", "GIAS register", "GIAS closures",
+              "Absence by year group", "Suspensions (school level)",
+              "Suspensions by year group"),
+  `Pupil ages` = c("7–11", "11–16", "16–17", "16–18", "all", "all",
+                   "5–18 by NC year", "5–16", "5–18 by NC year"),
+  File = c("data/ks2/ks2_panel.rds", "data/panel_data.rds",
+           "data/ks4_destinations.rds", "data/ks5/ks5_panel.rds",
+           "data/gias/gias_establishments.rds", "data/gias/school_closures.rds",
+           "data/engagement/absence_by_yeargroup.rds",
+           "data/engagement/suspensions_school.rds",
+           "data/engagement/suspensions_by_yeargroup.rds"),
+  Years = c(
+    paste(range(ks2$year_label), collapse = " to "),
+    paste(range(ks4$year_label), collapse = " to "),
+    paste(range(ks4dest$year_label), collapse = " to "),
+    paste(range(ks5$year_label), collapse = " to "),
+    "snapshot (daily extract)",
+    paste0("all-time (to ", format(max(closures$close_date, na.rm = TRUE), "%b %Y"), ")"),
+    paste(range(abs_yg$time_period), collapse = " to "),
+    paste(range(susp_sch$time_period), collapse = " to "),
+    paste(range(susp_yg$time_period), collapse = " to ")
+  ),
+  Rows = format(c(nrow(ks2), nrow(ks4), nrow(ks4dest), nrow(ks5), nrow(gias),
+                  nrow(closures), nrow(abs_yg), nrow(susp_sch), nrow(susp_yg)),
+                big.mark = ","),
+  Level = c("school", "school", "school", "provider", "establishment",
+            "establishment", "national/region/LA", "school", "national/region/LA")
+) %>% kable()
+```
+
+The three attainment panels share conventions: school/provider rows keyed by URN, observed annually; `academic_year` / `year_label` / `year_numeric` / `time_period` identifiers aligned across phases (`year_numeric` 0 = 2021-22 everywhere); disadvantage measured as FSM6/CLA (ever-FSM-in-6-years or looked-after), suffixed `_FSM6CLA1A` at KS2/KS4 and `_DIS` at KS5; and the same upstream joins (EES absence, school workforce census, Ofsted management information, GIAS).
+
+# KS2 — primary (new, June 2026)
+
+**Sources:** CSCP `england_ks2final.csv` (auto-downloaded), shared census/absence/school-information files, EES workforce cache, Ofsted MI snapshot, GIAS closures.
+
+**Coverage notes:** KS2 school-level results exist only from 2022-23 — assessments were cancelled in 2019-20 and 2020-21, and the 2021-22 results were not published at school level. So the primary panel is three years against the secondary panel's four. KS1-baseline progress measures (`READPROG` etc.) are being retired with the end of statutory KS1 assessment; the average scaled scores are the durable outcomes.
+
+**Outcomes:** % reaching expected/higher standard in reading, writing & maths combined (`PTRWM_EXP`, `PTRWM_HIGH`); average scaled scores in reading, maths, GPS (`READ_AVERAGE`, `MAT_AVERAGE`, `GPS_AVERAGE` — the closest analogues to Attainment 8); KS1-baseline progress scores; all with disadvantaged/non-disadvantaged and boy/girl splits.
+
+**Predictors:** cohort size and composition (FSM6CLA1A, EAL, mobility), census detail, absence (`PERCTOT`, `PPERSABS10`), workforce (retention, leadership pay, sickness, FTEs), Ofsted, school characteristics, closure flags.
+
+```{r ks2-coverage}
+ks2 %>%
+  group_by(Year = year_label) %>%
+  summarise(
+    Schools = n(),
+    `RWM exp %` = round(mean(PTRWM_EXP, na.rm = TRUE), 1),
+    `Read scaled` = round(mean(READ_AVERAGE, na.rm = TRUE), 1),
+    `% absence` = pct(PERCTOT),
+    `% FSM` = pct(PTFSM6CLA1A),
+    `% Ofsted` = pct(OFSTEDRATING_external),
+    `% workforce` = pct(remained_in_the_same_school)
+  ) %>% kable(caption = "KS2 panel: per-year coverage")
+```
+
+Workforce shows 0% for 2024-25 — the same gap as the secondary panel, where the latest workforce year is handled by imputation downstream. Ofsted comes from the national MI snapshot (as at 31 Aug 2024) because the school-information files stopped carrying ratings after 2022-23.
+
+# KS4 — secondary (the original panel)
+
+**Sources:** CSCP KS4 final/provisional files (manual zips, 2021-22 to 2024-25), EES absence and workforce, DfE financial benchmarking returns (CFR/AAR), Ofsted MI, Edubase. The panel beneath *How to Pull the Right Lever* and the Policy Simulator.
+
+**Outcomes:** Attainment 8 (overall, English & maths elements, disadvantaged/non-disadvantaged, boys/girls), Progress 8 (+ splits).
+
+**Predictors:** disadvantage and EAL composition, prior attainment bands (`PTPRIORLO`/`PTPRIORHI` — the KS2 attainment of each school's intake), absence, workforce, finance (`fin_*`, 20 variables), Ofsted, school type, admissions policy, derived measures (Gorard segregation index).
+
+```{r ks4-coverage}
+ks4 %>%
+  group_by(Year = year_label) %>%
+  summarise(
+    Schools = n(),
+    `Mean Att8` = round(mean(ATT8SCR, na.rm = TRUE), 1),
+    `% absence` = pct(PERCTOT),
+    `% FSM` = pct(PTFSM6CLA1A),
+    `% prior att.` = pct(PTPRIORLO),
+    `% workforce` = pct(remained_in_the_same_school),
+    `% finance` = pct(fin_total_income_pp)
+  ) %>% kable(caption = "KS4 panel: per-year coverage")
+```
+
+## KS4 destinations (new, June 2026)
+
+`data/ks4_destinations.rds` adds the **secondary → post-16 bridge**: for each school's KS4 cohort, the percentage sustaining each destination in the following year — education split by route (FE college / school sixth form / sixth-form college / other), apprenticeships, employment, not sustained — all with disadvantaged-cohort (`_DIS`) versions. Standalone and keyed by `URN` + `academic_year`, so it left-joins onto the KS4 panel without touching the published pipeline.
+
+```{r ks4dest-coverage}
+ks4dest %>%
+  group_by(Year = year_label) %>%
+  summarise(
+    Schools = n(),
+    `Sustained %` = round(mean(dest_OVERALL_DESTPER, na.rm = TRUE), 1),
+    `Education %` = round(mean(dest_EDUCATIONPER, na.rm = TRUE), 1),
+    `Apprenticeship %` = round(mean(dest_APPRENPER, na.rm = TRUE), 1),
+    `Not sustained %` = round(mean(dest_NOT_SUSTAINEDPER, na.rm = TRUE), 1),
+    `Disadvantage gap (pp)` = round(
+      mean(dest_OVERALL_DESTPER - dest_OVERALL_DESTPER_DIS, na.rm = TRUE), 1)
+  ) %>% kable(caption = "KS4 destinations: per-year coverage and headline rates")
+```
+
+Note the drift already visible: sustained destinations slipping year on year, with a persistent ~5pp disadvantage gap — a monitoring indicator in its own right.
+
+# KS5 — post-16 (new, June 2026)
+
+**Sources:** CSCP `england_ks5final.csv`, destinations (`england_ks5-studest*.csv`), qualification/subject-level VA files (on disk, not yet joined), shared school-information, Ofsted MI, EES workforce.
+
+**The defining feature is provider heterogeneity.** Unlike KS2/KS4, post-16 providers span school sixth forms, 16-19 academies, sixth-form colleges, FE colleges, UTCs/studio schools and independents — classified in `provider_group`. There is deliberately no single headline outcome; attainment is route-specific.
+
+**Outcomes:** average points per entry by route (A level, academic, applied general, T level, tech certificate) with `_DIS` splits; best-3-A-levels; **Level 3 value added by route** (`VA_INS_*`, from 2023-24, incl. disadvantage splits); retention by route; English/maths resit progress (`PROGEX_E/M`); **destinations** (`dest_*`: sustained education/HE/apprenticeship/employment/not-sustained, with disadvantage splits).
+
+```{r ks5-groups}
+ks5 %>%
+  filter(year_label == max(year_label)) %>%
+  count(`Provider group` = provider_group, sort = TRUE, name = "Providers (2024-25)") %>%
+  kable(caption = "KS5 panel: provider landscape, latest year")
+```
+
+```{r ks5-coverage}
+ks5 %>%
+  group_by(Year = year_label) %>%
+  summarise(
+    Providers = n(),
+    `A level PPE` = round(mean(TALLPPE_ALEV_1618, na.rm = TRUE), 1),
+    `% A level att.` = pct(TALLPPE_ALEV_1618),
+    `% destinations` = pct(dest_TOT_OVERALLPER),
+    `% L3VA` = pct(VA_INS_ALEV),
+    `% Ofsted` = pct(OFSTEDRATING_external),
+    `% workforce` = pct(remained_in_the_same_school)
+  ) %>% kable(caption = "KS5 panel: per-year coverage")
+```
+
+**Caveats:** colleges sit outside the school census, so workforce/census joins only cover school-based providers (the ~52% workforce match is structural, not a bug); FE colleges are inspected under a different framework (hence ~67% Ofsted match); destinations are not published for independents; disadvantage at 16-18 is the KS4-era FSM6CLA1A marker carried forward (FSM is not collected post-16); 2021-22 attainment reflects TAG-era grade inflation; L3VA and T-level outcomes exist only from 2023-24.
+
+# GIAS — register and closures (new, June 2026)
+
+The daily GIAS extract provides the establishment spine: **`r format(nrow(gias), big.mark = ",")` establishments** (every school ever registered, open and closed) with type, phase, status, open/close dates and reasons, capacity, pupil numbers and coordinates — plus the links file mapping predecessor/successor URNs.
+
+`school_closures.rds` holds **`r format(nrow(closures), big.mark = ",")` all-time closures**, each classified by combining closure reason with successor links — the distinction that separates real closures from administrative URN churn:
+
+```{r closures}
+closures %>%
+  filter(
+    phase %in% c("Primary", "Middle deemed primary", "All-through"),
+    is_state_school, close_year >= 2018
+  ) %>%
+  count(close_year, closure_class) %>%
+  pivot_wider(names_from = closure_class, values_from = n, values_fill = 0) %>%
+  rename(`Close year` = close_year) %>%
+  kable(caption = "State-funded primary closures by year and classification (2018 onwards)")
+```
+
+Closure flags (`closed_date`, `closure_reason`, `closure_class`, `successor_urn`) are joined onto the KS2 panel: `r ks2 %>% filter(!is.na(closed_date)) %>% distinct(URN) %>% nrow()` panel primaries have since closed, the large majority being academisation URN changes — which is also why the links file is essential panel hygiene, not just closure analysis.
+
+# KS3 — the missing middle {#sec-ks3}
+
+The honest answer to "is there KS3 data?" is **no — and that absence is itself analytically important.**
+
+## What happened to KS3 data
+
+- **National KS3 tests (SATs at age 14) were abolished in October 2008**, following the 2008 marking crisis. The last school-level KS3 results relate to 2007-08.
+- **Teacher assessment at KS3 lingered, then died.** Statutory KS3 teacher assessments in the core subjects continued to be collected and published (national/LA level) for some years, but the abolition of national curriculum levels from 2014 removed the framework entirely. Nothing is collected nationally today.
+- **The CSCP download service confirms this**: its year list reaches back to 1998-99, but the available data types for 2007-08 and 2008-09 are `ks2`, `ks4`, `ks5` only — KS3 is not served even for the years it existed.
+- Historic school-level KS3 results (1997–2008) survive in the [National Archives' snapshots](https://webarchive.nationalarchives.gov.uk/) of the old DCSF Achievement and Attainment Tables — usable for historical analysis, but not joinable to a 2021-25 panel in any meaningful way.
+
+So between the KS2 tests at age 11 and GCSEs at 16 there is **no national attainment measurement at all** — five years, nearly half of compulsory schooling, analytically dark. Ofsted's 2015 review *Key Stage 3: the wasted years?* made exactly this complaint from the inspection side, and periodic calls to reinstate age-14 testing (e.g. from [Durham University researchers](https://www.durham.ac.uk/research/current/thought-leadership/sats--why-bringing-back-tests-for-14-year-olds-could-help-disadvantaged-students/)) continue.
+
+## What this means for the early-vs-late secondary question
+
+The question — does progress differ between early secondary (Y7-9) and late secondary (Y10-11)? — **cannot be answered directly from national data**, because Progress 8 spans the whole KS2→KS4 window with no midpoint. What *is* possible:
+
+| Approach | Data | What it gives | Status |
+|---|---|---|---|
+| Absence by national curriculum year | EES pupil absence / attendance breakdowns (national and LA level, by NC year) | The well-documented engagement dip from Y7 to Y11 — a behavioural (not attainment) midpoint signal, by place | Not yet ingested — modest job from existing EES sources |
+| Suspensions/exclusions by NC year | EES suspensions data (national/LA by year group; school-level totals) | Behaviour-system midpoint signal; Y9-10 peak | Not yet ingested — same pattern |
+| KS4 intake prior attainment | Already in the KS4 panel (`PTPRIORLO`/`PTPRIORHI`) | Each school's Y7 starting stock — anchors the start of secondary but says nothing about the path | Already held |
+| Historic KS3 (1997–2008) | National Archives performance tables | A school-level KS2→KS3→KS4 decomposition *for the 2000s* — methodologically interesting precedent, not current evidence | Possible, archival effort |
+| Within-school proxy assessments | CAT4/MidYIS/GL etc. | The midpoint everyone actually uses — proprietary, not open, not national | Out of scope for an open-data project |
+
+**For the funding bid this is a feature, not a bug**: the project can (a) quantify the cost of the KS3 measurement gap — how much of the variance in KS2→KS4 progress is unexplainable without a midpoint, (b) use the behavioural midpoint signals (absence/suspension year-group profiles) as the best available open-data proxy, and (c) make a concrete, costed recommendation on mid-secondary measurement — the exact counterpart of the missing post-16 attendance data identified in the KS5 work. The pipeline's measurement gaps now map one-to-one onto its policy recommendations.
+
+## The engagement layer (new, June 2026): measuring the dark years behaviourally
+
+The three candidate processing jobs identified in the first version of this document have now been **built** (`R/11_ees_engagement.R` and `R/09_ks4_destinations.R`). The behavioural midpoint data shows exactly the pattern the KS3 gap conceals:
+
+```{r abs-yeargroup}
+abs_yg %>%
+  filter(geographic_level == "National",
+         time_period == max(time_period),
+         education_phase == "Total",
+         grepl("^Year \\d|^Year 1 and", year_group)) %>%
+  mutate(yr_order = case_when(
+    year_group == "Year 1 and below" ~ 1,
+    TRUE ~ suppressWarnings(as.numeric(str_extract(year_group, "\\d+")))
+  )) %>%
+  arrange(yr_order) %>%
+  transmute(
+    `Year group` = year_group,
+    `Overall absence %` = round(overall_absence_rate, 1),
+    `Persistently absent %` = round(persistent_absence_rate, 1)
+  ) %>%
+  kable(caption = paste0("National absence by year group, ",
+                         max(abs_yg$time_period), " — the engagement slide through the unmeasured years"))
+```
+
+Absence climbs monotonically from Year 6 to Year 11, and **persistent absence roughly doubles across KS3** — precisely the years with no attainment measurement. Suspensions tell the same story with a sharper peak:
+
+```{r susp-yeargroup}
+susp_yg %>%
+  filter(geographic_level == "National",
+         education_phase == "Total",
+         grepl("^Year \\d|^Year 1 and", year_group)) %>%
+  filter(time_period == max(time_period)) %>%
+  group_by(`Year group` = year_group) %>%
+  summarise(`Suspension rate (per 100 pupils)` = round(sum(suspension_rate, na.rm = TRUE), 1),
+            .groups = "drop") %>%
+  mutate(yr_order = case_when(
+    `Year group` == "Year 1 and below" ~ 1,
+    TRUE ~ suppressWarnings(as.numeric(str_extract(`Year group`, "\\d+")))
+  )) %>%
+  arrange(yr_order) %>% select(-yr_order) %>%
+  kable(caption = paste0("National suspension rate by year group, ",
+                         max(susp_yg$time_period), " (terms summed)"))
+```
+
+**What was built:**
+
+| Dataset | Level | Years | Use |
+|---|---|---|---|
+| `absence_by_yeargroup.rds` | National/regional/LA × NC year × phase | 2018-19 → 2024-25 | The early-secondary engagement dip, by place — feeds the LA typology; KS3 proxy |
+| `suspensions_school.rds` | **School** × year (termly source summed; `n_terms` flags partial years) | 2016-17 → 2024-25 | URN-keyed — joinable to all three panels as a behaviour predictor |
+| `suspensions_by_yeargroup.rds` | National/regional/LA × NC year × phase | 2016-17 → | Year-group behaviour profiles by place |
+
+The school-level suspensions dataset (~21,000 schools/year, nine years) is the most immediately valuable: it pre-dates the attainment panels by five years, giving behavioural *history* as a predictor, and it spans all phases.
+
+# The pipeline, by pupil age
+
+```{r age-map}
+tibble(
+  Age = c("4–5", "5–7", "7–11", "11–14", "14–16", "16–18", "18+"),
+  Stage = c("EYFS", "KS1", "KS2", "KS3", "KS4", "KS5", "destinations"),
+  `National attainment data` = c(
+    "EYFSP (LA level)",
+    "Phonics Y1 (school level); KS1 tests ended 2023",
+    "Tests: scaled scores, expected standard (school level) ✔ IN PANEL",
+    "NONE — tests abolished 2008, TA ended 2014",
+    "GCSE: Attainment 8 / Progress 8 (school level) ✔ IN PANEL",
+    "A level/applied/T level points, L3VA (provider level) ✔ IN PANEL",
+    "Destinations, NEET, LEO longer-term (provider/LA level) ✔ dest_* IN PANEL"
+  ),
+  `Open behavioural data` = c(
+    "—", "absence ✔ IN PANEL", "absence ✔, suspensions ✔ school level",
+    "absence + suspensions by year group (LA) ✔ INGESTED",
+    "absence ✔, suspensions ✔ school level",
+    "NONE — post-16 attendance not collected",
+    "—"
+  )
+) %>% kable(caption = "What the open data estate measures, by age")
+```
+
+The two annotated gaps — **KS3 attainment** and **post-16 attendance** — are the pipeline's blind spots, and both are now precisely characterised for the funding case.
+
+# Towards a full intelligence system {#sec-roadmap}
+
+The holdings above already constitute the data layer of a cross-phase monitoring system for England's state schools: attainment panels at three phases, the destinations bridges between them, a behavioural layer spanning ages 5–16 with nine years of history, and a register layer tracking the institutions themselves through openings, conversions, mergers and closures. What follows is the build-out path.
+
+## Remaining high-value data sources (none yet ingested)
+
+| Source | Service | What it adds | Effort |
+|---|---|---|---|
+| Phonics (Y1) + multiplication tables check (Y4) | EES (both on the official API) | Within-primary early-warning precursors of KS2 outcomes | Low |
+| SEN in England + EHC plans | EES | School-level SEN composition — a missing predictor at every phase | Low |
+| Schools, pupils and their characteristics | EES (API) | Class sizes, richer composition than the census files | Low |
+| School capacity + applications & offers | EES | Surplus places and demand pressure — the closure-risk inputs | Low–medium |
+| School funding (NFF allocations, 16-19 allocations) | gov.uk | Funding as a lever at school level, both regimes | Medium |
+| Schools eligible for RISE intervention | EES | DfE's own targeting list — validation target for our models | Trivial |
+| School leadership retention | EES | Leadership stability predictor | Low |
+| KS5 subject/qualification-level VA | already on disk | Curriculum-level post-16 analysis | Low |
+| EYFSP (age 5, LA level) | EES (API) | Extends the pipeline's origin to school entry | Low |
+| Historic CSCP years (1998-99 →) | CSCP downloader (built) | Long-run panels; pre/post academisation natural experiments | Medium (format drift) |
+
+## Modelling layer: established and candidate methods
+
+**Established** (from the KS4 programme, transferable to all phases): multilevel mixed-effects panel models (schools-in-LAs); standardised cross-group comparison; non-linear (accelerating-returns) specifications; structural-vs-managed decomposition; contextualised benchmarking with uncertainty; k-means LA typologies.
+
+**Not yet experimented with** — natural extensions the data now supports:
+
+1. **Growth-curve / trajectory models** — with 3-4 years per school (9 for suspensions), model school *trajectories* rather than levels; classify improving/declining schools and lead-lag between behaviour and attainment.
+2. **Early-warning classification** — predict next year's attainment band or RISE-eligibility from current absence, suspensions, workforce churn and composition; validate against DfE's published RISE list.
+3. **Closure event studies & survival models** — time-to-closure hazard from falling rolls, finances and performance; matched-area before/after estimates of closure effects on receiving schools.
+4. **Cross-phase linked models** — feed each secondary school's modelled *feeder-area* KS2 position (via GIAS geography) into its KS4 model: a structural pipeline model rather than separate phase models.
+5. **Spatio-temporal models** — explicit spatial autocorrelation (CAR/BYM-type) for the geography of disadvantage and recovery, beyond the current LA random effects.
+6. **Bayesian estimation throughout** — full uncertainty propagation into simulator scenarios and small-school shrinkage (most valuable at KS2, where one-form-entry schools are noisy).
+7. **Anomaly detection** — flag schools whose observed outcomes depart sharply from contextual expectation in either direction; the positive outliers are the system's transferable-practice candidates.
+
+## Delivery surfaces
+
+The existing Policy Simulator (secondary) extends naturally to: phase-specific simulators; per-LA automated intelligence briefs (the pipeline can already generate these); a place-planning module (closure risk + capacity + demographics); and an annual "state of the pipeline" report auto-rendered from this document's infrastructure as each DfE release lands.
