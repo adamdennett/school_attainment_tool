@@ -37,6 +37,7 @@ susp_yg  <- readRDS(here("data", "engagement", "suspensions_by_yeargroup.rds"))
 abs_res  <- readRDS(here("data", "place", "absence_residence_idaci.rds"))
 proj     <- readRDS(here("data", "place", "pupil_projections.rds"))
 yield    <- readRDS(here("data", "place", "pupil_yield.rds"))
+eyb      <- readRDS(here("data", "early_years", "la_entry_baselines.rds"))
 
 pct <- function(x) round(100 * mean(!is.na(x)))
 ```
@@ -56,7 +57,8 @@ This document inventories every analytical dataset now held in the project, foll
 | 5 | `R/09_ks4_destinations.R` | Rebuilds the KS4 destinations dataset |
 | 6 | `R/11_ees_engagement.R` | Refreshes absence-by-year-group and suspensions data from EES |
 | 7 | `R/12_ees_place_demand.R` | Refreshes residence-based absence, pupil projections and housing yield |
-| 8 | `R/30_extract_ks5.R` | Rebuilds the KS5 provider panel |
+| 8 | `R/14_early_years_baselines.R` | Rebuilds LA-level early-years entry baselines aligned to KS2 cohorts |
+| 9 | `R/30_extract_ks5.R` | Rebuilds the KS5 provider panel |
 
 # The estate at a glance
 
@@ -66,10 +68,11 @@ tibble(
               "KS5 panel (post-16)", "GIAS register", "GIAS closures",
               "Absence by year group", "Suspensions (school level)",
               "Suspensions by year group", "Absence by pupil residence (IDACI)",
-              "Pupil projections", "Pupil yield from housing"),
+              "Pupil projections", "Pupil yield from housing",
+              "Early-years LA baselines"),
   `Pupil ages` = c("7–11", "11–16", "16–17", "16–18", "all", "all",
                    "5–18 by NC year", "5–16", "5–18 by NC year",
-                   "5–16", "0–16+ by age", "all phases"),
+                   "5–16", "0–16+ by age", "all phases", "4–9 (R/Y1/Y2/Y4)"),
   File = c("data/ks2/ks2_panel.rds", "data/panel_data.rds",
            "data/ks4_destinations.rds", "data/ks5/ks5_panel.rds",
            "data/gias/gias_establishments.rds", "data/gias/school_closures.rds",
@@ -78,7 +81,8 @@ tibble(
            "data/engagement/suspensions_by_yeargroup.rds",
            "data/place/absence_residence_idaci.rds",
            "data/place/pupil_projections.rds",
-           "data/place/pupil_yield.rds"),
+           "data/place/pupil_yield.rds",
+           "data/early_years/la_entry_baselines.rds"),
   Years = c(
     paste(range(ks2$year_label), collapse = " to "),
     paste(range(ks4$year_label), collapse = " to "),
@@ -91,15 +95,17 @@ tibble(
     paste(range(susp_yg$time_period), collapse = " to "),
     paste(range(abs_res$time_period), collapse = " to "),
     paste0("actuals 2010–25 + projections to ", max(proj$model_year)),
-    paste(range(yield$time_period), collapse = " to ")
+    paste(range(yield$time_period), collapse = " to "),
+    "aligned to KS2 cohorts (sources 2011-12+)"
   ),
   Rows = format(c(nrow(ks2), nrow(ks4), nrow(ks4dest), nrow(ks5), nrow(gias),
                   nrow(closures), nrow(abs_yg), nrow(susp_sch), nrow(susp_yg),
-                  nrow(abs_res), nrow(proj), nrow(yield)),
+                  nrow(abs_res), nrow(proj), nrow(yield), nrow(eyb)),
                 big.mark = ","),
   Level = c("school", "school", "school", "provider", "establishment",
             "establishment", "national/region/LA", "school", "national/region/LA",
-            "national/region/LA/LAD", "national by age", "LA/LAD by dwelling type")
+            "national/region/LA/LAD", "national by age", "LA/LAD by dwelling type",
+            "LA × KS2 cohort")
 ) %>% kable()
 ```
 
@@ -154,6 +160,25 @@ What this means for the project, in order of consequence:
 2. **Primary models are permanently denied a school-level entry-ability baseline.** This is the measured cost from the model experiments: prior attainment is worth ≈ +0.22 marginal R² at KS4 (Phase E), the census neighbourhood proxy recovers only ≈ +0.05 of the KS2 equivalent (Phase F) — and with EYFSP published only at LA level and phonics a narrow single-skill check, no open-data substitute exists.
 3. **Early primary is becoming a second dark zone.** The measurement spine now runs: phonics (Y1, narrow) → *nothing* → KS2 (Y6) — a within-primary mirror of the KS3 gap (@sec-ks3), with the same bid-able implication: the gaps in national measurement map directly onto the places where school-level value-added claims cannot currently be made.
 4. **The replacement is coming, but slowly and privately.** The statutory Reception Baseline Assessment (RBA, from September 2021) is pupil-level and *not published* at school level; DfE has signalled RBA-based reception→KS2 progress measures when the first RBA cohort reaches Year 6 (~2027-28, within a funded project's horizon). Whether any school-level RBA-baseline data reaches the public estate — or stays NPD-only — is itself a data-infrastructure question the project can speak to.
+
+### What *can* be aligned: the LA-level early-years patchwork
+
+While no school-level baseline exists, the same cohorts' early-attainment measures *are* published at **LA level**, each leading KS2 by a different interval — EYFSP (reception, t−6), phonics (Y1, t−5), KS1 (Y2, t−4) and the multiplication tables check (Y4, t−2). `R/14_early_years_baselines.R` aligns all four to KS2 cohort years in `data/early_years/la_entry_baselines.rds` (the historic KS1 LA data still serves from the *superseded* EES publication; phonics carries its full 2011-12+ history). The patchwork as it lands on the current panel:
+
+```{r ks1-alignment}
+eyb %>%
+  group_by(`KS2 cohort` = ks2_period) %>%
+  summarise(
+    LAs = n(),
+    `EYFSP (R, t−6)` = pct(eyfsp_gld),
+    `Phonics (Y1, t−5)` = pct(phonics_y1_met),
+    `KS1 (Y2, t−4)` = pct(ks1_read_exp),
+    `MTC (Y4, t−2)` = pct(mtc_mean_score),
+    .groups = "drop"
+  ) %>% kable(caption = "LA-level early-years baseline availability (% of LAs) by KS2 panel cohort")
+```
+
+**Every KS2 panel cohort has at least one LA-level entry baseline — never the same one.** The 2022-23 cohort has phonics + KS1; 2023-24 has phonics + MTC (its KS1 was COVID-cancelled); 2024-25 has MTC only (its Y1 phonics was also cancelled — though that cohort sat the autumn-2020 Year 2 catch-up check, recoverable from the superseded publication's "by end of year 2" dataset if needed). EYFSP's zeros are timing, not absence: the new-framework EYFSP (2021-22 onwards) first reaches Year 6 in 2027-28 — the table will populate automatically as the panel extends. Validity is reassuring: across LA-years, the baselines correlate with LA mean KS2 reading at r ≈ 0.79 (KS1), 0.70 (phonics) and 0.65 (MTC). The honest framing stands: this is an *ecological* entry-conditions block for the LA pseudo-cohort and typology work, not a substitute for the school-level baseline that no longer exists.
 
 # KS4 — secondary (the original panel)
 
