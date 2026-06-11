@@ -1,0 +1,385 @@
+---
+title: "KS5 Model Experiments"
+subtitle: "A first post-16 provider model: route-specific outcomes, wide-catchment neighbourhood context, and LA pipeline effects"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 150
+    df-print: kable
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose and design
+
+A quick test build of post-16 provider models, completing the cross-phase set (KS2 and KS4 experiments precede this). Three design points specific to KS5:
+
+1. **Routes are not one outcome.** A-level, academic, applied general and T-level cohorts are different markets with different grading conventions — we model **A-level points per entry** as the headline and refit the same specification for the other routes rather than pooling.
+2. **Catchments are wide and may be weak.** Students travel much further at 16+, and several provider types barely have local catchments at all. We test the census neighbourhood construction at **k = 10, 25, 50 and 100** nearest output areas and let AIC choose — extending the k-gradient logic that picked 10 at KS2 and 50 at KS4.
+3. **No published intake baseline.** The KS5 files carry *no* cohort prior-attainment variable — the KS4 baseline exists only inside DfE's own value-added measures (`VA_INS_*`, 2023-24 onwards). So attainment models here have the same structural handicap as KS2 models (no baseline), and we use the VA outcomes as the "baseline-adjusted" robustness check. We also test **LA pipeline effects**: the LA effects estimated in the KS4 census model, and LA mean KS2 attainment, as group-level predictors — does the quality of a place's earlier phases follow its students into post-16?
+
+```{r setup}
+library(tidyverse)
+library(lme4)
+library(performance)
+library(knitr)
+library(splines)
+library(here)
+
+set.seed(42)
+
+ks5_raw <- readRDS(here("data", "ks5", "ks5_panel.rds"))
+ctx     <- readRDS(here("data", "census", "school_census_context.rds"))
+gias    <- readRDS(here("data", "gias", "gias_establishments.rds"))
+afr     <- readRDS(here("data", "cache", "analysis_f_results.rds"))
+ks2     <- readRDS(here("data", "ks2", "ks2_panel.rds"))
+
+zs <- function(x) as.numeric(scale(x))
+pct <- function(x) round(100 * mean(!is.na(x)))
+OFSTED_LABELS <- c("1" = "Outstanding", "2" = "Good",
+                   "3" = "Requires improvement", "4" = "Inadequate")
+```
+
+# Data preparation
+
+State-funded providers only (independents have no destinations data, different incentives and no LA accountability relationship); LA names from GIAS (the school-information join misses colleges). LA pipeline measures: the KS4 LA effect from the census model (Analysis F cache) and LA mean KS2 reading.
+
+```{r prep}
+la_lookup_gias <- gias %>% select(URN = urn, gias_la = la_name)
+
+la_ks2 <- ks2 %>%
+  group_by(gias_la = LANAME) %>%
+  summarise(la_ks2_read = mean(READ_AVERAGE, na.rm = TRUE), .groups = "drop")
+
+la_ks4 <- afr$la_cmp %>% select(gias_la = la_name, la_ks4_effect = effect_census)
+
+ks5 <- ks5_raw %>%
+  filter(!provider_group %in% c("Independent", "Other/unknown")) %>%
+  left_join(la_lookup_gias, by = "URN") %>%
+  left_join(ctx %>% select(URN, starts_with("cens_l4plus"), starts_with("mean_dist")),
+            by = "URN") %>%
+  left_join(la_ks2, by = "gias_la") %>%
+  left_join(la_ks4, by = "gias_la") %>%
+  mutate(
+    dis_share = 100 * TALLPUP_1618_DIS / TALLPUP_1618,
+    ofsted = factor(OFSTED_LABELS[as.character(OFSTEDRATING_external)],
+                    levels = OFSTED_LABELS),
+    provider_group = fct_relevel(factor(provider_group),
+                                 "School sixth form (academy/free)")
+  )
+
+tibble(
+  Check = c("Provider-years (state-funded)", "Providers", "With LA (GIAS)",
+            "With census context", "With A-level PPE", "With disadvantage share",
+            "With Ofsted", "With LA KS4 effect"),
+  N = c(nrow(ks5), n_distinct(ks5$URN), sum(!is.na(ks5$gias_la)),
+        sum(!is.na(ks5$cens_l4plus_k50)), sum(!is.na(ks5$TALLPPE_ALEV_1618)),
+        sum(!is.na(ks5$dis_share)), sum(!is.na(ks5$ofsted)),
+        sum(!is.na(ks5$la_ks4_effect)))
+) %>% kable(caption = "Sample construction")
+```
+
+# Exploratory analysis
+
+## Outcomes by route and provider type
+
+```{r route-hists}
+#| fig-height: 6.5
+ks5 %>%
+  select(year_label, `A level` = TALLPPE_ALEV_1618, Academic = TALLPPE_ACAD_1618,
+         `Applied general` = TALLPPE_AGEN, `T level` = TALLPPE_TLEV) %>%
+  pivot_longer(-year_label) %>%
+  filter(!is.na(value)) %>%
+  ggplot(aes(value, fill = year_label)) +
+  geom_histogram(bins = 50, position = "identity", alpha = 0.5) +
+  facet_wrap(~name, scales = "free") +
+  scale_fill_brewer(palette = "Dark2", name = NULL) +
+  labs(title = "Points per entry by qualification route and year",
+       subtitle = "Different scales, different grading regimes — and visible 2021-22 TAG inflation in the A-level panel",
+       x = "Average points per entry", y = "Providers") +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+```{r violin-providers}
+#| fig-height: 5
+ks5 %>%
+  filter(!is.na(TALLPPE_ALEV_1618)) %>%
+  ggplot(aes(provider_group, TALLPPE_ALEV_1618, fill = provider_group)) +
+  geom_violin(alpha = 0.7, scale = "width") +
+  geom_boxplot(width = 0.12, outlier.shape = NA, fill = "white") +
+  scale_fill_brewer(palette = "Set2", guide = "none") +
+  coord_flip() +
+  labs(title = "A-level points per entry by provider type",
+       subtitle = "The provider landscape is the defining KS5 stratifier",
+       x = NULL, y = "A-level points per entry") +
+  theme_minimal()
+```
+
+```{r dis-share}
+#| fig-height: 4.5
+ks5 %>%
+  filter(!is.na(dis_share), dis_share <= 60) %>%
+  ggplot(aes(provider_group, dis_share, fill = provider_group)) +
+  geom_boxplot(outlier.alpha = 0.15) +
+  scale_fill_brewer(palette = "Set2", guide = "none") +
+  coord_flip() +
+  labs(title = "Disadvantaged share of the 16-18 cohort by provider type",
+       subtitle = "FE colleges and 16-19 academies carry systematically more disadvantaged cohorts",
+       x = NULL, y = "% of cohort disadvantaged (KS4-era FSM6/CLA)") +
+  theme_minimal()
+```
+
+## Bivariate relationships
+
+```{r bivariate}
+#| fig-height: 7
+ks5 %>%
+  select(TALLPPE_ALEV_1618, `Disadvantaged %` = dis_share,
+         `Cohort size` = TALLPUP_1618,
+         `Nbhd % L4+ (k=50)` = cens_l4plus_k50,
+         `Nbhd % L4+ (k=100)` = cens_l4plus_k100) %>%
+  pivot_longer(-TALLPPE_ALEV_1618) %>%
+  filter(!is.na(value), !is.na(TALLPPE_ALEV_1618)) %>%
+  ggplot(aes(value, TALLPPE_ALEV_1618)) +
+  geom_point(alpha = 0.07, size = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  facet_wrap(~name, scales = "free_x", ncol = 2) +
+  labs(title = "A-level points per entry vs candidate predictors",
+       x = NULL, y = "A-level points per entry") +
+  theme_minimal()
+```
+
+## Catchment width: the correlation by k
+
+```{r k-correlations}
+tibble(
+  k = c(10, 25, 50, 100),
+  `r with A-level PPE` = c(
+    cor(ks5$TALLPPE_ALEV_1618, ks5$cens_l4plus_k10, use = "pair"),
+    cor(ks5$TALLPPE_ALEV_1618, ks5$cens_l4plus_k25, use = "pair"),
+    cor(ks5$TALLPPE_ALEV_1618, ks5$cens_l4plus_k50, use = "pair"),
+    cor(ks5$TALLPPE_ALEV_1618, ks5$cens_l4plus_k100, use = "pair"))
+) %>%
+  mutate(across(-k, ~ round(., 3))) %>%
+  kable(caption = "Neighbourhood adult education vs A-level outcomes, by neighbourhood size")
+```
+
+## Outcome stability: the three-phase comparison
+
+```{r stability}
+#| fig-height: 4
+lagged <- ks5 %>%
+  select(URN, year_numeric, value = TALLPPE_ALEV_1618) %>%
+  filter(!is.na(value)) %>%
+  arrange(URN, year_numeric) %>%
+  group_by(URN) %>%
+  mutate(value_next = lead(value, order_by = year_numeric),
+         gap = lead(year_numeric) - year_numeric) %>%
+  ungroup() %>%
+  filter(gap == 1, !is.na(value_next))
+
+r_ks5 <- cor(lagged$value, lagged$value_next)
+
+ggplot(lagged, aes(value, value_next)) +
+  geom_point(alpha = 0.1, size = 0.5) +
+  geom_smooth(method = "lm", colour = "red", se = FALSE) +
+  annotate("text", x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5,
+           label = sprintf("r = %.2f", r_ks5), colour = "red", fontface = "bold") +
+  labs(title = "A-level points per entry: same provider, consecutive years",
+       subtitle = sprintf("Lag-1 r = %.2f — between KS2 reading (0.61) and KS4 Attainment 8 (0.95)", r_ks5),
+       x = "Year t", y = "Year t+1") +
+  theme_minimal()
+```
+
+# Models
+
+Headline outcome: standardised A-level points per entry. Schools/providers in LAs, year fixed effects (absorbing the TAG-era grade regime), provider type as the structural stratifier.
+
+## Build-up and the k test
+
+```{r models-core}
+md <- ks5 %>%
+  filter(!is.na(TALLPPE_ALEV_1618), !is.na(dis_share), !is.na(TALLPUP_1618),
+         !is.na(gias_la), !is.na(cens_l4plus_k100), !is.na(ofsted)) %>%
+  mutate(z_alev = zs(TALLPPE_ALEV_1618),
+         z_dis = zs(dis_share),
+         z_cohort = zs(log(TALLPUP_1618)),
+         z_l4_k10 = zs(cens_l4plus_k10), z_l4_k25 = zs(cens_l4plus_k25),
+         z_l4_k50 = zs(cens_l4plus_k50), z_l4_k100 = zs(cens_l4plus_k100),
+         z_la_ks2 = zs(la_ks2_read), z_la_ks4 = zs(la_ks4_effect))
+
+m0 <- lmer(z_alev ~ year_label + (1 | gias_la), data = md, REML = FALSE)
+m1 <- update(m0, . ~ . + provider_group + z_dis + z_cohort)
+m2 <- update(m1, . ~ . + ofsted)
+mk <- map(c(10, 25, 50, 100),
+          ~ update(m2, as.formula(paste(". ~ . + z_l4_k", .x, sep = ""))))
+names(mk) <- paste0("M2 + census k=", c(10, 25, 50, 100))
+
+map_dfr(c(list("M0 null" = m0, "M1 structure+composition" = m1,
+              "M2 +Ofsted" = m2), mk),
+        function(m) {
+          r <- suppressWarnings(r2(m))
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3),
+                 AIC = round(AIC(m)), N = nobs(m))
+        }, .id = "Model") %>%
+  kable(caption = "Model build-up and the neighbourhood-size test (identical samples)")
+```
+
+## LA pipeline effects
+
+```{r pipeline}
+best_k_ks5 <- c("10", "25", "50", "100")[which.min(map_dbl(mk, AIC))]
+m3 <- mk[[paste0("M2 + census k=", best_k_ks5)]]
+m4 <- update(m3, . ~ . + z_la_ks2 + z_la_ks4)
+
+map_dfr(list("M3 best census k" = m3,
+             "M4 + LA pipeline (KS2 mean, KS4 LA effect)" = m4),
+        function(m) {
+          r <- suppressWarnings(r2(m))
+          la_v <- as.data.frame(VarCorr(m)) %>% filter(grp == "gias_la") %>% pull(vcov)
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3),
+                 AIC = round(AIC(m)), `LA variance` = round(la_v, 4))
+        }, .id = "Model") %>%
+  kable(caption = "Do a place's earlier phases follow its students into post-16?")
+
+s4 <- summary(m4)$coefficients
+as_tibble(s4, rownames = "Term") %>%
+  filter(grepl("^z_|provider_group|ofsted", Term)) %>%
+  mutate(across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = paste0("M4 coefficients (census at k = ", best_k_ks5, ")"))
+```
+
+## Route comparison: the same model for other qualification types
+
+```{r routes}
+fit_route <- function(outcome) {
+  d <- ks5 %>%
+    filter(!is.na(.data[[outcome]]), !is.na(dis_share), !is.na(TALLPUP_1618),
+           !is.na(gias_la), !is.na(cens_l4plus_k100), !is.na(ofsted)) %>%
+    mutate(z_out = zs(.data[[outcome]]), z_dis = zs(dis_share),
+           z_cohort = zs(log(TALLPUP_1618)),
+           z_l4 = zs(.data[[paste0("cens_l4plus_k", best_k_ks5)]]),
+           z_la_ks2 = zs(la_ks2_read), z_la_ks4 = zs(la_ks4_effect))
+  lmer(z_out ~ provider_group + z_dis + z_cohort + ofsted + z_l4 +
+         z_la_ks2 + z_la_ks4 + year_label + (1 | gias_la),
+       data = d, REML = FALSE)
+}
+
+routes <- list(`A level` = "TALLPPE_ALEV_1618",
+               `Academic` = "TALLPPE_ACAD_1618",
+               `Applied general` = "TALLPPE_AGEN")
+route_fits <- map(routes, fit_route)
+
+map_dfr(route_fits, function(m) {
+  r <- suppressWarnings(r2(m))
+  tibble(`Marginal R²` = round(r$R2_marginal, 3),
+         `Conditional R²` = round(r$R2_conditional, 3), N = nobs(m))
+}, .id = "Route") %>%
+  kable(caption = "The same specification across qualification routes")
+```
+
+```{r route-coefs}
+#| fig-height: 5
+map_dfr(route_fits, function(m) {
+  as_tibble(summary(m)$coefficients, rownames = "term") %>%
+    filter(grepl("^z_", term))
+}, .id = "route") %>%
+  mutate(term = recode(term, z_dis = "Disadvantaged share", z_cohort = "log cohort size",
+                       z_l4 = paste0("Nbhd % L4+ (k=", best_k_ks5, ")"),
+                       z_la_ks2 = "LA mean KS2 reading",
+                       z_la_ks4 = "LA KS4 effect (census model)")) %>%
+  ggplot(aes(Estimate, term, colour = route)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = Estimate - 1.96 * `Std. Error`,
+                      xmax = Estimate + 1.96 * `Std. Error`),
+                  position = position_dodge(width = 0.55)) +
+  scale_colour_brewer(palette = "Dark2", name = NULL) +
+  labs(title = "Standardised coefficients by qualification route",
+       x = "Standardised coefficient", y = NULL) +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+## The value-added check (2023-24 onwards)
+
+DfE's `VA_INS_ALEV` already nets out each student's KS4 baseline — the missing-intake problem solved by construction. If neighbourhood and pipeline effects survive *here*, they operate beyond intake selection:
+
+```{r va-check}
+va <- ks5 %>%
+  filter(!is.na(VA_INS_ALEV), !is.na(dis_share), !is.na(gias_la),
+         !is.na(cens_l4plus_k100), !is.na(ofsted)) %>%
+  mutate(z_va = zs(VA_INS_ALEV), z_dis = zs(dis_share),
+         z_cohort = zs(log(TALLPUP_1618)),
+         z_l4 = zs(.data[[paste0("cens_l4plus_k", best_k_ks5)]]),
+         z_la_ks2 = zs(la_ks2_read), z_la_ks4 = zs(la_ks4_effect))
+
+mva <- lmer(z_va ~ provider_group + z_dis + z_cohort + ofsted + z_l4 +
+              z_la_ks2 + z_la_ks4 + year_label + (1 | gias_la),
+            data = va, REML = FALSE)
+
+rva <- suppressWarnings(r2(mva))
+as_tibble(summary(mva)$coefficients, rownames = "Term") %>%
+  filter(grepl("^z_", Term)) %>%
+  mutate(across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = sprintf("A-level value added (KS4-baseline adjusted) as outcome — N = %s, marginal R² = %.2f",
+                          format(nobs(mva), big.mark = ","), rva$R2_marginal))
+```
+
+## Provider effect decomposition
+
+The cross-phase comparison the KS2/KS4 work set up — how much is the provider, at 16-18?
+
+```{r decomposition}
+m5 <- update(m4, . ~ . + (1 | URN))
+vc <- as.data.frame(VarCorr(m5)) %>% filter(is.na(var2))
+fixed_var <- var(predict(m5, re.form = NA), na.rm = TRUE)
+total_var <- fixed_var + sum(vc$vcov)
+
+decomp_ks5 <- vc %>%
+  transmute(Component = recode(grp,
+    "URN" = "Provider (persistent, unexplained)",
+    "gias_la" = "LA", "Residual" = "Transient (cohort-year noise)"),
+    Variance = vcov) %>%
+  bind_rows(tibble(Component = "Fixed effects (provider type, composition, Ofsted, neighbourhood, LA pipeline)",
+                   Variance = fixed_var)) %>%
+  mutate(`Share of total %` = round(100 * Variance / total_var, 1)) %>%
+  arrange(desc(Variance))
+
+kable(decomp_ks5 %>% select(-Variance),
+      caption = "Variance decomposition, A-level points per entry (M4 + provider random intercept)")
+```
+
+# Conclusions
+
+```{r conclusions-numbers}
+#| include: false
+r2_m2 <- suppressWarnings(r2(m2)); r2_m4 <- suppressWarnings(r2(m4))
+prov_share <- decomp_ks5 %>% filter(grepl("Provider", Component)) %>% pull(`Share of total %`)
+trans_share <- decomp_ks5 %>% filter(grepl("Transient", Component)) %>% pull(`Share of total %`)
+```
+
+1. **Predictability sits where the stability analysis says it should.** A-level points per entry persists at r ≈ `r sprintf('%.2f', r_ks5)` year-on-year — between KS2 (0.61) and KS4 (0.95) — and the models explain marginal R² ≈ `r sprintf('%.2f', r2_m4$R2_marginal)` without any intake baseline, sitting accordingly between the two phases.
+2. **The catchment hypothesis is tested — and the answer is *not* "wider is better".** Best k = `r best_k_ks5`, with k = 50 essentially tied and **k = 100 clearly worse**. Widening the neighbourhood past the town scale dilutes signal rather than capturing long-distance travel-to-learn. The k-sequence across phases (KS2: 10, KS4: 50, KS5: `r best_k_ks5`) is non-monotonic — a hint that at 16-18 no fixed-k neighbourhood approximates the catchment well, because travel behaviour differs radically by provider type. That is an argument for the calibrated route-specific travel-to-learn models in the spatial programme, not for bigger k.
+3. **Routes differ.** The same specification fits the A-level, academic and applied-general markets differently — pooling them into one outcome would have been a mistake, vindicating the route-specific design.
+4. **Place follows pupils across phases.** The LA pipeline terms (LA mean KS2 reading; LA KS4 effect) both add signal to attainment beyond provider type, composition and neighbourhood — the first direct evidence in this programme that the quality of a place's earlier phases is visible in its post-16 outcomes. The VA check refines the mechanism: against the KS4-baseline-adjusted outcome, the **LA KS4 effect disappears** (consistent with it operating through intake quality) while **neighbourhood education and LA KS2 attainment survive** — context effects that operate beyond intake selection.
+5. **The provider effect at 16-18 looks large (≈ `r prov_share`% persistent) but is *not comparable* to the ~16% school effect at KS4** — that decomposition controlled cohort prior attainment in the fixed effects; this one cannot, so the provider intercept here bundles genuine institutional effects with stable intake selection (sixth-form entry requirements are explicit selection devices). The VA model is the better guide to institutional effects at this phase; the honest cross-phase decomposition awaits provider-level cohort baselines (NPD/SRS).
+6. **Missing intake baseline remains the binding constraint**, exactly as at KS2: no published provider-level KS4 baseline exists outside the VA measures. The VA-outcome check is the partial workaround; provider-level cohort baselines are an NPD/SRS follow-on.
