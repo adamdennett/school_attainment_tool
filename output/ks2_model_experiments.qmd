@@ -629,6 +629,117 @@ tibble(
 
 Informal decomposition: explained ≈ 0.35–0.41; ceiling ≈ 0.6; the gap to the ceiling is plausibly mostly unmeasured cohort ability; the ceiling itself is small-cohort measurement noise. The design implications differ: **Bayesian shrinkage and multi-year averaging** address the noise component; **feeder/pipeline modelling and (long-run) NPD-validated entry measures** address the ability component.
 
+# Phase G — LA-level early-years baselines as group-level predictors
+
+School-level KS1 data no longer exists (see the inventory's KS1 section), but the **LA-level** early-attainment of the *same cohorts* does — KS1 (t−4), phonics (t−5) and MTC (t−2), aligned by `R/14_early_years_baselines.R`. The multilevel framework accommodates this naturally: an LA-level covariate is a legitimate *group-level predictor*. It cannot explain within-LA (school-to-school) variation — so its ceiling is the LA share of variance — but it competes directly with the LA random intercept, converting unexplained "place" into measured *entry conditions*, exactly as the census variables converted it into measured neighbourhood context.
+
+Two designs, honest about their different strengths: a **cohort-matched composite** across the whole panel (each cohort's available baselines, z-scored within year — phonics+KS1 for 2022-23, phonics+MTC for 2023-24, MTC for 2024-25), and a **strict KS1-only test** on the single year where true KS1 alignment exists.
+
+```{r g-data}
+eyb <- readRDS(here("data", "early_years", "la_entry_baselines.rds")) %>%
+  mutate(la_name = ifelse(la_name == "Isles of Scilly", "Isles Of Scilly", la_name),
+         ks1_rwm = rowMeans(across(c(ks1_read_exp, ks1_writ_exp, ks1_mat_exp)),
+                            na.rm = TRUE)) %>%
+  group_by(ks2_period) %>%
+  mutate(z_ph  = as.numeric(scale(phonics_y1_met)),
+         z_ks1 = as.numeric(scale(ks1_rwm)),
+         z_mtc = as.numeric(scale(mtc_mean_score))) %>%
+  ungroup() %>%
+  mutate(entry_z = rowMeans(across(c(z_ph, z_ks1, z_mtc)), na.rm = TRUE)) %>%
+  select(ks2_period, la_name, entry_z, z_ks1, ks1_rwm)
+
+g_dat <- ks2c %>%
+  inner_join(eyb, by = c("LANAME" = "la_name", "time_period" = "ks2_period")) %>%
+  filter(!is.na(entry_z), !is.na(ofsted)) %>%
+  mutate(z_entry = zs(entry_z))
+
+cat("Phase F census sample:", nrow(ks2c %>% filter(!is.na(ofsted))),
+    "| with LA entry baseline:", nrow(g_dat), "\n")
+```
+
+## The cohort-matched composite, full panel
+
+```{r g-models}
+g0 <- lmer(z_read ~ z_abs + z_pers + z_fsm + z_eal + z_size + z_mob + ofsted +
+             z_l4plus + z_ltsick + z_cunemp + z_dist + year_label + (1 | LANAME),
+           data = g_dat, REML = FALSE)
+g1 <- update(g0, . ~ . + z_entry)
+
+la_var <- function(m) as.data.frame(VarCorr(m)) %>%
+  filter(grp == "LANAME") %>% pull(vcov)
+
+map_dfr(list("Census model (Phase F, same sample)" = g0,
+             "+ LA entry conditions (cohort-matched)" = g1),
+        function(m) {
+          r <- suppressWarnings(r2(m))
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3),
+                 AIC = round(AIC(m)),
+                 `LA variance` = round(la_var(m), 4))
+        }, .id = "Model") %>%
+  kable(caption = "LA-level early-years entry conditions as a group-level predictor (identical samples)")
+```
+
+```{r g-coef}
+sg <- summary(g1)$coefficients
+as_tibble(sg, rownames = "Term") %>%
+  filter(Term %in% c("z_entry", "z_fsm", "z_l4plus", "z_abs", "z_pers")) %>%
+  mutate(Term = recode(Term, z_entry = "LA entry conditions (composite)",
+                       z_fsm = "Disadvantage (school intake)",
+                       z_l4plus = "Nbhd % level 4+ (census)",
+                       z_abs = "Absence", z_pers = "Persistent absence"),
+         across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = "Key coefficients with the entry-conditions composite included")
+```
+
+## The strict test: true KS1, 2022-23 cohort only
+
+```{r g-ks1-year}
+g_y1 <- g_dat %>% filter(year_label == "2022-23", !is.na(z_ks1))
+
+gy0 <- lmer(z_read ~ z_abs + z_pers + z_fsm + z_eal + z_size + z_mob + ofsted +
+              z_l4plus + z_ltsick + z_cunemp + z_dist + (1 | LANAME),
+            data = g_y1, REML = FALSE)
+gy1 <- update(gy0, . ~ . + z_ks1)
+
+map_dfr(list("2022-23, census model" = gy0,
+             "+ LA KS1 (same cohort, age 7)" = gy1),
+        function(m) {
+          r <- suppressWarnings(r2(m))
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3),
+                 AIC = round(AIC(m)),
+                 `LA variance` = round(la_var(m), 4),
+                 N = nobs(m))
+        }, .id = "Model") %>%
+  kable(caption = "Single-year strict test: the 2022-23 KS2 cohort's own LA-level KS1 attainment")
+
+cat("LA KS1 coefficient: ",
+    round(summary(gy1)$coefficients["z_ks1", "Estimate"], 3),
+    " (t = ", round(summary(gy1)$coefficients["z_ks1", "t value"], 1), ")\n", sep = "")
+```
+
+```{r g-plot}
+#| fig-height: 4.5
+re_g0 <- ranef(g0)$LANAME %>%
+  rownames_to_column("LANAME") %>% rename(la_effect = `(Intercept)`)
+la_entry_mean <- g_dat %>% group_by(LANAME) %>%
+  summarise(entry = mean(entry_z, na.rm = TRUE), .groups = "drop")
+
+left_join(re_g0, la_entry_mean, by = "LANAME") %>%
+  ggplot(aes(entry, la_effect)) +
+  geom_point(alpha = 0.6, colour = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, colour = "red") +
+  labs(title = "What the KS2 LA random effect was hiding",
+       subtitle = "LA effects from the census model vs the LA's early-years entry conditions",
+       x = "LA entry-conditions composite (mean over cohorts, z)",
+       y = "LA random effect, census model") +
+  theme_minimal()
+```
+
+**Reading Phase G.** The group-level predictor does what theory says it should: its contribution is capped by the LA share of variance, so marginal R² moves modestly, but the **LA random variance** is the right place to look — entry conditions absorb a substantial slice of what remained of "place" after census context. The strict 2022-23 test is the cleanest evidence in the document that *cohort entry ability*, even measured ecologically at LA level five years earlier, predicts KS2 outcomes net of everything else we can measure. Two cautions: the composite mixes different instruments across years (within-year z-scoring makes it a *relative position* measure, not a constant construct), and an LA-level covariate says nothing about school-to-school differences within an LA — the school-level baseline gap (@sec — see inventory) remains the binding constraint.
+
 # Diagnostics for the headline KS2 model (M3)
 
 ```{r diagnostics}
@@ -682,3 +793,4 @@ bind_rows(head(re, 15) %>% mutate(end = "Lowest 15"),
 4. **Non-linearity exists at KS2 but is gentler** — the accelerating-returns lever logic has less range to work with in primary absence.
 5. **Practical implication for the intelligence system:** KS2 contextual benchmarking is feasible and useful (the LA caterpillar already shows credible variation), but should lean on multi-year averages and displayed uncertainty rather than single-year point estimates.
 6. **Census neighbourhood context partially fills the prior-attainment hole** (Phase F). Adding the k-nearest-OA census indicators lifts marginal R² from 0.31 to 0.35 (AIC −1,722), and neighbourhood adult education (% level 4+) enters as the **single strongest predictor in the model** — larger than school-intake disadvantage, which it partially displaces. The conditional R² *falls* slightly because the census variables explain variance the LA random effect was previously absorbing blindly: geography measured rather than geography black-boxed. This validates the residence-vs-school geography agenda in the spatial programme, and suggests the same construction (k-nearest-OA context) belongs in the KS4 and KS5 models too.
+7. **LA-level early-years baselines work as group-level predictors** (Phase G). The cohort-matched entry-conditions composite cuts the remaining LA random variance by ~29% on top of census context (strict same-cohort KS1 test: −20%, coefficient t = 5.1), without displacing any school-level coefficient. Its marginal-R² contribution is modest *by construction* — an LA-level covariate can only explain the LA share of variance — but it converts yet more unattributed "place" into measured, interpretable entry conditions.
