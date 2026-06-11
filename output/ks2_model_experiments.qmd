@@ -592,6 +592,43 @@ as_tibble(sf1, rownames = "Term") %>%
 
 Read the comparison both ways: the R² gain tells you what neighbourhood context adds **net of intake composition**, and the change in the school-intake disadvantage coefficient between M3 and this model tells you how much of "disadvantage" was really *neighbourhood* all along — the residence-vs-school geography distinction from the spatial programme, here in regression form.
 
+## Reading the census results correctly
+
+Three apparent puzzles in the tables above deserve explicit resolution, because each is a finding rather than a problem.
+
+```{r census-varcomp}
+vc <- function(m) {
+  v <- as.data.frame(VarCorr(m))
+  c(LA = v$vcov[v$grp == "LANAME"], Residual = v$vcov[v$grp == "Residual"])
+}
+v0 <- vc(f0); v1 <- vc(f1)
+
+tibble(
+  Component = c("Between-LA variance (random effect)", "School-level residual variance",
+                "School-intake disadvantage coefficient (z_fsm)",
+                "Neighbourhood % level 4+ coefficient"),
+  `M3 (f0)` = c(round(v0["LA"], 3), round(v0["Residual"], 3),
+                round(fixef(f0)["z_fsm"], 3), NA),
+  `M3 + census (f1)` = c(round(v1["LA"], 3), round(v1["Residual"], 3),
+                         round(fixef(f1)["z_fsm"], 3), round(fixef(f1)["z_l4plus"], 3)),
+  Change = c(sprintf("−%.0f%%", 100 * (1 - v1["LA"] / v0["LA"])),
+             sprintf("−%.1f%%", 100 * (1 - v1["Residual"] / v0["Residual"])),
+             sprintf("attenuates %.0f%%", 100 * (1 - fixef(f1)["z_fsm"] / fixef(f0)["z_fsm"])),
+             "—")
+) %>% kable(caption = "What actually moves when the census variables enter")
+```
+
+**Puzzle 1 — "conditional R² fell, so the census model is worse?" No.** The LA random effect is a 152-entry lookup table: it absorbs *every* between-LA difference flexibly, but explains none of it — it is labelled ignorance, not understanding. The census variables explain **`r sprintf('%.0f%%', 100 * (1 - v1['LA'] / v0['LA']))` of the between-LA variance** (the table above), but four linear terms cannot absorb quite as much as 152 free parameters, so total *accounted* variance (conditional R²) dips slightly even though the school-level residual variance falls and AIC improves by ~1,700. Marginal R² — explanation from *measured* quantities — rises 0.31 → 0.35. For prediction with LA labels in hand the change is a wash; for explanation, transportability and policy reasoning the census model is strictly better. This is also a live, in-miniature demonstration of the variance-partition argument in the spatial programme: a large share of what multilevel models call "the LA effect" is measurable geography wearing an administrative costume.
+
+**Puzzle 2 — "neighbourhood context just duplicates school disadvantage?" Only partially.** The correlation between neighbourhood %-level-4+ and school FSM% is `r round(cor(ks2c$cens_l4plus_idw10, ks2c$PTFSM6CLA1A, use = "pair"), 2)` — related, far from identical. School-intake disadvantage attenuates by about a fifth when census enters (some of what looked like intake effect was neighbourhood all along) but survives at nearly equal magnitude to the census term. They are complementary constructs: FSM measures *income deprivation of the enrolled cohort*; %-level-4+ measures *adult human capital of the surrounding area* — parental education, plausibly operating through home learning environments rather than poverty per se. If they measured the same thing, one of them would have died.
+
+**Puzzle 3 — "so the ~0.4 ceiling means we're missing pupil ability?" Half right.** Two distinct components fill the unexplained share, and they demand different responses:
+
+- *Missing entry ability.* Phase E showed actual cohort prior attainment is worth ≈ +0.22 marginal R² at KS4; the census proxy recovers only ≈ +0.05 at KS2. Ecological neighbourhood averages are a weak substitute for knowing what the enrolled children could do at entry — and no school-level entry measure exists (EYFSP is not published at school level; KS1 assessment has ended).
+- *Irreducible cohort noise.* The stability analysis (see *How stable are the outcomes?* above) found consecutive-year reading scores correlate at only r ≈ 0.61: roughly 40% of year-to-year variance in a primary school's score is transient — 30-pupil cohort composition, test-week luck. No school-level predictor, census included, can explain cohort-specific noise, so the realistic ceiling for *any* model of this kind at KS2 is ≈ 0.6, not the ≈ 0.87 achievable at KS4.
+
+Informal decomposition: explained ≈ 0.35–0.41; ceiling ≈ 0.6; the gap to the ceiling is plausibly mostly unmeasured cohort ability; the ceiling itself is small-cohort measurement noise. The design implications differ: **Bayesian shrinkage and multi-year averaging** address the noise component; **feeder/pipeline modelling and (long-run) NPD-validated entry measures** address the ability component.
+
 # Diagnostics for the headline KS2 model (M3)
 
 ```{r diagnostics}
