@@ -1,0 +1,569 @@
+---
+title: "KS2 Model Experiments"
+subtitle: "Preliminary primary-phase models: exploration, non-linearities, and a like-for-like comparison with the KS4 models"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 150
+    df-print: kable
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose and approach
+
+A first pass at modelling **school-level KS2 outcomes** from the new primary panel, designed to answer one question honestly: *how good are primary-phase models relative to the KS4 models we know are good (conditional R² ≈ 0.8)?* Every step — data preparation, exploration, each modelling phase — is in this document with folded code, so any result can be interrogated.
+
+The design has five phases:
+
+- **Phase A** — a *common specification* fitted identically to both the KS2 and KS4 panels: same predictors, standardised outcomes, same random-effects structure. This is the only fair way to compare phases, because the published KS4 models include a predictor KS2 cannot have (prior attainment).
+- **Phase B** — nested KS2 models, adding predictor blocks stepwise.
+- **Phase C** — non-linearity checks (the KS4 work found policy-relevant curvature).
+- **Phase D** — disadvantaged-pupil outcomes (the KS4 work found absence ≫ disadvantage concentration; does primary invert this?).
+- **Phase E** — the KS4 anchor: what prior attainment adds at KS4, i.e. the size of the hole KS2 models live in.
+
+```{r setup}
+library(tidyverse)
+library(lme4)
+library(performance)
+library(knitr)
+library(kableExtra)
+library(splines)
+library(scales)
+library(here)
+
+set.seed(42)
+
+ks2_raw <- readRDS(here("data", "ks2", "ks2_panel.rds"))
+ks4_raw <- readRDS(here("data", "panel_data.rds"))
+
+OFSTED_LABELS <- c("1" = "Outstanding", "2" = "Good",
+                   "3" = "Requires improvement", "4" = "Inadequate")
+```
+
+# Data preparation
+
+State-funded mainstream schools with non-missing outcomes and core predictors. Workforce variables are kept but not required (they are absent for 2024-25 by publication lag, as in the KS4 panel).
+
+```{r prep}
+ks2 <- ks2_raw %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(READ_AVERAGE), !is.na(MAT_AVERAGE), !is.na(GPS_AVERAGE),
+         !is.na(PTRWM_EXP),
+         !is.na(PERCTOT), PERCTOT > 0, !is.na(PPERSABS10),
+         !is.na(PTFSM6CLA1A), !is.na(PNUMEAL), !is.na(PTMOBN),
+         !is.na(TOTPUPS), TOTPUPS > 0, !is.na(LANAME)) %>%
+  mutate(
+    ofsted = factor(OFSTED_LABELS[as.character(OFSTEDRATING_external)],
+                    levels = OFSTED_LABELS),
+    fsm_quintile = ntile(PTFSM6CLA1A, 5),
+    phase = "KS2"
+  )
+
+ks4 <- ks4_raw %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         !is.na(PERCTOT), PERCTOT > 0, !is.na(PPERSABS10),
+         !is.na(PTFSM6CLA1A), !is.na(PNUMEAL),
+         !is.na(TOTPUPS), TOTPUPS > 0, !is.na(LANAME)) %>%
+  mutate(phase = "KS4")
+
+tibble(
+  Panel = c("KS2 (model dataset)", "KS4 (model dataset)"),
+  `School-years` = c(nrow(ks2), nrow(ks4)),
+  Schools = c(n_distinct(ks2$URN), n_distinct(ks4$URN)),
+  Years = c(paste(range(ks2$year_label), collapse = "–"),
+            paste(range(ks4$year_label), collapse = "–")),
+  LAs = c(n_distinct(ks2$LANAME), n_distinct(ks4$LANAME))
+) %>% kable(caption = "Model datasets after filtering")
+```
+
+# Exploratory analysis
+
+## Outcome distributions
+
+```{r outcome-hists}
+#| fig-height: 7
+ks2 %>%
+  select(year_label, READ_AVERAGE, MAT_AVERAGE, GPS_AVERAGE, PTRWM_EXP) %>%
+  pivot_longer(-year_label) %>%
+  mutate(name = recode(name,
+    READ_AVERAGE = "Reading scaled score", MAT_AVERAGE = "Maths scaled score",
+    GPS_AVERAGE = "GPS scaled score", PTRWM_EXP = "% reaching expected standard (RWM)")) %>%
+  ggplot(aes(value, fill = year_label)) +
+  geom_histogram(bins = 60, position = "identity", alpha = 0.55) +
+  facet_wrap(~name, scales = "free") +
+  scale_fill_brewer(palette = "Dark2", name = NULL) +
+  labs(title = "KS2 outcome distributions by year",
+       subtitle = "Scaled scores are roughly symmetric; the expected-standard percentage is the bounded, coarser measure",
+       x = NULL, y = "Schools") +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+The scaled scores (theoretical range 80–120) are approximately normal with a mild ceiling; `PTRWM_EXP` is bounded at 0/100 with visible heaping — one reason to prefer scaled scores as the primary modelling outcome (continuous, Attainment 8-like behaviour).
+
+## Predictor distributions
+
+```{r predictor-hists}
+#| fig-height: 8
+ks2 %>%
+  select(PERCTOT, PPERSABS10, PTFSM6CLA1A, PNUMEAL, PTMOBN, TOTPUPS,
+         remained_in_the_same_school, average_number_of_days_taken) %>%
+  pivot_longer(everything()) %>%
+  filter(!is.na(value)) %>%
+  mutate(name = recode(name,
+    PERCTOT = "Overall absence %", PPERSABS10 = "Persistent absence %",
+    PTFSM6CLA1A = "Disadvantaged (FSM6/CLA) %", PNUMEAL = "EAL %",
+    PTMOBN = "Non-mobile pupils %", TOTPUPS = "School size (pupils)",
+    remained_in_the_same_school = "Teachers remained %",
+    average_number_of_days_taken = "Sickness days per teacher")) %>%
+  ggplot(aes(value)) +
+  geom_histogram(bins = 60, fill = "steelblue") +
+  facet_wrap(~name, scales = "free", ncol = 2) +
+  labs(title = "KS2 predictor distributions",
+       subtitle = "Note right skew in EAL and disadvantage; school size is multi-modal (forms of entry)",
+       x = NULL, y = "Schools") +
+  theme_minimal()
+```
+
+Skewness in EAL and disadvantage suggests trying logs; the multi-modal size distribution reflects one/two/three-form entry — size is structural, not continuous, at primary.
+
+## Outcomes by group
+
+```{r violins}
+#| fig-height: 5
+ks2 %>%
+  filter(!is.na(ofsted)) %>%
+  ggplot(aes(ofsted, READ_AVERAGE, fill = ofsted)) +
+  geom_violin(alpha = 0.7, scale = "width") +
+  geom_boxplot(width = 0.12, outlier.shape = NA, fill = "white") +
+  scale_fill_manual(values = c("#1b7837", "#7fbf7b", "#fdae61", "#d73027"),
+                    guide = "none") +
+  labs(title = "Reading scaled score by (snapshot) Ofsted rating",
+       subtitle = "Monotonic gradient, large overlap — ratings order schools but discriminate weakly",
+       x = NULL, y = "Reading scaled score") +
+  theme_minimal()
+```
+
+```{r box-fsm}
+#| fig-height: 5
+ks2 %>%
+  ggplot(aes(factor(fsm_quintile), READ_AVERAGE, fill = factor(fsm_quintile))) +
+  geom_boxplot(outlier.alpha = 0.15) +
+  scale_fill_brewer(palette = "RdYlBu", direction = -1, guide = "none") +
+  facet_wrap(~year_label) +
+  labs(title = "Reading scaled score by disadvantage quintile and year",
+       subtitle = "Quintile 5 = most disadvantaged intake. A steady ~3-point gradient, stable across years",
+       x = "FSM6/CLA quintile (1 = least disadvantaged)", y = "Reading scaled score") +
+  theme_minimal()
+```
+
+## Bivariate relationships and non-linearity
+
+Each candidate predictor against the reading scaled score, with a linear fit (blue) and a loess curve (red) — divergence between them flags non-linearity. Points are a 30% sample for legibility; fits use all data.
+
+```{r bivariate}
+#| fig-height: 9
+biv <- ks2 %>%
+  select(READ_AVERAGE, PERCTOT, PPERSABS10, PTFSM6CLA1A, PNUMEAL, PTMOBN,
+         TOTPUPS, remained_in_the_same_school) %>%
+  pivot_longer(-READ_AVERAGE) %>%
+  filter(!is.na(value)) %>%
+  mutate(name = recode(name,
+    PERCTOT = "Overall absence %", PPERSABS10 = "Persistent absence %",
+    PTFSM6CLA1A = "Disadvantaged %", PNUMEAL = "EAL %",
+    PTMOBN = "Non-mobile %", TOTPUPS = "School size",
+    remained_in_the_same_school = "Teachers remained %"))
+
+ggplot(biv, aes(value, READ_AVERAGE)) +
+  geom_point(data = ~ slice_sample(.x, prop = 0.3), alpha = 0.05, size = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue", linewidth = 0.8) +
+  geom_smooth(method = "loess", se = FALSE, colour = "red", linewidth = 0.8) +
+  facet_wrap(~name, scales = "free_x", ncol = 2) +
+  coord_cartesian(ylim = c(95, 115)) +
+  labs(title = "Reading scaled score vs candidate predictors",
+       subtitle = "Blue = linear, red = loess. Curvature is visible for absence (steepening) and EAL (non-monotonic)",
+       x = NULL, y = "Reading scaled score") +
+  theme_minimal()
+```
+
+```{r raw-vs-log}
+#| fig-height: 4.5
+ks2 %>%
+  select(READ_AVERAGE, PERCTOT) %>%
+  mutate(`log(absence)` = log(PERCTOT)) %>%
+  rename(`absence % (raw)` = PERCTOT) %>%
+  pivot_longer(-READ_AVERAGE) %>%
+  ggplot(aes(value, READ_AVERAGE)) +
+  geom_point(data = ~ slice_sample(.x, prop = 0.3), alpha = 0.05, size = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  facet_wrap(~name, scales = "free_x") +
+  coord_cartesian(ylim = c(95, 115)) +
+  labs(title = "Absence: raw vs log scale",
+       subtitle = "The same diagnostic used at KS4 — logging straightens the relationship somewhat but curvature remains",
+       x = NULL, y = "Reading scaled score") +
+  theme_minimal()
+```
+
+## Predictor correlations
+
+```{r cor-heatmap}
+#| fig-height: 6
+cm <- ks2 %>%
+  select(`Reading` = READ_AVERAGE, `Maths` = MAT_AVERAGE,
+         `Absence` = PERCTOT, `Persistent abs.` = PPERSABS10,
+         `Disadvantaged` = PTFSM6CLA1A, `EAL` = PNUMEAL,
+         `Non-mobile` = PTMOBN, `Size` = TOTPUPS,
+         `Teachers remained` = remained_in_the_same_school) %>%
+  cor(use = "pairwise.complete.obs")
+
+as.data.frame(cm) %>%
+  rownames_to_column("v1") %>%
+  pivot_longer(-v1, names_to = "v2") %>%
+  mutate(v1 = factor(v1, levels = rownames(cm)),
+         v2 = factor(v2, levels = rev(rownames(cm)))) %>%
+  ggplot(aes(v1, v2, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", value)), size = 3) +
+  scale_fill_gradient2(low = "#b2182b", mid = "white", high = "#2166ac",
+                       limits = c(-1, 1), name = "r") +
+  labs(title = "Correlation matrix (pairwise complete)",
+       subtitle = "Absence and persistent absence are highly collinear (interpret their separate coefficients with care)",
+       x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+## How stable are the outcomes? The measurement-noise ceiling
+
+Before fitting anything, one structural fact: a model cannot explain year-to-year variation that is mostly cohort noise. Primary cohorts are small (median `r median(ks2$TELIG, na.rm = TRUE)` pupils sat KS2 per school vs ~`r round(median(ks4$TOTPUPS, na.rm = TRUE)/5)` per KS4 year group), so outcomes bounce more between years.
+
+```{r stability}
+#| fig-height: 4.5
+lag_pair <- function(df, outcome) {
+  df %>%
+    select(URN, year_numeric, value = all_of(outcome)) %>%
+    filter(!is.na(value)) %>%
+    arrange(URN, year_numeric) %>%
+    group_by(URN) %>%
+    mutate(value_next = lead(value, order_by = year_numeric),
+           gap = lead(year_numeric) - year_numeric) %>%
+    ungroup() %>%
+    filter(gap == 1, !is.na(value_next))
+}
+
+p2 <- lag_pair(ks2, "READ_AVERAGE") %>% mutate(phase = "KS2 reading scaled score")
+p4 <- lag_pair(ks4, "ATT8SCR")      %>% mutate(phase = "KS4 Attainment 8")
+
+stab <- bind_rows(p2, p4) %>% group_by(phase) %>%
+  summarise(r = cor(value, value_next), n = n(), .groups = "drop")
+
+bind_rows(p2, p4) %>%
+  group_by(phase) %>% slice_sample(prop = 0.3) %>% ungroup() %>%
+  ggplot(aes(value, value_next)) +
+  geom_point(alpha = 0.06, size = 0.4) +
+  geom_smooth(method = "lm", colour = "red", se = FALSE) +
+  geom_text(data = stab, aes(x = -Inf, y = Inf,
+            label = sprintf("  r = %.2f", r)), hjust = 0, vjust = 1.5,
+            colour = "red", fontface = "bold") +
+  facet_wrap(~phase, scales = "free") +
+  labs(title = "Same school, consecutive years: outcome stability",
+       subtitle = "Lower persistence at KS2 = more cohort noise = a lower ceiling on any school-level model",
+       x = "Outcome in year t", y = "Outcome in year t+1") +
+  theme_minimal()
+```
+
+KS2 reading persists at r ≈ `r sprintf('%.2f', stab$r[stab$phase == 'KS2 reading scaled score'])` year-on-year against r ≈ `r sprintf('%.2f', stab$r[stab$phase == 'KS4 Attainment 8'])` for Attainment 8. Squaring these gives a rough upper bound on explainable between-school variance — **the KS2 ceiling is genuinely lower**, before any model is fitted. Keep this in mind when comparing R² across phases below.
+
+# Phase A — the common specification, both phases
+
+Identical model, identical predictor set, outcomes standardised within phase, schools nested in LAs, year fixed effects:
+
+$$z(\text{outcome})_{it} = \beta_1 z(\text{abs}) + \beta_2 z(\text{persabs}) + \beta_3 z(\text{FSM}) + \beta_4 z(\text{EAL}) + \beta_5 z(\text{size}) + \gamma_t + u_{LA} + \varepsilon$$
+
+No Ofsted (not comparably measured across phases), no workforce (missing 2024-25), and — crucially — **no prior attainment**, because KS2 has none. This is the like-for-like playing field.
+
+```{r common-spec}
+zs <- function(x) as.numeric(scale(x))
+
+add_z <- function(df) df %>% mutate(
+  z_abs = zs(PERCTOT), z_pers = zs(PPERSABS10), z_fsm = zs(PTFSM6CLA1A),
+  z_eal = zs(PNUMEAL), z_size = zs(TOTPUPS),
+  z_mob = if ("PTMOBN" %in% names(df)) zs(PTMOBN) else NA_real_)
+
+ks2z <- add_z(ks2) %>% mutate(z_read = zs(READ_AVERAGE), z_mat = zs(MAT_AVERAGE),
+                              z_gps = zs(GPS_AVERAGE), z_rwm = zs(PTRWM_EXP))
+ks4z <- add_z(ks4) %>% mutate(z_att8 = zs(ATT8SCR))
+
+rhs <- "z_abs + z_pers + z_fsm + z_eal + z_size + year_label + (1 | LANAME)"
+
+fits <- list(
+  "KS4: Attainment 8"   = lmer(as.formula(paste("z_att8 ~", rhs)), data = ks4z, REML = FALSE),
+  "KS2: Reading scaled" = lmer(as.formula(paste("z_read ~", rhs)), data = ks2z, REML = FALSE),
+  "KS2: Maths scaled"   = lmer(as.formula(paste("z_mat ~",  rhs)), data = ks2z, REML = FALSE),
+  "KS2: GPS scaled"     = lmer(as.formula(paste("z_gps ~",  rhs)), data = ks2z, REML = FALSE),
+  "KS2: % RWM expected" = lmer(as.formula(paste("z_rwm ~",  rhs)), data = ks2z, REML = FALSE)
+)
+
+r2_tab <- map_dfr(fits, function(m) {
+  r <- suppressWarnings(r2(m))
+  tibble(`Marginal R²` = round(r$R2_marginal, 3),
+         `Conditional R²` = round(r$R2_conditional, 3),
+         ICC = round(icc(m)$ICC_adjusted, 3),
+         N = nobs(m))
+}, .id = "Model")
+
+kable(r2_tab, caption = "Common specification: variance explained, both phases")
+```
+
+```{r common-coefs}
+#| fig-height: 5.5
+coef_tab <- map_dfr(fits, function(m) {
+  s <- summary(m)$coefficients
+  as_tibble(s, rownames = "term") %>%
+    filter(grepl("^z_", term)) %>%
+    transmute(term, est = Estimate, se = `Std. Error`)
+}, .id = "model") %>%
+  mutate(
+    term = recode(term, z_abs = "Absence", z_pers = "Persistent absence",
+                  z_fsm = "Disadvantage", z_eal = "EAL", z_size = "School size"),
+    term = factor(term, levels = rev(c("Absence", "Persistent absence",
+                                       "Disadvantage", "EAL", "School size"))),
+    phase = ifelse(grepl("^KS4", model), "KS4", "KS2"))
+
+ggplot(coef_tab, aes(est, term, colour = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = est - 1.96 * se, xmax = est + 1.96 * se),
+                  position = position_dodge(width = 0.6)) +
+  scale_colour_brewer(palette = "Dark2", name = NULL) +
+  labs(title = "Standardised coefficients: the same model at two phases",
+       subtitle = "At KS4, absence dominates disadvantage; at KS2 the ordering inverts — the levers change with phase",
+       x = "Standardised coefficient (SD outcome per SD predictor)", y = NULL) +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+Two headline results. First, **predictability**: the identical specification explains far less at KS2 (conditional R² ≈ `r sprintf('%.2f', r2_tab[["Conditional R²"]][2])` for reading) than at KS4 (≈ `r sprintf('%.2f', r2_tab[["Conditional R²"]][1])`) — and note the KS4 figure here is *without* prior attainment; the published models with it reach ≈ 0.8 (Phase E quantifies this). Second, **the lever ordering inverts**: disadvantage concentration is the strongest predictor at KS2 where combined absence dominates at KS4.
+
+# Phase B — nested KS2 models
+
+Predictor blocks added stepwise to the reading model. Workforce enters in the final model on the 2022-24 subset (it is unpublished for 2024-25).
+
+```{r nested}
+m0 <- lmer(z_read ~ year_label + (1 | LANAME), data = ks2z, REML = FALSE)
+m1 <- update(m0, . ~ . + z_fsm + z_eal + z_size + z_mob)
+m2 <- update(m1, . ~ . + z_abs + z_pers)
+m3 <- update(m2, . ~ . + ofsted)
+
+ks2_wf <- ks2z %>%
+  filter(!is.na(remained_in_the_same_school), !is.na(average_number_of_days_taken)) %>%
+  mutate(z_remained = zs(remained_in_the_same_school),
+         z_sick = zs(average_number_of_days_taken))
+m4 <- lmer(z_read ~ year_label + z_fsm + z_eal + z_size + z_mob +
+             z_abs + z_pers + ofsted + z_remained + z_sick + (1 | LANAME),
+           data = ks2_wf, REML = FALSE)
+
+nested <- list("M0 null" = m0, "M1 +composition" = m1, "M2 +absence" = m2,
+               "M3 +Ofsted" = m3, "M4 +workforce (2022-24)" = m4)
+
+map_dfr(nested, function(m) {
+  r <- suppressWarnings(r2(m))
+  tibble(`Marginal R²` = round(r$R2_marginal, 3),
+         `Conditional R²` = round(r$R2_conditional, 3),
+         AIC = round(AIC(m)), N = nobs(m))
+}, .id = "Model") %>%
+  kable(caption = "Nested models, z(reading scaled score). M4 is fitted on the two workforce years, so its AIC is not comparable with M0–M3")
+```
+
+```{r nested-coefs}
+s3 <- summary(m3)$coefficients
+as_tibble(s3, rownames = "Term") %>%
+  filter(Term != "(Intercept)") %>%
+  mutate(across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = "M3 coefficients (full three-year sample)")
+```
+
+Composition does most of the lifting; absence adds a real but smaller block; Ofsted adds a visible gradient (interpreted with the usual caution — it is a snapshot rating and partly an outcome itself); workforce adds little on top, as at KS4.
+
+# Phase C — non-linearity
+
+Natural splines on absence and disadvantage versus the linear versions, then the fitted partial effects.
+
+```{r nonlin}
+mlin <- m2
+mspl <- update(m1, . ~ . + ns(PERCTOT, 3) + ns(PPERSABS10, 3))
+mfsm <- update(m2, . ~ . - z_fsm + ns(PTFSM6CLA1A, 3))
+
+tibble(
+  Model = c("Linear absence (M2)", "Spline absence", "Spline disadvantage"),
+  AIC = round(c(AIC(mlin), AIC(mspl), AIC(mfsm))),
+  `Marginal R²` = round(c(r2(mlin)$R2_marginal, suppressWarnings(r2(mspl))$R2_marginal,
+                          suppressWarnings(r2(mfsm))$R2_marginal), 3)
+) %>% kable(caption = "Linear vs spline specifications (lower AIC = better)")
+```
+
+```{r partial-effects}
+#| fig-height: 4.5
+grid_at <- function(var, df, model, n = 80) {
+  rng <- quantile(df[[var]], c(0.02, 0.98), na.rm = TRUE)
+  nd <- df %>%
+    summarise(across(c(PERCTOT, PPERSABS10, PTFSM6CLA1A, z_abs, z_pers,
+                       z_fsm, z_eal, z_size, z_mob), ~ mean(., na.rm = TRUE))) %>%
+    select(-all_of(var)) %>%
+    crossing(!!sym(var) := seq(rng[1], rng[2], length.out = n),
+             year_label = "2023-24")
+  nd$pred <- predict(model, newdata = nd, re.form = NA)
+  nd
+}
+
+bind_rows(
+  grid_at("PERCTOT", ks2z, mspl) %>%
+    transmute(x = PERCTOT, pred, var = "Overall absence % (spline)"),
+  grid_at("PTFSM6CLA1A", ks2z, mfsm) %>%
+    transmute(x = PTFSM6CLA1A, pred, var = "Disadvantaged % (spline)")
+) %>%
+  ggplot(aes(x, pred)) +
+  geom_line(colour = "red", linewidth = 1) +
+  facet_wrap(~var, scales = "free_x") +
+  labs(title = "Fitted partial effects (other predictors at their means)",
+       subtitle = "Mild steepening at high absence; the disadvantage effect is close to linear at KS2",
+       x = NULL, y = "Predicted z(reading)") +
+  theme_minimal()
+```
+
+Splines beat the linear fit on AIC, but the curvature is **gentler than at KS4**: primary absence has a shorter tail (range compression), so the accelerating-returns logic — big gains from improving the worst — has less room to operate at KS2. A substantive cross-phase finding in itself.
+
+# Phase D — disadvantaged pupils' outcomes
+
+The KS4 result that mattered most for policy: for disadvantaged pupils, absence dominated and disadvantage *concentration* was slightly positive. The KS2 counterpart, where the disadvantaged-pupil outcome is published (≈ two-thirds of schools; suppressed in small cohorts):
+
+```{r disadv}
+ks2d <- ks2z %>%
+  filter(!is.na(READ_AVERAGE_FSM6CLA1A)) %>%
+  mutate(z_read_dis = zs(READ_AVERAGE_FSM6CLA1A))
+
+md <- lmer(z_read_dis ~ z_abs + z_pers + z_fsm + z_eal + z_size + year_label +
+             (1 | LANAME), data = ks2d, REML = FALSE)
+
+rd <- suppressWarnings(r2(md))
+sd_ <- summary(md)$coefficients
+as_tibble(sd_, rownames = "Term") %>%
+  filter(grepl("^z_", Term)) %>%
+  mutate(across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = sprintf(
+    "Disadvantaged pupils' reading scaled score (N = %s schools-years; conditional R² = %.2f)",
+    format(nobs(md), big.mark = ","), rd$R2_conditional))
+```
+
+```{r disadv-compare}
+#| fig-height: 4
+bind_rows(
+  as_tibble(summary(fits[["KS2: Reading scaled"]])$coefficients, rownames = "term") %>%
+    mutate(model = "All pupils"),
+  as_tibble(sd_, rownames = "term") %>% mutate(model = "Disadvantaged pupils")
+) %>%
+  filter(grepl("^z_", term)) %>%
+  mutate(term = recode(term, z_abs = "Absence", z_pers = "Persistent absence",
+                       z_fsm = "Disadvantage concentration", z_eal = "EAL",
+                       z_size = "School size")) %>%
+  ggplot(aes(Estimate, term, colour = model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_pointrange(aes(xmin = Estimate - 1.96 * `Std. Error`,
+                      xmax = Estimate + 1.96 * `Std. Error`),
+                  position = position_dodge(width = 0.5)) +
+  scale_colour_manual(values = c("grey30", "#d95f02"), name = NULL) +
+  labs(title = "KS2 reading: all pupils vs disadvantaged pupils",
+       x = "Standardised coefficient", y = NULL) +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+# Phase E — the KS4 anchor: what prior attainment is worth
+
+The published KS4 models reach R² ≈ 0.8 largely because they control for the intake's KS2 prior attainment. Adding it to the common spec on the KS4 panel quantifies the hole that KS2 models sit in — *there is no earlier school-level baseline for primary*:
+
+```{r anchor}
+ks4p <- ks4z %>% filter(!is.na(PTPRIORLO), !is.na(PTPRIORHI)) %>%
+  mutate(z_plo = zs(PTPRIORLO), z_phi = zs(PTPRIORHI))
+
+a1 <- lmer(z_att8 ~ z_abs + z_pers + z_fsm + z_eal + z_size + year_label +
+             (1 | LANAME), data = ks4p, REML = FALSE)
+a2 <- update(a1, . ~ . + z_plo + z_phi)
+
+map_dfr(list("KS4 common spec" = a1, "KS4 + prior attainment" = a2),
+        function(m) {
+          r <- suppressWarnings(r2(m))
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3), N = nobs(m))
+        }, .id = "Model") %>%
+  kable(caption = "The prior-attainment dividend at KS4 (same sample both rows)")
+```
+
+# Diagnostics for the headline KS2 model (M3)
+
+```{r diagnostics}
+#| fig-height: 4.5
+diag_df <- tibble(fitted = fitted(m3), resid = resid(m3),
+                  obs = fitted(m3) + resid(m3))
+
+ggplot(diag_df, aes(fitted, obs)) +
+  geom_bin2d(bins = 70) +
+  geom_abline(colour = "red") +
+  scale_fill_viridis_c(name = "Schools") +
+  labs(title = "Observed vs predicted, z(reading), M3",
+       x = "Predicted", y = "Observed") +
+  theme_minimal()
+```
+
+```{r diagnostics2}
+#| fig-height: 4
+ggplot(diag_df, aes(sample = resid)) +
+  stat_qq(alpha = 0.2, size = 0.5) + stat_qq_line(colour = "red") +
+  labs(title = "Residual QQ plot — heavier tails than normal (small-cohort noise)",
+       x = "Theoretical", y = "Sample") +
+  theme_minimal()
+```
+
+```{r caterpillar}
+#| fig-height: 6.5
+re <- ranef(m3)$LANAME %>%
+  rownames_to_column("LANAME") %>%
+  rename(effect = `(Intercept)`) %>%
+  arrange(effect)
+
+bind_rows(head(re, 15) %>% mutate(end = "Lowest 15"),
+          tail(re, 15) %>% mutate(end = "Highest 15")) %>%
+  mutate(LANAME = fct_reorder(LANAME, effect)) %>%
+  ggplot(aes(effect, LANAME, colour = end)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(size = 2) +
+  scale_colour_manual(values = c("#1b7837", "#d73027"), guide = "none") +
+  labs(title = "LA random effects, KS2 reading (M3): top and bottom 15",
+       subtitle = "Conditional on composition, absence and Ofsted — the primary-phase counterpart of the KS4 LA effects",
+       x = "LA effect (SD of z(reading))", y = NULL) +
+  theme_minimal()
+```
+
+# Conclusions
+
+1. **KS2 outcomes are much less predictable than KS4 outcomes from the same information set** — common-spec conditional R² ≈ `r sprintf('%.2f', r2_tab[["Conditional R²"]][2])` (reading) vs ≈ `r sprintf('%.2f', r2_tab[["Conditional R²"]][1])` (Attainment 8), and the year-on-year stability analysis shows a meaningful part of this gap is *structural*: small primary cohorts mean noisier outcomes and a lower explainable ceiling, not just missing predictors.
+2. **The levers re-order across phases.** Disadvantage concentration is the strongest school-level correlate at KS2; absence (especially persistent absence) overtakes it by KS4. The cross-phase question at the heart of the funding bid is real and answerable.
+3. **Prior attainment is the decisive KS4 ingredient** (Phase E: adding it lifts marginal R² substantially) — and it *cannot exist* at KS2 school level since KS1 assessment ended. Primary models will never look like secondary models; uncertainty-honest presentation (Bayesian shrinkage, intervals) matters more here.
+4. **Non-linearity exists at KS2 but is gentler** — the accelerating-returns lever logic has less range to work with in primary absence.
+5. **Practical implication for the intelligence system:** KS2 contextual benchmarking is feasible and useful (the LA caterpillar already shows credible variation), but should lean on multi-year averages and displayed uncertainty rather than single-year point estimates.
