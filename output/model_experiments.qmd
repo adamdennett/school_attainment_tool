@@ -4840,6 +4840,165 @@ left_join(vc_tab(f_base, "E baseline"),
   knitr::kable(caption = "Random-effect variance components before/after census context")
 ```
 
+## How the LA league table changes when neighbourhoods enter
+
+The caterpillar plot of LA random effects has served as an alternative LA ranking: how well a place does *after accounting for the measured factors*. Census context moves measurable neighbourhood conditions out of the random effect and into the model — so the caterpillar now answers a sharper question: **how well does an LA do after accounting for its schools' cohorts *and* the educational character of its neighbourhoods?** Places whose high ranking rested on an educated populace should fall; places doing well *despite* weak neighbourhood human capital should rise.
+
+```{r f-caterpillar-data}
+#| label: f-caterpillar-data
+
+get_la_re <- function(m) {
+  re <- ranef(m, condVar = TRUE)$`LANAME:gor_name`
+  tibble(
+    group = rownames(re),
+    effect = re[["(Intercept)"]],
+    se = sqrt(attr(re, "postVar")[1, 1, ]),
+    la_name = sub(":.*$", "", group)
+  )
+}
+
+la_cmp <- inner_join(
+  get_la_re(f_base) %>% rename(effect_base = effect, se_base = se),
+  get_la_re(f_best) %>% select(group, effect_census = effect, se_census = se),
+  by = "group"
+) %>%
+  mutate(
+    rank_base = rank(-effect_base),
+    rank_census = rank(-effect_census),
+    rank_shift = rank_base - rank_census   # positive = rises when census enters
+  )
+
+la_l4 <- fd %>%
+  group_by(la_name = LANAME) %>%
+  summarise(mean_l4plus = mean(cens_l4plus_k50, na.rm = TRUE), .groups = "drop")
+
+la_cmp <- la_cmp %>% left_join(la_l4, by = "la_name")
+
+bh <- la_cmp %>% filter(grepl("Brighton", la_name))
+cat("Brighton and Hove: baseline effect", round(bh$effect_base, 4),
+    "(rank", bh$rank_base, "of", nrow(la_cmp), ") ->",
+    "with census", round(bh$effect_census, 4),
+    "(rank", bh$rank_census, ")\n")
+cat("Correlation of LA effect *change* with LA mean % level 4+:",
+    round(cor(la_cmp$effect_census - la_cmp$effect_base,
+              la_cmp$mean_l4plus, use = "pair"), 2), "\n")
+```
+
+```{r f-caterpillar-dumbbell}
+#| label: f-caterpillar-dumbbell
+#| fig-height: 8.5
+
+show_las <- la_cmp %>%
+  arrange(effect_base) %>%
+  slice(c(1:15, (n() - 14):n())) %>%
+  bind_rows(bh) %>%
+  distinct(group, .keep_all = TRUE)
+
+ggplot(show_las, aes(y = reorder(la_name, effect_base))) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_segment(aes(x = effect_base, xend = effect_census, yend = la_name),
+               arrow = arrow(length = unit(0.13, "cm")), colour = "grey45") +
+  geom_point(aes(x = effect_base), colour = "#49a0c4", size = 2) +
+  geom_point(aes(x = effect_census), colour = "#e6550d", size = 2) +
+  geom_text(data = show_las %>% filter(grepl("Brighton", la_name)),
+            aes(x = effect_base, label = "  Brighton and Hove"),
+            hjust = 0, vjust = -1, colour = "#e16fca", fontface = "bold", size = 3.2) +
+  labs(title = "LA effects before (blue) and after (orange) census neighbourhood context",
+       subtitle = "Top/bottom 15 LAs by baseline effect, plus Brighton and Hove. Arrows show the movement when\nneighbourhood education and labour-market conditions are measured rather than absorbed.",
+       x = "LA random effect, log(Attainment 8) scale", y = NULL) +
+  theme_minimal()
+```
+
+```{r f-caterpillar-rankshift}
+#| label: f-caterpillar-rankshift
+#| fig-height: 5.5
+
+ggplot(la_cmp, aes(mean_l4plus, effect_census - effect_base)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(alpha = 0.55, size = 1.6, colour = "#49a0c4") +
+  geom_point(data = bh, colour = "#e16fca", size = 3) +
+  ggrepel::geom_text_repel(
+    data = la_cmp %>%
+      filter(rank(-abs(effect_census - effect_base)) <= 10 | grepl("Brighton", la_name)),
+    aes(label = la_name), size = 2.7, max.overlaps = 20) +
+  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 0.7) +
+  labs(title = "Who was riding their neighbourhoods? LA effect change vs neighbourhood education",
+       subtitle = "Negative change = the LA's apparent over-performance is partly explained by an educated populace",
+       x = "LA mean % adults with level 4+ qualifications (schools' 50 nearest OAs)",
+       y = "Change in LA effect when census context enters") +
+  theme_minimal()
+```
+
+```{r f-caterpillar-table}
+#| label: f-caterpillar-table
+
+bind_rows(
+  la_cmp %>% slice_max(rank_shift, n = 8) %>% mutate(Direction = "Risers (better than their neighbourhoods suggested)"),
+  la_cmp %>% slice_min(rank_shift, n = 8) %>% mutate(Direction = "Fallers (ranking partly reflected educated neighbourhoods)"),
+  bh %>% mutate(Direction = "Brighton and Hove")
+) %>%
+  transmute(Direction, LA = la_name,
+            `Mean % L4+` = round(mean_l4plus, 1),
+            `Rank (baseline)` = rank_base,
+            `Rank (with census)` = rank_census,
+            `Shift` = rank_shift) %>%
+  knitr::kable(caption = "Largest ranking movements when neighbourhood context is measured (rank 1 = best; positive shift = rises)")
+```
+
+## How big is the school effect, really?
+
+The B&H policy debate assumes moving pupils between schools changes outcomes — implicitly, that *which school you attend* carries a large effect relative to *who you are and where you live*. The panel lets us bound this. Adding a school-level random intercept to the census model decomposes the unexplained variance into a **persistent school component** (the same school doing better/worse than expected, year after year) and **transient cohort noise**:
+
+```{r f-school-effect}
+#| label: f-school-effect
+
+f_school <- update(f_best, . ~ . + (1 | URN))
+
+vc <- as.data.frame(VarCorr(f_school)) %>% filter(is.na(var2))
+fixed_var <- var(predict(f_school, re.form = NA), na.rm = TRUE)
+total_var <- fixed_var + sum(vc$vcov)
+
+decomp <- vc %>%
+  transmute(Component = recode(grp,
+    "URN" = "School (persistent, unexplained)",
+    "LANAME:gor_name" = "LA (within region)",
+    "gor_name" = "Region",
+    "OFSTEDRATING_1" = "Ofsted rating",
+    "year_label" = "Year",
+    "Residual" = "Transient (cohort-year noise)"),
+    Variance = vcov) %>%
+  bind_rows(tibble(Component = "Fixed effects (cohort, prior attainment, absence, workforce, neighbourhood)",
+                   Variance = fixed_var)) %>%
+  mutate(`Share of total %` = round(100 * Variance / total_var, 1),
+         `SD (log Att8)` = round(sqrt(Variance), 4),
+         `~Attainment 8 points (at mean 46)` = round(46 * sqrt(Variance), 1)) %>%
+  arrange(desc(Variance))
+
+knitr::kable(decomp %>% select(-Variance),
+             caption = "Variance decomposition of log(Attainment 8), census model + school random intercept")
+```
+
+```{r f-school-effect-plot}
+#| label: f-school-effect-plot
+#| fig-height: 4
+
+decomp %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#49a0c4") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 3.2) +
+  xlim(0, max(decomp$`Share of total %`) * 1.12) +
+  labs(title = "Where does variation in school Attainment 8 come from?",
+       subtitle = "The persistent school component is the upper bound on what changing schools could achieve, holding the child constant",
+       x = "Share of total outcome variance (%)", y = NULL) +
+  theme_minimal()
+```
+
+Two readings of the school component, and both matter for the B&H debate:
+
+- It is an **upper bound** on the causal effect of school membership: the URN intercept absorbs everything persistently school-specific that the model cannot see — genuinely better teaching and leadership, but also stable unmeasured intake sorting (the sought-after school's catchment premium). The true "what the school adds" effect is *at most* this large.
+- Even taken at face value, compare its magnitude with the fixed-effects share: the hand a school is dealt — its cohort's composition, prior attainment, attendance and neighbourhood context — dwarfs the school's own persistent departure from expectation. Reallocating pupils between schools redistributes *which building children sit in* but changes neither their prior attainment, their home neighbourhoods, nor (directly) their attendance — the variables doing almost all the work. The plausible attainment gain from moving a child to a school one standard deviation "better" is a few Attainment 8 points at most, and that is before netting out the catchment-sorting component of the school effect.
+
 ## Reading Analysis F
 
 **Results in brief (computed live):** neighbourhood context survives the full Analysis E controls — adding it at k = `r best_k_name` lifts marginal R² from `r sprintf('%.3f', performance::r2(f_base)$R2_marginal)` to `r sprintf('%.3f', performance::r2(f_best)$R2_marginal)` (AIC improves by `r round(AIC(f_base) - AIC(f_best))`), with neighbourhood %-level-4+ at t = `r sprintf('%.1f', summary(f_best)$coefficients[paste0('z_l4plus_k', best_k_name), 't value'])`. The k-gradient is monotonic — fit improves from k = 10 through k = 50 — the catchment-scale signature predicted for secondaries (primaries preferred k = 10). Attenuation is selective: school-intake disadvantage gives up ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PTFSM6CLA1A)']/fixef(f_base)['log(PTFSM6CLA1A)']))`% and prior attainment ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['PTPRIORLO']/fixef(f_base)['PTPRIORLO']))`% of their coefficients, while **absence barely moves** (~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PERCTOT)']/fixef(f_base)['log(PERCTOT)']))`%) — the headline absence finding is not a neighbourhood artefact. The faith interaction has the predicted negative sign (census effect ~`r sprintf('%.0f', abs(100*summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name, ':is_faithTRUE'), 'Estimate']/summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name), 'Estimate']))`% weaker for faith schools) but is not conventionally significant — directionally supportive, underpowered. And the remaining LA-within-region variance drops by roughly a third when census enters: even after Analysis E's rich controls, a substantial share of the residual "place effect" is measurable neighbourhood conditions.

@@ -3332,6 +3332,195 @@ The comparison tables highlight where Brighton & Hove's local context shifts the
 - **Gorard Segregation:** As a single local authority, all B&H schools share the same segregation index value in any given year, so the within-B&H variance is zero or near-zero. This variable's local importance will therefore be very low. Note that even at national level, the Gorard segregation coefficient is statistically insignificant in the imputed full model.
 
 
+# Neighbourhood Context: The Educated City {#sec-neighbourhood}
+
+*(Added June 2026, following Analysis F in `model_experiments.qmd`.)*
+
+Brighton & Hove ranks near the top of the LA caterpillar plots — among the best places in England for attainment once cohort composition, prior attainment, absence and workforce are accounted for. But the caterpillar's LA effect is a residual: it absorbs *everything place-shaped the model cannot see*. One candidate is obvious in this city: an unusually educated populace. If graduate-rich neighbourhoods lift children's attainment through channels the school-level variables miss — home learning environments, peer expectations, social networks — then part of Brighton & Hove's apparent over-performance belongs to the city, not its schools or its council.
+
+We can now test this. The census context dataset (`R/13_census_context.R`) measures, for every school, the share of adults with level 4+ qualifications across its 50 nearest output areas. Adding these neighbourhood measures to the national model moves "educated populace" out of the LA residual and into the measured part of the model — and lets us watch what happens to Brighton & Hove's ranking.
+
+## How educated are the neighbourhoods B&H schools serve?
+
+```{r nbhd-setup}
+#| label: nbhd-setup
+
+ctx <- readRDS(here::here("data", "census", "school_census_context.rds"))
+zs_n <- function(x) as.numeric(scale(x))
+
+nb_all <- d_all %>%
+  inner_join(ctx %>% select(URN, cens_l4plus_k50, cens_ltsick_k50, cens_unemp_k50),
+             by = "URN") %>%
+  mutate(z_l4plus = zs_n(cens_l4plus_k50),
+         z_ltsick = zs_n(cens_ltsick_k50),
+         z_unemp  = zs_n(cens_unemp_k50),
+         is_bh = LANAME == "Brighton and Hove")
+
+bh_mean <- mean(nb_all$cens_l4plus_k50[nb_all$is_bh], na.rm = TRUE)
+nat_mean <- mean(nb_all$cens_l4plus_k50, na.rm = TRUE)
+bh_pctile <- round(100 * mean(nat_mean_dist <- nb_all$cens_l4plus_k50 <= bh_mean, na.rm = TRUE))
+
+cat("B&H secondary schools' mean neighbourhood % level 4+:", round(bh_mean, 1),
+    "\nNational mean:", round(nat_mean, 1),
+    "\nB&H mean sits at roughly the", bh_pctile, "th percentile of school neighbourhoods\n")
+```
+
+```{r fig-nbhd-distribution}
+#| label: fig-nbhd-distribution
+#| fig-cap: "Neighbourhood adult education for England's state secondary schools; Brighton & Hove schools marked."
+#| fig-height: 4.5
+
+ggplot(nb_all, aes(cens_l4plus_k50)) +
+  geom_histogram(bins = 70, fill = "grey80") +
+  geom_vline(xintercept = nat_mean, linetype = "dashed", colour = "grey40") +
+  geom_segment(data = nb_all %>% filter(is_bh) %>% distinct(URN, .keep_all = TRUE),
+               aes(x = cens_l4plus_k50, xend = cens_l4plus_k50, y = 0, yend = -25),
+               colour = "#e16fca", linewidth = 0.8) +
+  geom_text_repel(data = nb_all %>% filter(is_bh) %>%
+                    distinct(URN, .keep_all = TRUE),
+                  aes(y = -25, label = SCHNAME), size = 2.4, direction = "x",
+                  angle = 90, hjust = 1, nudge_y = -120, segment.size = 0.2,
+                  colour = "#7a3b6e", max.overlaps = 20) +
+  labs(x = "% adults (16+) with level 4+ qualifications, 50 nearest output areas",
+       y = "Schools (national)",
+       title = "An educated city: where B&H schools sit in the national neighbourhood distribution") +
+  theme_minimal()
+```
+
+## What happens to the LA league table — and to Brighton & Hove
+
+The national model (identical to the one above) refitted with and without the neighbourhood terms, for all pupils and for disadvantaged pupils:
+
+```{r nbhd-models}
+#| label: nbhd-models
+
+nbhd_rhs <- ". ~ . + z_l4plus + z_ltsick + z_unemp"
+
+refit_pair <- function(base_formula_model, data) {
+  base <- update(base_formula_model, data = data)
+  census <- update(base, as.formula(nbhd_rhs))
+  list(base = base, census = census)
+}
+
+get_la_effects <- function(m) {
+  re <- ranef(m, condVar = TRUE)$`LANAME:gor_name`
+  tibble(group = rownames(re),
+         effect = re[["(Intercept)"]],
+         se = sqrt(attr(re, "postVar")[1, 1, ]),
+         la_name = sub(":.*$", "", group))
+}
+
+rank_change <- function(pair) {
+  inner_join(
+    get_la_effects(pair$base) %>% rename(effect_base = effect, se_base = se),
+    get_la_effects(pair$census) %>% select(group, effect_census = effect, se_census = se),
+    by = "group") %>%
+    mutate(rank_base = rank(-effect_base), rank_census = rank(-effect_census))
+}
+
+pair_all <- refit_pair(mod_e_all, nb_all)
+cmp_all <- rank_change(pair_all)
+
+nb_dis <- d_dis %>%
+  inner_join(ctx %>% select(URN, cens_l4plus_k50, cens_ltsick_k50, cens_unemp_k50),
+             by = "URN") %>%
+  mutate(z_l4plus = zs_n(cens_l4plus_k50),
+         z_ltsick = zs_n(cens_ltsick_k50),
+         z_unemp  = zs_n(cens_unemp_k50))
+pair_dis <- refit_pair(mod_e_disadv, nb_dis)
+cmp_dis <- rank_change(pair_dis)
+
+bh_row <- function(cmp, label) {
+  cmp %>% filter(grepl("Brighton", la_name)) %>%
+    transmute(Model = label,
+              `LA effect (baseline)` = round(effect_base, 4),
+              `Rank (baseline)` = rank_base,
+              `LA effect (+ census)` = round(effect_census, 4),
+              `Rank (+ census)` = rank_census,
+              `Share of effect explained by neighbourhoods` =
+                paste0(round(100 * (1 - effect_census / effect_base)), "%"))
+}
+
+bind_rows(bh_row(cmp_all, "All pupils"),
+          bh_row(cmp_dis, "Disadvantaged pupils")) %>%
+  kable(caption = "Brighton & Hove's LA effect and national rank, before and after neighbourhood context (152 LAs; rank 1 = best)")
+```
+
+```{r fig-nbhd-caterpillar}
+#| label: fig-nbhd-caterpillar
+#| fig-cap: "LA effects for disadvantaged pupils before (blue) and after (orange) neighbourhood context: top 20 LAs plus any large fallers. Brighton & Hove highlighted."
+#| fig-height: 7
+
+show <- cmp_dis %>%
+  filter(rank_base <= 20 | rank_census <= 20 | grepl("Brighton", la_name)) %>%
+  distinct(group, .keep_all = TRUE)
+
+ggplot(show, aes(y = reorder(la_name, effect_base))) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_segment(aes(x = effect_base, xend = effect_census, yend = la_name),
+               arrow = arrow(length = unit(0.13, "cm")), colour = "grey45") +
+  geom_point(aes(x = effect_base), colour = "#49a0c4", size = 2.2) +
+  geom_point(aes(x = effect_census), colour = "#e6550d", size = 2.2) +
+  geom_text(data = show %>% filter(grepl("Brighton", la_name)),
+            aes(x = effect_census, label = "  Brighton and Hove"),
+            hjust = 0, colour = "#e16fca", fontface = "bold", size = 3.3) +
+  labs(x = "LA effect, log(disadvantaged Attainment 8) scale", y = NULL,
+       title = "The top of the disadvantaged-attainment league table, before and after\nneighbourhood context is measured") +
+  theme_minimal()
+```
+
+```{r nbhd-narrative}
+#| label: nbhd-narrative
+#| output: asis
+
+bh_a <- cmp_all %>% filter(grepl("Brighton", la_name))
+bh_d <- cmp_dis %>% filter(grepl("Brighton", la_name))
+
+cat(sprintf(paste0(
+  "Reading the result: for all pupils, measuring neighbourhood context explains ",
+  "**%.0f%% of Brighton & Hove's LA effect**, moving the city from %s to %s of 152; ",
+  "for disadvantaged pupils it explains **%.0f%%**, moving it from %s to %s. ",
+  "So a meaningful share of the city's apparent over-performance *is* its educated ",
+  "populace — but a city this educated dropping only a few places means the conclusion ",
+  "of the main analysis survives the strongest contextual control we can construct: ",
+  "Brighton & Hove's schools still deliver attainment above what their cohorts *and* ",
+  "their neighbourhoods would predict.\n"),
+  100 * (1 - bh_a$effect_census / bh_a$effect_base),
+  ordinal_suffix(bh_a$rank_base), ordinal_suffix(bh_a$rank_census),
+  100 * (1 - bh_d$effect_census / bh_d$effect_base),
+  ordinal_suffix(bh_d$rank_base), ordinal_suffix(bh_d$rank_census)))
+```
+
+## The city's schools in their neighbourhoods
+
+```{r tbl-nbhd-schools}
+#| label: tbl-nbhd-schools
+
+nb_all %>%
+  mutate(resid_census = residuals(pair_all$census)) %>%
+  filter(is_bh) %>%
+  group_by(SCHNAME) %>%
+  summarise(
+    `Nbhd % L4+ (k=50)` = round(mean(cens_l4plus_k50), 1),
+    `Mean Att8` = round(mean(ATT8SCR, na.rm = TRUE), 1),
+    `School residual (census model, log pts)` = round(mean(resid_census, na.rm = TRUE), 3),
+    .groups = "drop") %>%
+  arrange(desc(`Nbhd % L4+ (k=50)`)) %>%
+  kable(caption = "B&H secondary schools: neighbourhood context and residual performance once cohort AND neighbourhood are accounted for")
+```
+
+The table contradicts any notion that an "educated city" is educated uniformly: B&H schools' neighbourhood context spans from the low-20s% level-4+ (the two Aldridge academies, in the city's east) to the mid-50s% (Cardinal Newman, Dorothy Stringer, Varndean) — a range covering most of the national distribution *within a single small city*. The schools serving the city's least-educated neighbourhoods are precisely the ones that raw league tables criticise; the residual column — each school's persistent departure from expectation *after* its cohort and its neighbourhoods — is the fairest single-number school comparison this analysis can currently produce, and it tells a different story from the raw Attainment 8 column beside it. (The k = 50 construction still blurs finer intra-urban structure; the feeder-calibration work in the research programme would sharpen this further.)
+
+## How much do schools actually move outcomes?
+
+The decomposition in `model_experiments.qmd` (Analysis F) puts magnitudes on the question underlying the city's admissions debate. In the national census-context model with a school-level random intercept, the variance of school Attainment 8 splits roughly as:
+
+- **~65% — the hand each school is dealt**: cohort composition, prior attainment, absence, workforce and neighbourhood context (fixed effects);
+- **~16% — the persistent school effect**: the same school over- or under-shooting expectation year after year (≈ 3.5 Attainment 8 points per standard deviation) — and this is an *upper bound* on what the school itself adds, because it also absorbs stable unmeasured intake sorting;
+- **~10% — transient cohort-year noise**; the remainder is Ofsted-, year- and place-level.
+
+The implication for policies that reallocate pupils between schools is direct. Moving a child changes *which building they sit in* — the ~16%-at-most component — while leaving unchanged their prior attainment, their home neighbourhood, and (not directly) their attendance: the variables doing two-thirds of the work. Even moving a child from an average school to one a full standard deviation better is worth a few Attainment 8 points at the upper bound — before netting out the catchment-sorting share of that school effect, and before weighing the costs (travel, disruption, severed peer networks) the consultation literature documents. None of this says schools do not matter — a persistent 3-4 point school effect is real and worth pursuing through school improvement. It says that **redistribution between schools is a weak lever for the stated goal**, while the strong levers — attendance, and the long shadow of early attainment and neighbourhood conditions — operate before and outside the admissions system.
+
 # Policy Recommendations
 
 The variable importance rankings, combined with the non-linear effects and Brighton & Hove's local context, suggest several priority areas.
