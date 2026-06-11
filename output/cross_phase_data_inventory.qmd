@@ -109,7 +109,7 @@ The three attainment panels share conventions: school/provider rows keyed by URN
 
 **Sources:** CSCP `england_ks2final.csv` (auto-downloaded), shared census/absence/school-information files, EES workforce cache, Ofsted MI snapshot, GIAS closures.
 
-**Coverage notes:** KS2 school-level results exist only from 2022-23 — assessments were cancelled in 2019-20 and 2020-21, and the 2021-22 results were not published at school level. So the primary panel is three years against the secondary panel's four. KS1-baseline progress measures (`READPROG` etc.) are being retired with the end of statutory KS1 assessment; the average scaled scores are the durable outcomes.
+**Coverage notes:** KS2 school-level results exist only from 2022-23 — assessments were cancelled in 2019-20 and 2020-21, and the 2021-22 results were not published at school level. So the primary panel is three years against the secondary panel's four. KS1-baseline progress measures (`READPROG` etc.) survive in only one panel year and the series is now permanently dead — see @sec-ks1; the average scaled scores are the durable outcomes.
 
 **Outcomes:** % reaching expected/higher standard in reading, writing & maths combined (`PTRWM_EXP`, `PTRWM_HIGH`); average scaled scores in reading, maths, GPS (`READ_AVERAGE`, `MAT_AVERAGE`, `GPS_AVERAGE` — the closest analogues to Attainment 8); KS1-baseline progress scores; all with disadvantaged/non-disadvantaged and boy/girl splits.
 
@@ -130,6 +130,30 @@ ks2 %>%
 ```
 
 Workforce shows 0% for 2024-25 — the same gap as the secondary panel, where the latest workforce year is handled by imputation downstream. Ofsted comes from the national MI snapshot (as at 31 Aug 2024) because the school-information files stopped carrying ratings after 2022-23.
+
+## The KS1 baseline problem {#sec-ks1}
+
+KS1 deserves its own entry in the gap register, because its disappearance quietly removes the *within-primary* baseline in the same way the KS3 abolition removed the mid-secondary one — and the panel already shows the consequence concretely:
+
+```{r ks1-progress-coverage}
+ks2 %>%
+  group_by(Year = year_label) %>%
+  summarise(
+    Schools = n(),
+    `% with READPROG` = pct(READPROG),
+    `% with WRITPROG` = pct(WRITPROG),
+    `% with MATPROG` = pct(MATPROG)
+  ) %>% kable(caption = "KS1-baseline KS2 progress measures: coverage by panel year")
+```
+
+**One year of the three-year panel has progress measures at all.** Two independent causes collide: the 2023-24 KS2 cohort's KS1 assessments (sat in 2019-20) were cancelled by COVID, so that cohort *never had* a baseline; and KS1 assessment became non-statutory from September 2023 (the 2022-23 round was the last statutory collection), so no future KS2 cohort will have one either. The COVID gap and the policy decision together make 2022-23 the **final cohort in history** with published KS1-baseline KS2 progress scores. Note also that KS1 results were teacher assessments published only at national/LA level — there was never a school-level KS1 attainment file to ingest, which is why this register has no KS1 dataset row.
+
+What this means for the project, in order of consequence:
+
+1. **Average scaled scores are the only durable KS2 outcomes.** Anything built on `READPROG`/`WRITPROG`/`MATPROG` is building on a discontinued series with one usable panel year.
+2. **Primary models are permanently denied a school-level entry-ability baseline.** This is the measured cost from the model experiments: prior attainment is worth ≈ +0.22 marginal R² at KS4 (Phase E), the census neighbourhood proxy recovers only ≈ +0.05 of the KS2 equivalent (Phase F) — and with EYFSP published only at LA level and phonics a narrow single-skill check, no open-data substitute exists.
+3. **Early primary is becoming a second dark zone.** The measurement spine now runs: phonics (Y1, narrow) → *nothing* → KS2 (Y6) — a within-primary mirror of the KS3 gap (@sec-ks3), with the same bid-able implication: the gaps in national measurement map directly onto the places where school-level value-added claims cannot currently be made.
+4. **The replacement is coming, but slowly and privately.** The statutory Reception Baseline Assessment (RBA, from September 2021) is pupil-level and *not published* at school level; DfE has signalled RBA-based reception→KS2 progress measures when the first RBA cohort reaches Year 6 (~2027-28, within a funded project's horizon). Whether any school-level RBA-baseline data reaches the public estate — or stays NPD-only — is itself a data-infrastructure question the project can speak to.
 
 # KS4 — secondary (the original panel)
 
@@ -353,7 +377,7 @@ tibble(
   Stage = c("EYFS", "KS1", "KS2", "KS3", "KS4", "KS5", "destinations"),
   `National attainment data` = c(
     "EYFSP (LA level)",
-    "Phonics Y1 (school level); KS1 tests ended 2023",
+    "Phonics Y1 (school level); KS1 ENDED 2023 — last baselined KS2 cohort was 2022-23 (see KS1 section)",
     "Tests: scaled scores, expected standard (school level) ✔ IN PANEL",
     "NONE — tests abolished 2008, TA ended 2014",
     "GCSE: Attainment 8 / Progress 8 (school level) ✔ IN PANEL",
@@ -370,7 +394,7 @@ tibble(
 ) %>% kable(caption = "What the open data estate measures, by age")
 ```
 
-The two annotated gaps — **KS3 attainment** and **post-16 attendance** — are the pipeline's blind spots, and both are now precisely characterised for the funding case.
+The three annotated gaps — **the KS1/early-primary baseline** (@sec-ks1), **KS3 attainment** (@sec-ks3) and **post-16 attendance** — are the pipeline's blind spots, each now precisely characterised for the funding case: every one of them marks an age range where value-added claims about institutions cannot currently be made from open data.
 
 # Towards a full intelligence system {#sec-roadmap}
 
