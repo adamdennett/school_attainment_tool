@@ -140,24 +140,32 @@ fetch_oa_centroids <- function(force = FALSE) {
 
 # ---- 3. k-nearest-OA aggregation per school ----
 
-build_school_census_context <- function(k_max = 10, save = TRUE) {
+build_school_census_context <- function(k_set = c(5, 10, 25, 50), save = TRUE) {
+
+  k_max <- max(k_set)
 
   oa <- build_oa_indicators() %>%
     inner_join(fetch_oa_centroids(), by = "oa21cd") %>%
     filter(!is.na(easting), !is.na(northing))
   message("OAs with indicators + centroids: ", nrow(oa))
 
-  # Schools: every URN in the KS2 panel, coordinates from the GIAS register
-  ks2_urns <- readRDS(here::here("data", "ks2", "ks2_panel.rds")) %>%
-    distinct(URN)
+  # Schools/providers: every URN in any of the three panels, coordinates from
+  # GIAS. Larger k values serve secondary/post-16 (bigger catchments); primary
+  # analyses typically use k = 5/10.
+  panel_urns <- bind_rows(
+    readRDS(here::here("data", "ks2", "ks2_panel.rds")) %>% distinct(URN),
+    readRDS(here::here("data", "panel_data.rds")) %>% distinct(URN),
+    readRDS(here::here("data", "ks5", "ks5_panel.rds")) %>% distinct(URN)
+  ) %>% distinct(URN)
+
   gias <- readRDS(here::here("data", "gias", "gias_establishments.rds")) %>%
     mutate(easting = suppressWarnings(as.numeric(easting)),
            northing = suppressWarnings(as.numeric(northing)))
-  schools <- ks2_urns %>%
+  schools <- panel_urns %>%
     left_join(gias %>% select(URN = urn, easting, northing), by = "URN") %>%
     filter(!is.na(easting), !is.na(northing), easting > 0)
-  message("Schools with coordinates: ", nrow(schools), " of ", nrow(ks2_urns),
-          " KS2 panel URNs")
+  message("Schools/providers with coordinates: ", nrow(schools), " of ",
+          nrow(panel_urns), " panel URNs")
 
   # kNN: nearest k_max OA centroids per school (nabor = fast libnabo kd-tree)
   nn <- nabor::knn(data = as.matrix(oa[, c("easting", "northing")]),
@@ -188,24 +196,24 @@ build_school_census_context <- function(k_max = 10, save = TRUE) {
       )
   }
 
-  idw10 <- long %>%
-    filter(rank <= k_max) %>%
-    mutate(w = 1 / pmax(dist_m, 50)) %>%
-    group_by(row) %>%
-    summarise(
-      across(all_of(indicators),
-             \(x) sum(x * w, na.rm = TRUE) / sum(w[!is.na(x)]),
-             .names = paste0("{.col}_idw", k_max)),
-      mean_dist_k10 = mean(dist_m) / 1000,
-      .groups = "drop"
-    )
+  idw_for_k <- function(k) {
+    long %>%
+      filter(rank <= k) %>%
+      mutate(w = 1 / pmax(dist_m, 50)) %>%
+      group_by(row) %>%
+      summarise(
+        across(all_of(indicators),
+               \(x) sum(x * w, na.rm = TRUE) / sum(w[!is.na(x)]),
+               .names = paste0("{.col}_idw", k)),
+        !!paste0("mean_dist_k", k) := mean(dist_m) / 1000,
+        .groups = "drop"
+      )
+  }
 
-  out <- schools %>%
-    mutate(row = row_number()) %>%
-    left_join(agg_for_k(5), by = "row") %>%
-    left_join(agg_for_k(k_max), by = "row") %>%
-    left_join(idw10, by = "row") %>%
-    select(-row)
+  out <- schools %>% mutate(row = row_number())
+  for (k in k_set) out <- out %>% left_join(agg_for_k(k), by = "row")
+  for (k in intersect(c(10, 50), k_set)) out <- out %>% left_join(idw_for_k(k), by = "row")
+  out <- out %>% select(-row)
 
   if (save) {
     saveRDS(out, file.path(census_dir, "school_census_context.rds"))

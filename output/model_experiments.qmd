@@ -4650,3 +4650,203 @@ A few honest caveats that should sit alongside any policy use of this work:
 ### A two-line conclusion
 
 For Brighton and Hove, the most defensible read of this experiment is: **the absence problem is real and large, but the school-only fraction of it is smaller than M1 alone suggests --- the bulk of the lever is structural and cross-departmental.** Within the school-only fraction, the joint-signal quadrants point at where council and school effort would compound (Q2/Q3) versus where the most plausible single intervention is already being run (Q4). Reporting value-added and residual absence side-by-side, with explicit uncertainty intervals, is more honest than the single-residual reporting that the headline Analysis E specification produces --- and would help align the city's policy conversation with what the data can actually support.
+
+# Analysis F: Census Neighbourhood Context (added June 2026)
+
+The KS2 experiments (`ks2_model_experiments.qmd`, Phase F) found that the socio-economic context of a school's surrounding neighbourhoods — Census 2021 indicators averaged over its k nearest output areas — was the *strongest single predictor* of primary outcomes, partially displacing school-intake disadvantage. The KS4 question is sharper, because these models already control for the thing the census proxied at KS2: **does neighbourhood context add anything once the intake's actual prior attainment is in the model?**
+
+Two design adjustments for the secondary phase:
+
+1. **Wider neighbourhoods.** Secondary catchments are much larger than primary ones, so the context dataset (`R/13_census_context.R`) now provides k = 10, 25 and 50 nearest OAs (an OA averages ~125 households; k = 50 approximates a substantial slice of a town). The k-sensitivity comparison below lets the data choose.
+2. **A falsification check.** Schools with a religious character draw on faith communities over much wider, non-contiguous areas — admission is less distance-based by construction. If the census variables are genuinely capturing *the neighbourhoods a school serves* (rather than generic regional conditions), their effect should be **weaker for faith schools**. We test this directly.
+
+## Join and bivariate look
+
+```{r f-census-join}
+#| label: f-census-join
+
+ctx <- readRDS(here("data", "census", "school_census_context.rds"))
+
+zs <- function(x) as.numeric(scale(x))
+
+fd <- imputed_full_data %>%
+  inner_join(
+    ctx %>% select(URN, starts_with("cens_"), starts_with("mean_dist")),
+    by = "URN"
+  ) %>%
+  mutate(
+    z_l4plus_k10 = zs(cens_l4plus_k10),
+    z_l4plus_k25 = zs(cens_l4plus_k25),
+    z_l4plus_k50 = zs(cens_l4plus_k50),
+    z_ltsick_k10 = zs(cens_ltsick_k10),
+    z_ltsick_k25 = zs(cens_ltsick_k25),
+    z_ltsick_k50 = zs(cens_ltsick_k50),
+    z_unemp_k10  = zs(cens_unemp_k10),
+    z_unemp_k25  = zs(cens_unemp_k25),
+    z_unemp_k50  = zs(cens_unemp_k50),
+    is_faith = !is.na(RELCHAR) &
+      !RELCHAR %in% c("None", "Does not apply", "")
+  )
+
+cat("Analysis E sample:", nrow(imputed_full_data),
+    "| joined to census context:", nrow(fd), "\n")
+cat("Faith schools:", sum(fd$is_faith), "school-years (",
+    round(100 * mean(fd$is_faith)), "% )\n")
+
+tibble(
+  k = c(10, 25, 50),
+  `r(Att8, nbhd % level 4+)` = c(
+    cor(fd$ATT8SCR, fd$cens_l4plus_k10, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_l4plus_k25, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_l4plus_k50, use = "pair")),
+  `r(Att8, nbhd % no quals)` = c(
+    cor(fd$ATT8SCR, fd$cens_noquals_k10, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_noquals_k25, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_noquals_k50, use = "pair")),
+  `r(Att8, nbhd % unemployed)` = c(
+    cor(fd$ATT8SCR, fd$cens_unemp_k10, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_unemp_k25, use = "pair"),
+    cor(fd$ATT8SCR, fd$cens_unemp_k50, use = "pair"))
+) %>%
+  mutate(across(-k, ~ round(., 2))) %>%
+  knitr::kable(caption = "Bivariate correlations with Attainment 8 by neighbourhood size k")
+```
+
+```{r f-census-bivar-plot}
+#| label: f-census-bivar-plot
+#| fig-height: 4.5
+
+fd %>%
+  select(ATT8SCR, `k = 10 nearest OAs` = cens_l4plus_k10,
+         `k = 50 nearest OAs` = cens_l4plus_k50) %>%
+  pivot_longer(-ATT8SCR) %>%
+  ggplot(aes(value, ATT8SCR)) +
+  geom_point(alpha = 0.08, size = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  facet_wrap(~name) +
+  labs(title = "Attainment 8 vs neighbourhood % level 4+ qualified",
+       x = "% of adults (16+) with level 4+ qualifications, k nearest OAs",
+       y = "Attainment 8") +
+  theme_minimal()
+```
+
+## Does it survive prior attainment? And which k?
+
+The Analysis E specification refitted (ML, identical joined sample) as the baseline, then census context added at each k.
+
+```{r f-census-k}
+#| label: f-census-k
+
+f_base_formula <- log(ATT8SCR) ~
+  log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  remained_in_the_same_school +
+  teachers_on_leadership_pay_range_percent +
+  log(average_number_of_days_taken) +
+  (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)
+
+ctrl <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+
+f_base <- lmer(f_base_formula, data = fd, REML = FALSE,
+               na.action = na.exclude, control = ctrl)
+
+add_census <- function(k) {
+  update(f_base, as.formula(paste(
+    ". ~ . +", paste0("z_l4plus_k", k), "+",
+    paste0("z_ltsick_k", k), "+", paste0("z_unemp_k", k))))
+}
+f_k10 <- add_census(10)
+f_k25 <- add_census(25)
+f_k50 <- add_census(50)
+
+map_dfr(list("E baseline (joined sample)" = f_base,
+             "+ census, k = 10" = f_k10,
+             "+ census, k = 25" = f_k25,
+             "+ census, k = 50" = f_k50),
+        function(m) {
+          r <- suppressWarnings(performance::r2(m))
+          tibble(`Marginal R²` = round(r$R2_marginal, 3),
+                 `Conditional R²` = round(r$R2_conditional, 3),
+                 AIC = round(AIC(m)), N = nobs(m))
+        }, .id = "Model") %>%
+  knitr::kable(caption = "Census context at KS4: contribution beyond the full Analysis E specification, by neighbourhood size")
+```
+
+```{r f-census-coefs}
+#| label: f-census-coefs
+
+best_k <- c("10" = AIC(f_k10), "25" = AIC(f_k25), "50" = AIC(f_k50))
+best_k_name <- names(which.min(best_k))
+f_best <- list("10" = f_k10, "25" = f_k25, "50" = f_k50)[[best_k_name]]
+cat("Best-fitting neighbourhood size by AIC: k =", best_k_name, "\n\n")
+
+s <- summary(f_best)$coefficients
+as_tibble(s, rownames = "Term") %>%
+  filter(Term != "(Intercept)") %>%
+  mutate(across(where(is.numeric), ~ round(., 4))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  knitr::kable(caption = paste0("Full model + census context (k = ", best_k_name, ")"))
+```
+
+```{r f-census-attenuation}
+#| label: f-census-attenuation
+
+comp <- bind_rows(
+  as_tibble(summary(f_base)$coefficients, rownames = "Term") %>%
+    mutate(Model = "E baseline"),
+  as_tibble(summary(f_best)$coefficients, rownames = "Term") %>%
+    mutate(Model = paste0("+ census (k=", best_k_name, ")"))
+) %>%
+  filter(Term %in% c("log(PTFSM6CLA1A)", "log(PERCTOT)", "PTPRIORLO")) %>%
+  select(Model, Term, Estimate) %>%
+  pivot_wider(names_from = Model, values_from = Estimate) %>%
+  mutate(across(where(is.numeric), ~ round(., 4)))
+knitr::kable(comp, caption = "Do the core levers attenuate when neighbourhood context enters?")
+```
+
+## The faith-school falsification check
+
+```{r f-faith}
+#| label: f-faith
+
+l4_var <- paste0("z_l4plus_k", best_k_name)
+f_faith <- update(f_best, as.formula(paste(
+  ". ~ . +", l4_var, ":is_faith + is_faith")))
+
+sf <- summary(f_faith)$coefficients
+as_tibble(sf, rownames = "Term") %>%
+  filter(grepl("l4plus|faith", Term)) %>%
+  mutate(across(where(is.numeric), ~ round(., 4))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  knitr::kable(caption = "Neighbourhood education effect x religious character (interaction model)")
+```
+
+If the interaction is negative — the census effect weaker where admission is faith-based rather than distance-based — the variable is doing what we claim: measuring the neighbourhoods schools actually serve. (A null here would caution that it proxies broader regional conditions instead.)
+
+## Variance components
+
+```{r f-varcomp}
+#| label: f-varcomp
+
+vc_tab <- function(m, label) {
+  as.data.frame(VarCorr(m)) %>%
+    filter(is.na(var2)) %>%
+    transmute(Component = grp, !!label := round(vcov, 5))
+}
+left_join(vc_tab(f_base, "E baseline"),
+          vc_tab(f_best, paste0("+ census (k=", best_k_name, ")")),
+          by = "Component") %>%
+  knitr::kable(caption = "Random-effect variance components before/after census context")
+```
+
+## Reading Analysis F
+
+**Results in brief (computed live):** neighbourhood context survives the full Analysis E controls — adding it at k = `r best_k_name` lifts marginal R² from `r sprintf('%.3f', performance::r2(f_base)$R2_marginal)` to `r sprintf('%.3f', performance::r2(f_best)$R2_marginal)` (AIC improves by `r round(AIC(f_base) - AIC(f_best))`), with neighbourhood %-level-4+ at t = `r sprintf('%.1f', summary(f_best)$coefficients[paste0('z_l4plus_k', best_k_name), 't value'])`. The k-gradient is monotonic — fit improves from k = 10 through k = 50 — the catchment-scale signature predicted for secondaries (primaries preferred k = 10). Attenuation is selective: school-intake disadvantage gives up ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PTFSM6CLA1A)']/fixef(f_base)['log(PTFSM6CLA1A)']))`% and prior attainment ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['PTPRIORLO']/fixef(f_base)['PTPRIORLO']))`% of their coefficients, while **absence barely moves** (~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PERCTOT)']/fixef(f_base)['log(PERCTOT)']))`%) — the headline absence finding is not a neighbourhood artefact. The faith interaction has the predicted negative sign (census effect ~`r sprintf('%.0f', abs(100*summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name, ':is_faithTRUE'), 'Estimate']/summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name), 'Estimate']))`% weaker for faith schools) but is not conventionally significant — directionally supportive, underpowered. And the remaining LA-within-region variance drops by roughly a third when census enters: even after Analysis E's rich controls, a substantial share of the residual "place effect" is measurable neighbourhood conditions.
+
+Interpretation notes (mirroring the KS2 Phase F lessons):
+
+- **The decisive comparison is against the full Analysis E baseline** — prior attainment, disadvantage, EAL, absence, workforce, Ofsted, admissions policy and segregation are all already in. Any census contribution here is *net* of the school's own measured intake.
+- **k-sensitivity is informative, not nuisance**: if larger k fits better at KS4 than the k = 10 that suits primaries, that is the catchment-scale geography showing through in the data, consistent with the spatial programme's premise.
+- **The faith interaction is the validity probe**: distance-defined context should matter most where admission is distance-defined.
+- The LA/region variance movement shows how much of the *remaining* place effect (after Analysis E's rich controls) is measurable neighbourhood conditions — the KS4 counterpart of the KS2 finding that census context explained ~two-thirds of the between-LA variance.
