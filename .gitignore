@@ -109,3 +109,7 @@ funding/
 data/ks4_destinations.rds
 data/engagement/
 data/place/
+
+# Census 2021 context layer (regenerate via R/13_census_context.R)
+data/census/
+data-raw/census2021/

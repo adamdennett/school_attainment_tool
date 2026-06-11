@@ -515,6 +515,83 @@ map_dfr(list("KS4 common spec" = a1, "KS4 + prior attainment" = a2),
   kable(caption = "The prior-attainment dividend at KS4 (same sample both rows)")
 ```
 
+# Phase F — Census 2021 neighbourhood context as a prior-attainment proxy
+
+KS2 models lack the ingredient that powers KS4 models (Phase E). The nearest open-data substitute: the **socio-economic position of the neighbourhoods each school serves**, from Census 2021 at output-area level — parental human capital (highest qualification) and labour-market status — averaged over each school's k nearest OA population-weighted centroids (`R/13_census_context.R`; k = 10, inverse-distance-weighted).
+
+```{r census-join}
+ctx <- readRDS(here("data", "census", "school_census_context.rds"))
+
+ks2c <- ks2z %>%
+  inner_join(ctx %>% select(URN, starts_with("cens_"), mean_dist_k10), by = "URN") %>%
+  mutate(z_l4plus = zs(cens_l4plus_idw10),
+         z_ltsick = zs(cens_ltsick_idw10),
+         z_cunemp = zs(cens_unemp_idw10),
+         z_dist = zs(log(mean_dist_k10)))
+
+tibble(
+  Variable = c("% level 4+ qualified (k=10, IDW)", "% no qualifications",
+               "% unemployed", "% economically inactive", "% long-term sick",
+               "Mean distance to 10 nearest OAs (km)"),
+  `r with reading score` = round(c(
+    cor(ks2c$READ_AVERAGE, ks2c$cens_l4plus_idw10, use = "pair"),
+    cor(ks2c$READ_AVERAGE, ks2c$cens_noquals_idw10, use = "pair"),
+    cor(ks2c$READ_AVERAGE, ks2c$cens_unemp_idw10, use = "pair"),
+    cor(ks2c$READ_AVERAGE, ks2c$cens_inactive_idw10, use = "pair"),
+    cor(ks2c$READ_AVERAGE, ks2c$cens_ltsick_idw10, use = "pair"),
+    cor(ks2c$READ_AVERAGE, ks2c$mean_dist_k10, use = "pair")), 2)
+) %>% kable(caption = "Neighbourhood census indicators vs school reading score (bivariate)")
+```
+
+```{r census-bivariate}
+#| fig-height: 4.5
+ks2c %>%
+  select(READ_AVERAGE, `% level 4+ qualified` = cens_l4plus_idw10,
+         `% long-term sick` = cens_ltsick_idw10) %>%
+  pivot_longer(-READ_AVERAGE) %>%
+  ggplot(aes(value, READ_AVERAGE)) +
+  geom_point(data = ~ slice_sample(.x, prop = 0.3), alpha = 0.05, size = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue") +
+  geom_smooth(method = "loess", se = FALSE, colour = "red") +
+  facet_wrap(~name, scales = "free_x") +
+  coord_cartesian(ylim = c(95, 115)) +
+  labs(title = "Reading scaled score vs neighbourhood census context (10 nearest OAs)",
+       x = NULL, y = "Reading scaled score") +
+  theme_minimal()
+```
+
+Does it add anything *beyond* the school's own composition (which already encodes some of the same geography through intake)?
+
+```{r census-models}
+f0 <- lmer(z_read ~ z_abs + z_pers + z_fsm + z_eal + z_size + z_mob + ofsted +
+             year_label + (1 | LANAME), data = ks2c, REML = FALSE)
+f1 <- update(f0, . ~ . + z_l4plus + z_ltsick + z_cunemp + z_dist)
+
+map_dfr(list("M3 (same sample)" = f0, "M3 + census context" = f1), function(m) {
+  r <- suppressWarnings(r2(m))
+  tibble(`Marginal R²` = round(r$R2_marginal, 3),
+         `Conditional R²` = round(r$R2_conditional, 3),
+         AIC = round(AIC(m)), N = nobs(m))
+}, .id = "Model") %>%
+  kable(caption = "The census-context dividend at KS2 (identical samples)")
+```
+
+```{r census-coefs}
+sf1 <- summary(f1)$coefficients
+as_tibble(sf1, rownames = "Term") %>%
+  filter(grepl("^z_", Term)) %>%
+  mutate(Term = recode(Term, z_abs = "Absence", z_pers = "Persistent absence",
+    z_fsm = "Disadvantage (school intake)", z_eal = "EAL", z_size = "School size",
+    z_mob = "Non-mobile %", z_l4plus = "Nbhd % level 4+ (census)",
+    z_ltsick = "Nbhd % long-term sick (census)",
+    z_cunemp = "Nbhd % unemployed (census)", z_dist = "log mean OA distance"),
+    across(where(is.numeric), ~ round(., 3))) %>%
+  select(Term, Estimate, `Std. Error`, `t value`) %>%
+  kable(caption = "M3 + census context: standardised coefficients")
+```
+
+Read the comparison both ways: the R² gain tells you what neighbourhood context adds **net of intake composition**, and the change in the school-intake disadvantage coefficient between M3 and this model tells you how much of "disadvantage" was really *neighbourhood* all along — the residence-vs-school geography distinction from the spatial programme, here in regression form.
+
 # Diagnostics for the headline KS2 model (M3)
 
 ```{r diagnostics}
@@ -567,3 +644,4 @@ bind_rows(head(re, 15) %>% mutate(end = "Lowest 15"),
 3. **Prior attainment is the decisive KS4 ingredient** (Phase E: adding it lifts marginal R² substantially) — and it *cannot exist* at KS2 school level since KS1 assessment ended. Primary models will never look like secondary models; uncertainty-honest presentation (Bayesian shrinkage, intervals) matters more here.
 4. **Non-linearity exists at KS2 but is gentler** — the accelerating-returns lever logic has less range to work with in primary absence.
 5. **Practical implication for the intelligence system:** KS2 contextual benchmarking is feasible and useful (the LA caterpillar already shows credible variation), but should lean on multi-year averages and displayed uncertainty rather than single-year point estimates.
+6. **Census neighbourhood context partially fills the prior-attainment hole** (Phase F). Adding the k-nearest-OA census indicators lifts marginal R² from 0.31 to 0.35 (AIC −1,722), and neighbourhood adult education (% level 4+) enters as the **single strongest predictor in the model** — larger than school-intake disadvantage, which it partially displaces. The conditional R² *falls* slightly because the census variables explain variance the LA random effect was previously absorbing blindly: geography measured rather than geography black-boxed. This validates the residence-vs-school geography agenda in the spatial programme, and suggests the same construction (k-nearest-OA context) belongs in the KS4 and KS5 models too.
