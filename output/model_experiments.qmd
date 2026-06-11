@@ -4999,6 +4999,116 @@ Two readings of the school component, and both matter for the B&H debate:
 - It is an **upper bound** on the causal effect of school membership: the URN intercept absorbs everything persistently school-specific that the model cannot see — genuinely better teaching and leadership, but also stable unmeasured intake sorting (the sought-after school's catchment premium). The true "what the school adds" effect is *at most* this large.
 - Even taken at face value, compare its magnitude with the fixed-effects share: the hand a school is dealt — its cohort's composition, prior attainment, attendance and neighbourhood context — dwarfs the school's own persistent departure from expectation. Reallocating pupils between schools redistributes *which building children sit in* but changes neither their prior attainment, their home neighbourhoods, nor (directly) their attendance — the variables doing almost all the work. The plausible attainment gain from moving a child to a school one standard deviation "better" is a few Attainment 8 points at most, and that is before netting out the catchment-sorting component of the school effect.
 
+### The same decomposition for disadvantaged pupils
+
+The B&H reallocation debate is specifically about *disadvantaged* attainment, so the decomposition that matters most uses the disadvantaged-pupil outcome:
+
+```{r f-school-effect-dis}
+#| label: f-school-effect-dis
+
+fd_dis <- fd %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  droplevels()
+contrasts(fd_dis$OFSTEDRATING_1) <- contr.treatment(levels(fd_dis$OFSTEDRATING_1))
+
+f_dis_base <- lmer(
+  log(ATT8SCR_FSM6CLA1A) ~
+    log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
+    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    remained_in_the_same_school +
+    teachers_on_leadership_pay_range_percent +
+    log(average_number_of_days_taken) +
+    (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
+  data = fd_dis, REML = FALSE, na.action = na.exclude, control = ctrl)
+
+f_dis_census <- update(f_dis_base, . ~ . + z_l4plus_k50 + z_ltsick_k50 + z_unemp_k50)
+f_dis_school <- update(f_dis_census, . ~ . + (1 | URN))
+
+mean_att8_dis <- mean(fd_dis$ATT8SCR_FSM6CLA1A, na.rm = TRUE)
+
+decompose_model <- function(m, att8_mean) {
+  vc <- as.data.frame(VarCorr(m)) %>% filter(is.na(var2))
+  fixed_var <- var(predict(m, re.form = NA), na.rm = TRUE)
+  total_var <- fixed_var + sum(vc$vcov)
+  vc %>%
+    transmute(Component = recode(grp,
+      "URN" = "School (persistent, unexplained)",
+      "LANAME:gor_name" = "LA (within region)",
+      "gor_name" = "Region",
+      "OFSTEDRATING_1" = "Ofsted rating",
+      "year_label" = "Year",
+      "Residual" = "Transient (cohort-year noise)"),
+      Variance = vcov) %>%
+    bind_rows(tibble(
+      Component = "Fixed effects (cohort, prior attainment, absence, workforce, neighbourhood)",
+      Variance = fixed_var)) %>%
+    mutate(`Share of total %` = round(100 * Variance / total_var, 1),
+           `SD (log Att8)` = round(sqrt(Variance), 4),
+           `~Attainment 8 points` = round(att8_mean * sqrt(Variance), 1)) %>%
+    arrange(desc(Variance))
+}
+
+decomp_dis <- decompose_model(f_dis_school, mean_att8_dis)
+
+knitr::kable(decomp_dis %>% select(-Variance),
+             caption = sprintf("Variance decomposition, disadvantaged pupils' log(Attainment 8) (N = %s; mean disadvantaged Att8 = %.1f)",
+                               format(nobs(f_dis_school), big.mark = ","), mean_att8_dis))
+```
+
+```{r f-school-effect-dis-plot}
+#| label: f-school-effect-dis-plot
+#| fig-height: 4
+
+decomp_dis %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#e6550d") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 3.2) +
+  xlim(0, max(decomp_dis$`Share of total %`) * 1.12) +
+  labs(title = "Where does variation in DISADVANTAGED pupils' Attainment 8 come from?",
+       subtitle = "Same model structure as the all-pupil decomposition above",
+       x = "Share of total outcome variance (%)", y = NULL) +
+  theme_minimal()
+```
+
+```{r f-dis-caterpillar-numbers}
+#| label: f-dis-caterpillar-numbers
+
+la_cmp_dis <- inner_join(
+  get_la_re(f_dis_base) %>% rename(effect_base = effect, se_base = se),
+  get_la_re(f_dis_census) %>% select(group, effect_census = effect, se_census = se),
+  by = "group") %>%
+  mutate(rank_base = rank(-effect_base), rank_census = rank(-effect_census),
+         rank_shift = rank_base - rank_census) %>%
+  left_join(la_l4, by = "la_name")
+
+bh_dis <- la_cmp_dis %>% filter(grepl("Brighton", la_name))
+cat("Disadvantaged pupils — Brighton and Hove: baseline effect",
+    round(bh_dis$effect_base, 4), "(rank", bh_dis$rank_base, ") -> with census",
+    round(bh_dis$effect_census, 4), "(rank", bh_dis$rank_census, ")\n")
+```
+
+```{r f-save-results}
+#| label: f-save-results
+
+# Cache headline Analysis F objects for reuse (e.g. slide decks) without refits
+saveRDS(list(
+  decomp_all = decomp, decomp_dis = decomp_dis,
+  la_cmp = la_cmp, la_cmp_dis = la_cmp_dis,
+  bh_all = la_cmp %>% filter(grepl("Brighton", la_name)),
+  bh_dis = bh_dis,
+  mean_att8_all = 46, mean_att8_dis = mean_att8_dis,
+  r2 = list(base_marginal = performance::r2(f_base)$R2_marginal,
+            census_marginal = performance::r2(f_best)$R2_marginal),
+  best_k = best_k_name,
+  cor_shift_l4 = cor(la_cmp$effect_census - la_cmp$effect_base,
+                     la_cmp$mean_l4plus, use = "pair")
+), here("data", "cache", "analysis_f_results.rds"))
+cat("Saved data/cache/analysis_f_results.rds\n")
+```
+
+The disadvantaged decomposition (compare shares with the all-pupil table above, computed live in both cases) carries the same structural message: the dominant share of variation is the hand the school is dealt; the persistent school component is real but secondary; and small disadvantaged cohorts make the transient share larger than for all pupils — single-year disadvantaged league tables are noisier still.
+
 ## Reading Analysis F
 
 **Results in brief (computed live):** neighbourhood context survives the full Analysis E controls — adding it at k = `r best_k_name` lifts marginal R² from `r sprintf('%.3f', performance::r2(f_base)$R2_marginal)` to `r sprintf('%.3f', performance::r2(f_best)$R2_marginal)` (AIC improves by `r round(AIC(f_base) - AIC(f_best))`), with neighbourhood %-level-4+ at t = `r sprintf('%.1f', summary(f_best)$coefficients[paste0('z_l4plus_k', best_k_name), 't value'])`. The k-gradient is monotonic — fit improves from k = 10 through k = 50 — the catchment-scale signature predicted for secondaries (primaries preferred k = 10). Attenuation is selective: school-intake disadvantage gives up ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PTFSM6CLA1A)']/fixef(f_base)['log(PTFSM6CLA1A)']))`% and prior attainment ~`r sprintf('%.0f', 100*(1 - fixef(f_best)['PTPRIORLO']/fixef(f_base)['PTPRIORLO']))`% of their coefficients, while **absence barely moves** (~`r sprintf('%.0f', 100*(1 - fixef(f_best)['log(PERCTOT)']/fixef(f_base)['log(PERCTOT)']))`%) — the headline absence finding is not a neighbourhood artefact. The faith interaction has the predicted negative sign (census effect ~`r sprintf('%.0f', abs(100*summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name, ':is_faithTRUE'), 'Estimate']/summary(f_faith)$coefficients[paste0('z_l4plus_k', best_k_name), 'Estimate']))`% weaker for faith schools) but is not conventionally significant — directionally supportive, underpowered. And the remaining LA-within-region variance drops by roughly a third when census enters: even after Analysis E's rich controls, a substantial share of the residual "place effect" is measurable neighbourhood conditions.

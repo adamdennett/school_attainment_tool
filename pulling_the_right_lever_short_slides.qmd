@@ -1051,6 +1051,63 @@ Non-linear effects mean the same adjustment produces **different impacts** depen
 :::
 
 
+# Neighbourhoods and the Limits of School Effects {background-color="#3A1857" .divider-slide}
+
+```{r nbhd-cache}
+#| include: false
+afr <- readRDS(here::here("data", "cache", "analysis_f_results.rds"))
+bh_a <- afr$bh_all; bh_d <- afr$bh_dis
+ordinal_suffix <- function(n) {
+  s <- ifelse(n %% 100 %in% 11:13, "th",
+              c("st", "nd", "rd", rep("th", 7))[pmin(n %% 10 + ifelse(n %% 10 == 0, 10, 0), 10)])
+  paste0(n, s)
+}
+```
+
+## New: the neighbourhood enters the model {.smaller}
+
+::: {.incremental}
+- Census 2021 adult education, unemployment and inactivity for every school's **50 nearest output areas** — added to the full model (prior attainment, disadvantage, absence, workforce all controlled)
+- **It survives** (t ≈ 16) — and re-ranks the LA league table: educated places lose part of their apparent over-performance (r = `r sprintf('%.2f', afr$cor_shift_l4)` with neighbourhood education)
+- **Brighton & Hove: `r ordinal_suffix(bh_a$rank_base)` → `r ordinal_suffix(bh_a$rank_census)`** (all pupils), **`r ordinal_suffix(bh_d$rank_base)` → `r ordinal_suffix(bh_d$rank_census)`** (disadvantaged) — about a `r ifelse(round(100*(1 - bh_a$effect_census/bh_a$effect_base)) >= 30, "third", "fifth")` of the city's effect is its educated populace; **still top decile** after the strongest contextual control we can build
+- The **absence coefficient barely moves** — the headline finding is not a neighbourhood artefact
+:::
+
+## Where variation in Attainment 8 comes from
+
+```{r nbhd-decomp-all}
+#| fig-height: 4.8
+afr$decomp_all %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#49a0c4") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  xlim(0, 75) +
+  labs(title = "Variance decomposition: all pupils (census model + school random intercept)",
+       subtitle = "The persistent school component is the UPPER BOUND on what changing schools could achieve",
+       x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+## The same picture for disadvantaged pupils {.smaller}
+
+```{r nbhd-decomp-dis}
+#| fig-height: 3.8
+afr$decomp_dis %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#e6550d") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  xlim(0, 70) +
+  labs(x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+::: {.incremental}
+- Persistent school effect ≈ **`r afr$decomp_dis[["Share of total %"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]`%** (≈ `r afr$decomp_dis[["~Attainment 8 points"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]` Att8 points per SD, *upper bound*); the hand the school is dealt ≈ **`r afr$decomp_dis[["Share of total %"]][grepl("Fixed", afr$decomp_dis$Component)]`%**
+- **Moving children between schools redistributes the small component — not the big ones**
+:::
+
 # Discussion {background-color="#3A1857" .divider-slide}
 
 ## The danger of single-lever policy thinking
