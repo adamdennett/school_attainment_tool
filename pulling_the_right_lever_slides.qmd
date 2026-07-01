@@ -205,11 +205,11 @@ r2_non <- performance::r2(mod_e_nondisadv)
 ::: incremental
 - I made you come
 - An awareness of controversial changes to secondary admissions in the city over the last 2-years
-- An interest in schools and educational attainment generally
+- An interest in schools and educational attainment more generally
 - An interest in supporting disadvantaged students to achieve
-- An interest in evidence-based policy making
+- An interest in data and evidence-based policy making
 - You've read my report and want to ask some questions
-  - Or haven't read it and wanted to hear what it was about
+  - Or took one look at the length of it and thought it easier to hear me talk about it
 - A good opportunity to throw something at me
 :::
 
@@ -228,11 +228,11 @@ r2_non <- performance::r2(mod_e_nondisadv)
 ## Headlines
 
 ::: incremental
-- Over the last 4-years, after accounting for structural factors, Brighton and Hove ranks (out of 152 LEAs):
+- Over the last 4-years, *after accounting for structural factors*, Brighton and Hove ranks (out of 152 LEAs in England):
   - **7th BEST** for Disadvantaged GCSE Attainment
   - **5th BEST** for Non-Disadvantaged GCSE Attainment
 - Last year, Brighton and Hove was **2nd WORST** for absence.
-- GCSE Attainment is very predictable at School Level - 80% variation explained by a handful of variables
+- GCSE Attainment is very predictable at School Level - 80% variation between schools  explained by a handful of variables
 - The biggest factor affecting disadvantaged student attainment is absence
 - Data shows disadvantaged students in England do better in schools with more disadvantaged students in
 - *Poor* understanding of evidence → *poor* policy → *poor* parental choices
@@ -240,13 +240,13 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 # Motivation & Context {.divider-slide background-color="#3A1857"}
 
-## Why this paper now?
+## Why this report now?
 
 ::::::: columns
 ::: {.column width="55%"}
 - The UK Government's **2026 "Every child achieving and thriving" White Paper** sets ambitious targets:
 
-  - Halve the disadvantage attainment gap
+  - Halve the *disadvantage attainment gap*
   - Improve attendance
   - Reform admissions
   - Tackle place-based disadvantage
@@ -258,7 +258,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 ::::: {.column width="45%"}
 ::: key-finding
-**The problem:** A crucial gap exists between the *availability* of open data and the *availability* of accessible, contextualised intelligence for decision makers.
+**The problem:** A crucial gap exists between the *availability of open data* and the *availability of accessible*, contextualised intelligence for decision makers.
 :::
 
 ::: key-finding
@@ -285,16 +285,19 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 <!-- ::: -->
 
-## What is the paper trying to do?
+## What is the report trying to do?
 
 ::: incremental
-1.  Show that **DfE open data** can explain \~80% of variation in school-level attainment with just a handful of variables
+1.  Halve the *local authority intelligence gap* - following the report present a **Policy Simulator tool** that bridges the gap between data and intelligence for decision making
 
-2.  Identify the **relative importance** of different policy levers — and reveal which ones actually have mechanical advantage
+2.  Convince you that attainment levels are very predictable - show that **DfE open data** can explain \~80% of variation in school-level attainment with just a handful of variables
 
-3.  Apply this to **Brighton and Hove** as a case study where policy pulled the wrong lever
+3.  Demonstrate the **relative importance** of different policy levers — and reveal which ones actually have mechanical advantage
 
-4.  Present a **Policy Simulator tool** that bridges the gap between data and decision making
+4.  Re-calibrate how we view *'good schools'* - and convince you that most of what conflate with good schools, is out of their hands
+
+5.  Use **Brighton and Hove** as a case study to illustrate all of these issues
+
 :::
 
 :::: fragment
@@ -823,6 +826,47 @@ $$\log(\text{ATT8}_{ij}) = \beta_0 + \sum_{k=1}^{9} \beta_k \, x_{kij} + u_{\tex
 - Non-disadvantaged pupils
 :::
 :::::
+
+## Model specification {.smaller}
+
+**Multilevel linear mixed effects model** — schools nested within LEAs within regions:
+
+$$\log(\text{ATT8}_{ij}) = \beta_0 + \sum_{k=1}^{9} \beta_k \, x_{kij} + u_{\text{year}} + u_{\text{Ofsted}} + u_{\text{region}} + u_{\text{LA|region}} + \varepsilon_{ij}$$
+
+::::: columns
+::: {.column width="50%"}
+**Fixed effects (predictors):**
+
+- log(% FSM-eligible)
+- log(% Overall absence)
+- log(% English as an Additional Language - EAL)
+- \% Low prior attainment (KS2)
+- Selective admissions (dummy)
+- Gorard Segregation Index (LA-level)
+- Teacher retention rate
+- Leadership pay proportion
+- log(Teacher sickness days)
+:::
+
+::: {.column width="50%"}
+**Random effects (grouping):**
+
+- Academic year
+- Ofsted rating (4-category)
+- Government Office Region
+- LEA nested within region
+
+**Three models:**
+
+- All pupils
+- Disadvantaged pupils
+- Non-disadvantaged pupils
+:::
+:::::
+
+::: {style="position:absolute; top:52%; left:50%; transform:translate(-50%,-50%) rotate(-22deg); z-index:1000; border:0.4rem solid #cc0000; color:#cc0000; font-weight:900; font-size:5rem; letter-spacing:0.05em; text-transform:uppercase; padding:1rem 2.5rem; border-radius:0.5rem; background:rgba(255,255,255,0.15); box-shadow:0 0 0 0.15rem #cc0000 inset; opacity:0.9; pointer-events:none; white-space:nowrap;"}
+A Statistical Model
+:::
 
 # National Results {.divider-slide background-color="#3A1857"}
 
