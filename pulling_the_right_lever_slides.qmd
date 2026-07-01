@@ -1267,7 +1267,7 @@ Brighton & Hove has **near-average disadvantage** but **near-worst absence**. Th
 :::
 ::::
 
-## Absence league table
+## Absence league table - Worst LEAs in England
 
 ```{r tbl-absence-slide}
 #| label: tbl-absence-slide
@@ -1295,7 +1295,8 @@ abs_wide <- la_abs_all_years %>%
   mutate(display = paste0(format(round(la_mean_abs, 1), nsmall = 1),
                            "% (", rank, "/", n_las, ")")) %>%
   select(LANAME, year_label, display) %>%
-  pivot_wider(names_from = year_label, values_from = display, values_fill = "\u2014")
+  pivot_wider(names_from = year_label, values_from = display, values_fill = "\u2014") %>%
+  select(LANAME, all_of(rev(all_years)))
 
 latest_order <- la_abs_all_years %>%
   filter(year_label == latest_year, LANAME %in% top10_any_year) %>%
