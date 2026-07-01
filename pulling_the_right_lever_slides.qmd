@@ -790,6 +790,39 @@ ggplot(bivar_df, aes(x = PTFSM6CLA1A, y = ATT8SCR, colour = year_label)) +
 **Where a school or a whole LEA sits on the curve matters enormously for policy.**
 :::
 
+## Non-linear effects and local context matter
+
+```{r fig-bivariate-slide2-loglog}
+#| label: fig-bivariate-slide2-loglog
+#| fig-height: 4.5
+
+ggplot(bivar_df, aes(x = PTFSM6CLA1A, y = ATT8SCR, colour = year_label)) +
+  geom_point(alpha = 0.25, size = 0.8) +
+  geom_smooth(aes(group = 1), method = "lm", se = FALSE,
+              colour = "#ED357D", linewidth = 0.8) +
+  geom_point(data = bh_bivar, aes(x = PTFSM6CLA1A, y = ATT8SCR),
+             colour = "black", size = 2, shape = 16, inherit.aes = FALSE) +
+  geom_text_repel(data = bh_bivar,
+                  aes(x = PTFSM6CLA1A, y = ATT8SCR, label = SCHNAME),
+                  colour = "black", size = 2.5, fontface = "bold",
+                  max.overlaps = 15, force = 4,
+                  segment.colour = "grey30", segment.size = 0.4,
+                  inherit.aes = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  scale_colour_manual(values = yr_colours) +
+  labs(x = "% Disadvantaged (FSM) — log scale",
+       y = "Attainment 8 — All Pupils — log scale",
+       colour = NULL,
+       title = "On log-log axes, the relationship is linear",
+       subtitle = "Brighton & Hove schools (2024-25) shown in black") +
+  theme_slide
+```
+
+::: key-finding
+**Logging both axes straightens the curve** — so a single elasticity captures the relationship.
+:::
+
 ## Model specification {.smaller}
 
 **Multilevel linear mixed effects model** — schools nested within LEAs within regions:
