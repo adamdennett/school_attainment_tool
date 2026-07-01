@@ -1409,7 +1409,8 @@ Bringing absence to the national average → predicted gains of **3--5 GCSE poin
 
 ## What is a good school?
 
-- 
+- Is it a school that simply has high levels of attainment?
+- Is it a school where pupils exceed 
 
 ## Observed vs predicted: disadvantaged pupils nationally (2024--25)
 
@@ -1503,6 +1504,137 @@ kable(panel_dis_display, format = "html", escape = FALSE,
   kable_styling(full_width = FALSE) %>%
   column_spec(ncol(panel_dis_display), bold = TRUE, background = "#EEDEFF")
 ```
+
+# Neighbourhoods and the Limits of School Effects {.divider-slide background-color="#3A1857"}
+
+::: {style="color:#B982FF; font-size:0.75em; margin-top:0.4em;"}
+New, exploratory material — not in the accompanying paper
+:::
+
+```{r nbhd-cache}
+#| include: false
+afr <- readRDS(here::here("data", "cache", "analysis_f_results.rds"))
+bh_a <- afr$bh_all; bh_d <- afr$bh_dis
+fallers <- afr$la_cmp %>% slice_min(rank_shift, n = 3)
+risers  <- afr$la_cmp %>% slice_max(rank_shift, n = 3)
+ordinal_suffix <- function(n) {
+  s <- ifelse(n %% 100 %in% 11:13, "th",
+              c("st", "nd", "rd", rep("th", 7))[pmin(n %% 10 + ifelse(n %% 10 == 0, 10, 0), 10)])
+  paste0(n, s)
+}
+```
+
+## New: measuring the neighbourhood, not just the school
+
+::: incremental
+- Census 2021 at **output-area** level: adult education (% level 4+), unemployment, inactivity — averaged over each school's **50 nearest OAs**
+- Added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
+- **It survives** — neighbourhood adult education t ≈ 16; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
+- Wider neighbourhoods fit better at KS4 (k = 50 \> 25 \> 10) — secondary catchments are *visible in the data*
+- Crucially: **the absence coefficient barely moves** — the headline finding is not a neighbourhood artefact
+:::
+
+## Who was riding their neighbourhoods?
+
+```{r nbhd-rerank-plot}
+#| fig-height: 5.2
+afr$la_cmp %>%
+  ggplot(aes(mean_l4plus, effect_census - effect_base)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_point(alpha = 0.55, size = 1.8, colour = "#49a0c4") +
+  geom_point(data = afr$bh_all, colour = "#e16fca", size = 3.5) +
+  geom_text_repel(
+    data = afr$la_cmp %>%
+      filter(rank(-abs(effect_census - effect_base)) <= 9 | grepl("Brighton", la_name)),
+    aes(label = la_name), size = 3.2, max.overlaps = 20) +
+  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 0.7) +
+  labs(title = "Change in LA effect when neighbourhood context is measured",
+       subtitle = paste0("r = ", sprintf('%.2f', afr$cor_shift_l4),
+                         "  —  educated places lose part of their apparent over-performance"),
+       x = "LA mean % adults with level 4+ qualifications (schools' 50 nearest OAs)",
+       y = "Change in LA effect") +
+  theme_slide
+```
+
+## The LA league table, re-ranked
+
+::: incremental
+- **Brighton & Hove (all pupils): `r ordinal_suffix(bh_a$rank_base)` → `r ordinal_suffix(bh_a$rank_census)`** of 152 — `r round(100*(1 - bh_a$effect_census/bh_a$effect_base))`% of the city's effect was its educated populace
+- **Brighton & Hove (disadvantaged): `r ordinal_suffix(bh_d$rank_base)` → `r ordinal_suffix(bh_d$rank_census)`** — still top decile after the strongest contextual control we can build
+- Inner London falls hard: `r paste(sprintf("%s %s→%s", fallers$la_name, fallers$rank_base, fallers$rank_census), collapse = "; ")`
+- Genuine over-performers rise: `r paste(sprintf("%s %s→%s", risers$la_name, risers$rank_base, risers$rank_census), collapse = "; ")`
+- The "LA effect" was never pure council performance — much of it is **measurable geography**
+:::
+
+## Where variation in Attainment 8 comes from
+
+```{r nbhd-decomp-all}
+#| fig-height: 4.8
+afr$decomp_all %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#49a0c4") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  xlim(0, 75) +
+  labs(title = "Variance decomposition: all pupils (national census model + school random intercept)",
+       subtitle = "The persistent school component is the UPPER BOUND on what changing schools could achieve",
+       x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+## The school's hand: what it inherits vs what it controls
+
+```{r school-effect-split}
+#| fig-height: 4.7
+#| fig-width: 8.6
+sed <- readRDS(here::here("data", "cache", "school_effect_decomp.rds"))$decomp_all %>%
+  mutate(grp_type = case_when(
+    grepl("^Exogenous", Component)  ~ "Inherited (exogenous)",
+    grepl("^Endogenous", Component) ~ "Workforce",
+    Component == "School (persistent, unexplained)" ~ "Persistent school effect",
+    TRUE ~ "Place / noise"),
+    grp_type = factor(grp_type, levels = c(
+      "Inherited (exogenous)", "Persistent school effect",
+      "Workforce", "Place / noise")),
+    Component = fct_reorder(Component, `Share of total %`))
+
+ggplot(sed, aes(`Share of total %`, Component, fill = grp_type)) +
+  geom_col() +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  scale_fill_manual(values = c(
+    "Inherited (exogenous)"    = "#49a0c4",
+    "Persistent school effect" = "#6A4C93",
+    "Workforce"                = "#ED357D",
+    "Place / noise"            = "#BBBBBB"), name = NULL) +
+  guides(fill = guide_legend(nrow = 2)) +
+  xlim(0, 72) +
+  labs(x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
+Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound that still bundles catchment sorting.
+:::
+
+## ...and for disadvantaged pupils — the group the policy targets
+
+```{r nbhd-decomp-dis}
+#| fig-height: 4.2
+afr$decomp_dis %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#e6550d") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  xlim(0, 70) +
+  labs(x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+::: incremental
+- Persistent school effect ≈ **`r afr$decomp_dis[["Share of total %"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]`%** ≈ `r afr$decomp_dis[["~Attainment 8 points"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]` Att8 points per SD — *an upper bound, including catchment sorting*
+- The hand each school is dealt ≈ **`r afr$decomp_dis[["Share of total %"]][grepl("Fixed", afr$decomp_dis$Component)]`%**
+- **Moving children between schools redistributes the small component — not the big ones**
+:::
 
 ## The BACA paradox
 
@@ -1816,133 +1948,6 @@ School Finder → select any school → view contextual statistics → send to t
 
 ::: smaller
 Non-linear effects mean the same adjustment produces **different impacts** depending on the school's starting position
-:::
-
-# Neighbourhoods and the Limits of School Effects {.divider-slide background-color="#3A1857"}
-
-```{r nbhd-cache}
-#| include: false
-afr <- readRDS(here::here("data", "cache", "analysis_f_results.rds"))
-bh_a <- afr$bh_all; bh_d <- afr$bh_dis
-fallers <- afr$la_cmp %>% slice_min(rank_shift, n = 3)
-risers  <- afr$la_cmp %>% slice_max(rank_shift, n = 3)
-ordinal_suffix <- function(n) {
-  s <- ifelse(n %% 100 %in% 11:13, "th",
-              c("st", "nd", "rd", rep("th", 7))[pmin(n %% 10 + ifelse(n %% 10 == 0, 10, 0), 10)])
-  paste0(n, s)
-}
-```
-
-## New: measuring the neighbourhood, not just the school
-
-::: incremental
-- Census 2021 at **output-area** level: adult education (% level 4+), unemployment, inactivity — averaged over each school's **50 nearest OAs**
-- Added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
-- **It survives** — neighbourhood adult education t ≈ 16; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
-- Wider neighbourhoods fit better at KS4 (k = 50 \> 25 \> 10) — secondary catchments are *visible in the data*
-- Crucially: **the absence coefficient barely moves** — the headline finding is not a neighbourhood artefact
-:::
-
-## Who was riding their neighbourhoods?
-
-```{r nbhd-rerank-plot}
-#| fig-height: 5.2
-afr$la_cmp %>%
-  ggplot(aes(mean_l4plus, effect_census - effect_base)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_point(alpha = 0.55, size = 1.8, colour = "#49a0c4") +
-  geom_point(data = afr$bh_all, colour = "#e16fca", size = 3.5) +
-  geom_text_repel(
-    data = afr$la_cmp %>%
-      filter(rank(-abs(effect_census - effect_base)) <= 9 | grepl("Brighton", la_name)),
-    aes(label = la_name), size = 3.2, max.overlaps = 20) +
-  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 0.7) +
-  labs(title = "Change in LA effect when neighbourhood context is measured",
-       subtitle = paste0("r = ", sprintf('%.2f', afr$cor_shift_l4),
-                         "  —  educated places lose part of their apparent over-performance"),
-       x = "LA mean % adults with level 4+ qualifications (schools' 50 nearest OAs)",
-       y = "Change in LA effect") +
-  theme_slide
-```
-
-## The LA league table, re-ranked
-
-::: incremental
-- **Brighton & Hove (all pupils): `r ordinal_suffix(bh_a$rank_base)` → `r ordinal_suffix(bh_a$rank_census)`** of 152 — `r round(100*(1 - bh_a$effect_census/bh_a$effect_base))`% of the city's effect was its educated populace
-- **Brighton & Hove (disadvantaged): `r ordinal_suffix(bh_d$rank_base)` → `r ordinal_suffix(bh_d$rank_census)`** — still top decile after the strongest contextual control we can build
-- Inner London falls hard: `r paste(sprintf("%s %s→%s", fallers$la_name, fallers$rank_base, fallers$rank_census), collapse = "; ")`
-- Genuine over-performers rise: `r paste(sprintf("%s %s→%s", risers$la_name, risers$rank_base, risers$rank_census), collapse = "; ")`
-- The "LA effect" was never pure council performance — much of it is **measurable geography**
-:::
-
-## Where variation in Attainment 8 comes from
-
-```{r nbhd-decomp-all}
-#| fig-height: 4.8
-afr$decomp_all %>%
-  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
-  ggplot(aes(`Share of total %`, Component)) +
-  geom_col(fill = "#49a0c4") +
-  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  xlim(0, 75) +
-  labs(title = "Variance decomposition: all pupils (national census model + school random intercept)",
-       subtitle = "The persistent school component is the UPPER BOUND on what changing schools could achieve",
-       x = "Share of total outcome variance (%)", y = NULL) +
-  theme_slide
-```
-
-## The school's hand: what it inherits vs what it controls
-
-```{r school-effect-split}
-#| fig-height: 4.7
-#| fig-width: 8.6
-sed <- readRDS(here::here("data", "cache", "school_effect_decomp.rds"))$decomp_all %>%
-  mutate(grp_type = case_when(
-    grepl("^Exogenous", Component)  ~ "Inherited (exogenous)",
-    grepl("^Endogenous", Component) ~ "Workforce",
-    Component == "School (persistent, unexplained)" ~ "Persistent school effect",
-    TRUE ~ "Place / noise"),
-    grp_type = factor(grp_type, levels = c(
-      "Inherited (exogenous)", "Persistent school effect",
-      "Workforce", "Place / noise")),
-    Component = fct_reorder(Component, `Share of total %`))
-
-ggplot(sed, aes(`Share of total %`, Component, fill = grp_type)) +
-  geom_col() +
-  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  scale_fill_manual(values = c(
-    "Inherited (exogenous)"    = "#49a0c4",
-    "Persistent school effect" = "#6A4C93",
-    "Workforce"                = "#ED357D",
-    "Place / noise"            = "#BBBBBB"), name = NULL) +
-  guides(fill = guide_legend(nrow = 2)) +
-  xlim(0, 72) +
-  labs(x = "Share of total outcome variance (%)", y = NULL) +
-  theme_slide
-```
-
-::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound that still bundles catchment sorting.
-:::
-
-## ...and for disadvantaged pupils — the group the policy targets
-
-```{r nbhd-decomp-dis}
-#| fig-height: 4.2
-afr$decomp_dis %>%
-  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
-  ggplot(aes(`Share of total %`, Component)) +
-  geom_col(fill = "#e6550d") +
-  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  xlim(0, 70) +
-  labs(x = "Share of total outcome variance (%)", y = NULL) +
-  theme_slide
-```
-
-::: incremental
-- Persistent school effect ≈ **`r afr$decomp_dis[["Share of total %"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]`%** ≈ `r afr$decomp_dis[["~Attainment 8 points"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]` Att8 points per SD — *an upper bound, including catchment sorting*
-- The hand each school is dealt ≈ **`r afr$decomp_dis[["Share of total %"]][grepl("Fixed", afr$decomp_dis$Component)]`%**
-- **Moving children between schools redistributes the small component — not the big ones**
 :::
 
 # Conclusions & Recommendations {.divider-slide background-color="#3A1857"}
