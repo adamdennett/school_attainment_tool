@@ -655,10 +655,10 @@ m_orient
 :::
 
 ::: {.column width="30%"}
-![](slides_assets/TanDennett.png){width="80%"}
+![](slides_assets/TanDennett.png){width="90%"}
 :::
 ::: {.column width="20%"}
-![](slides_assets/paper-qr-code.svg){width="100%"}
+![](slides_assets/house-price-qr-code.svg){width="100%"}
 
 :::
 
