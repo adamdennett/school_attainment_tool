@@ -810,6 +810,7 @@ ggplot(bivar_df, aes(x = PTFSM6CLA1A, y = ATT8SCR, colour = year_label)) +
                   inherit.aes = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
+  coord_cartesian(ylim = c(15, 100)) +
   scale_colour_manual(values = yr_colours) +
   labs(x = "% Disadvantaged (FSM) — log scale",
        y = "Attainment 8 — All Pupils — log scale",
