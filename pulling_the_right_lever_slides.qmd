@@ -641,6 +641,29 @@ m_orient
 :::
 :::::
 
+## An aside on economic advantage and house prices
+
+
+
+::::: columns
+::: {.column width="50%"}
+- Being close to a good secondary school has *barely any effect* on house prices in Brighton and Hove
+
+- We examined *81,000* residential property transactions over *20 years* (2000-2019) in Brighton and Hove and looked at the factors influencing those prices
+
+- Being within *walking distance of a mainline train station* or a *short bus ride to the city centre* **far more important** for house prices than being close to a good secondary school
+:::
+
+::: {.column width="30%"}
+![](slides_assets/TanDennett.png){width="80%"}
+:::
+::: {.column width="20%"}
+![](slides_assets/paper-qr-code.svg){width="100%"}
+
+:::
+
+:::::
+
 ## The 2024 consultation: the response
 
 ::::: columns
