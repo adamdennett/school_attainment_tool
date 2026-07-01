@@ -1169,7 +1169,7 @@ Effect shrinks in the full multilevel model → operates through LEA/Ofsted fact
 
 ```{r fig-caterpillar-slide}
 #| label: fig-caterpillar-slide
-#| fig-height: 5.5
+#| fig-height: 4.7
 
 re_list_dis <- ranef(mod_e_disadv, condVar = TRUE)
 re_la_dis <- as.data.frame(re_list_dis$`LANAME:gor_name`)
@@ -1208,6 +1208,10 @@ ggplot(re_la_dis, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`)) +
   theme_slide +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
+
+::: {style="font-size:0.55em; text-align:center; color:#555; margin-top:0.2em;"}
+Each dot is one LEA's average boost (above the dashed line) or penalty (below) to disadvantaged attainment, *after* accounting for intake, absence and prior attainment — i.e. how much better or worse its schools do than the national picture predicts.
+:::
 
 ## Brighton & Hove: a story of success, not failure
 
