@@ -1267,7 +1267,7 @@ Brighton & Hove has **near-average disadvantage** but **near-worst absence**. Th
 :::
 ::::
 
-## Absence league table - Worst LEAs in England
+## Absence league table - Worst LEAs in England (ranked 2024-25)
 
 ```{r tbl-absence-slide}
 #| label: tbl-absence-slide
@@ -1398,7 +1398,7 @@ above_nat_abs <- bh_latest_model %>%
   )
 
 kable(above_nat_abs) %>%
-  kable_styling(full_width = FALSE) %>%
+  kable_styling(full_width = FALSE, font_size = 18) %>%
   column_spec(5, bold = TRUE) %>%
   column_spec(6, bold = TRUE, color = "#3A1857")
 ```
