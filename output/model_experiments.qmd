@@ -4947,15 +4947,44 @@ bind_rows(
 
 ## How big is the school effect, really?
 
-The B&H policy debate assumes moving pupils between schools changes outcomes — implicitly, that *which school you attend* carries a large effect relative to *who you are and where you live*. The panel lets us bound this. Adding a school-level random intercept to the census model decomposes the unexplained variance into a **persistent school component** (the same school doing better/worse than expected, year after year) and **transient cohort noise**:
+The B&H policy debate assumes moving pupils between schools changes outcomes — implicitly, that *which school you attend* carries a large effect relative to *who you are and where you live*. The panel lets us bound this. Adding a school-level random intercept to the census model decomposes the unexplained variance into a **persistent school component** (the same school doing better/worse than expected, year after year) and **transient cohort noise**.
+
+We also split the **fixed-effects** share into two conceptually distinct groups, because the single combined figure conflates things a school inherits with things a school does:
+
+- **Exogenous, non-school** — the hand the school is dealt: cohort composition (disadvantage, EAL), prior attainment at intake, absence, admissions/segregation structure and neighbourhood context. A school cannot choose these.
+- **Endogenous, within-school** — the workforce levers the school actually controls: teacher retention, leadership pay share, and teacher sickness.
+
+The split uses an exact additive variance decomposition: each group's contribution is the covariance of its linear-predictor component with the full fixed-effect predictor, so the two contributions (including their shared covariance) sum precisely to the total fixed-effect variance.
 
 ```{r f-school-effect}
 #| label: f-school-effect
 
+# Endogenous (school-controllable) fixed effects = workforce terms.
+# Everything else in the fixed part is exogenous to the school's own practice.
+workforce_terms <- c("remained_in_the_same_school",
+                     "teachers_on_leadership_pay_range_percent",
+                     "log(average_number_of_days_taken)")
+
+# Exact additive split of the fixed-effect variance into two groups via
+# covariance-with-total: cov(eta_g, eta_full) sums over groups to var(eta_full).
+split_fixed_var <- function(m, endo_terms = workforce_terms) {
+  X    <- getME(m, "X")
+  beta <- fixef(m)
+  cn   <- colnames(X)
+  is_int  <- cn == "(Intercept)"
+  is_endo <- cn %in% endo_terms
+  eta_endo <- as.vector(X[, is_endo, drop = FALSE] %*% beta[is_endo])
+  eta_exo  <- as.vector(X[, !is_endo & !is_int, drop = FALSE] %*%
+                          beta[!is_endo & !is_int])
+  eta_full <- eta_exo + eta_endo
+  c(exo = cov(eta_exo, eta_full), endo = cov(eta_endo, eta_full))
+}
+
 f_school <- update(f_best, . ~ . + (1 | URN))
 
 vc <- as.data.frame(VarCorr(f_school)) %>% filter(is.na(var2))
-fixed_var <- var(predict(f_school, re.form = NA), na.rm = TRUE)
+fx <- split_fixed_var(f_school)
+fixed_var <- sum(fx)
 total_var <- fixed_var + sum(vc$vcov)
 
 decomp <- vc %>%
@@ -4967,15 +4996,17 @@ decomp <- vc %>%
     "year_label" = "Year",
     "Residual" = "Transient (cohort-year noise)"),
     Variance = vcov) %>%
-  bind_rows(tibble(Component = "Fixed effects (cohort, prior attainment, absence, workforce, neighbourhood)",
-                   Variance = fixed_var)) %>%
+  bind_rows(tibble(
+    Component = c("Exogenous, non-school (cohort, prior attainment, absence, neighbourhood)",
+                  "Endogenous, within-school (workforce)"),
+    Variance = c(fx[["exo"]], fx[["endo"]]))) %>%
   mutate(`Share of total %` = round(100 * Variance / total_var, 1),
-         `SD (log Att8)` = round(sqrt(Variance), 4),
-         `~Attainment 8 points (at mean 46)` = round(46 * sqrt(Variance), 1)) %>%
+         `SD (log Att8)` = round(sqrt(pmax(Variance, 0)), 4),
+         `~Attainment 8 points (at mean 46)` = round(46 * sqrt(pmax(Variance, 0)), 1)) %>%
   arrange(desc(Variance))
 
 knitr::kable(decomp %>% select(-Variance),
-             caption = "Variance decomposition of log(Attainment 8), census model + school random intercept")
+             caption = "Variance decomposition of log(Attainment 8), census model + school random intercept (fixed effects split into exogenous non-school vs endogenous within-school workforce)")
 ```
 
 ```{r f-school-effect-plot}
@@ -4997,7 +5028,7 @@ decomp %>%
 Two readings of the school component, and both matter for the B&H debate:
 
 - It is an **upper bound** on the causal effect of school membership: the URN intercept absorbs everything persistently school-specific that the model cannot see — genuinely better teaching and leadership, but also stable unmeasured intake sorting (the sought-after school's catchment premium). The true "what the school adds" effect is *at most* this large.
-- Even taken at face value, compare its magnitude with the fixed-effects share: the hand a school is dealt — its cohort's composition, prior attainment, attendance and neighbourhood context — dwarfs the school's own persistent departure from expectation. Reallocating pupils between schools redistributes *which building children sit in* but changes neither their prior attainment, their home neighbourhoods, nor (directly) their attendance — the variables doing almost all the work. The plausible attainment gain from moving a child to a school one standard deviation "better" is a few Attainment 8 points at most, and that is before netting out the catchment-sorting component of the school effect.
+- Even taken at face value, compare its magnitude with the **exogenous, non-school** share: the hand a school is dealt — its cohort's composition, prior attainment, attendance and neighbourhood context — dwarfs both the school's own persistent departure from expectation *and* the endogenous, within-school (workforce) fixed effects the school actually controls. Splitting the fixed part makes this explicit: the school-controllable workforce component is a small slice, while the inherited exogenous component does almost all the work. Reallocating pupils between schools redistributes *which building children sit in* but changes neither their prior attainment, their home neighbourhoods, nor (directly) their attendance. The plausible attainment gain from moving a child to a school one standard deviation "better" is a few Attainment 8 points at most, and that is before netting out the catchment-sorting component of the school effect.
 
 ### The same decomposition for disadvantaged pupils
 
@@ -5028,7 +5059,8 @@ mean_att8_dis <- mean(fd_dis$ATT8SCR_FSM6CLA1A, na.rm = TRUE)
 
 decompose_model <- function(m, att8_mean) {
   vc <- as.data.frame(VarCorr(m)) %>% filter(is.na(var2))
-  fixed_var <- var(predict(m, re.form = NA), na.rm = TRUE)
+  fx <- split_fixed_var(m)
+  fixed_var <- sum(fx)
   total_var <- fixed_var + sum(vc$vcov)
   vc %>%
     transmute(Component = recode(grp,
@@ -5040,11 +5072,12 @@ decompose_model <- function(m, att8_mean) {
       "Residual" = "Transient (cohort-year noise)"),
       Variance = vcov) %>%
     bind_rows(tibble(
-      Component = "Fixed effects (cohort, prior attainment, absence, workforce, neighbourhood)",
-      Variance = fixed_var)) %>%
+      Component = c("Exogenous, non-school (cohort, prior attainment, absence, neighbourhood)",
+                    "Endogenous, within-school (workforce)"),
+      Variance = c(fx[["exo"]], fx[["endo"]]))) %>%
     mutate(`Share of total %` = round(100 * Variance / total_var, 1),
-           `SD (log Att8)` = round(sqrt(Variance), 4),
-           `~Attainment 8 points` = round(att8_mean * sqrt(Variance), 1)) %>%
+           `SD (log Att8)` = round(sqrt(pmax(Variance, 0)), 4),
+           `~Attainment 8 points` = round(att8_mean * sqrt(pmax(Variance, 0)), 1)) %>%
     arrange(desc(Variance))
 }
 

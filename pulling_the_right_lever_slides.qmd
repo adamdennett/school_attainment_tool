@@ -1404,8 +1404,12 @@ kable(above_nat_abs) %>%
 ```
 
 ::: key-finding
-Bringing absence to the national average → predicted gains of **3--5 GCSE points** at the worst-affected schools. FSM reductions → closer to **1--2 points**.
+Bringing absence to the national average → predicted gains of **3--5 GCSE points** at the worst-affected schools. FSM reductions → closer to **1--2 points** (and not for disadvantaged students).
 :::
+
+## What is a good school?
+
+- 
 
 ## Observed vs predicted: disadvantaged pupils nationally (2024--25)
 
@@ -1886,6 +1890,40 @@ afr$decomp_all %>%
        x = "Share of total outcome variance (%)", y = NULL) +
   theme_slide
 ```
+
+## The school's hand: what it inherits vs what it controls
+
+```{r school-effect-split}
+#| fig-height: 4.7
+#| fig-width: 8.6
+sed <- readRDS(here::here("data", "cache", "school_effect_decomp.rds"))$decomp_all %>%
+  mutate(grp_type = case_when(
+    grepl("^Exogenous", Component)  ~ "Inherited (exogenous)",
+    grepl("^Endogenous", Component) ~ "Workforce",
+    Component == "School (persistent, unexplained)" ~ "Persistent school effect",
+    TRUE ~ "Place / noise"),
+    grp_type = factor(grp_type, levels = c(
+      "Inherited (exogenous)", "Persistent school effect",
+      "Workforce", "Place / noise")),
+    Component = fct_reorder(Component, `Share of total %`))
+
+ggplot(sed, aes(`Share of total %`, Component, fill = grp_type)) +
+  geom_col() +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
+  scale_fill_manual(values = c(
+    "Inherited (exogenous)"    = "#49a0c4",
+    "Persistent school effect" = "#6A4C93",
+    "Workforce"                = "#ED357D",
+    "Place / noise"            = "#BBBBBB"), name = NULL) +
+  guides(fill = guide_legend(nrow = 2)) +
+  xlim(0, 72) +
+  labs(x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide
+```
+
+::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
+Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound that still bundles catchment sorting.
+:::
 
 ## ...and for disadvantaged pupils — the group the policy targets
 
