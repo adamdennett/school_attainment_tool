@@ -1001,6 +1001,8 @@ Adding absence **halves** the FSM coefficient. Adding prior attainment reduces b
 - This doesn't mean segregation is harmless — it means its effects **operate through** absence, prior attainment, and other measured factors
 
 - We include it because it formed **much of the justification** for the Brighton & Hove proposals
+
+- Also remember - *Brighton and Hove is in the top 1/4 of LEAs for least segregation / most integration of disadvantaged / non-disadvantaged students already*
 :::
 
 ## Relative variable importance
@@ -1093,7 +1095,7 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 ::: incremental
 - For **disadvantaged pupils**, nearly half of school-level performance variation is explained by attendance alone
 
-- Absence affects disadvantaged pupils far more than non-disadvantaged
+- Absence matters **~1.8× more** (≈77%) for disadvantaged than non-disadvantaged pupils' attainment
 
 - Disadvantaged pupils lack safety nets (tutors, engaged parents, revision guides) — they are **more reliant on classroom instruction**
 
