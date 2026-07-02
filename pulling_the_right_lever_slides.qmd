@@ -1409,8 +1409,14 @@ Bringing absence to the national average → predicted gains of **3--5 GCSE poin
 
 ## What is a good school?
 
-- Is it a school that simply has high levels of attainment?
-- Is it a school where pupils exceed 
+Schools about much more than raw attainment:
+- Centres of pastoral support and places for children to grow as individuals
+- Community hubs (where they are focal points for local communities)
+- Places for extra-curricular opportunities
+
+But in purely attainment terms:
+- Is it a good school that simply has high levels of attainment?
+- Is it a good school where pupils exceed the levels we would expect, given their circumstances?
 
 ## Observed vs predicted: disadvantaged pupils nationally (2024--25)
 
@@ -1534,6 +1540,14 @@ ordinal_suffix <- function(n) {
 - Crucially: **the absence coefficient barely moves** — the headline finding is not a neighbourhood artefact
 :::
 
+## What does a "50-nearest-neighbourhood" actually look like?
+
+![](slides_assets/dorothy_stringer_50oa.png){fig-align="center" height="470"}
+
+::: {style="font-size:0.55em; text-align:center; color:#555; margin-top:0.1em;"}
+Pink diamond = **Dorothy Stringer School**; purple dots = its 50 nearest Output Area centroids — a walkable ~1 km of local social fabric.
+:::
+
 ## Who was riding their neighbourhoods?
 
 ```{r nbhd-rerank-plot}
@@ -1582,7 +1596,7 @@ afr$decomp_all %>%
   theme_slide
 ```
 
-## The school's hand: what it inherits vs what it controls
+## Where variation in Attainment 8 comes from: what a school inherits vs what it controls
 
 ```{r school-effect-split}
 #| fig-height: 4.7
