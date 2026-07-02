@@ -1619,21 +1619,36 @@ Workforce — the part schools directly control — is a sliver (3%) next to the
 ## ...and for disadvantaged pupils — the group the policy targets
 
 ```{r nbhd-decomp-dis}
-#| fig-height: 4.2
-afr$decomp_dis %>%
-  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
-  ggplot(aes(`Share of total %`, Component)) +
-  geom_col(fill = "#e6550d") +
+#| fig-height: 4.4
+#| fig-width: 8.6
+sed_dis_raw <- readRDS(here::here("data", "cache", "school_effect_decomp.rds"))$decomp_dis
+sed_dis <- sed_dis_raw %>%
+  mutate(grp_type = case_when(
+    grepl("^Exogenous", Component)  ~ "Inherited (exogenous)",
+    grepl("^Endogenous", Component) ~ "Workforce",
+    Component == "School (persistent, unexplained)" ~ "Persistent school effect",
+    TRUE ~ "Place / noise"),
+    grp_type = factor(grp_type, levels = c(
+      "Inherited (exogenous)", "Persistent school effect",
+      "Workforce", "Place / noise")),
+    Component = fct_reorder(Component, `Share of total %`))
+
+ggplot(sed_dis, aes(`Share of total %`, Component, fill = grp_type)) +
+  geom_col() +
   geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  xlim(0, 70) +
+  scale_fill_manual(values = c(
+    "Inherited (exogenous)"    = "#49a0c4",
+    "Persistent school effect" = "#6A4C93",
+    "Workforce"                = "#ED357D",
+    "Place / noise"            = "#BBBBBB"), name = NULL) +
+  guides(fill = guide_legend(nrow = 2)) +
+  xlim(0, 66) +
   labs(x = "Share of total outcome variance (%)", y = NULL) +
   theme_slide
 ```
 
-::: incremental
-- Persistent school effect ≈ **`r afr$decomp_dis[["Share of total %"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]`%** ≈ `r afr$decomp_dis[["~Attainment 8 points"]][afr$decomp_dis$Component == "School (persistent, unexplained)"]` Att8 points per SD — *an upper bound, including catchment sorting*
-- The hand each school is dealt ≈ **`r afr$decomp_dis[["Share of total %"]][grepl("Fixed", afr$decomp_dis$Component)]`%**
-- **Moving children between schools redistributes the small component — not the big ones**
+::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
+Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_dis_raw[["Share of total %"]][grepl("^Endogenous", sed_dis_raw$Component)]`%** vs **`r sed_dis_raw[["Share of total %"]][grepl("^Exogenous", sed_dis_raw$Component)]`%** inherited — the persistent school effect (`r sed_dis_raw[["Share of total %"]][sed_dis_raw$Component == "School (persistent, unexplained)"]`%) is still a dwarfed upper bound.
 :::
 
 ## The BACA paradox
