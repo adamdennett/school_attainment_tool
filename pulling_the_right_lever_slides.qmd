@@ -1761,12 +1761,14 @@ The city needs to **disaggregate the attendance problem** — different causes r
 
   - **Stage 1**: model expected absence from intake variables only
   - **Stage 2**: refit attainment using *expected* absence; what the school adds (including its attendance management) flows into the value-added residual
-:::
 
 [^1]: Full analysis: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
 
+:::: fragment
 ::: key-finding
 Most of school-level absence variance nationally is **structural**. The school-controllable share is the smaller part — but it is the share local policy can actually move.
+:::
+::::
 :::
 
 ## Where do schools sit on the joint-signal plane?
@@ -1794,15 +1796,17 @@ stage1_data_s$log_expected_absence <- predict(mod_stage1_s, newdata = stage1_dat
                                                 re.form = NULL, allow.new.levels = TRUE)
 stage1_data_s$expected_absence <- exp(stage1_data_s$log_expected_absence)
 
+# Stage 2 uses the DISADVANTAGED-pupil outcome (mirrors mod_M2_disadv in
+# model_experiments); Stage 1 residual absence (x-axis) is unchanged.
 stage2_data_s <- imputed_full_data %>%
-  filter(!is.na(ATT8SCR), ATT8SCR > 0) %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
   inner_join(stage1_data_s %>% select(URN, year_label, expected_absence, log_expected_absence),
              by = c("URN", "year_label")) %>%
   droplevels()
 contrasts(stage2_data_s$OFSTEDRATING_1) <- contr.treatment(levels(stage2_data_s$OFSTEDRATING_1))
 
 mod_M2_s <- lmer(
-  log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
+  log(ATT8SCR_FSM6CLA1A) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
     PTPRIORLO + ADMPOL_PT + gorard_segregation +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
   data = stage2_data_s, REML = TRUE,
@@ -1815,7 +1819,7 @@ quadrant_data_s <- stage2_data_s %>%
   group_by(URN, SCHNAME, LANAME) %>%
   summarise(
     mean_log_resid    = mean(resid_M2_log, na.rm = TRUE),
-    mean_att8         = mean(ATT8SCR, na.rm = TRUE),
+    mean_att8         = mean(ATT8SCR_FSM6CLA1A, na.rm = TRUE),
     mean_obs_abs      = mean(PERCTOT, na.rm = TRUE),
     mean_expected_abs = mean(expected_absence, na.rm = TRUE),
     .groups = "drop"
@@ -1829,7 +1833,7 @@ quadrant_data_s <- stage2_data_s %>%
 qx_s <- quantile(quadrant_data_s$resid_abs_pp, c(0.005, 0.995), na.rm = TRUE)
 qy_s <- quantile(quadrant_data_s$vadd_M2,      c(0.005, 0.995), na.rm = TRUE)
 quad_xlim_s <- c(min(qx_s[1], -3), max(qx_s[2], 3))
-quad_ylim_s <- c(min(qy_s[1], -8), max(qy_s[2], 8))
+quad_ylim_s <- c(min(qy_s[1], -10), max(qy_s[2], 10))
 ```
 
 ```{r fig-bh-quadrant-slide}
@@ -1853,21 +1857,21 @@ ggplot() +
                   size = 3.5, max.overlaps = 25, force = 4,
                   segment.colour = "grey60", segment.size = 0.3) +
   annotate("text", x = quad_xlim_s[1] * 0.95, y = quad_ylim_s[2] * 0.92,
-           label = "Q1: value-added\n+ attendance helping",
+           label = "Q1: disadv. value-added\n+ attendance helping",
            hjust = 0, vjust = 1, size = 3, colour = "#005E5C", fontface = "italic") +
   annotate("text", x = quad_xlim_s[2] * 0.95, y = quad_ylim_s[2] * 0.92,
-           label = "Q2: value-added\ndespite worse attendance",
+           label = "Q2: disadv. value-added\ndespite worse attendance",
            hjust = 1, vjust = 1, size = 3, colour = "#7a4e1a", fontface = "italic") +
   annotate("text", x = quad_xlim_s[2] * 0.95, y = quad_ylim_s[1] * 0.92,
-           label = "Q3: underperforming\n+ attendance worse",
+           label = "Q3: underperforming for disadv.\n+ attendance worse",
            hjust = 1, vjust = 0, size = 3, colour = "#993333", fontface = "italic") +
   annotate("text", x = quad_xlim_s[1] * 0.95, y = quad_ylim_s[1] * 0.92,
-           label = "Q4: underperforming\ndespite better attendance",
+           label = "Q4: underperforming for disadv.\ndespite better attendance",
            hjust = 0, vjust = 0, size = 3, colour = "#3A1857", fontface = "italic") +
   coord_cartesian(xlim = quad_xlim_s, ylim = quad_ylim_s) +
   labs(x = "School-controllable absence (residual absence, pp)",
-       y = "Value-added under M2 (ATT8 points)",
-       title = "Brighton and Hove on the joint-signal plane") +
+       y = "Disadvantaged-pupil value-added (ATT8 points)",
+       title = "Brighton and Hove: disadvantaged-pupil joint-signal plane") +
   theme_slide
 ```
 
