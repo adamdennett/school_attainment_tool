@@ -114,3 +114,6 @@ data/place/
 data/census/
 data-raw/census2021/
 data/early_years/
+
+# OSM tile cache (ggspatial/rosm map rendering)
+rosm.cache/

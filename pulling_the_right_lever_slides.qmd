@@ -294,7 +294,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
 
 3.  Demonstrate the **relative importance** of different policy levers — and reveal which ones actually have mechanical advantage
 
-4.  Re-calibrate how we view *'good schools'* - and convince you that most of what conflate with good schools, is out of their hands
+4.  Re-calibrate how we view *'good schools'* - and convince you that most of what many conflate with good schools (their outcomes), is out of their hands
 
 5.  Use **Brighton and Hove** as a case study to illustrate all of these issues
 
@@ -1404,19 +1404,21 @@ kable(above_nat_abs) %>%
 ```
 
 ::: key-finding
-Bringing absence to the national average → predicted gains of **3--5 GCSE points** at the worst-affected schools. FSM reductions → closer to **1--2 points** (and not for disadvantaged students).
+Bringing absence to the national average → predicted gains of **3--5 GCSE points (even more for disadvantaged)** at the worst-affected schools. FSM reductions → closer to **1--2 points** (and not for disadvantaged students).
 :::
 
 ## What is a good school?
 
 Schools about much more than raw attainment:
+
 - Centres of pastoral support and places for children to grow as individuals
-- Community hubs (where they are focal points for local communities)
+- *Community hubs* (where they are focal points for local communities)
 - Places for extra-curricular opportunities
 
 But in purely attainment terms:
-- Is it a good school that simply has high levels of attainment?
-- Is it a good school where pupils exceed the levels we would expect, given their circumstances?
+
+- Is a good school one that simply has high levels of attainment?
+- Is a good school one where pupils exceed the levels we would expect, given their circumstances?
 
 ## Observed vs predicted: disadvantaged pupils nationally (2024--25)
 
@@ -1511,9 +1513,10 @@ kable(panel_dis_display, format = "html", escape = FALSE,
   column_spec(ncol(panel_dis_display), bold = TRUE, background = "#EEDEFF")
 ```
 
-# Neighbourhoods and the Limits of School Effects {.divider-slide background-color="#3A1857"}
+# School Effects vs Everything Else {.divider-slide background-color="#3A1857"}
 
 ::: {style="color:#B982FF; font-size:0.75em; margin-top:0.4em;"}
+How much does the school really matter?
 New, exploratory material — not in the accompanying paper
 :::
 
@@ -1530,13 +1533,18 @@ ordinal_suffix <- function(n) {
 }
 ```
 
-## New: measuring the neighbourhood, not just the school
+## Neighbourhood effects
 
 ::: incremental
-- Census 2021 at **output-area** level: adult education (% level 4+), unemployment, inactivity — averaged over each school's **150 nearest OAs**
+- Outside of the school, does the neighbourhood environment matter?
+- Census 2021 at **output-area** level: 
+    - adult education (% level 4+), 
+    - unemployment, 
+    - economic inactivity 
+    
+— averaged over each school's **150 nearest OAs** (optimum number tested)
 - Added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
-- **It survives** — neighbourhood adult education t ≈ 16; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
-- Bigger neighbourhoods fit better at KS4 — AIC optimises at **k = 150** (\~2.5 km), matching large secondary catchments (primaries prefer k = 10)
+- **It survives** — neighbourhood adult education statistically significant; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
 - Crucially: **the absence coefficient barely moves** at any k — the headline finding is not a neighbourhood artefact
 :::
 
@@ -1577,30 +1585,8 @@ afr$la_cmp %>%
 - **Brighton & Hove (disadvantaged): `r ordinal_suffix(bh_d$rank_base)` → `r ordinal_suffix(bh_d$rank_census)`** — still top decile after the strongest contextual control we can build
 - Inner London falls hard: `r paste(sprintf("%s %s→%s", fallers$la_name, fallers$rank_base, fallers$rank_census), collapse = "; ")`
 - Genuine over-performers rise: `r paste(sprintf("%s %s→%s", risers$la_name, risers$rank_base, risers$rank_census), collapse = "; ")`
-- The "LA effect" was never pure council performance — much of it is **measurable geography**
+- Some of the residual "LA effect" in school performance (20%ish) is **neighbourhood demography** 
 :::
-
-## Where variation in Attainment 8 comes from
-
-```{r nbhd-decomp-all}
-#| fig-height: 4.8
-# Collapse the two fixed-effect rows into one combined bar for the big-picture
-# view here; the split is revealed on the following slide.
-afr$decomp_all %>%
-  mutate(Component = ifelse(grepl("^Exogenous|^Endogenous", Component),
-                            "Fixed effects (the hand each school is dealt)", Component)) %>%
-  group_by(Component) %>%
-  summarise(`Share of total %` = sum(`Share of total %`), .groups = "drop") %>%
-  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
-  ggplot(aes(`Share of total %`, Component)) +
-  geom_col(fill = "#49a0c4") +
-  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  xlim(0, 80) +
-  labs(title = "Variance decomposition: all pupils (national census model + school random intercept)",
-       subtitle = "The persistent school component is the UPPER BOUND on what changing schools could achieve",
-       x = "Share of total outcome variance (%)", y = NULL) +
-  theme_slide
-```
 
 ## Where variation in Attainment 8 comes from: what a school inherits vs what it controls
 
@@ -1670,6 +1656,32 @@ ggplot(sed_dis, aes(`Share of total %`, Component, fill = grp_type)) +
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
 Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_dis_raw[["Share of total %"]][grepl("^Endogenous", sed_dis_raw$Component)]`%** vs **`r sed_dis_raw[["Share of total %"]][grepl("^Exogenous", sed_dis_raw$Component)]`%** inherited — the persistent school effect (`r sed_dis_raw[["Share of total %"]][sed_dis_raw$Component == "School (persistent, unexplained)"]`%) is still a dwarfed upper bound.
 :::
+
+## But the school effect is not small — what it means for a school {.smaller}
+
+```{r school-impact-vals}
+#| include: false
+.sd_row  <- afr$decomp_all[afr$decomp_all$Component == "School (persistent, unexplained)", ]
+sch_share <- .sd_row[["Share of total %"]]
+sch_pts   <- round(46 * .sd_row[["SD (log Att8)"]], 1)   # 1 SD, all pupils
+sch_pts2  <- round(2 * sch_pts, 1)                       # 2 SD
+```
+
+A **`r sch_share`%** variance share sounds abstract — but it converts into **`r sch_pts` Attainment 8 points per standard deviation** between schools (holding intake fixed).
+
+::: incremental
+- **A good school** (1 SD above average, ~top 16%) lifts *every* pupil by **~`r sch_pts` Att8 points** — about **a third of a grade in every subject**, or a **full grade up in 3–4 subjects**
+- **An excellent school** (2 SD, ~top 2.5%): **~`r sch_pts2` points** — close to a **full grade across most GCSEs**
+- **Bigger than the lever the whole debate was about** — social-mixing was worth ~1–2 points; this is 2–3× larger
+- On par with the best-evidenced levers: effective headteacher ≈ **1 GCSE grade** [@Zuccollo2023]; good vs weak teaching ≈ **4.5 Att8 points** [@Slater2012]
+- At the margin, **the difference between a grade 3 and a grade-4 pass** in English & Maths for many pupils
+:::
+
+:::: fragment
+::: key-finding
+And this is a *floor*, not a ceiling: it is the spread **between** schools with identical intakes — what leadership and teaching add. **The single biggest thing a school controls dwarfs anything admissions can move.**
+:::
+::::
 
 ## The BACA paradox
 
