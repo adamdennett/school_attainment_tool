@@ -1534,7 +1534,7 @@ ordinal_suffix <- function(n) {
 ```
 
 
-## Where variation in Attainment 8 comes from: what a school inherits vs what it controls
+## Where variation in Attainment 8 comes from
 
 ```{r school-effect-split}
 #| fig-height: 4.7
@@ -1565,7 +1565,7 @@ ggplot(sed, aes(`Share of total %`, Component, fill = grp_type)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound that still bundles catchment sorting.
+Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound bundling genuine school ethos/management etc. with other things they don't control in their catchment, not otherwise measured e.g. cultural capital, parental motivation.
 :::
 
 ## ...and for disadvantaged pupils — the group the policy targets
@@ -1603,7 +1603,7 @@ ggplot(sed_dis, aes(`Share of total %`, Component, fill = grp_type)) +
 Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_dis_raw[["Share of total %"]][grepl("^Endogenous", sed_dis_raw$Component)]`%** vs **`r sed_dis_raw[["Share of total %"]][grepl("^Exogenous", sed_dis_raw$Component)]`%** inherited — the persistent school effect (`r sed_dis_raw[["Share of total %"]][sed_dis_raw$Component == "School (persistent, unexplained)"]`%) is still a dwarfed upper bound.
 :::
 
-## What every pupil's Attainment 8 is really made of {.smaller}
+## What every school's average Attainment 8 is really made of {.smaller}
 
 ```{r fig-student-breakdown}
 #| fig-height: 5.1
@@ -1619,12 +1619,12 @@ Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_
     mutate(pts = pct/100 * meanv, who = who)
 }
 .mdis <- .sed$mean_att8_dis
-.df <- bind_rows(.mk(.sed$decomp_all, 46, "Typical pupil"),
-                 .mk(.sed$decomp_dis, .mdis, "Disadvantaged pupil"))
+.df <- bind_rows(.mk(.sed$decomp_all, 46, "All pupils"),
+                 .mk(.sed$decomp_dis, .mdis, "Disadvantaged pupils"))
 .lvl <- c("Inherited — the hand the pupil is dealt",
           "What the school adds (leadership & teaching)", "Area, year & luck")
 .df <- .df %>% mutate(grp = factor(grp, levels = rev(.lvl)),
-                      who = factor(who, levels = c("Typical pupil", "Disadvantaged pupil")),
+                      who = factor(who, levels = c("All pupils", "Disadvantaged pupils")),
                       lab_col = ifelse(grepl("luck", grp), "#3A1857", "white"))
 .tot <- .df %>% group_by(who) %>% summarise(total = sum(pts), .groups = "drop")
 .pal <- c("Inherited — the hand the pupil is dealt" = "#7FA8C9",
@@ -1654,7 +1654,7 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Bar height = each group's average score; each block = that factor's share of the variation in outcomes. The **pink** block — what leadership & teaching add — is real and visible for *every* pupil, and it is a **floor, not a ceiling**: a school like **BACA** adds ~1 SD *more* than the typical school for its disadvantaged pupils.
+Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **both groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds ~1 SD *more* than the typical school for its disadvantaged pupils.
 :::
 
 ## So what does a better school add? Closing the gap {.smaller}
