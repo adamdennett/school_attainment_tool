@@ -1657,33 +1657,47 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 Bar height = each group's average score; each block = that factor's share of the variation in outcomes. The **pink** block — what leadership & teaching add — is real and visible for *every* pupil, and it is a **floor, not a ceiling**: a school like **BACA** adds ~1 SD *more* than the typical school for its disadvantaged pupils.
 :::
 
-## Why the pink block is not small — and why it is a floor {.smaller}
+## So what does a better school add? Closing the gap {.smaller}
 
-```{r school-impact-vals}
-#| include: false
-.srow <- .sed$decomp_dis[.sed$decomp_dis$Component == "School (persistent, unexplained)", ]
-mean_dis  <- .sed$mean_att8_dis
-sch_share <- .srow[["Share of total %"]]
-sch_pts   <- round(mean_dis * .srow[["SD (log Att8)"]], 1)   # 1 SD, disadvantaged
-sch_pts2  <- round(2 * sch_pts, 1)                            # 2 SD
-# BACA's disadvantaged value-added = residual from the panel model
+```{r fig-school-boost}
+#| fig-height: 5.0
+#| fig-width: 9.6
+.mdis  <- .sed$mean_att8_dis
+.sdsch <- .sed$decomp_dis %>% filter(Component == "School (persistent, unexplained)") %>%
+  transmute(pts = .mdis * `SD (log Att8)`) %>% pull()
+.typ <- 46
 .baca <- bh_data %>%
-  filter(grepl("Brighton Aldridge", SCHNAME),
-         !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  filter(grepl("Brighton Aldridge", SCHNAME), !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
   mutate(r = ATT8SCR_FSM6CLA1A - exp(predicted_dis))
-baca_4yr    <- round(mean(.baca$r), 1)
-baca_latest <- round(.baca$r[.baca$year_label == max(.baca$year_label)][1], 1)
-baca_sd     <- round(baca_4yr / sch_pts, 1)
+baca_4yr <- round(mean(.baca$r), 1)
+
+.bd <- tibble(
+  who = factor(c("Average\nschool", "Good school\n(+1 SD)", "Very good school\n(+2 SD)"),
+               levels = c("Average\nschool", "Good school\n(+1 SD)", "Very good school\n(+2 SD)")),
+  base = .mdis, boost = c(0, .sdsch, 2 * .sdsch)) %>%
+  pivot_longer(c(base, boost), names_to = "part", values_to = "pts") %>%
+  mutate(part = factor(part, levels = c("boost", "base")))
+.lab <- .bd %>% group_by(who) %>% summarise(total = sum(pts), boost = pts[part == "boost"], .groups = "drop")
+
+ggplot(.bd, aes(who, pts, fill = part)) +
+  geom_col(width = 0.62, colour = "white", linewidth = 0.6) +
+  geom_hline(yintercept = .typ, linetype = "dashed", colour = "#3A1857", linewidth = 0.5) +
+  annotate("text", x = 0.55, y = .typ + 1, label = "Typical (non-disadvantaged) pupil ≈ 46",
+           hjust = 0, size = 3.6, colour = "#3A1857", fontface = "italic") +
+  geom_text(data = .lab %>% filter(boost > 0), aes(x = who, y = total, label = sprintf("+%.1f", boost)),
+            inherit.aes = FALSE, vjust = -0.6, fontface = "bold", colour = "#ED357D", size = 5.2) +
+  geom_text(data = .lab, aes(x = who, y = total, label = sprintf("%.1f", total)),
+            inherit.aes = FALSE, vjust = 1.6, fontface = "bold", colour = "white", size = 4.4) +
+  scale_fill_manual(values = c(base = "#7FA8C9", boost = "#ED357D"), guide = "none") +
+  coord_cartesian(ylim = c(0, 50)) +
+  labs(x = NULL, y = "Attainment 8 (disadvantaged pupil)") +
+  theme_slide +
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor = element_blank(),
+        axis.text.x = element_text(face = "bold", size = 13, colour = "#3A1857"))
 ```
 
-The **`r sch_share`%** school share (disadvantaged pupils) is a *residual* — what a school adds **after intake, prior attainment, absence and neighbourhood are already accounted for**. It is worth **`r sch_pts` Attainment 8 points per standard deviation** between schools.
-
-::: incremental
-- **"1 SD above average"** = once everything measurable is stripped out, this school's disadvantaged pupils still do **~`r sch_pts` points better** than the typical school — about a **quarter-to-a-third of a grade in every subject**, or a **full grade in 2–3 subjects**
-- **An excellent school** (2 SD, ~top 2.5%): **~`r sch_pts2` points**
-- **Bigger than the lever the whole debate was about** (social-mixing ~1–2 points, and *not* for disadvantaged pupils); on par with an effective head [@Zuccollo2023] or strong teaching [@Slater2012]
-- At the margin, **the difference between a grade 3 and a grade-4 pass** in English & Maths for many pupils
-- **BACA *is* that school:** **+`r baca_4yr` Att8 points** for disadvantaged pupils over four years (**~`r baca_sd` SD** above the typical school), rising to **+`r baca_latest`** in 2024–25 — top-of-distribution *after* accounting for its tough intake
+::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
+The school effect is **additive** — a good school adds its ~`r round(.sdsch,1)` points *to the pink block*, a very good school ~`r round(2*.sdsch,1)`. A genuinely good school lifts a disadvantaged pupil **most of the way to the typical pupil's average** — and the lever is about as strong here as for pupils overall. **BACA does exactly this: +`r baca_4yr` over four years.**
 :::
 
 ## The BACA paradox{.smaller}
