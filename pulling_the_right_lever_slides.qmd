@@ -1533,28 +1533,29 @@ ordinal_suffix <- function(n) {
 }
 ```
 
-## Neighbourhood effects
+## Neighbourhood effects (1)
 
-::: incremental
-- Outside of the school, does the neighbourhood environment matter?
-- Census 2021 at **output-area** level: 
-    - adult education (% level 4+), 
-    - unemployment, 
-    - economic inactivity 
-    
-— averaged over each school's **150 nearest OAs** (optimum number tested)
-- Added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
-- **It survives** — neighbourhood adult education statistically significant; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
-- Crucially: **the absence coefficient barely moves** at any k — the headline finding is not a neighbourhood artefact
-:::
-
-## What does a "150-nearest-neighbourhood" actually look like?
-
+::::: columns
+::: {.column width="50%"}
 ![](slides_assets/dorothy_stringer_150oa.png){fig-align="center" height="470"}
 
-::: {style="font-size:0.55em; text-align:center; color:#555; margin-top:0.1em;"}
 Pink diamond = **Dorothy Stringer School**; purple dots = its 150 nearest Output Area centroids — a catchment-scale ~1.5 km-radius neighbourhood.
 :::
+::: {.column width="50%"}
+- Outside of the school, does the neighbourhood environment matter?
+- Census 2021 at **output-area** level: 
+  - adult education (% level 4+), 
+  - unemployment, 
+  - economic inactivity
+:::
+::::::
+
+## Neighbourhood effects (2)
+::: incremental
+- When neighbourhood effects added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
+- **Neighbourhood effects survive** — neighbourhood adult education statistically significant; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
+- Crucially: **the absence coefficient barely moves** at any k — the headline finding is not a neighbourhood artefact
+::: 
 
 ## Who was riding their neighbourhoods?
 
