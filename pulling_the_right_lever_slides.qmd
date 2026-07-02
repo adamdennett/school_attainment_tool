@@ -1657,6 +1657,35 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 Bar height = each group's average score; each block = that factor's share of the variation in outcomes. The **pink** block — what leadership & teaching add — is real and visible for *every* pupil, and it is a **floor, not a ceiling**: a school like **BACA** adds ~1 SD *more* than the typical school for its disadvantaged pupils.
 :::
 
+## Why the pink block is not small — and why it is a floor {.smaller}
+
+```{r school-impact-vals}
+#| include: false
+.srow <- .sed$decomp_dis[.sed$decomp_dis$Component == "School (persistent, unexplained)", ]
+mean_dis  <- .sed$mean_att8_dis
+sch_share <- .srow[["Share of total %"]]
+sch_pts   <- round(mean_dis * .srow[["SD (log Att8)"]], 1)   # 1 SD, disadvantaged
+sch_pts2  <- round(2 * sch_pts, 1)                            # 2 SD
+# BACA's disadvantaged value-added = residual from the panel model
+.baca <- bh_data %>%
+  filter(grepl("Brighton Aldridge", SCHNAME),
+         !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  mutate(r = ATT8SCR_FSM6CLA1A - exp(predicted_dis))
+baca_4yr    <- round(mean(.baca$r), 1)
+baca_latest <- round(.baca$r[.baca$year_label == max(.baca$year_label)][1], 1)
+baca_sd     <- round(baca_4yr / sch_pts, 1)
+```
+
+The **`r sch_share`%** school share (disadvantaged pupils) is a *residual* — what a school adds **after intake, prior attainment, absence and neighbourhood are already accounted for**. It is worth **`r sch_pts` Attainment 8 points per standard deviation** between schools.
+
+::: incremental
+- **"1 SD above average"** = once everything measurable is stripped out, this school's disadvantaged pupils still do **~`r sch_pts` points better** than the typical school — about a **quarter-to-a-third of a grade in every subject**, or a **full grade in 2–3 subjects**
+- **An excellent school** (2 SD, ~top 2.5%): **~`r sch_pts2` points**
+- **Bigger than the lever the whole debate was about** (social-mixing ~1–2 points, and *not* for disadvantaged pupils); on par with an effective head [@Zuccollo2023] or strong teaching [@Slater2012]
+- At the margin, **the difference between a grade 3 and a grade-4 pass** in English & Maths for many pupils
+- **BACA *is* that school:** **+`r baca_4yr` Att8 points** for disadvantaged pupils over four years (**~`r baca_sd` SD** above the typical school), rising to **+`r baca_latest`** in 2024–25 — top-of-distribution *after* accounting for its tough intake
+:::
+
 ## The BACA paradox{.smaller}
 
 :::::: columns
