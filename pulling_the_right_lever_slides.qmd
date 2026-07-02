@@ -1533,61 +1533,6 @@ ordinal_suffix <- function(n) {
 }
 ```
 
-## Neighbourhood effects (1)
-
-::::: columns
-::: {.column width="50%"}
-![](slides_assets/dorothy_stringer_150oa.png){fig-align="center" height="470"}
-
-Pink diamond = **Dorothy Stringer School**; purple dots = its 150 nearest Output Area centroids — a catchment-scale ~1.5 km-radius neighbourhood.
-:::
-::: {.column width="50%"}
-- Outside of the school, does the neighbourhood environment matter?
-- Census 2021 at **output-area** level: 
-  - adult education (% level 4+), 
-  - unemployment, 
-  - economic inactivity
-:::
-::::::
-
-## Neighbourhood effects (2)
-::: incremental
-- When neighbourhood effects added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
-- **Neighbourhood effects survive** — neighbourhood adult education statistically significant; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
-- Crucially: **the absence coefficient barely moves** at any k — the headline finding is not a neighbourhood artefact
-::: 
-
-## Who was riding their neighbourhoods?
-
-```{r nbhd-rerank-plot}
-#| fig-height: 5.2
-afr$la_cmp %>%
-  ggplot(aes(mean_l4plus, effect_census - effect_base)) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_point(alpha = 0.55, size = 1.8, colour = "#49a0c4") +
-  geom_point(data = afr$bh_all, colour = "#e16fca", size = 3.5) +
-  geom_text_repel(
-    data = afr$la_cmp %>%
-      filter(rank(-abs(effect_census - effect_base)) <= 9 | grepl("Brighton", la_name)),
-    aes(label = la_name), size = 3.2, max.overlaps = 20) +
-  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 0.7) +
-  labs(title = "Change in LA effect when neighbourhood context is measured",
-       subtitle = paste0("r = ", sprintf('%.2f', afr$cor_shift_l4),
-                         "  —  educated places lose part of their apparent over-performance"),
-       x = "LA mean % adults with level 4+ qualifications (schools' 150 nearest OAs)",
-       y = "Change in LA effect") +
-  theme_slide
-```
-
-## The LA league table, re-ranked
-
-::: incremental
-- **Brighton & Hove (all pupils): `r ordinal_suffix(bh_a$rank_base)` → `r ordinal_suffix(bh_a$rank_census)`** of 152 — `r round(100*(1 - bh_a$effect_census/bh_a$effect_base))`% of the city's effect was its educated populace
-- **Brighton & Hove (disadvantaged): `r ordinal_suffix(bh_d$rank_base)` → `r ordinal_suffix(bh_d$rank_census)`** — still top decile after the strongest contextual control we can build
-- Inner London falls hard: `r paste(sprintf("%s %s→%s", fallers$la_name, fallers$rank_base, fallers$rank_census), collapse = "; ")`
-- Genuine over-performers rise: `r paste(sprintf("%s %s→%s", risers$la_name, risers$rank_base, risers$rank_census), collapse = "; ")`
-- Some of the residual "LA effect" in school performance (20%ish) is **neighbourhood demography** 
-:::
 
 ## Where variation in Attainment 8 comes from: what a school inherits vs what it controls
 
@@ -1662,29 +1607,38 @@ Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_
 
 ```{r school-impact-vals}
 #| include: false
-.sd_row  <- afr$decomp_all[afr$decomp_all$Component == "School (persistent, unexplained)", ]
-sch_share <- .sd_row[["Share of total %"]]
-sch_pts   <- round(46 * .sd_row[["SD (log Att8)"]], 1)   # 1 SD, all pupils
-sch_pts2  <- round(2 * sch_pts, 1)                       # 2 SD
+.sed  <- readRDS(here::here("data", "cache", "school_effect_decomp.rds"))
+.srow <- .sed$decomp_dis[.sed$decomp_dis$Component == "School (persistent, unexplained)", ]
+mean_dis  <- .sed$mean_att8_dis
+sch_share <- .srow[["Share of total %"]]
+sch_pts   <- round(mean_dis * .srow[["SD (log Att8)"]], 1)   # 1 SD, disadvantaged
+sch_pts2  <- round(2 * sch_pts, 1)                            # 2 SD
+# BACA's disadvantaged value-added = residual from the panel model
+.baca <- bh_data %>%
+  filter(grepl("Brighton Aldridge", SCHNAME),
+         !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
+  mutate(r = ATT8SCR_FSM6CLA1A - exp(predicted_dis))
+baca_4yr    <- round(mean(.baca$r), 1)
+baca_latest <- round(.baca$r[.baca$year_label == max(.baca$year_label)][1], 1)
+baca_sd     <- round(baca_4yr / sch_pts, 1)
 ```
 
-A **`r sch_share`%** variance share sounds abstract — but it converts into **`r sch_pts` Attainment 8 points per standard deviation** between schools (holding intake fixed).
+That **`r sch_share`%** share (for **disadvantaged pupils**) is a *residual* — what a school adds **after the model has already stripped out its intake, prior attainment, absence and neighbourhood**. It converts to **`r sch_pts` Attainment 8 points per standard deviation** between schools.
 
 ::: incremental
-- **A good school** (1 SD above average, ~top 16%) lifts *every* pupil by **~`r sch_pts` Att8 points** — about **a third of a grade in every subject**, or a **full grade up in 3–4 subjects**
-- **An excellent school** (2 SD, ~top 2.5%): **~`r sch_pts2` points** — close to a **full grade across most GCSEs**
-- **Bigger than the lever the whole debate was about** — social-mixing was worth ~1–2 points; this is 2–3× larger
-- On par with the best-evidenced levers: effective headteacher ≈ **1 GCSE grade** [@Zuccollo2023]; good vs weak teaching ≈ **4.5 Att8 points** [@Slater2012]
-- At the margin, **the difference between a grade 3 and a grade-4 pass** in English & Maths for many pupils
+- **"1 SD above average" means:** once everything measurable is accounted for, this school's disadvantaged pupils still do **~`r sch_pts` points better** than the typical school — about **a quarter-to-a-third of a grade in every subject**, or a **full grade in 2–3 subjects**
+- **An excellent school** (2 SD, ~top 2.5%): **~`r sch_pts2` points**
+- **Bigger than the lever the whole debate was about** — social-mixing was worth ~1–2 points (and *not* for disadvantaged pupils); on par with an effective head [@Zuccollo2023] or strong teaching [@Slater2012]
+- **BACA *is* that school:** **+`r baca_4yr` Att8 points** for its disadvantaged pupils over four years (**~`r baca_sd` SD** above average), rising to **+`r baca_latest`** in 2024–25 — genuinely top-of-distribution *after* accounting for its tough intake
 :::
 
 :::: fragment
 ::: key-finding
-And this is a *floor*, not a ceiling: it is the spread **between** schools with identical intakes — what leadership and teaching add. **The single biggest thing a school controls dwarfs anything admissions can move.**
+This is a *floor, not a ceiling* — the spread **between** schools with identical intakes. It is exactly the effect that made **BACA the city's strongest school for disadvantaged pupils**, even while raw league tables and a 'requires improvement' Ofsted said otherwise.
 :::
 ::::
 
-## The BACA paradox
+## The BACA paradox{.smaller}
 
 :::::: columns
 ::: {.column width="50%"}
