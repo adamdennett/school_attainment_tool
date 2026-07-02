@@ -1659,8 +1659,10 @@ Bar height = each group's average score; each block = that factor's share of the
 
 ## So what does a better school add? Closing the gap {.smaller}
 
+That pink slice was the school's *share of the variation* — so what does a school **one step better than average** actually add to a disadvantaged pupil?
+
 ```{r fig-school-boost}
-#| fig-height: 5.0
+#| fig-height: 4.6
 #| fig-width: 9.6
 .mdis  <- .sed$mean_att8_dis
 .sdsch <- .sed$decomp_dis %>% filter(Component == "School (persistent, unexplained)") %>%
