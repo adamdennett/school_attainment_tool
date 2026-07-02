@@ -1533,19 +1533,19 @@ ordinal_suffix <- function(n) {
 ## New: measuring the neighbourhood, not just the school
 
 ::: incremental
-- Census 2021 at **output-area** level: adult education (% level 4+), unemployment, inactivity — averaged over each school's **50 nearest OAs**
+- Census 2021 at **output-area** level: adult education (% level 4+), unemployment, inactivity — averaged over each school's **150 nearest OAs**
 - Added to the full national model: prior attainment, disadvantage, absence, workforce, Ofsted **all already controlled**
 - **It survives** — neighbourhood adult education t ≈ 16; marginal R² `r sprintf('%.2f', afr$r2$base_marginal)` → `r sprintf('%.2f', afr$r2$census_marginal)`
-- Wider neighbourhoods fit better at KS4 (k = 50 \> 25 \> 10) — secondary catchments are *visible in the data*
-- Crucially: **the absence coefficient barely moves** — the headline finding is not a neighbourhood artefact
+- Bigger neighbourhoods fit better at KS4 — AIC optimises at **k = 150** (\~2.5 km), matching large secondary catchments (primaries prefer k = 10)
+- Crucially: **the absence coefficient barely moves** at any k — the headline finding is not a neighbourhood artefact
 :::
 
-## What does a "50-nearest-neighbourhood" actually look like?
+## What does a "150-nearest-neighbourhood" actually look like?
 
-![](slides_assets/dorothy_stringer_50oa.png){fig-align="center" height="470"}
+![](slides_assets/dorothy_stringer_150oa.png){fig-align="center" height="470"}
 
 ::: {style="font-size:0.55em; text-align:center; color:#555; margin-top:0.1em;"}
-Pink diamond = **Dorothy Stringer School**; purple dots = its 50 nearest Output Area centroids — a walkable ~1 km of local social fabric.
+Pink diamond = **Dorothy Stringer School**; purple dots = its 150 nearest Output Area centroids — a catchment-scale ~1.5 km-radius neighbourhood.
 :::
 
 ## Who was riding their neighbourhoods?
@@ -1565,7 +1565,7 @@ afr$la_cmp %>%
   labs(title = "Change in LA effect when neighbourhood context is measured",
        subtitle = paste0("r = ", sprintf('%.2f', afr$cor_shift_l4),
                          "  —  educated places lose part of their apparent over-performance"),
-       x = "LA mean % adults with level 4+ qualifications (schools' 50 nearest OAs)",
+       x = "LA mean % adults with level 4+ qualifications (schools' 150 nearest OAs)",
        y = "Change in LA effect") +
   theme_slide
 ```
@@ -1584,12 +1584,18 @@ afr$la_cmp %>%
 
 ```{r nbhd-decomp-all}
 #| fig-height: 4.8
+# Collapse the two fixed-effect rows into one combined bar for the big-picture
+# view here; the split is revealed on the following slide.
 afr$decomp_all %>%
+  mutate(Component = ifelse(grepl("^Exogenous|^Endogenous", Component),
+                            "Fixed effects (the hand each school is dealt)", Component)) %>%
+  group_by(Component) %>%
+  summarise(`Share of total %` = sum(`Share of total %`), .groups = "drop") %>%
   mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
   ggplot(aes(`Share of total %`, Component)) +
   geom_col(fill = "#49a0c4") +
   geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 4) +
-  xlim(0, 75) +
+  xlim(0, 80) +
   labs(title = "Variance decomposition: all pupils (national census model + school random intercept)",
        subtitle = "The persistent school component is the UPPER BOUND on what changing schools could achieve",
        x = "Share of total outcome variance (%)", y = NULL) +

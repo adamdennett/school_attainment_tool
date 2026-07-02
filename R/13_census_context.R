@@ -140,7 +140,7 @@ fetch_oa_centroids <- function(force = FALSE) {
 
 # ---- 3. k-nearest-OA aggregation per school ----
 
-build_school_census_context <- function(k_set = c(5, 10, 25, 50, 100), save = TRUE) {
+build_school_census_context <- function(k_set = c(5, 10, 25, 50, 100, 150), save = TRUE) {
 
   k_max <- max(k_set)
 
