@@ -1888,21 +1888,19 @@ A policy that even marginally increases absence could be **counterproductive** i
 Following opposition and appeals: PAN reductions rejected, 20% out-of-catchment → 5%. But the policy reverberations continue through **parental choices** already made. **Little displacement on 2026 offer day luck not judgement!**
 :::
 
-## What we don't know
+## What we (now partly) know {.smaller}
 
-The LEA random effect is **large and significant** — something about Brighton & Hove's schools is delivering results well above prediction. But what?
+The LEA random effect is **large and significant** — and the neighbourhood analysis has now answered *part* of what drives it.
 
 ::: incremental
-- High levels of **parental engagement and aspiration**? (well-educated population)
-- Quality of **school leadership and governance**?
-- Effective **local authority support** services?
-- **Collaborative relationships** between schools?
-- **Community factors** difficult to quantify?
+- **Now measured:** ~`r round(100*(1 - bh_a$effect_census/bh_a$effect_base))`% of the city's all-pupil over-performance (~`r round(100*(1 - bh_d$effect_census/bh_d$effect_base))`% for disadvantaged) is its **educated adult population** — a graduate-heavy city where even disadvantaged pupils grow up among more educated neighbours. A **feature of place**, not a lever admissions can pull
+- **But most survives:** after the strongest contextual control we can build, B&H is still **`r ordinal_suffix(bh_a$rank_census)`** (all pupils) / **`r ordinal_suffix(bh_d$rank_census)`** (disadvantaged) of 152 — the majority is something else
+- Still unexplained: **leadership & governance**? Effective **LA support**? **Collaboration** between schools? A city-wide **culture** of engagement?
 :::
 
 :::: fragment
 ::: key-finding
-Identifying sources of over-performance is a key research question. But **policy interventions that risk disrupting a well-functioning system without understanding what makes it function well carry substantial downside risk**.
+So the "well-educated population" hunch is now partly quantified — but the larger, unexplained remainder *is* the well-functioning system. **Disrupting it before we understand what makes it work carries substantial downside risk.**
 :::
 ::::
 
