@@ -82,14 +82,26 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
-// Belt-and-braces hiding of the title background when it is NOT the current
-// slide. reveal hides non-present backgrounds with opacity/visibility, but on
-// iOS Safari the inner `.slide-background-content` (which carries the title PNG)
-// and absolutely-positioned pseudos can escape the parent's `visibility:hidden`,
-// leaking the purple title art onto every subsequent slide. Force everything —
-// the image layer, the gradient overlay, and the accent bar — off unless the
-// title slide is present.
-.reveal .slide-background:first-child:not(.present) {
+// Hide the title background entirely whenever the title slide is NOT the
+// current slide. On Android Chrome, reveal's usual way of hiding a non-present
+// background (opacity/visibility on the parent `.slide-background`) does not
+// reliably suppress the inner `.slide-background-content` (which carries the
+// title PNG) or the gradient/accent pseudos, so the purple title art leaks
+// onto every subsequent slide.
+//
+// Primary rule: key off the title SECTION's `.present` state via `:has()`
+// (reveal's core section management, reliable on every browser) and use
+// `display:none` — which removes the whole title background subtree (image +
+// gradient overlay + accent bar) from rendering, so no compositing quirk can
+// keep any of it painted. `.quarto-title-block` is the class reveal copies onto
+// the title's background element.
+.reveal:not(:has(#title-slide.present)) .backgrounds .slide-background.quarto-title-block {
+  display: none !important;
+}
+
+// Fallback for browsers without `:has()` support: hide via opacity/visibility
+// keyed off the background element's own `:not(.present)` state.
+.reveal .backgrounds .slide-background.quarto-title-block:not(.present) {
   opacity: 0 !important;
   visibility: hidden !important;
 
