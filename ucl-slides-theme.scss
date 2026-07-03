@@ -82,39 +82,13 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
-// Hide the title background entirely whenever the title slide is NOT the
-// current slide. On Android Chrome, reveal's usual way of hiding a non-present
-// background (opacity/visibility on the parent `.slide-background`) does not
-// reliably suppress the inner `.slide-background-content` (which carries the
-// title PNG) or the gradient/accent pseudos, so the purple title art leaks
-// onto every subsequent slide.
-//
-// Primary rule: key off the title SECTION's `.present` state via `:has()`
-// (reveal's core section management, reliable on every browser) and use
-// `display:none` — which removes the whole title background subtree (image +
-// gradient overlay + accent bar) from rendering, so no compositing quirk can
-// keep any of it painted. `.quarto-title-block` is the class reveal copies onto
-// the title's background element.
-.reveal:not(:has(#title-slide.present)) .backgrounds .slide-background.quarto-title-block {
-  display: none !important;
-}
-
-// Fallback for browsers without `:has()` support: hide via opacity/visibility
-// keyed off the background element's own `:not(.present)` state.
-.reveal .backgrounds .slide-background.quarto-title-block:not(.present) {
-  opacity: 0 !important;
-  visibility: hidden !important;
-
-  .slide-background-content {
-    visibility: hidden !important;
-    opacity: 0 !important;
-  }
-
-  &::after,
-  &::before {
-    content: none !important;
-  }
-}
+// NOTE: hiding the title background on non-title slides is handled in JS
+// (see slides-footer.html — an inline `display` toggle on `slidechanged`).
+// CSS approaches proved unreliable on mobile Chromium: reveal's own
+// opacity/visibility hiding does not suppress the inner image div, and a
+// `:has(#title-slide.present)` rule fails to re-invalidate on navigation on
+// mobile Blink (and, with `!important`, even mis-hid the title on its own
+// slide). The JS toggle is the single, reliable source of truth.
 
 // Title slide — gradient overlay on the background layer (covers the bg image).
 // Scoped to `.present` so the purple haze only renders while the title slide is
