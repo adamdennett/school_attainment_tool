@@ -4660,6 +4660,56 @@ Two design adjustments for the secondary phase:
 1. **Wider neighbourhoods.** Secondary catchments are much larger than primary ones, so the context dataset (`R/13_census_context.R`) provides k = 10, 25, 50, 100 and 150 nearest OAs (an OA averages ~125 households; k = 150 approximates a ~2.5 km-radius slice of a town). The k-sensitivity comparison below lets the data choose — and for secondaries it chooses large.
 2. **A falsification check.** Schools with a religious character draw on faith communities over much wider, non-contiguous areas — admission is less distance-based by construction. If the census variables are genuinely capturing *the neighbourhoods a school serves* (rather than generic regional conditions), their effect should be **weaker for faith schools**. We test this directly.
 
+## What a 150-nearest-OA neighbourhood looks like
+
+The k-nearest construction is easiest to grasp visually. For each school we take its coordinates from GIAS, find its `k` nearest 2021 Census Output Area *population-weighted centroids* (with `nabor::knn` on the British National Grid — an exact kd-tree nearest-neighbour search), and average the Census indicators across those OAs. The map below shows the k = 150 neighbourhood for one Brighton and Hove secondary, Dorothy Stringer.
+
+```{r f-neighbourhood-map}
+#| label: fig-neighbourhood-map
+#| fig-cap: "Dorothy Stringer School (pink diamond) and its 150 nearest Census Output Area population-weighted centroids (purple dots; shaded hull = their extent). This is the neighbourhood the k = 150 context variables average over — for a dense urban school, a compact ~1.5 km-radius patch. Basemap: CARTO / OpenStreetMap."
+#| fig-height: 6.5
+#| fig-width: 8
+#| message: false
+#| warning: false
+
+library(sf)
+library(ggspatial)
+
+oa <- readRDS(here("data", "cache", "oa_pwc_2021.rds"))
+ds <- panel %>%
+  filter(grepl("Dorothy Stringer", SCHNAME)) %>%
+  distinct(URN, SCHNAME, easting, northing) %>%
+  slice(1)
+
+# k = 150 nearest OA centroids (British National Grid), exactly as R/13 does it
+nn <- nabor::knn(data  = as.matrix(oa[, c("easting", "northing")]),
+                 query = as.matrix(ds[, c("easting", "northing")]),
+                 k = 150)
+oa150 <- oa[as.integer(nn$nn.idx[1, ]), ] %>%
+  mutate(dist_km = nn$nn.dists[1, ] / 1000)
+
+# to Web Mercator for the basemap tiles
+oa_sf  <- st_as_sf(oa150, coords = c("easting", "northing"), crs = 27700) %>% st_transform(3857)
+sch_sf <- st_as_sf(ds,    coords = c("easting", "northing"), crs = 27700) %>% st_transform(3857)
+hull   <- concaveman::concaveman(oa_sf) %>% st_buffer(120)
+bb     <- st_bbox(st_buffer(oa_sf, 500))
+
+ggplot() +
+  annotation_map_tile(type = "cartolight", zoom = 14, progress = "none") +
+  geom_sf(data = hull, fill = "#993AFF", colour = "#6A1B9A", alpha = 0.12, linewidth = 0.6) +
+  geom_sf(data = oa_sf, colour = "#3A1857", fill = "#B982FF", shape = 21,
+          size = 2, stroke = 0.3, alpha = 0.85) +
+  geom_sf(data = sch_sf, shape = 23, size = 6, stroke = 1.3, colour = "white", fill = "#ED357D") +
+  annotation_scale(location = "bl", width_hint = 0.28) +
+  coord_sf(xlim = c(bb["xmin"], bb["xmax"]), ylim = c(bb["ymin"], bb["ymax"]),
+           crs = 3857, expand = FALSE) +
+  labs(caption = sprintf("150th-nearest OA is %.1f km away; mean %.1f km.",
+                         max(oa150$dist_km), mean(oa150$dist_km))) +
+  theme_void()
+```
+
+For a dense urban school the 150-OA neighbourhood is a compact, genuinely *local* patch — the streets around the school, from Patcham down toward the city centre, not a generic regional average. This is why `k` is a **scale choice, not a nuisance**: the same 150 OAs around a rural school would sprawl over many kilometres, so the "right" `k` depends on how far a school actually draws its pupils. Secondaries, with their large catchments, prefer a much larger `k` than primaries (which favoured k = 10) — the AIC comparison below picks k = 150. The variables we average over each such neighbourhood are adult qualification (% with level 4+), unemployment and economic inactivity: a compact summary of the socio-educational fabric a school sits within.
+
 ## Join and bivariate look
 
 ```{r f-census-join}
@@ -5153,6 +5203,144 @@ cat("Saved data/cache/analysis_f_results.rds\n")
 ```
 
 The disadvantaged decomposition (compare shares with the all-pupil table above, computed live in both cases) carries the same structural message: the dominant share of variation is the hand the school is dealt; the persistent school component is real but secondary; and small disadvantaged cohorts make the transient share larger than for all pupils — single-year disadvantaged league tables are noisier still.
+
+## What the decomposition means for a pupil
+
+The variance shares above are the natural output of the model, but they invite two misreadings, so three presentation views (developed for the slide deck and reproduced here with fuller workings) make the substance concrete. All are built from the two decompositions already computed — `decomp` for all pupils and `decomp_dis` for disadvantaged pupils — so nothing is refitted. First we collapse the eight components into three plain-English buckets:
+
+- **Inherited — the hand the school is dealt:** the *exogenous* fixed effects — cohort disadvantage and EAL, prior attainment, absence, neighbourhood context, plus admissions type and segregation. Things the school cannot choose.
+- **What the school adds:** the *persistent between-school effect* (the URN random intercept) plus the *school-controllable workforce* fixed effects — leadership pay, teacher retention, sickness. Genuine school quality *and*, in the persistent term, any stable unmeasured intake sorting — which is why it is an upper bound.
+- **Area, year & luck:** region, LA, Ofsted rating, year, and transient cohort-year noise.
+
+```{r f-pupil-buckets}
+#| label: f-pupil-buckets
+#| include: false
+
+.bucket <- function(d) {
+  d %>% mutate(grp = case_when(
+    grepl("^Exogenous", Component) ~ "Inherited — the hand the school is dealt",
+    grepl("^Endogenous", Component) | Component == "School (persistent, unexplained)" ~ "What the school adds",
+    TRUE ~ "Area, year & luck")) %>%
+    group_by(grp) %>% summarise(pct = sum(`Share of total %`), .groups = "drop")
+}
+.buck <- bind_rows(
+  .bucket(decomp)     %>% mutate(who = "All pupils",          meanv = 46),
+  .bucket(decomp_dis) %>% mutate(who = "Disadvantaged pupils", meanv = mean_att8_dis)
+) %>% mutate(pts = pct / 100 * meanv)
+.blvl <- c("Inherited — the hand the school is dealt", "What the school adds", "Area, year & luck")
+.buck <- .buck %>% mutate(grp = factor(grp, levels = rev(.blvl)),
+                          who = factor(who, levels = c("All pupils", "Disadvantaged pupils")),
+                          lab_col = ifelse(grepl("luck", grp), "#3A1857", "white"))
+.tot <- .buck %>% group_by(who) %>% summarise(total = sum(pts), .groups = "drop")
+.bpal <- c("Inherited — the hand the school is dealt" = "#7FA8C9",
+           "What the school adds" = "#ED357D", "Area, year & luck" = "#D5CFDD")
+```
+
+### View 1 --- what a school's average Attainment 8 is "made of"
+
+```{r fig-made-of}
+#| label: fig-made-of
+#| fig-cap: "Schematic breakdown of school-average Attainment 8 for all pupils and disadvantaged pupils. Bar height is each group's mean score; each block is that factor's share of the between-school variance, scaled to the mean."
+#| fig-height: 5
+#| fig-width: 8
+
+ggplot(.buck, aes(who, pts, fill = grp)) +
+  geom_col(width = 0.6, colour = "white", linewidth = 0.6) +
+  geom_text(aes(label = sprintf("%.1f", pts), colour = lab_col),
+            position = position_stack(vjust = 0.5), fontface = "bold", size = 4) +
+  scale_colour_identity() +
+  geom_text(data = .tot, aes(x = who, y = total, label = sprintf("Att8 ≈ %.0f", total)),
+            inherit.aes = FALSE, vjust = -0.7, fontface = "bold", colour = "#3A1857") +
+  scale_fill_manual(values = .bpal, name = NULL, breaks = .blvl) +
+  labs(x = NULL, y = "Attainment 8 points") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom", panel.grid.major.x = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+**Read this as a schematic, not a literal ledger.** A variance decomposition partitions the *variation between schools*, not the *level* of any one school's score; multiplying each share by the group mean (the bar height) simply puts the shares on a familiar Attainment 8 scale. It does **not** claim that "28.6 of a school's 46 points come from intake". With that caveat, the message is stark: the inherited hand dwarfs everything, and for disadvantaged pupils the "area, year & luck" slice is proportionally larger because their cohorts are small and their year-to-year results noisier.
+
+### View 2 --- the fixed part, split into inherited vs school-controllable
+
+```{r fig-hand-split}
+#| label: fig-hand-split
+#| fig-cap: "The full all-pupil variance decomposition, coloured by whether a component is inherited (exogenous), the school's own persistent effect, the school-controllable workforce inputs, or place/noise. The exact exogenous/endogenous split uses covariance-with-total, so the two fixed groups sum to the fixed-effect variance."
+#| fig-height: 4.5
+#| fig-width: 8.5
+
+decomp %>%
+  mutate(grp = case_when(
+    grepl("^Exogenous", Component)  ~ "Inherited (exogenous)",
+    grepl("^Endogenous", Component) ~ "Workforce (school-controllable)",
+    Component == "School (persistent, unexplained)" ~ "Persistent school effect",
+    TRUE ~ "Place / noise"),
+    Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component, fill = grp)) +
+  geom_col() +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 3.4) +
+  scale_fill_manual(values = c("Inherited (exogenous)" = "#49a0c4",
+                               "Persistent school effect" = "#6A4C93",
+                               "Workforce (school-controllable)" = "#ED357D",
+                               "Place / noise" = "#BBBBBB"), name = NULL) +
+  xlim(0, max(decomp$`Share of total %`) * 1.12) +
+  labs(x = "Share of total outcome variance (%)", y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+Split this way, the part of a school's average that is genuinely *within its control* --- the workforce fixed effects --- is a sliver (~3% of variance for all pupils, ~1% for disadvantaged), while the persistent school effect (~16% / ~11%) sits above it as an upper bound that still bundles unmeasured intake sorting.
+
+### View 3 --- what a *better* school adds, and how far it closes the gap
+
+Views 1--2 answer "what *shares* the variation". A different, cleaner question is "what does attending a *better* school actually add to a pupil?" --- and the answer is the **standard deviation** of the persistent school effect, not its variance share. The two are easily confused. From `decomp_dis`, the persistent school component has an SD on the log scale that, at the disadvantaged mean, converts to Attainment 8 points as follows:
+
+```{r f-school-sd-points}
+#| label: f-school-sd-points
+
+.sd_log_dis <- decomp_dis$`SD (log Att8)`[decomp_dis$Component == "School (persistent, unexplained)"]
+.sd_pts_dis <- mean_att8_dis * .sd_log_dis
+.baca_va    <- quadrant_data_disadv$vadd_M2_disadv[grepl("Brighton Aldridge", quadrant_data_disadv$SCHNAME)]
+cat(sprintf("Persistent school SD (disadvantaged): %.4f on log scale = %.2f Attainment 8 points per SD\n",
+            .sd_log_dis, .sd_pts_dis))
+cat(sprintf("Disadvantage gap: all-pupil mean 46 vs disadvantaged mean %.1f = %.1f Att8 points\n",
+            mean_att8_dis, 46 - mean_att8_dis))
+cat(sprintf("BACA two-stage disadvantaged value-added: %+.1f Att8 points (%.1f SD above the typical school)\n",
+            .baca_va, .baca_va / .sd_pts_dis))
+```
+
+```{r fig-better-school}
+#| label: fig-better-school
+#| fig-cap: "The persistent school effect is additive. A disadvantaged pupil's expected Attainment 8 at an average, good (+1 SD) and very good (+2 SD) school; the pink block is what the school adds on top of the pupil's inherited baseline. Dashed line = the all-pupil average."
+#| fig-height: 5
+#| fig-width: 8.5
+
+.bd <- tibble(
+  who = factor(c("Average\nschool", "Good school\n(+1 SD)", "Very good school\n(+2 SD)"),
+               levels = c("Average\nschool", "Good school\n(+1 SD)", "Very good school\n(+2 SD)")),
+  base = mean_att8_dis, boost = c(0, .sd_pts_dis, 2 * .sd_pts_dis)) %>%
+  pivot_longer(c(base, boost), names_to = "part", values_to = "pts") %>%
+  mutate(part = factor(part, levels = c("boost", "base")))
+.lab <- .bd %>% group_by(who) %>% summarise(total = sum(pts), boost = pts[part == "boost"], .groups = "drop")
+
+ggplot(.bd, aes(who, pts, fill = part)) +
+  geom_col(width = 0.62, colour = "white", linewidth = 0.6) +
+  geom_hline(yintercept = 46, linetype = "dashed", colour = "#3A1857", linewidth = 0.5) +
+  annotate("text", x = 0.55, y = 47, label = "All-pupil average ≈ 46", hjust = 0,
+           size = 3.3, colour = "#3A1857", fontface = "italic") +
+  geom_text(data = .lab %>% filter(boost > 0), aes(x = who, y = total, label = sprintf("+%.1f", boost)),
+            inherit.aes = FALSE, vjust = -0.6, fontface = "bold", colour = "#ED357D", size = 4.6) +
+  geom_text(data = .lab, aes(x = who, y = total, label = sprintf("%.1f", total)),
+            inherit.aes = FALSE, vjust = 1.6, fontface = "bold", colour = "white", size = 4) +
+  scale_fill_manual(values = c(base = "#7FA8C9", boost = "#ED357D"), guide = "none") +
+  coord_cartesian(ylim = c(0, 50)) +
+  labs(x = NULL, y = "Attainment 8 (disadvantaged pupil)") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor = element_blank())
+```
+
+A school one SD above average lifts every disadvantaged pupil by ~`r sprintf('%.1f', .sd_pts_dis)` points *on top of* their expected score; two SDs, roughly double. Against the ~`r sprintf('%.0f', 46 - mean_att8_dis)`-point disadvantage gap, a genuinely good school closes most of it. BACA is the concrete case: its two-stage disadvantaged value-added is around one SD above the typical school, which is why it tops the city's contextualised table for the group the 2024 policy set out to help.
+
+**The two numbers are not the same thing.** View 1's "what the school adds" block (a share of variance, scaled by the mean) and View 3's per-SD boost answer *different* questions — *how much do schools differ* versus *what does moving between them do to a pupil*. The variance share can look modest while the per-SD effect is large; conflating them is the single easiest way to misread this analysis.
 
 ## Reading Analysis F
 
