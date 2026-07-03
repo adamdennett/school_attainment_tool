@@ -1009,7 +1009,60 @@ kable(mediation_tbl, align = "lrrr") %>%
 ```
 
 ::: key-finding
-Adding absence **halves** the FSM coefficient. Adding prior attainment reduces both further. With just 3 variables → **two-thirds** of variation explained.
+The coefficient is a number that represents how steep the line through the scatter plot is. Bigger number (positive or negative) → steeper the line → stronger the effect. 0 = flat line = no effect
+:::
+::: key-finding
+Adding absence **halves** the FSM coefficient. Adding prior attainment reduces both further. With just 3 variables → **two-thirds** of variation in GCSE scores between schools explained.
+:::
+
+## Seeing the mediation: the disadvantage line flattens {.smaller}
+
+```{r fig-mediation-adjustment}
+#| label: fig-mediation-adjustment
+#| fig-height: 3.7
+#| fig-width: 10
+
+med_df <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0, !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+         !is.na(PERCTOT), PERCTOT > 0, !is.na(PTPRIORLO))
+
+m1_med <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A), data = med_df)
+m3_med <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + PTPRIORLO, data = med_df)
+b3 <- coef(m3_med)
+
+# "Adjusted" Att8 = predicted for a school with this FSM but AVERAGE absence and
+# prior attainment, plus its residual. This isolates the FSM relationship net of
+# the two mediators while keeping the cloud on a real Attainment 8 scale.
+med_df <- med_df %>%
+  mutate(adj_att8 = exp(
+    b3[["(Intercept)"]] +
+    b3[["log(PTFSM6CLA1A)"]] * log(PTFSM6CLA1A) +
+    b3[["log(PERCTOT)"]]     * mean(log(PERCTOT)) +
+    b3[["PTPRIORLO"]]        * mean(PTPRIORLO) +
+    residuals(m3_med)))
+
+lab_raw <- sprintf("Disadvantage alone  (slope %.2f)", coef(m1_med)[["log(PTFSM6CLA1A)"]])
+lab_adj <- sprintf("Adjusted for absence & prior attainment  (slope %.2f)", b3[["log(PTFSM6CLA1A)"]])
+
+plot_df <- bind_rows(
+  med_df %>% transmute(PTFSM6CLA1A, att8 = ATT8SCR,  panel = lab_raw),
+  med_df %>% transmute(PTFSM6CLA1A, att8 = adj_att8, panel = lab_adj)
+) %>% mutate(panel = factor(panel, levels = c(lab_raw, lab_adj)))
+
+ggplot(plot_df, aes(PTFSM6CLA1A, att8)) +
+  geom_point(alpha = 0.12, size = 0.6, colour = "#993AFF") +
+  geom_smooth(method = "lm", se = FALSE, colour = "#ED357D", linewidth = 1.1) +
+  facet_wrap(~ panel) +
+  scale_x_log10() + scale_y_log10() +
+  coord_cartesian(ylim = c(15, 100)) +
+  labs(x = "% Disadvantaged (FSM) — log scale",
+       y = "Attainment 8 — All Pupils — log scale") +
+  theme_slide +
+  theme(strip.text = element_text(face = "bold", size = 11))
+```
+
+::: key-finding
+Same schools, same axes — but once absence and prior attainment are held constant (right), the disadvantage line **flattens dramatically**: most of the apparent effect ran *through* attendance and prior attainment.
 :::
 
 ## What about segregation?
@@ -1923,21 +1976,6 @@ A policy that even marginally increases absence could be **counterproductive** i
 Following opposition and appeals: PAN reductions rejected, 20% out-of-catchment → 5%. But the policy reverberations continue through **parental choices** already made. **Little displacement on 2026 offer day luck not judgement!**
 :::
 
-## What we (now partly) know {.smaller}
-
-The LEA random effect is **large and significant** — and the neighbourhood analysis has now answered *part* of what drives it.
-
-::: incremental
-- **Now measured:** ~`r round(100*(1 - bh_a$effect_census/bh_a$effect_base))`% of the city's all-pupil over-performance (~`r round(100*(1 - bh_d$effect_census/bh_d$effect_base))`% for disadvantaged) is its **educated adult population** — a graduate-heavy city where even disadvantaged pupils grow up among more educated neighbours. A **feature of place**, not a lever admissions can pull
-- **But most survives:** after the strongest contextual control we can build, B&H is still **`r ordinal_suffix(bh_a$rank_census)`** (all pupils) / **`r ordinal_suffix(bh_d$rank_census)`** (disadvantaged) of 152 — the majority is something else
-- Still unexplained: **leadership & governance**? Effective **LA support**? **Collaboration** between schools? A city-wide **culture** of engagement?
-:::
-
-:::: fragment
-::: key-finding
-So the "well-educated population" hunch is now partly quantified — but the larger, unexplained remainder *is* the well-functioning system. **Disrupting it before we understand what makes it work carries substantial downside risk.**
-:::
-::::
 
 ## What should Brighton and Hove do? {.smaller}
 
