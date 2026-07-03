@@ -43,8 +43,9 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
         with:
-          # The published site is ~130 MB, so GitHub's Pages backend needs
-          # ~10-15 min to process it. The action's default timeout is 10 min,
-          # which the deployment was intermittently overrunning (queued state)
-          # and aborting. Give it generous headroom (30 min).
-          timeout: 1800000
+          # deploy-pages caps `timeout` at 600000 ms (10 min); anything larger
+          # is silently clamped to this and logs a warning on every run, so set
+          # it to the maximum explicitly. The ~130 MB site normally processes in
+          # well under a minute; occasional failures we saw were transient
+          # GitHub Pages backend issues, not timeouts.
+          timeout: 600000
