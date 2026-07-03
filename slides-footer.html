@@ -18,18 +18,26 @@ document.addEventListener('DOMContentLoaded', function() {
     var footer = document.querySelector('.slide-footer-logos');
     if (footer) footer.style.display = isTitle ? 'none' : '';
 
-    // Hide the title slide's purple background whenever the title slide is not
-    // the current slide. This is done in JS (not CSS) because CSS approaches
-    // are unreliable on mobile Chromium: reveal's own opacity/visibility
-    // hiding of the background layer does not suppress the inner image div,
-    // and `:has(#title-slide.present)` fails to re-invalidate on navigation on
-    // mobile Blink — both leave the purple art bleeding onto every slide.
-    // A direct inline display toggle on `slidechanged` is reliable everywhere.
+    // Hide the title slide's purple background (image + gradient overlay +
+    // accent bar) whenever the title slide is not the current slide. Done in JS
+    // (not CSS) because on mobile Chromium reveal's section hiding works but its
+    // background-layer hiding does NOT: the title background keeps painting even
+    // when its slide is not current, so the purple gradient bleeds onto every
+    // slide. (CSS `opacity`/`visibility` don't suppress the inner image div, and
+    // `:has(#title-slide.present)` doesn't re-invalidate on navigation on mobile
+    // Blink.) A direct inline `display` toggle on `slidechanged` is reliable.
+    //
+    // Target the background structurally as `:first-child` — the SAME selector
+    // the gradient CSS uses — NOT by the `.quarto-title-block` class. reveal
+    // copies that class onto the background element on desktop but not reliably
+    // on mobile, so a class-based query returned null on phones and nothing got
+    // hidden (which is exactly why this bled on mobile but not desktop).
+    //
     // Use an explicit 'block' (not '') for the title slide: reveal drives the
     // background's display via its own inline style, and clearing it to ''
     // reverts to reveal's base `display:none`, blanking the title on its own
     // slide.
-    var titleBg = document.querySelector('.reveal .backgrounds .slide-background.quarto-title-block');
+    var titleBg = document.querySelector('.reveal .backgrounds .slide-background:first-child');
     if (titleBg) titleBg.style.display = isTitle ? 'block' : 'none';
   }
   if (typeof Reveal !== 'undefined') {
