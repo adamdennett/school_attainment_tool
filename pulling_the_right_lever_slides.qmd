@@ -2085,7 +2085,9 @@ Non-linear effects mean the same adjustment produces **different impacts** depen
 
 3.  For disadvantaged pupils, the concentration effect **runs in the opposite direction** to common assumption
 
-4.  For disadvantaged pupils the most important factor impacting their attainment is attendance - nearly 1/2 of school level performance is explained by attendance alone and it matters almost twice as much for disadvantaged pupils than non-disadvantaged pupils. 
+4.  For disadvantaged pupils the most important factor impacting their attainment is attendance
+  - nearly 1/2 of school level performance is explained by attendance alone 
+  - and it matters almost twice as much for disadvantaged pupils than non-disadvantaged pupils. 
 
 5.  Brighton & Hove is one of the **highest-performing LEAs** — but has the **2nd worst absence** in England
 

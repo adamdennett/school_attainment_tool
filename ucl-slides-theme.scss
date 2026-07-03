@@ -82,8 +82,11 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
-// Title slide — gradient overlay on the background layer (covers the bg image)
-.reveal .slide-background:first-child::after {
+// Title slide — gradient overlay on the background layer (covers the bg image).
+// Scoped to `.present` so the purple haze only renders while the title slide is
+// the current slide; without this, mobile reveal.js keeps the first background
+// element painted and the haze bleeds through every subsequent slide.
+.reveal .slide-background:first-child.present::after {
   content: "";
   position: absolute;
   top: 0;
@@ -145,7 +148,7 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // Bottom accent bar on title slide background
-.reveal .slide-background:first-child::before {
+.reveal .slide-background:first-child.present::before {
   content: "";
   position: absolute;
   bottom: 0;
