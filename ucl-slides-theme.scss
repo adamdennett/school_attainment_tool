@@ -82,36 +82,17 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
-// NOTE: hiding the title background on non-title slides is handled in JS
-// (see slides-footer.html — an inline `display` toggle on `slidechanged`).
-// CSS approaches proved unreliable on mobile Chromium: reveal's own
-// opacity/visibility hiding does not suppress the inner image div, and a
-// `:has(#title-slide.present)` rule fails to re-invalidate on navigation on
-// mobile Blink (and, with `!important`, even mis-hid the title on its own
-// slide). The JS toggle is the single, reliable source of truth.
-
-// Title slide — gradient overlay on the background layer (covers the bg image).
-// Scoped to `.present` so the purple haze only renders while the title slide is
-// the current slide; without this, mobile reveal.js keeps the first background
-// element painted and the haze bleeds through every subsequent slide.
-.reveal .slide-background:first-child.present::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    110deg,
-    rgba(58, 24, 87, 0.97) 0%,
-    rgba(58, 24, 87, 0.93) 42%,
-    rgba(58, 24, 87, 0.70) 62%,
-    rgba(58, 24, 87, 0.40) 80%,
-    rgba(58, 24, 87, 0.18) 100%
-  );
-  z-index: 1;
-}
-
+// The purple gradient overlay AND the bottom accent bar are baked directly into
+// the title background image itself (`slides_assets/title-bg-composite.png`,
+// generated from `title-bg.png`), so the title is a single reveal
+// `data-background-image` with no CSS overlay. This is the fix for the mobile
+// purple-haze bug: earlier the gradient was a CSS pseudo on reveal's background
+// LAYER (`.slide-background::after`), which mobile Chromium failed to hide when
+// the title slide was not current, bleeding purple onto every slide. The image
+// LAYER does hide correctly on mobile, so folding the gradient into the image
+// eliminates the bleed entirely — no pseudo, no JS toggle, no section geometry.
+// To regenerate the image, re-run the compositing step (see git history / the
+// bake script) against a new title-bg.png.
 #title-slide {
   color: white !important;
   text-align: left;

@@ -16,22 +16,9 @@
 
     var footer = document.querySelector('.slide-footer-logos');
     if (footer) footer.style.display = isTitle ? 'none' : '';
-
-    // Force the title slide's background (image + gradient overlay + accent bar)
-    // OFF on every non-title slide. On mobile Chromium reveal's section hiding
-    // works (the title text disappears) but its background-layer hiding does
-    // not, so the purple gradient bleeds onto every slide. This must be robust
-    // against three mobile-only failure modes seen in testing:
-    //   1. class dependency — query :first-child (structural), because reveal
-    //      does not reliably copy the .quarto-title-block class onto the
-    //      background element on mobile;
-    //   2. reveal re-asserting display — use inline !important, which reveal's
-    //      own non-important inline style cannot override;
-    //   3. an explicit 'block' (not '') for the title slide, because clearing
-    //      the value reverts to reveal's base display:none and blanks the
-    //      title on its own slide.
-    var titleBg = document.querySelector('.reveal .backgrounds .slide-background:first-child');
-    if (titleBg) titleBg.style.setProperty('display', isTitle ? 'block' : 'none', 'important');
+    // NOTE: the title slide's purple background (gradient + accent bar) is no
+    // longer hidden here. It now lives on the #title-slide SECTION in the theme
+    // SCSS, which reveal hides reliably on mobile — so no JS toggle is needed.
   }
 
   // Attach as soon as Reveal is available, polling until it loads. Do NOT rely

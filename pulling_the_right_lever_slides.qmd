@@ -6,7 +6,7 @@ author:
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
 date: today
 title-slide-attributes:
-  data-background-image: "slides_assets/title-bg.png"
+  data-background-image: "slides_assets/title-bg-composite.png"
   data-background-size: "cover"
   data-background-position: "center"
   data-background-opacity: "1"
@@ -2086,6 +2086,7 @@ Non-linear effects mean the same adjustment produces **different impacts** depen
 3.  For disadvantaged pupils, the concentration effect **runs in the opposite direction** to common assumption
 
 4.  For disadvantaged pupils the most important factor impacting their attainment is attendance
+
   - nearly 1/2 of school level performance is explained by attendance alone 
   - and it matters almost twice as much for disadvantaged pupils than non-disadvantaged pupils. 
 
