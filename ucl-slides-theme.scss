@@ -82,6 +82,28 @@ $presentation-h3-font-size: 1.0em;
 }
 
 // ---- Title Slide (dark purple background) ----
+// Belt-and-braces hiding of the title background when it is NOT the current
+// slide. reveal hides non-present backgrounds with opacity/visibility, but on
+// iOS Safari the inner `.slide-background-content` (which carries the title PNG)
+// and absolutely-positioned pseudos can escape the parent's `visibility:hidden`,
+// leaking the purple title art onto every subsequent slide. Force everything —
+// the image layer, the gradient overlay, and the accent bar — off unless the
+// title slide is present.
+.reveal .slide-background:first-child:not(.present) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+
+  .slide-background-content {
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+
+  &::after,
+  &::before {
+    content: none !important;
+  }
+}
+
 // Title slide — gradient overlay on the background layer (covers the bg image).
 // Scoped to `.present` so the purple haze only renders while the title slide is
 // the current slide; without this, mobile reveal.js keeps the first background
