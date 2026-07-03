@@ -232,7 +232,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
   - **7th BEST** for Disadvantaged GCSE Attainment
   - **5th BEST** for Non-Disadvantaged GCSE Attainment
 - Last year, Brighton and Hove was **2nd WORST** for absence.
-- GCSE Attainment is very predictable at School Level - 80% variation between schools  explained by a handful of variables
+- GCSE Attainment is very predictable at School Level - 80% variation between schools explained by a handful of variables
 - The biggest factor affecting disadvantaged student attainment is absence
 - Data shows disadvantaged students in England do better in schools with more disadvantaged students in
 - *Poor* understanding of evidence → *poor* policy → *poor* parental choices
@@ -297,7 +297,6 @@ r2_non <- performance::r2(mod_e_nondisadv)
 4.  Re-calibrate how we view *'good schools'* - and convince you that most of what many conflate with good schools (their outcomes), is out of their hands
 
 5.  Use **Brighton and Hove** as a case study to illustrate all of these issues
-
 :::
 
 :::: fragment
@@ -643,9 +642,7 @@ m_orient
 
 ## An aside on economic advantage and house prices
 
-
-
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
 - Being close to a good secondary school has *barely any effect* on house prices in Brighton and Hove
 
@@ -657,12 +654,11 @@ m_orient
 ::: {.column width="30%"}
 ![](slides_assets/TanDennett.png){width="90%"}
 :::
+
 ::: {.column width="20%"}
 ![](slides_assets/house-price-qr-code.svg){width="100%"}
-
 :::
-
-:::::
+::::::
 
 ## The 2024 consultation: the response
 
@@ -1011,6 +1007,7 @@ kable(mediation_tbl, align = "lrrr") %>%
 ::: key-finding
 The coefficient is a number that represents how steep the line through the scatter plot is. Bigger number (positive or negative) → steeper the line → stronger the effect. 0 = flat line = no effect
 :::
+
 ::: key-finding
 Adding absence **halves** the FSM coefficient. Adding prior attainment reduces both further. With just 3 variables → **two-thirds** of variation in GCSE scores between schools explained.
 :::
@@ -1171,7 +1168,7 @@ ggplot(importance_national, aes(x = display_name, y = std_coef, fill = Group)) +
 ::: incremental
 - For **disadvantaged pupils**, nearly half of school-level performance variation is explained by attendance alone
 
-- Absence matters **~1.8× more** (≈77%) for disadvantaged than non-disadvantaged pupils' attainment
+- Absence matters **\~1.8× more** (≈77%) for disadvantaged than non-disadvantaged pupils' attainment
 
 - Disadvantaged pupils lack safety nets (tutors, engaged parents, revision guides) — they are **more reliant on classroom instruction**
 
@@ -1569,8 +1566,7 @@ kable(panel_dis_display, format = "html", escape = FALSE,
 # School Effects vs Everything Else {.divider-slide background-color="#3A1857"}
 
 ::: {style="color:#B982FF; font-size:0.75em; margin-top:0.4em;"}
-How much does the school really matter?
-New, exploratory material — not in the accompanying paper
+How much does the school really matter? New, exploratory material — not in the accompanying paper
 :::
 
 ```{r nbhd-cache}
@@ -1585,7 +1581,6 @@ ordinal_suffix <- function(n) {
   paste0(n, s)
 }
 ```
-
 
 ## Where variation in Attainment 8 comes from
 
@@ -1656,7 +1651,7 @@ ggplot(sed_dis, aes(`Share of total %`, Component, fill = grp_type)) +
 Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_dis_raw[["Share of total %"]][grepl("^Endogenous", sed_dis_raw$Component)]`%** vs **`r sed_dis_raw[["Share of total %"]][grepl("^Exogenous", sed_dis_raw$Component)]`%** inherited — the persistent school effect (`r sed_dis_raw[["Share of total %"]][sed_dis_raw$Component == "School (persistent, unexplained)"]`%) is still a dwarfed upper bound.
 :::
 
-## What every school's average Attainment 8 is really made of {.smaller}
+## What causes Attainment 8 to vary between schools? {.smaller}
 
 ```{r fig-student-breakdown}
 #| fig-height: 5.1
@@ -1707,7 +1702,7 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **both groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds ~1 SD *more* than the typical school for its disadvantaged pupils.
+Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **both groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils.
 :::
 
 ## So what does a better school add? Closing the gap {.smaller}
@@ -1752,10 +1747,10 @@ ggplot(.bd, aes(who, pts, fill = part)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-The school effect is **additive** — a good school adds its ~`r round(.sdsch,1)` points *to the pink block*, a very good school ~`r round(2*.sdsch,1)`. A genuinely good school lifts a disadvantaged pupil **most of the way to the typical pupil's average** — and the lever is about as strong here as for pupils overall. **BACA does exactly this: +`r baca_4yr` over four years.**
+The school effect is **additive** — a good school adds its \~`r round(.sdsch,1)` points *to the pink block*, a very good school \~`r round(2*.sdsch,1)`. A genuinely good school lifts a disadvantaged pupil **most of the way to the typical pupil's average** — and the lever is about as strong here as for pupils overall. **BACA does exactly this: +`r baca_4yr` over four years.**
 :::
 
-## The BACA paradox{.smaller}
+## The BACA paradox {.smaller}
 
 :::::: columns
 ::: {.column width="50%"}
@@ -1763,8 +1758,10 @@ The school effect is **additive** — a good school adds its ~`r round(.sdsch,1)
 
 - 'Requires Improvement' Ofsted
 - Low raw attainment scores
-- **→ narrative of "Avoid this school"**
-- Equity in Education campaign: parents opt for Patcham instead
+- *Equity in Education* campaign from BACA Catchment:
+  - "We want choice" **to not attend catchment school**
+  - "A system which pays particular attention to the needs of children from disadvantaged areas"
+- many parents (\~50 families last year) opt for Patcham instead
 
 **What the data shows:**
 
@@ -1782,7 +1779,9 @@ The school effect is **additive** — a good school adds its ~`r round(.sdsch,1)
 - 4-year average: **--2.6 GCSE points**
 
 ::: key-finding
-Parents, acting rationally on available information, may have been choosing the school with *lower* value-added for their children — if that is the most important factor. They were operating in a **knowledge vacuum**.
+Parents, acting rationally on available information and vocal campaigning, may have been choosing the school with *lower* value-added for their children — if that is the most important factor.
+
+Well intentioned but poorly informed campaign could have nudged parents into poor decisions.
 :::
 ::::
 ::::::
@@ -1803,7 +1802,7 @@ The city needs to **disaggregate the attendance problem** — different causes r
 
 ## Absence isn't one thing — it's two
 
-::: incremental
+::::: incremental
 - Absence in our headline model is a **single number**, but conceptually it sits in **two roles** at once
 
 - Part of it is **structural** — driven by intake, family circumstances, area health, deprivation, SEN, EAL...
@@ -1815,14 +1814,14 @@ The city needs to **disaggregate the attendance problem** — different causes r
   - **Stage 1**: model expected absence from intake variables only
   - **Stage 2**: refit attainment using *expected* absence; what the school adds (including its attendance management) flows into the value-added residual
 
-[^1]: Full analysis: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
-
 :::: fragment
 ::: key-finding
 Most of school-level absence variance nationally is **structural**. The school-controllable share is the smaller part — but it is the share local policy can actually move.
 :::
 ::::
-:::
+:::::
+
+[^1]: Full analysis: <https://adamdennett.github.io/school_attainment_tool/model_experiments.html#sec-two-stage-absence>
 
 ## Where do schools sit on the joint-signal plane?
 
@@ -1940,9 +1939,11 @@ ggplot() +
 - Schools in **Q1** (adding value + attendance helping) are where the city should look for **practice worth sharing**.
 :::
 
+:::: fragment
 ::: key-finding
 Reading **value-added** alongside **residual absence** separates "this school adds points to attainment" from "this school's pupils attend more than their intake predicts" — two distinct signals that single-residual league tables fold together.
 :::
+::::
 
 # Discussion & Reflections {.divider-slide background-color="#3A1857"}
 
@@ -1972,10 +1973,18 @@ Reading **value-added** alongside **residual absence** separates "this school ad
 A policy that even marginally increases absence could be **counterproductive** in attainment terms. The claim of "almost no cost" for social mixing overlooks these second-order effects.
 :::
 
-::: fragment
-Following opposition and appeals: PAN reductions rejected, 20% out-of-catchment → 5%. But the policy reverberations continue through **parental choices** already made. **Little displacement on 2026 offer day luck not judgement!**
-:::
+## Where we are now?
 
+- Following opposition and appeals: PAN reductions rejected, 20% out-of-catchment → 5%.
+
+- But the policy reverberations continue through:
+
+  - **parental choices** already made
+  - 2025/26 Proposed Sibling Link changes
+
+- **Low levels of pupil displacement on 2026 offer day luck not judgement!**
+
+- Underlying belief that current policy direction will benefit disadvantaged pupils in the city
 
 ## What should Brighton and Hove do? {.smaller}
 
@@ -1993,6 +2002,8 @@ The absence problem needs **disaggregating** — very different situations exist
 - Post-pandemic disengagement and mental health challenges
 
 Each requires a **different strategy**. Schools like Patcham — one of only two with attendance below the national average — offer lessons in what works locally.
+
+- Be prepared for counter-intuitive outcomes (does increased absence in B&H current improve outcomes for those who do attend school through smaller class sizes and less disruptive behaviour?)
 
 ## Lessons for other LEAs
 
@@ -2040,13 +2051,20 @@ Not the finished article — but a demonstration of what's possible when open da
 
 ## The simulator in action
 
+:::::: columns
+::: {.column width="70%"}
 ![](output/figures/policy_sim.png){fig-align="center" height="400"}
+:::
+::: {.column width="30%"}
+![](slides_assets/policy-simulator-qr-code.png)
+:::
+::::::
 
 ::: smaller
 School Finder → select any school → view contextual statistics → send to the Policy Simulator
-:::
 
 [adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator](https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/)
+:::
 
 ## Adjusting policy levers
 
@@ -2067,7 +2085,7 @@ Non-linear effects mean the same adjustment produces **different impacts** depen
 
 3.  For disadvantaged pupils, the concentration effect **runs in the opposite direction** to common assumption
 
-4.  The Gorard Segregation Index is **not significant** once other factors are controlled for
+4.  For disadvantaged pupils the most important factor impacting their attainment is attendance - nearly 1/2 of school level performance is explained by attendance alone and it matters almost twice as much for disadvantaged pupils than non-disadvantaged pupils. 
 
 5.  Brighton & Hove is one of the **highest-performing LEAs** — but has the **2nd worst absence** in England
 
@@ -2158,3 +2176,5 @@ Non-linear effects mean the same adjustment produces **different impacts** depen
 ::: smallest
 All data used in this analysis are publicly available from the Department for Education. All processing code is open source.
 :::
+::::::::::::::::::::
+::::::::::::::::::::::
