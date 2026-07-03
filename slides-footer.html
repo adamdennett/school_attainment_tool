@@ -4,13 +4,12 @@
   <img src="slides_assets/ai4ci-logo.svg" alt="AI4CI logo">
 </div>
 <script>
-// Hide default logo + footer logos on title & divider slides
-document.addEventListener('DOMContentLoaded', function() {
-  function updateLogos() {
+(function () {
+  function updateChrome() {
+    if (typeof Reveal === 'undefined' || !Reveal.getCurrentSlide) return;
     var current = Reveal.getCurrentSlide();
     var isTitle = current && current.id === 'title-slide';
-    var isDivider = current && current.classList.contains('divider-slide');
-    var hide = isTitle || isDivider;
+    var isDivider = current && current.classList && current.classList.contains('divider-slide');
 
     var logo = document.querySelector('.slide-logo');
     if (logo) logo.style.display = isDivider ? 'none' : '';
@@ -18,31 +17,34 @@ document.addEventListener('DOMContentLoaded', function() {
     var footer = document.querySelector('.slide-footer-logos');
     if (footer) footer.style.display = isTitle ? 'none' : '';
 
-    // Hide the title slide's purple background (image + gradient overlay +
-    // accent bar) whenever the title slide is not the current slide. Done in JS
-    // (not CSS) because on mobile Chromium reveal's section hiding works but its
-    // background-layer hiding does NOT: the title background keeps painting even
-    // when its slide is not current, so the purple gradient bleeds onto every
-    // slide. (CSS `opacity`/`visibility` don't suppress the inner image div, and
-    // `:has(#title-slide.present)` doesn't re-invalidate on navigation on mobile
-    // Blink.) A direct inline `display` toggle on `slidechanged` is reliable.
-    //
-    // Target the background structurally as `:first-child` — the SAME selector
-    // the gradient CSS uses — NOT by the `.quarto-title-block` class. reveal
-    // copies that class onto the background element on desktop but not reliably
-    // on mobile, so a class-based query returned null on phones and nothing got
-    // hidden (which is exactly why this bled on mobile but not desktop).
-    //
-    // Use an explicit 'block' (not '') for the title slide: reveal drives the
-    // background's display via its own inline style, and clearing it to ''
-    // reverts to reveal's base `display:none`, blanking the title on its own
-    // slide.
+    // Force the title slide's background (image + gradient overlay + accent bar)
+    // OFF on every non-title slide. On mobile Chromium reveal's section hiding
+    // works (the title text disappears) but its background-layer hiding does
+    // not, so the purple gradient bleeds onto every slide. This must be robust
+    // against three mobile-only failure modes seen in testing:
+    //   1. class dependency — query :first-child (structural), because reveal
+    //      does not reliably copy the .quarto-title-block class onto the
+    //      background element on mobile;
+    //   2. reveal re-asserting display — use inline !important, which reveal's
+    //      own non-important inline style cannot override;
+    //   3. an explicit 'block' (not '') for the title slide, because clearing
+    //      the value reverts to reveal's base display:none and blanks the
+    //      title on its own slide.
     var titleBg = document.querySelector('.reveal .backgrounds .slide-background:first-child');
-    if (titleBg) titleBg.style.display = isTitle ? 'block' : 'none';
+    if (titleBg) titleBg.style.setProperty('display', isTitle ? 'block' : 'none', 'important');
   }
-  if (typeof Reveal !== 'undefined') {
-    Reveal.on('slidechanged', updateLogos);
-    Reveal.on('ready', updateLogos);
+
+  // Attach as soon as Reveal is available, polling until it loads. Do NOT rely
+  // on DOMContentLoaded: this inline script runs at the end of <body>, so that
+  // event may already have fired (its listener would never run), and on slower
+  // mobile devices Reveal can be undefined when it does fire — either way the
+  // handlers went unattached and the title background kept bleeding.
+  function attach() {
+    if (typeof Reveal === 'undefined' || !Reveal.on) { setTimeout(attach, 50); return; }
+    Reveal.on('slidechanged', updateChrome);
+    Reveal.on('ready', updateChrome);
+    updateChrome();
   }
-});
+  attach();
+})();
 </script>
