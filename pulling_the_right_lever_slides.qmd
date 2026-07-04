@@ -1563,6 +1563,34 @@ kable(panel_dis_display, format = "html", escape = FALSE,
   column_spec(ncol(panel_dis_display), bold = TRUE, background = "#EEDEFF")
 ```
 
+## How this compares to Progress 8 {.smaller}
+
+**Progress 8** — England's official value-added measure — adjusts each pupil's Attainment 8 for **one thing only: KS2 prior attainment**.
+
+:::::: columns
+::: {.column width="50%"}
+**Known criticisms** *(Leckie & Goldstein; Perry; FFT Datalab)*
+
+-   Ignores intake **context** → penalises disadvantaged intakes at equal prior attainment
+-   **Confounds** the school effect with catchment sorting
+-   **Volatile** year-to-year, worst for small schools
+-   Sensitive to **outliers / off-rolling**
+:::
+
+::: {.column width="50%"}
+**What this measure adds**
+
+-   Adjusts for **FSM, EAL, absence, admissions & neighbourhood context** — not prior attainment alone
+-   **Decomposes and bounds** the true school effect (\~16% of variance)
+-   Multilevel **shrinkage** + **persistent vs transient** split → stabler, honest about uncertainty
+-   Two-stage absence split: separates exogenous from school-controllable
+:::
+::::::
+
+::: {style="font-size:0.55em; text-align:center; color:#555; margin-top:0.3em;"}
+The trade-off: Progress 8 is pupil-level; this is school-level open data — richer **context**, coarser **resolution**.
+:::
+
 # School Effects vs Everything Else {.divider-slide background-color="#3A1857"}
 
 ::: {style="color:#B982FF; font-size:0.75em; margin-top:0.4em;"}
