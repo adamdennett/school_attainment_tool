@@ -312,15 +312,17 @@ We are **not** claiming the best possible model — we are showing that *good en
 
 - **The British response**: Rutter et al., *Fifteen Thousand Hours* (1979); Mortimore et al., *School Matters* (1988) — schools **do** differ, measurably → the birth of **school effectiveness research**
 
-- **The settled consensus** (Teddlie & Reynolds, 2000): school effects are real but a minority share — commonly **10–20%** of pupil-level attainment variance; intake and context carry the rest
+- **The settled consensus**: school effects are real but a minority share — **~10%** of achievement variance at school level in the landmark UK studies (Teddlie & Reynolds's 2000 summary of Smith & Tomlinson, 1989), with early field estimates of **12–15%** (Reynolds et al., 2014); intake and context carry the rest
 
 - **The statistical critique**: Goldstein & Spiegelhalter (1996), Leckie & Goldstein (2017) — school rankings carry so much uncertainty that league tables mislead; Gorard (2010) raises "serious doubts" about even the minority share
 
 :::
 
+:::: fragment
 ::: key-finding
 "Context outweighs school" is a sixty-year-old finding — what has been missing is a way to make it **usable**. This work makes the decomposition open, reproducible, cross-phase and *local* — and later in this deck, puts today's numbers on it.
 :::
+::::
 
 ## What drives attainment at GCSE? The literature {.smaller}
 
