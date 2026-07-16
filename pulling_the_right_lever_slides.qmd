@@ -320,7 +320,7 @@ We are **not** claiming the best possible model — we are showing that *good en
 
 :::: fragment
 ::: key-finding
-"Context outweighs school" is a sixty-year-old finding — what has been missing is a way to make it **usable**. This work makes the decomposition open, reproducible, cross-phase and *local* — and later in this deck, puts today's numbers on it.
+"Context outweighs school" is a sixty-year-old finding — what has been missing is a way to make it **usable**. This work makes the decomposition open, reproducible and *local* — and later in this deck, puts today's numbers on it.
 :::
 ::::
 
@@ -1661,6 +1661,50 @@ ggplot(sed, aes(`Share of total %`, Component, fill = grp_type)) +
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
 Workforce — the part schools directly control — is a sliver (3%) next to the hand they are dealt (62%). Even the *persistent school effect* (16%) is an upper bound bundling genuine school ethos/management etc. with other things they don't control in their catchment, not otherwise measured e.g. cultural capital, parental motivation.
+:::
+
+## Who made the Beatles? {.smaller}
+
+::::::: {.columns}
+
+::::: {.column width="46%"}
+```{r nbhd-decomp-beatles}
+#| fig-height: 5.2
+#| fig-width: 5.8
+afr$decomp_all %>%
+  mutate(Component = fct_reorder(Component, `Share of total %`)) %>%
+  ggplot(aes(`Share of total %`, Component)) +
+  geom_col(fill = "#49a0c4") +
+  geom_text(aes(label = paste0(`Share of total %`, "%")), hjust = -0.15, size = 3.6) +
+  xlim(0, 78) +
+  labs(title = "Where variation in Attainment 8 comes from",
+       x = "Share of total outcome variance (%)", y = NULL) +
+  theme_slide +
+  theme(axis.text.y = element_text(size = 9))
+```
+:::::
+
+::::: {.column width="54%"}
+
+**The hand they were dealt (~65%)**
+Liverpool: a port city where seamen brought American records nobody else had · musical households · the post-war cohort — the first *not* conscripted · skiffle and cheap guitars
+
+**The "school" (~16%)**
+Hamburg and the Cavern: thousands of hours of forced practice — genuinely formative, *and* a minority share
+
+**The luck of the year (~10%)**
+Brian Epstein happens to walk into a lunchtime Cavern session · Decca says no, EMI says yes
+
+::: key-finding
+Nobody ranks Quarry Bank High School top of a league table for producing John Lennon. Rank 1950s Liverpool schools by Beatles produced and you learn about **Liverpool** — not the schools.
+:::
+
+:::::
+
+:::::::
+
+::: smaller
+*An illustrative mapping from the extreme tail — the chart describes averages. And Hamburg mattered: the point is proportion, not fatalism.*
 :::
 
 ## ...and for disadvantaged pupils — the group the policy targets
