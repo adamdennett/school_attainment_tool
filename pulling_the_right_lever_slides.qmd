@@ -1823,7 +1823,7 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **all three groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils. *Figures are unweighted school-level averages (each school counts once); the pupil-weighted national gap is \~15 points.*
 :::
 
-## So what does a better school add? Closing the gap {.smaller}
+## So what does a better school add? {.smaller}
 
 That pink slice was the school's *share of the variation* — so what does a school **one step better than average** actually add to a disadvantaged pupil?
 
