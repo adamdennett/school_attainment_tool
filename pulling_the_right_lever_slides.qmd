@@ -1762,12 +1762,15 @@ Even for disadvantaged pupils, workforce (school-controllable) is just **`r sed_
     mutate(pts = pct/100 * meanv, who = who)
 }
 .mdis <- .sed$mean_att8_dis
-.df <- bind_rows(.mk(.sed$decomp_all, 46, "All pupils"),
-                 .mk(.sed$decomp_dis, .mdis, "Disadvantaged pupils"))
+.mnon <- .sed$mean_att8_non
+.df <- bind_rows(.mk(.sed$decomp_all, .sed$mean_att8_all, "All pupils"),
+                 .mk(.sed$decomp_dis, .mdis, "Disadvantaged pupils"),
+                 .mk(.sed$decomp_non, .mnon, "Non-disadvantaged pupils"))
 .lvl <- c("Inherited — the hand the pupil is dealt",
           "What the school adds (leadership & teaching)", "Area, year & luck")
 .df <- .df %>% mutate(grp = factor(grp, levels = rev(.lvl)),
-                      who = factor(who, levels = c("All pupils", "Disadvantaged pupils")),
+                      who = factor(who, levels = c("All pupils", "Disadvantaged pupils",
+                                                   "Non-disadvantaged pupils")),
                       lab_col = ifelse(grepl("luck", grp), "#3A1857", "white"))
 .tot <- .df %>% group_by(who) %>% summarise(total = sum(pts), .groups = "drop")
 .pal <- c("Inherited — the hand the pupil is dealt" = "#7FA8C9",
@@ -1782,12 +1785,13 @@ ggplot(.df, aes(who, pts, fill = grp)) +
   scale_colour_identity() +
   geom_text(data = .tot, aes(x = who, y = total, label = sprintf("Att8 ≈ %.0f", total)),
             inherit.aes = FALSE, vjust = -0.7, fontface = "bold", size = 5, colour = "#3A1857") +
-  annotate("segment", x = 1.5, xend = 1.5, y = .mdis, yend = 46, colour = "grey55",
+  annotate("segment", x = 2.5, xend = 2.5, y = .mdis, yend = .mnon, colour = "grey55",
            arrow = arrow(ends = "both", length = unit(0.15, "cm")), linewidth = 0.4) +
-  annotate("text", x = 1.5, y = (.mdis + 46)/2, label = sprintf("gap\n≈ %.0f pts", 46 - .mdis),
+  annotate("text", x = 2.5, y = (.mdis + .mnon)/2,
+           label = sprintf("disadvantage\ngap ≈ %.0f pts", .mnon - .mdis),
            size = 3.4, colour = "grey35", fontface = "italic") +
   scale_fill_manual(values = .pal, name = NULL, breaks = .lvl) +
-  scale_y_continuous(limits = c(0, 52), expand = expansion(mult = c(0, 0.02))) +
+  scale_y_continuous(limits = c(0, 56), expand = expansion(mult = c(0, 0.02))) +
   labs(x = NULL, y = "Attainment 8 points") +
   guides(fill = guide_legend(nrow = 1)) +
   theme_slide +
@@ -1797,7 +1801,7 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **both groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils.
+Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **all three groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils.
 :::
 
 ## So what does a better school add? Closing the gap {.smaller}
