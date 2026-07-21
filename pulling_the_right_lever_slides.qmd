@@ -213,6 +213,28 @@ r2_non <- performance::r2(mod_e_nondisadv)
 - A good opportunity to throw something at me
 :::
 
+## First — today's response from Class Divide {.smaller}
+
+Class Divide have published a thoughtful response to this report today. I am grateful for it — they have spent six years working on exactly the barriers this talk is about, and we share the same goal.
+
+::: incremental
+- We agree on far more than we differ on:
+  - **Poverty is foundational** — the attainment gap has many tangled causes
+  - **Absence matters enormously** — and much of it *is* poverty: bus fares, unmet special educational needs, ill health
+  - Outcomes for our poorest children — in Whitehawk especially — are **not good enough**
+- And we agree the city is **already among the most integrated in England** — a point even Professor Gorard, whose own work links segregation to the gap and who *supports* the reforms, affirms: our schools are more socially mixed than in most places.
+
+:::
+
+## Where we differ — and it is narrow {.smaller}
+
+::: incremental
+- My question is deliberately narrow: in a city *already* among the most integrated in England, does moving children between schools deliver enough **attainment** gain to justify the certain cost to the children who move?
+- The disruption is **certain, and now**; the benefit is **uncertain** - looking at the data helps us reduce that uncertainty. The burden of proof sits with the intervention.
+- And it is *not* "almost no cost": moving children further afield lengthens daily journeys — and longer journeys mean **more absence** (my own report shows this), borne hardest by the poorest. That is the very lever we all agree matters most.
+- This is, in the end, partly a question of **values** as well as evidence - but this talk is concerned with the evidence.
+:::
+
 ## The Report
 
 ::::: columns
