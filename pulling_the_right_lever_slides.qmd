@@ -246,7 +246,7 @@ r2_non <- performance::r2(mod_e_nondisadv)
 ::: {.column width="55%"}
 - The UK Government's **2026 "Every child achieving and thriving" White Paper** sets ambitious targets:
 
-  - Halve the *disadvantage attainment gap*
+  - Halve the *disadvantage attainment gap* — **~15 Attainment 8 points today**
   - Improve attendance
   - Reform admissions
   - Tackle place-based disadvantage
@@ -1801,7 +1801,7 @@ ggplot(.df, aes(who, pts, fill = grp)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **all three groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils.
+Bar height = each group's average school-level score; each block = that factor's share of the variation in school outcomes. The **pink** block — what leadership & teaching add — is real and visible for **all three groups**, and it is a **floor, not a ceiling**: a school like **BACA** adds \~1 SD *more* than the typical school for its disadvantaged pupils. *Figures are unweighted school-level averages (each school counts once); the pupil-weighted national gap is \~15 points.*
 :::
 
 ## So what does a better school add? Closing the gap {.smaller}
