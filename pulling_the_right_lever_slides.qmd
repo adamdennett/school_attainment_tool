@@ -327,7 +327,7 @@ We are **not** claiming the best possible model — we are showing that *good en
 :::
 ::::
 
-## Schools vs circumstances: a sixty-year argument {.smaller}
+## Schools vs circumstances: a sixty-year argument
 
 ::: incremental
 - **The Coleman Report (US, 1966)**: family background and peers explain far more of attainment than anything schools do — a finding that shocked policymakers (reinforced by Jencks, *Inequality*, 1972)
@@ -335,9 +335,6 @@ We are **not** claiming the best possible model — we are showing that *good en
 - **The British response**: Rutter et al., *Fifteen Thousand Hours* (1979); Mortimore et al., *School Matters* (1988) — schools **do** differ, measurably → the birth of **school effectiveness research**
 
 - **The settled consensus**: school effects are real but a minority share — **~10%** of achievement variance at school level in the landmark UK studies (Teddlie & Reynolds's 2000 summary of Smith & Tomlinson, 1989), with early field estimates of **12–15%** (Reynolds et al., 2014); intake and context carry the rest
-
-- **The statistical critique**: Goldstein & Spiegelhalter (1996), Leckie & Goldstein (2017) — school rankings carry so much uncertainty that league tables mislead; Gorard (2010) raises "serious doubts" about even the minority share
-
 :::
 
 :::: fragment
@@ -1836,7 +1833,7 @@ That pink slice was the school's *share of the variation* — so what does a sch
 .mdis  <- .sed$mean_att8_dis
 .sdsch <- .sed$decomp_dis %>% filter(Component == "School (persistent, unexplained)") %>%
   transmute(pts = .mdis * `SD (log Att8)`) %>% pull()
-.typ <- 46
+.typ <- .sed$mean_att8_non
 .baca <- bh_data %>%
   filter(grepl("Brighton Aldridge", SCHNAME), !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0) %>%
   mutate(r = ATT8SCR_FSM6CLA1A - exp(predicted_dis))
@@ -1853,14 +1850,14 @@ baca_4yr <- round(mean(.baca$r), 1)
 ggplot(.bd, aes(who, pts, fill = part)) +
   geom_col(width = 0.62, colour = "white", linewidth = 0.6) +
   geom_hline(yintercept = .typ, linetype = "dashed", colour = "#3A1857", linewidth = 0.5) +
-  annotate("text", x = 0.55, y = .typ + 1, label = "Typical (non-disadvantaged) pupil ≈ 46",
+  annotate("text", x = 0.55, y = .typ + 1, label = sprintf("Typical (non-disadvantaged) pupil ≈ %.0f", .typ),
            hjust = 0, size = 3.6, colour = "#3A1857", fontface = "italic") +
   geom_text(data = .lab %>% filter(boost > 0), aes(x = who, y = total, label = sprintf("+%.1f", boost)),
             inherit.aes = FALSE, vjust = -0.6, fontface = "bold", colour = "#ED357D", size = 5.2) +
   geom_text(data = .lab, aes(x = who, y = total, label = sprintf("%.1f", total)),
             inherit.aes = FALSE, vjust = 1.6, fontface = "bold", colour = "white", size = 4.4) +
   scale_fill_manual(values = c(base = "#7FA8C9", boost = "#ED357D"), guide = "none") +
-  coord_cartesian(ylim = c(0, 50)) +
+  coord_cartesian(ylim = c(0, 55)) +
   labs(x = NULL, y = "Attainment 8 (disadvantaged pupil)") +
   theme_slide +
   theme(panel.grid.major.x = element_blank(), panel.grid.minor = element_blank(),
@@ -1868,7 +1865,7 @@ ggplot(.bd, aes(who, pts, fill = part)) +
 ```
 
 ::: {style="font-size:0.5em; text-align:center; color:#555; margin-top:0.1em;"}
-The school effect is **additive** — a good school adds its \~`r round(.sdsch,1)` points *to the pink block*, a very good school \~`r round(2*.sdsch,1)`. A genuinely good school lifts a disadvantaged pupil **most of the way to the typical pupil's average** — and the lever is about as strong here as for pupils overall. **BACA does exactly this: +`r baca_4yr` over four years.**
+The school effect is **additive** — a good school adds its \~`r round(.sdsch,1)` points *to the pink block*, a very good school \~`r round(2*.sdsch,1)`. A genuinely good school closes **a good part of the gap** to the typical non-disadvantaged pupil (\~`r round(100*2*.sdsch/(.sed$mean_att8_non - .sed$mean_att8_dis))`% for the best) — the lever is real, but even the best schools cannot close it alone. **BACA does exactly this: +`r baca_4yr` over four years.**
 :::
 
 ## The BACA paradox {.smaller}
