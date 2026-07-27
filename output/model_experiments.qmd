@@ -1422,6 +1422,13 @@ structural relationships. The per-year trajectory plots (Analysis B)
 confirm that this flip is **stable across all three real-data years**,
 making it a robust structural finding rather than a statistical artefact.
 
+One important caveat on *shape*: because FSM enters as `log(PTFSM6CLA1A)`,
+this positive coefficient describes a single smooth trend and cannot, by
+construction, reveal whether the effect has a threshold, floor, or ceiling.
+@sec-fsm-tipping refits the model with a flexible spline to probe exactly
+that question — and finds the positive slope is the average tilt of a gently
+curved, non-monotonic relationship, not a universal one.
+
 ### 3. Absence — the largest and most stable predictor
 
 The coefficient on `log(PERCTOT)` (% overall absence) is **strongly
@@ -1553,6 +1560,241 @@ represents the best available specification:
   disadvantaged pupils, which is invisible in the core model, is
   preserved in Analysis E. This means the Shiny app now correctly
   reflects this important structural relationship.
+
+
+# Is the FSM relationship linear? Tipping points, floors, and ceilings {#sec-fsm-tipping}
+
+The FSM sign-flip above (§ *Free school meals — the sign flip*) prompts a
+natural question, and one raised directly after a public presentation of
+this work: does the positive disadvantaged-FSM relationship hold
+*everywhere*, or are there **tipping points, floors or ceilings** — a
+threshold beyond which disadvantaged pupils start to do better (or worse)
+alongside more disadvantaged peers?
+
+The important thing to see first is that **the models above cannot answer
+this question**, because of how FSM enters them. Every specification uses
+`log(PTFSM6CLA1A)`, i.e. a *log–log linear* term. That is a
+**constant-elasticity** form: it assumes a 1% change in the FSM share is
+associated with the same percentage change in attainment *wherever* you
+are on the distribution. By construction such a term is smooth and
+monotonic — it is mathematically incapable of representing a threshold, a
+floor, a ceiling, or a reversal. So the fact that the fitted line shows no
+tipping point is a **property we imposed, not something we discovered**.
+A single log–log coefficient can never be evidence for or against a
+turning point.
+
+To find out what the data actually prefer, we refit the exact Analysis E
+disadvantaged model but replace `log(PTFSM6CLA1A)` with a **natural cubic
+spline** (`ns(PTFSM6CLA1A, 4)`) — a flexible term that is free to bend,
+flatten, floor, or reverse if the data want it to. Everything else in the
+specification is held identical. We do the same for the all-pupil and
+non-disadvantaged outcomes so the shapes can be compared.
+
+```{r fsm-spline-fit}
+#| label: fsm-spline-fit
+
+library(splines)
+
+# Refit each Analysis E model with a flexible spline in FSM, holding the
+# rest of the specification identical. ML (REML = FALSE) so AIC / LRT are
+# comparable between the linear and spline versions.
+base_rhs <- paste(
+  "log(PERCTOT) + log(PNUMEAL) + PTPRIORLO + ADMPOL_PT +",
+  "gorard_segregation + remained_in_the_same_school +",
+  "teachers_on_leadership_pay_range_percent +",
+  "log(average_number_of_days_taken) +",
+  "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+)
+ctrl <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+
+fit_fsm_shapes <- function(outcome) {
+  d <- imputed_full_data %>%
+    filter(!is.na(.data[[outcome]]), .data[[outcome]] > 0) %>%
+    droplevels()
+  f_lin <- as.formula(paste0("log(", outcome, ") ~ log(PTFSM6CLA1A) + ", base_rhs))
+  f_spl <- as.formula(paste0("log(", outcome, ") ~ ns(PTFSM6CLA1A, 4) + ", base_rhs))
+  list(
+    outcome = outcome, d = d,
+    m_lin = lmer(f_lin, data = d, REML = FALSE, control = ctrl),
+    m_spl = lmer(f_spl, data = d, REML = FALSE, control = ctrl)
+  )
+}
+
+fit_all    <- fit_fsm_shapes("ATT8SCR")
+fit_dis    <- fit_fsm_shapes("ATT8SCR_FSM6CLA1A")
+fit_nondis <- fit_fsm_shapes("ATT8SCR_NFSM6CLA1A")
+
+# Does the flexible shape fit better than the straight log-log line?
+aic_row <- function(fit, label) {
+  lrt <- anova(fit$m_lin, fit$m_spl)
+  tibble(
+    Group                    = label,
+    `log(FSM) coef (linear)` = round(unname(fixef(fit$m_lin)["log(PTFSM6CLA1A)"]), 4),
+    `AIC linear`             = round(AIC(fit$m_lin), 1),
+    `AIC spline`             = round(AIC(fit$m_spl), 1),
+    `ΔAIC (spline − linear)` = round(AIC(fit$m_spl) - AIC(fit$m_lin), 1),
+    `LRT p`                  = format.pval(lrt[2, "Pr(>Chisq)"], digits = 2, eps = 1e-16)
+  )
+}
+
+bind_rows(
+  aic_row(fit_all,    "All pupils"),
+  aic_row(fit_dis,    "Disadvantaged"),
+  aic_row(fit_nondis, "Non-disadvantaged")
+)
+```
+
+A negative ΔAIC and a tiny LRT *p*-value mean the flexible spline
+describes the data meaningfully better than the straight log–log line —
+i.e. **there is real curvature the linear term was papering over.** To see
+its shape, we read the *partial effect* of FSM out of each model: the
+predicted Attainment 8 across the FSM range, with every other predictor
+held at a typical value (means for continuous terms, the modal admissions
+policy, and random effects marginalised out).
+
+```{r fsm-spline-predict}
+#| label: fsm-spline-predict
+
+predict_fsm <- function(fit, label) {
+  d  <- fit$d
+  mn <- function(v) mean(d[[v]], na.rm = TRUE)
+  # Clean prediction frame: only the model's predictors, held at typical
+  # values, with FSM swept across its range. ADMPOL_PT is a *character*
+  # column in the data, so it must be rebuilt as a factor carrying all
+  # fit-time levels — otherwise predict() reconstructs a single-level
+  # factor and the design matrix no longer conforms to the fixed effects.
+  g <- tibble(
+    PTFSM6CLA1A = seq(quantile(d$PTFSM6CLA1A, 0.02),
+                      quantile(d$PTFSM6CLA1A, 0.98), length.out = 80),
+    PERCTOT = mn("PERCTOT"), PNUMEAL = mn("PNUMEAL"), PTPRIORLO = mn("PTPRIORLO"),
+    gorard_segregation = mn("gorard_segregation"),
+    remained_in_the_same_school = mn("remained_in_the_same_school"),
+    teachers_on_leadership_pay_range_percent = mn("teachers_on_leadership_pay_range_percent"),
+    average_number_of_days_taken = mn("average_number_of_days_taken"),
+    ADMPOL_PT = factor(names(sort(table(d$ADMPOL_PT), decreasing = TRUE))[1],
+                       levels = sort(unique(d$ADMPOL_PT))),
+    year_label = d$year_label[1], OFSTEDRATING_1 = d$OFSTEDRATING_1[1],
+    gor_name = d$gor_name[1], LANAME = d$LANAME[1]
+  )
+  g$linear <- exp(predict(fit$m_lin, newdata = g, re.form = NA))
+  g$spline <- exp(predict(fit$m_spl, newdata = g, re.form = NA))
+  tibble(Group = label, FSM = g$PTFSM6CLA1A, linear = g$linear, spline = g$spline)
+}
+
+pred_all    <- predict_fsm(fit_all,    "All pupils")
+pred_dis    <- predict_fsm(fit_dis,    "Disadvantaged")
+pred_nondis <- predict_fsm(fit_nondis, "Non-disadvantaged")
+
+# The turning point in the disadvantaged curve
+turn <- pred_dis %>% slice_min(spline, n = 1)
+cat(sprintf(
+  "Disadvantaged spline minimum at FSM = %.0f%%; total swing across range = %.1f Att8 pts\n",
+  turn$FSM, max(pred_dis$spline) - min(pred_dis$spline)
+))
+```
+
+```{r fig-fsm-disadv-shape}
+#| label: fig-fsm-disadv-shape
+#| fig-cap: "Disadvantaged pupils' predicted Attainment 8 against the school's FSM share, holding all other predictors at typical values. The straight line is the log–log linear term used in the reported models; the curve is the flexible natural spline. The spline reveals a shallow 'smile' — a soft minimum (dashed line) around a fifth of the school on FSM — that the linear term, by construction, cannot show."
+#| fig-width: 8
+#| fig-height: 5
+
+pred_dis %>%
+  pivot_longer(c(linear, spline), names_to = "fit", values_to = "att8") %>%
+  mutate(fit = recode(fit,
+                      linear = "log–log linear (as specified)",
+                      spline = "natural spline (data-driven)")) %>%
+  ggplot(aes(FSM, att8, colour = fit)) +
+  geom_vline(xintercept = turn$FSM, linetype = "dashed", colour = "grey60") +
+  geom_line(linewidth = 1.1) +
+  annotate("point", x = turn$FSM, y = turn$spline, size = 2.4, colour = "grey20") +
+  annotate("text", x = turn$FSM, y = turn$spline,
+           label = sprintf("  turning point ≈ %.0f%% FSM", turn$FSM),
+           hjust = 0, vjust = 1.6, size = 3.4, colour = "grey30") +
+  scale_colour_manual(values = c("log–log linear (as specified)" = "#B23A48",
+                                 "natural spline (data-driven)"  = "#1F6F78")) +
+  labs(x = "School FSM share (%)",
+       y = "Predicted disadvantaged Attainment 8",
+       colour = NULL,
+       title = "The positive FSM slope is the average tilt of a gently curved relationship") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+```{r fig-fsm-three-groups}
+#| label: fig-fsm-three-groups
+#| fig-cap: "Spline (data-driven) FSM shapes for all three outcome groups, each expressed as the change in predicted Attainment 8 relative to the lowest-FSM schools, so the shapes can be compared on one axis. All-pupil and non-disadvantaged attainment fall monotonically as FSM rises (the compositional penalty). Only the disadvantaged curve turns back up — and only in the upper part of the range."
+#| fig-width: 8
+#| fig-height: 5
+
+bind_rows(pred_all, pred_dis, pred_nondis) %>%
+  group_by(Group) %>%
+  arrange(FSM, .by_group = TRUE) %>%
+  mutate(rel = spline - first(spline)) %>%      # change vs lowest-FSM schools
+  ungroup() %>%
+  ggplot(aes(FSM, rel, colour = Group)) +
+  geom_hline(yintercept = 0, colour = "grey85") +
+  geom_line(linewidth = 1.1) +
+  scale_colour_manual(values = c("All pupils"        = "#8C8C8C",
+                                 "Disadvantaged"     = "#1F6F78",
+                                 "Non-disadvantaged" = "#B23A48")) +
+  labs(x = "School FSM share (%)",
+       y = "Change in predicted Att8\nvs lowest-FSM schools",
+       colour = NULL,
+       title = "Only the disadvantaged curve bends back up") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+## What the flexible fit shows
+
+Three things emerge, and they qualify the headline sign-flip without
+overturning it:
+
+1. **There is no dramatic tipping point, but there *is* a soft turning
+   point.** The disadvantaged relationship is a shallow "smile"
+   (@fig-fsm-disadv-shape): predicted attainment for disadvantaged pupils
+   dips slightly as a school's FSM share rises to roughly **a fifth**,
+   reaches a gentle minimum there, then edges back up across the rest of
+   the range. It is a valley, not a cliff — no knife-edge threshold, no
+   hard floor or ceiling.
+
+2. **The positive coefficient is an average over a curve, and the "helps"
+   part is an upper-range phenomenon.** The single log–log slope
+   (positive, but very small) is the average tilt of that smile. Locally,
+   at the *low* end of the FSM distribution the slope is flat-to-slightly
+   negative; the "disadvantaged pupils do a little better with more
+   disadvantaged peers" pattern really lives **above** the turning point,
+   not universally. So the honest answer to the question is *"not
+   universally — it depends where on the distribution you are."*
+
+3. **It is unique to the disadvantaged group.** The all-pupil and
+   non-disadvantaged curves fall monotonically as FSM rises
+   (@fig-fsm-three-groups) — the familiar compositional penalty. Only the
+   disadvantaged curve turns back up, which is consistent with the
+   mechanisms proposed for the sign-flip: schools serving predominantly
+   disadvantaged intakes concentrate Pupil Premium funding, expertise and
+   pastoral support on those pupils, and in a near-uniformly-disadvantaged
+   school the disadvantaged group essentially *is* the school average, so
+   the within-school composition penalty disappears.
+
+Two cautions keep this in proportion. First, the **magnitude is small**:
+the entire swing across the FSM range is on the order of one to two
+Attainment 8 points — a fraction of a grade — against roughly five points
+for the attendance lever and a 12–15 point disadvantage gap. FSM
+concentration remains, correctly, near the bottom of the variable
+importance ranking. Second, this is a **school-level, cross-sectional
+association** conditioned on prior attainment and absence; it is emphatically
+**not** a claim that moving a disadvantaged child into a higher-FSM school
+would raise their results. The upturn describes *what those schools are*
+(their funding, staffing and ethos), not a causal effect of the peer mix.
+
+The broader methodological point is the transferable one: **you can never
+read a tipping point off a log–log coefficient**, because the
+constant-elasticity form encodes the answer before it sees the data. Where
+thresholds or floors matter for policy, they have to be modelled
+explicitly — with a spline, a piecewise term, or an interaction — and then
+tested, exactly as here.
 
 
 # Brighton & Hove: A Local Case Study
