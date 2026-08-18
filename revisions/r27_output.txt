@@ -1,0 +1,89 @@
+
+
+##############################################
+## DISADVANTAGED PUPILS (ATT8SCR_FSM6CLA1A) 
+##############################################
+
+Number of LAs: 151 
+
+--- Brighton and Hove ---
+     spec effect     se   ci_lo  ci_hi   sig rank
+   A-none 0.0179 0.0205 -0.0224 0.0582 FALSE   46
+    A-raw 0.0504 0.0180  0.0150 0.0857  TRUE    7
+   A-expL 0.0590 0.0189  0.0220 0.0961  TRUE    7
+ A-expNoL 0.0172 0.0204 -0.0228 0.0572 FALSE   45
+
+--- Rank correlation between specifications (all LAs) ---
+         A-none A-raw A-expL A-expNoL
+A-none    1.000 0.891  0.806    0.994
+A-raw     0.891 1.000  0.965    0.890
+A-expL    0.806 0.965  1.000    0.807
+A-expNoL  0.994 0.890  0.807    1.000
+
+--- LAs moving most between A-raw and A-none ---
+(positive shift = LA ranks WORSE when absence is not controlled)
+                       la A-none A-raw A-expL A-expNoL shift
+                 Bradford    113    38     13      113    75
+                 Thurrock     58   111    116       58   -53
+          Buckinghamshire     93    43     21       95    50
+                   Sefton    101    52     36      102    49
+      Newcastle upon Tyne    118    73     37      114    45
+           North Tyneside     34    79     90       32   -45
+                    Derby     80   122    128       86   -42
+        Brighton and Hove     46     7      7       45    39
+ East Riding of Yorkshire     71   110    119       66   -39
+                Gateshead    109    71     58      103    38
+
+--- Top 10 LAs under each specification ---
+A-none   : Manchester, Birmingham, Southwark, Hammersmith and Fulham, Wolverhampton, County Durham, Tower Hamlets, Westminster, Newham, Slough
+A-raw    : Hammersmith and Fulham, Westminster, Birmingham, Manchester, County Durham, Plymouth, Brighton and Hove, Newham, Southwark, Ealing
+A-expL   : Hammersmith and Fulham, Westminster, Birmingham, Plymouth, County Durham, Manchester, Brighton and Hove, Barnet, Newham, Hackney
+A-expNoL : Manchester, Birmingham, County Durham, Southwark, Hammersmith and Fulham, Wolverhampton, Tower Hamlets, Westminster, Newham, Slough
+
+
+##############################################
+## ALL PUPILS (ATT8SCR) 
+##############################################
+
+Number of LAs: 151 
+
+--- Brighton and Hove ---
+     spec effect     se   ci_lo  ci_hi  sig rank
+   A-none 0.0356 0.0136 0.00890 0.0623 TRUE   17
+    A-raw 0.0627 0.0124 0.03839 0.0871 TRUE    3
+   A-expL 0.0552 0.0133 0.02925 0.0812 TRUE    6
+ A-expNoL 0.0362 0.0136 0.00963 0.0628 TRUE   16
+
+--- Rank correlation between specifications (all LAs) ---
+         A-none A-raw A-expL A-expNoL
+A-none    1.000 0.884  0.934    0.997
+A-raw     0.884 1.000  0.982    0.883
+A-expL    0.934 0.982  1.000    0.931
+A-expNoL  0.997 0.883  0.931    1.000
+
+--- LAs moving most between A-raw and A-none ---
+(positive shift = LA ranks WORSE when absence is not controlled)
+                   la A-none A-raw A-expL A-expNoL shift
+                 York    114    31     69      112    83
+        Tower Hamlets     14    70     36       14   -56
+ Richmond upon Thames     92    38     55       94    54
+             Bradford    133    82     87      133    51
+            Gateshead     80    36     47       76    44
+ Kingston upon Thames     93    50     68       95    43
+             Lewisham     84   127    112       87   -43
+          Oxfordshire     67    24     33       67    43
+         Warwickshire     63    20     26       72    43
+               Sefton     95    53     60       97    42
+
+--- Top 10 LAs under each specification ---
+A-none   : Manchester, Birmingham, Hackney, Southwark, Hammersmith and Fulham, Westminster, County Durham, Wandsworth, Wolverhampton, Cambridgeshire
+A-raw    : Westminster, Hammersmith and Fulham, Brighton and Hove, Birmingham, Cambridgeshire, Manchester, Hackney, Barnet, Kensington and Chelsea, County Durham
+A-expL   : Hammersmith and Fulham, Westminster, Hackney, Manchester, Birmingham, Brighton and Hove, Cambridgeshire, Barnet, County Durham, Southwark
+A-expNoL : Manchester, Birmingham, Hackney, Southwark, Hammersmith and Fulham, Westminster, County Durham, Wandsworth, Cambridgeshire, Wolverhampton
+
+
+--- Context: B&H absence vs national ---
+National mean absence: 8.89 %
+            LANAME mean_abs mean_exp_abs_L mean_exp_abs_NoL mean_fsm abs_rank
+ Brighton and Hove    10.77          10.23            8.823    25.23      146
+(abs_rank 1 = lowest absence; n LAs = 151 )

@@ -4,7 +4,7 @@
 **Decision:** Minor revisions
 **Source file to edit:** `JEP_Paper_tight.qmd` (supplementary: `output/model_experiments.qmd`)
 
-**Progress: 0 / 14 complete**
+**Progress: 1 / 14 analysis complete** (R2.7 analysis done — writing outstanding)
 
 | | Reviewer 1 | Reviewer 2 | Minor | Total |
 |---|---|---|---|---|
@@ -243,21 +243,101 @@ Refitting is cheap — it's one term in three models. Given the reviewer notes "
 
 **We already have most of the machinery.** The two-stage decomposition (§5.5 / supplementary `#sec-two-stage-absence`) already fits three specifications — no absence control (M0), raw absence (M1), and intake-predicted absence (M2). What we have *not* done is extract the **LA-level random effects** and the caterpillar ranking under each. That's the exact comparison the reviewer is asking for.
 
-**Suggested fix:**
+### ✅ ANALYSIS RUN — results below
 
-1. **Run it.** Extract the LA random effects for disadvantaged attainment under all three specifications and produce:
-   - B&H's rank out of 152 under each.
-   - A caterpillar plot or a small comparison table.
-   - Ideally the rank correlation across specifications, so we can say how much LA rankings generally move (not just B&H's).
+Scripts: `revisions/r27_absence_control.R`, `revisions/r27_followup.R` · Output: `revisions/r27_output.txt` · Objects: `revisions/r27_results.rds`
 
-2. **Report honestly in §5.2**, whatever it shows. Three scenarios:
-   - *Rank stable* → strong result; state it plainly and the reviewer's concern is dispatched.
-   - *Rank drops moderately* → report both figures, explain the conditional interpretation, and note that this is precisely why absence is the priority lever.
-   - *Rank drops sharply* → the "high-performing city" framing needs revising throughout, including abstract and conclusion. Better to find this now than post-publication.
+Four specifications, **identical except for the absence term**, fitted on the same 151-LA sample so rankings are directly comparable:
 
-3. **Use the reviewer's own framing in the fix.** They note absence "picks up both school and contextual variation" — that is *exactly* the argument of our §5.5 decomposition. The cleanest response is to present the M2 (intake-predicted absence) version as the principled middle ground: it controls for the part of absence the city cannot help, while leaving the school-manageable part in the residual. **This turns the criticism into a showcase for the paper's own methodological contribution.**
+| Spec | Absence term |
+|---|---|
+| `A-none` | none |
+| `A-raw` | `log(PERCTOT)` — **the published specification** |
+| `A-expL` | intake-predicted absence, stage 1 **with** LA random effect |
+| `A-expNoL` | intake-predicted absence, stage 1 **without** LA random effect |
 
-4. Consider **moving a short summary of the decomposition earlier** (or forward-referencing it from §5.2) so the reader meets the with/without-absence question at the point it first arises rather than three sections later.
+#### Disadvantaged pupils — the headline claim does not survive
+
+| Spec | Effect | 95% CI | Significant? | Rank | ATT8 pts |
+|---|---|---|---|---|---|
+| `A-none` | 0.018 | −0.022 to 0.058 | **No** | **46** | +0.69 |
+| `A-raw` *(published)* | 0.050 | 0.015 to 0.086 | Yes | **7** | +1.98 |
+| `A-expL` | 0.059 | 0.022 to 0.096 | Yes | **7** | +2.33 |
+| `A-expNoL` | 0.017 | −0.023 to 0.057 | **No** | **45** | +0.67 |
+
+**Without an absence control, Brighton and Hove is 46th of 151 and no longer statistically distinguishable from the national average.** The "7th out of 152" claim is entirely conditional on controlling for absence.
+
+#### All pupils — more robust
+
+| Spec | Effect | Significant? | Rank |
+|---|---|---|---|
+| `A-none` | 0.036 | Yes | 17 |
+| `A-raw` *(published)* | 0.063 | Yes | 3 |
+| `A-expL` | 0.055 | Yes | 6 |
+| `A-expNoL` | 0.036 | Yes | 16 |
+
+The all-pupils result **remains significantly positive** without the absence control; the rank moves 3 → 17. So the "high-performing city" claim survives for all pupils but not for the disadvantaged subgroup that the policy debate was actually about.
+
+#### Why the two expected-absence variants diverge
+
+| Quantity | Value |
+|---|---|
+| B&H observed absence (4-yr mean) | 10.77% |
+| Expected — stage 1 **with** LA effect | 10.23% → excess **0.54 pp** |
+| Expected — stage 1 **intake only** | 8.82% → excess **1.95 pp** |
+| B&H mean FSM | 25.2% (national 27.1%) |
+
+B&H's intake is slightly *less* deprived than the national average, so intake explains almost none of its high absence. Nearly 2 percentage points of absence sit above what intake predicts. When stage 1 carries an LA random effect it simply absorbs that excess as "context", which is why `A-expL` reproduces `A-raw`. Rank correlations confirm two families: ρ(`A-none`, `A-expNoL`) = **0.994**; ρ(`A-raw`, `A-expL`) = **0.965**; ρ(`A-none`, `A-raw`) = 0.891.
+
+> **This is the crux.** By the paper's own §5.5 argument, absence over and above intake prediction is the *school/system-manageable* component. On that logic `A-expNoL` is the more principled specification — and it puts B&H 45th, not 7th.
+
+#### Not unique to B&H
+
+Absence control reshuffles LA rankings generally: Bradford moves 113 → 38, York 114 → 31 (all pupils), Thurrock 58 → 111. **14 LAs lose significance** for disadvantaged attainment when absence is dropped (21 for all pupils). Worth reporting as a general methodological finding about caterpillar plots, not just a B&H caveat.
+
+#### Separate factual issue found
+
+The "second worst absence rate in England" claim holds **only for 2024-25**:
+
+| Year | B&H mean absence | Rank (1 = worst) |
+|---|---|---|
+| 2021-22 | 10.82% | 9th |
+| 2022-23 | 10.51% | 16th |
+| 2023-24 | 10.97% | 10th |
+| **2024-25** | **10.79%** | **2nd** |
+
+Add the year qualifier wherever this appears unqualified — notably the **abstract** (line 66).
+
+---
+
+### Recommended response — reframe rather than retreat
+
+The honest reading strengthens the paper's central argument:
+
+> Conditional on the absence its schools face, Brighton and Hove is 7th in England for disadvantaged attainment. Unconditionally it is 46th and statistically ordinary. **The distance between those two numbers — about 1.3 Attainment 8 points — is what absence costs the city's disadvantaged pupils.**
+
+That is a far stronger claim than "we are 7th best". It converts the reviewer's objection into a quantification of the paper's own thesis: absence is not a footnote to Brighton and Hove's story, it is the difference between a top-10 authority and a mid-table one.
+
+**Actions:**
+
+1. **Report all specifications in §5.2** — replace the single caterpillar with a comparison (table or multi-panel plot), and state the conditional interpretation explicitly.
+2. **Revise the affected claims** — see checklist below.
+3. **Retitle §6.5** — "What is driving Brighton and Hove's over-achievement?" presumes the conclusion. Something like *"Conditional performance and the cost of absence"*.
+4. **Present `A-expNoL` as the principled middle ground** and connect it to §5.5, using the reviewer's own observation that absence "picks up both school and contextual variation".
+5. **Forward-reference the decomposition from §5.2** so the reader meets this question where it first arises.
+6. **Add the general finding** that LA rankings are materially sensitive to absence control — useful methodological contribution in its own right.
+
+**Claims requiring revision:**
+
+- [ ] **Line 66 (abstract)** — "second worst absence rate in England" → add "in 2024-25"
+- [ ] **Line 220 (intro)** — "7th out of 152 ... 5th out of 152" → qualify as conditional on absence
+- [ ] **Line 679 (§5.2)** — "ranks 7th ... 5th ... 4th ... roughly 2 GCSE points" → report both conditional and unconditional
+- [ ] **Line 1125 (§6.5)** — "ranks 7th; 5th; 4th" → same
+- [ ] **Line 1127 (§6.5)** — "one of the highest-performing LEAs in the country" → qualify, or reframe around the conditional/unconditional gap
+- [ ] **§6.5 section title** — presumes over-achievement
+- [ ] Check whether `pulling_the_right_lever.qmd` executive summary and slide decks carry the same claims and need syncing
+
+**Note:** our sample has **151** LAs, not 152. Check the "out of 152" phrasing against the estimation sample.
 
 ---
 
