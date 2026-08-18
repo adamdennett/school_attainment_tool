@@ -4,7 +4,7 @@
 **Decision:** Minor revisions
 **Source file to edit:** `JEP_Paper_tight.qmd` (supplementary: `output/model_experiments.qmd`)
 
-**Progress: 1 / 14 analysis complete** (R2.7 analysis done — writing outstanding)
+**Progress: 2 / 14 analysis complete** (R2.7, R2.3 — writing outstanding)
 
 | | Reviewer 1 | Reviewer 2 | Minor | Total |
 |---|---|---|---|---|
@@ -150,20 +150,84 @@ Two further facts worth reporting:
 - `PTPRIORLO + PTPRIORAV + PTPRIORHI` sums to 100 (mean 100.01, sd 0.40) — they are compositional, so all three cannot enter simultaneously.
 - `cor(PTPRIORLO, PTPRIORHI) = −0.78` — strongly but not perfectly collinear.
 
-**Suggested fix — three parts:**
+### ✅ ANALYSIS RUN — results below
 
-1. **State the availability constraint explicitly in §3.2.** One short paragraph: mean KS2 scaled score and the middle/high prior-attainment bands are published for three of our four years; `PTPRIORLO` is the only measure spanning the full panel; we therefore use it in the main specification to preserve the 2024-25 cohort.
+Script: `revisions/r23_prior_attainment.R` · Output: `revisions/r23_output.txt`
 
-2. **Run a robustness check on the 3-year subsample** (2021-22 → 2023-24) adding `KS2ASS` (and optionally `PTPRIORHI`) to the main models. Report:
-   - How much the FSM, absence and EAL coefficients move.
-   - Change in marginal/conditional R².
-   - Whether the substantive ranking of predictors is unchanged.
+Refit on the 9,047 school-years (152 LAs, 2021-22 → 2023-24) where the richer measures exist, estimation sample held fixed:
 
-   This is the direct answer to "is there a risk of inflated estimates". **If coefficients are stable, it substantially strengthens the paper.** If absence attenuates materially, we need to say so and adjust the claims.
+| Spec | Prior-attainment controls |
+|---|---|
+| `P0` | `PTPRIORLO` only — **the published specification** |
+| `P1` | `PTPRIORLO` + mean KS2 scaled score (centred at 100) |
+| `P2` | `PTPRIORLO` + `PTPRIORHI` |
+| `P3` | all three |
 
-3. **Report the result in §3.2 or a new §4.x**, with full detail in the supplementary, and reference it again in §6.7 Limitations.
+The three measures are near-substitutes: r(`PTPRIORLO`, `KS2ASS`) = **−0.93**, r(`PTPRIORHI`, `KS2ASS`) = **+0.94**.
 
-> **Recommendation:** do this one early. It's the point most likely to change what we can claim, and it's cheap to run.
+#### The central finding is robust: absence barely moves
+
+| Coefficient | P0 | P1 (+KS2) | Change |
+|---|---|---|---|
+| **All pupils** | | | |
+| `log(PERCTOT)` — absence | −0.2099 | −0.2041 | **+2.8%** |
+| `log(PTFSM6CLA1A)` — FSM | −0.0637 | −0.0435 | **−32%** |
+| `log(PNUMEAL)` — EAL | 0.0062 | 0.0073 | +17% |
+| **Disadvantaged** | | | |
+| `log(PERCTOT)` — absence | −0.2961 | −0.2911 | **+1.7%** |
+| `log(PTFSM6CLA1A)` — FSM | +0.0108 | +0.0257 | +137% |
+| `log(PNUMEAL)` — EAL | 0.0232 | 0.0242 | +4.2% |
+
+**Absence is essentially unaffected (1.7–2.8%) by adding a far better prior-attainment control.** That is a strong, direct answer to "is there a risk of inflated estimates" for the paper's central claim.
+
+#### The reviewer is partly right — but it helps us
+
+- **FSM attenuates 32%** for all pupils. So `PTPRIORLO` alone *was* leaving some prior-attainment signal to be absorbed by FSM. Conceding this costs nothing: the paper's argument is that FSM concentration is a *weak* lever, and it turns out to be weaker still.
+- **The contentious sign-flip gets stronger.** For disadvantaged pupils the FSM coefficient moves from +0.0108 (t = 2.60) to +0.0257 (**t = 6.01**). Better prior-attainment control makes the positive coefficient larger and far more significant — useful ammunition for R2.6 too.
+- **Gorard segregation** shows a large % change but is **non-significant in every specification** (t = −0.36, 1.03, 0.89, 1.11); the percentage is an artefact of a near-zero base. Report the t-values, not the % change.
+
+#### KS2 mean score is the better control, and `PTPRIORLO` was proxying for it
+
+| Spec | Marginal R² (all) | AIC (all) | `PTPRIORLO` t |
+|---|---|---|---|
+| P0 | 0.641 | −17,609 | **−40.5** |
+| P1 | 0.663 | −18,126 | **−0.25** |
+| P2 | 0.659 | −18,002 | −25.7 |
+| P3 | 0.664 | −18,121 | −2.08 |
+
+Once mean KS2 score is included, `PTPRIORLO` becomes **statistically indistinguishable from zero**. AIC improves by ~500.
+
+> ⚠️ **Interpretation consequence.** The paper currently treats low prior attainment as the second most important driver. On this evidence `PTPRIORLO` is largely acting as a **proxy for the school's overall prior-attainment level**, not as a distinct low-attainer effect. Claims about the *specific* importance of the low-prior-attainment share need softening to "prior attainment" generally.
+
+#### Interaction with R2.7 — B&H's rank is sensitive to this too
+
+| Spec | All pupils rank | Disadvantaged rank |
+|---|---|---|
+| P0 | 3 | **7** |
+| P1 (+KS2) | 5 | **12** |
+| P2 | 6 | 10 |
+| P3 | 5 | 9 |
+
+Adding mean KS2 moves B&H from **7th to 12th** for disadvantaged attainment — a smaller shift than the absence question (7th → 46th) but in the same direction. Both should be reported together so the sensitivity is transparent.
+
+*(P0 reproduces the published rank of 7 on the 3-year subsample — a useful validation of the setup.)*
+
+---
+
+### Recommended response
+
+**Keep `PTPRIORLO` in the 4-year main specification, and report P1 as a prominent robustness check.** Rationale: switching to the 3-year model would sacrifice 2024-25, the year that anchors the "2nd worst absence in England" claim and the most policy-relevant cohort — and the coefficient that matters most for the paper's argument (absence) is unaffected.
+
+**Actions:**
+
+1. **State the availability constraint in §3.2** — mean KS2 scaled score and the middle/high bands are published for three of our four years; `PTPRIORLO` is the only measure spanning the full panel. This has never been said and is the direct answer to the reviewer's question.
+2. **Add the robustness table** to §3.2 or a new §4.x, full detail in the supplementary.
+3. **Concede the FSM attenuation openly** and note it strengthens rather than weakens the argument.
+4. **Soften low-prior-attainment claims** to "prior attainment" per the interpretation warning above.
+5. **Report the B&H rank sensitivity jointly with R2.7.**
+6. **Note in §6.7** that even mean KS2 is a school-level aggregate — this addresses R2.1's pupil-level point but does not resolve it.
+
+**Also note:** sample has **152** LAs for all pupils but **151** for disadvantaged (one LA has no reportable disadvantaged ATT8). This explains the 151/152 discrepancy flagged in R2.7.
 
 ---
 
@@ -307,6 +371,33 @@ The "second worst absence rate in England" claim holds **only for 2024-25**:
 | **2024-25** | **10.79%** | **2nd** |
 
 Add the year qualifier wherever this appears unqualified — notably the **abstract** (line 66).
+
+#### But the trend is the stronger story
+
+B&H's absence has been **flat**; the country's has **fallen**. It slid from 9th- to 2nd-worst on an essentially unchanged number because everyone else recovered post-pandemic and B&H didn't.
+
+| Year | National | B&H | Gap |
+|---|---|---|---|
+| 2021-22 | 9.12% | 10.82% | 1.70 pp |
+| 2022-23 | 9.18% | 10.51% | 1.34 pp |
+| 2023-24 | 9.03% | 10.97% | 1.95 pp |
+| 2024-25 | **8.27%** | **10.79%** | **2.52 pp** |
+
+Over 2021-22 → 2024-25: **143 of 152 LAs (94%) reduced absence**; national mean −0.85 pp; **B&H −0.03 pp, ranking 143rd of 152 for improvement**.
+
+**Use this instead of attributing the absence *level* to the council.** "Absence rose under this administration" is false and easily rebutted. "Absence fell in 94% of English local authorities and conspicuously not here" is evidenced and hard to argue with.
+
+**Two cautions when writing this up:**
+
+1. **"Not intake-explained" ≠ "the council's fault."** The ~2 pp excess over intake prediction rules out the *composition* defence (B&H's FSM rate is *below* national average), but the residual could still be local health, transport geography, seaside deprivation not captured by FSM, or SEND provision. Write it as *"not explicable by intake, and not improving when comparable authorities improved"* and let the reader infer.
+
+2. **Manage the tension with R2.8 and §5.5.** Our decomposition says the school-controllable share of absence is the *smaller* component; R2.8 asks us to evidence how amenable absence is to school/LA action. If §5.2 reads as "this is the council's failure" while §5.5 reads as "most absence isn't school-manageable", a careful reviewer will catch it. The reconciliation is honest and available — the structural share is defined relative to *intake*, and B&H's excess sits above it — but both sections must be written with each other in view.
+
+#### Strategic reframing worth considering
+
+The intro (line 220) currently argues the council mischaracterised a high-performing city as failing. Unconditionally the city is **46th and statistically ordinary** for disadvantaged attainment — so the council's *"we have a problem"* framing was **not wrong**. The diagnosis was.
+
+**"They were right that there is a problem, and wrong about its cause"** is a more persuasive paper than "they were wrong that there is a problem". It concedes the motivating observation, removes the easiest line of attack, and makes the misdiagnosis the entire story: the city saw an attainment gap and reached for admissions, when the gap between its conditional 7th and unconditional 46th was sitting in plain sight in the absence data.
 
 ---
 

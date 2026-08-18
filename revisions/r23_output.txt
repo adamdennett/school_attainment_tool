@@ -1,0 +1,107 @@
+R2.3 — richer prior-attainment controls, 3-year subsample
+=========================================================
+
+Full 4-year sample:  12199 school-years
+3-year subsample:    9047 school-years, 152 LAs
+
+Correlations among prior-attainment measures:
+          PTPRIORLO PTPRIORHI KS2ASS
+PTPRIORLO     1.000    -0.782 -0.929
+PTPRIORHI    -0.782     1.000  0.940
+KS2ASS       -0.929     0.940  1.000
+
+##############################################
+## ALL PUPILS 
+##############################################
+
+--- Key coefficients ---
+               term       P0        P1       P2        P3
+   log(PTFSM6CLA1A) -0.06369 -4.35e-02 -0.04637 -0.042664
+       log(PERCTOT) -0.20986 -2.04e-01 -0.20462 -0.203762
+       log(PNUMEAL)  0.00623  7.30e-03  0.00541  0.006865
+          PTPRIORLO -0.00612 -7.31e-05 -0.00438 -0.000748
+ gorard_segregation -0.01783  4.68e-02  0.04099  0.050453
+              ks2_c       NA  3.40e-02       NA  0.027560
+          PTPRIORHI       NA        NA  0.00358  0.000961
+
+--- t values ---
+               term      P0      P1      P2     P3
+   log(PTFSM6CLA1A) -21.718 -14.696 -15.607 -14.38
+       log(PERCTOT) -40.337 -40.364 -40.206 -40.32
+       log(PNUMEAL)   4.831   5.873   4.322   5.50
+          PTPRIORLO -40.463  -0.246 -25.684  -2.08
+ gorard_segregation  -0.363   1.026   0.894   1.11
+              ks2_c      NA  23.425      NA  11.48
+          PTPRIORHI      NA      NA  20.564   3.36
+
+--- % change in coefficient vs P0 ---
+               term     P1    P2     P3
+              ks2_c     NA    NA     NA
+   log(PTFSM6CLA1A)  31.71  27.2  33.01
+       log(PERCTOT)   2.76   2.5   2.91
+       log(PNUMEAL)  17.21 -13.2  10.22
+          PTPRIORLO  98.81  28.5  87.79
+ gorard_segregation 362.19 329.8 382.93
+          PTPRIORHI     NA    NA     NA
+
+--- Fit ---
+ spec R2_marginal R2_conditional    AIC
+   P0      0.6409         0.7904 -17609
+   P1      0.6634         0.8009 -18126
+   P2      0.6586         0.7984 -18002
+   P3      0.6639         0.8013 -18121
+
+--- Brighton and Hove LA effect (links to R2.7) ---
+ spec effect rank n_la
+   P0 0.0564    3  152
+   P1 0.0435    5  152
+   P2 0.0417    6  152
+   P3 0.0422    5  152
+
+##############################################
+## DISADVANTAGED PUPILS 
+##############################################
+
+--- Key coefficients ---
+               term       P0       P1       P2        P3
+   log(PTFSM6CLA1A)  0.01083  0.02571  0.02117  0.025112
+       log(PERCTOT) -0.29610 -0.29110 -0.29285 -0.291241
+       log(PNUMEAL)  0.02321  0.02418  0.02277  0.024500
+          PTPRIORLO -0.00587 -0.00125 -0.00481 -0.000761
+ gorard_segregation  0.03062  0.08123  0.06710  0.078566
+              ks2_c       NA  0.02591       NA  0.030501
+          PTPRIORHI       NA       NA  0.00217 -0.000683
+
+--- t values ---
+               term      P0     P1     P2     P3
+   log(PTFSM6CLA1A)   2.596   6.01   4.94   5.85
+       log(PERCTOT) -43.053 -42.66 -42.72 -42.68
+       log(PNUMEAL)  13.665  14.38  13.48  14.48
+          PTPRIORLO -28.906  -3.04 -20.56  -1.54
+ gorard_segregation   0.473   1.27   1.05   1.23
+              ks2_c      NA  12.97     NA   9.29
+          PTPRIORHI      NA     NA   9.18  -1.76
+
+--- % change in coefficient vs P0 ---
+               term     P1     P2     P3
+              ks2_c     NA     NA     NA
+   log(PTFSM6CLA1A) 137.27  95.41 131.80
+       log(PERCTOT)   1.69   1.10   1.64
+       log(PNUMEAL)   4.17  -1.93   5.54
+          PTPRIORLO  78.79  18.18  87.04
+ gorard_segregation 165.34 119.19 156.63
+          PTPRIORHI     NA     NA     NA
+
+--- Fit ---
+ spec R2_marginal R2_conditional    AIC
+   P0      0.5480         0.7251 -12648
+   P1      0.5589         0.7287 -12802
+   P2      0.5543         0.7265 -12715
+   P3      0.5589         0.7288 -12789
+
+--- Brighton and Hove LA effect (links to R2.7) ---
+ spec effect rank n_la
+   P0 0.0482    7  151
+   P1 0.0393   12  151
+   P2 0.0398   10  151
+   P3 0.0403    9  151
