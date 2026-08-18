@@ -1,0 +1,142 @@
+R2.4 — Ofsted as random effect vs ordinal / categorical fixed effect
+====================================================================
+
+Estimation sample: 12199 school-years, 3300 schools
+
+Ofsted rating distribution (school-years):
+
+         Outstanding                 Good Requires Improvement 
+                1856                 8554                 1493 
+          Inadequate 
+                 296 
+
+As % of school-years:
+
+         Outstanding                 Good Requires Improvement 
+                15.2                 70.1                 12.2 
+          Inadequate 
+                 2.4 
+
+Mean ATT8: all 47.6 | disadvantaged 38.5
+
+##############################################
+## ALL PUPILS 
+##############################################
+
+--- Ofsted random-effect variance (O-re) ---
+             grp      vcov   sdcor
+ LANAME:gor_name 0.0008854 0.02976
+        gor_name 0.0002865 0.01693
+      year_label 0.0019546 0.04421
+  OFSTEDRATING_1 0.0022381 0.04731
+        Residual 0.0088112 0.09387
+  (estimated from 4 levels — the reviewer's concern)
+
+--- Ofsted fixed-effect coefficients (O-fe, ref = Outstanding) ---
+                          term     est att8_pts     t         p
+                 ofsted_feGood -0.0476    -2.21 -17.2  1.42e-65
+ ofsted_feRequires Improvement -0.0932    -4.24 -24.0 6.38e-124
+           ofsted_feInadequate -0.1038    -4.70 -16.3  6.29e-59
+
+--- Ofsted linear ordinal term (O-ord) ---
+       term     est att8_pts_per_band     t         p
+ ofsted_ord -0.0411             -1.92 -24.6 3.57e-130
+
+--- Key coefficients across specifications ---
+                          term     O-re     O-fe    O-ord   O-none
+              log(PTFSM6CLA1A) -0.06748 -0.06747 -0.06809 -0.06992
+                  log(PERCTOT) -0.21323 -0.21306 -0.21402 -0.24764
+                  log(PNUMEAL)  0.00586  0.00585  0.00609  0.00722
+                     PTPRIORLO -0.00575 -0.00575 -0.00577 -0.00587
+            gorard_segregation -0.03289 -0.03298 -0.03411 -0.01809
+                 ofsted_feGood       NA -0.04759       NA       NA
+ ofsted_feRequires Improvement       NA -0.09319       NA       NA
+           ofsted_feInadequate       NA -0.10379       NA       NA
+                    ofsted_ord       NA       NA -0.04109       NA
+
+--- t values ---
+                          term    O-re    O-fe   O-ord  O-none
+              log(PTFSM6CLA1A) -24.897 -24.894 -25.149 -25.173
+                  log(PERCTOT) -46.028 -45.980 -46.168 -54.567
+                  log(PNUMEAL)   4.921   4.917   5.125   5.917
+                     PTPRIORLO -41.349 -41.346 -41.474 -41.185
+            gorard_segregation  -0.694  -0.696  -0.716  -0.364
+                 ofsted_feGood      NA -17.206      NA      NA
+ ofsted_feRequires Improvement      NA -23.952      NA      NA
+           ofsted_feInadequate      NA -16.274      NA      NA
+                    ofsted_ord      NA      NA -24.573      NA
+
+--- Fit ---
+   spec n_par R2_marginal R2_conditional    AIC    BIC
+   O-re    11     0.63188        0.77119 -22600 -22481
+   O-fe    14     0.70583        0.78285 -22587 -22454
+  O-ord    12     0.70475        0.78259 -22578 -22459
+ O-none    11     0.68886        0.77430 -22002 -21891
+
+--- Brighton and Hove LA effect ---
+   spec effect rank n_la
+   O-re 0.0568    4  152
+   O-fe 0.0568    4  152
+  O-ord 0.0555    4  152
+ O-none 0.0564    5  152
+
+##############################################
+## DISADVANTAGED PUPILS 
+##############################################
+
+--- Ofsted random-effect variance (O-re) ---
+             grp      vcov   sdcor
+ LANAME:gor_name 0.0013998 0.03741
+        gor_name 0.0008415 0.02901
+      year_label 0.0035365 0.05947
+  OFSTEDRATING_1 0.0028405 0.05330
+        Residual 0.0136023 0.11663
+  (estimated from 4 levels — the reviewer's concern)
+
+--- Ofsted fixed-effect coefficients (O-fe, ref = Outstanding) ---
+                          term     est att8_pts     t         p
+                 ofsted_feGood -0.0543    -2.04 -15.6  1.32e-54
+ ofsted_feRequires Improvement -0.1055    -3.86 -21.7 2.83e-102
+           ofsted_feInadequate -0.1170    -4.25 -14.6  1.36e-47
+
+--- Ofsted linear ordinal term (O-ord) ---
+       term     est att8_pts_per_band     t         p
+ ofsted_ord -0.0465             -1.75 -22.1 1.64e-106
+
+--- Key coefficients across specifications ---
+                          term     O-re     O-fe    O-ord   O-none
+              log(PTFSM6CLA1A)  0.00765  0.00767  0.00717  0.00417
+                  log(PERCTOT) -0.30476 -0.30452 -0.30569 -0.34374
+                  log(PNUMEAL)  0.02322  0.02321  0.02351  0.02478
+                     PTPRIORLO -0.00533 -0.00533 -0.00536 -0.00544
+            gorard_segregation -0.00440 -0.00453 -0.00541  0.01176
+                 ofsted_feGood       NA -0.05431       NA       NA
+ ofsted_feRequires Improvement       NA -0.10546       NA       NA
+           ofsted_feInadequate       NA -0.11697       NA       NA
+                    ofsted_ord       NA       NA -0.04645       NA
+
+--- t values ---
+                          term     O-re    O-fe    O-ord  O-none
+              log(PTFSM6CLA1A)   2.0786   2.084   1.9478   1.110
+                  log(PERCTOT) -52.1510 -52.094 -52.2875 -60.315
+                  log(PNUMEAL)  15.5233  15.518  15.7410  16.255
+                     PTPRIORLO -29.9438 -29.942 -30.1234 -29.982
+            gorard_segregation  -0.0729  -0.075  -0.0894   0.188
+                 ofsted_feGood       NA -15.641       NA      NA
+ ofsted_feRequires Improvement       NA -21.680       NA      NA
+           ofsted_feInadequate       NA -14.556       NA      NA
+                    ofsted_ord       NA      NA -22.1421      NA
+
+--- Fit ---
+   spec n_par R2_marginal R2_conditional    AIC    BIC
+   O-re    11     0.55561        0.72797 -17100 -16981
+   O-fe    14     0.62910        0.73964 -17088 -16955
+  O-ord    12     0.62798        0.73937 -17082 -16964
+ O-none    11     0.61233        0.73169 -16614 -16503
+
+--- Brighton and Hove LA effect ---
+   spec effect rank n_la
+   O-re 0.0504    7  151
+   O-fe 0.0503    7  151
+  O-ord 0.0486   10  151
+ O-none 0.0494   11  151

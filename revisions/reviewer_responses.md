@@ -4,7 +4,7 @@
 **Decision:** Minor revisions
 **Source file to edit:** `JEP_Paper_tight.qmd` (supplementary: `output/model_experiments.qmd`)
 
-**Progress: 2 / 14 analysis complete** (R2.7, R2.3 — writing outstanding)
+**Progress: 3 / 14 analysis complete** (R2.7, R2.3, R2.4 — writing outstanding)
 
 | | Reviewer 1 | Reviewer 2 | Minor | Total |
 |---|---|---|---|---|
@@ -241,14 +241,88 @@ Adding mean KS2 moves B&H from **7th to 12th** for disadvantaged attainment — 
 
 **The reviewer is methodologically correct** — four ordered categories is well below the conventional threshold (~5–8 minimum) for a random effect, and the variance component will be poorly estimated. This is a legitimate specification criticism and the honest response is either to justify it properly or to change it.
 
-**Suggested fix (recommend option B):**
+### ✅ ANALYSIS RUN — results below
 
-- **Option A — justify and keep.** Argue we treat Ofsted as a grouping factor because ratings are assigned at different times under different frameworks and we want partial pooling rather than a strong parametric ordering assumption. Weak; the reviewer will likely push back.
-- **Option B — refit with Ofsted as an ordinal/categorical fixed effect and report both.** ✅ Recommended. Show that substantive conclusions are unchanged, and either (i) switch the main specification to the fixed-effect version, or (ii) keep the current one and present the fixed-effect version as a robustness check with the reviewer's concern cited.
+Script: `revisions/r24_ofsted_spec.R` · Output: `revisions/r24_output.txt`
 
-Refitting is cheap — it's one term in three models. Given the reviewer notes "its relationship to the outcome seems important to your argument", the fixed-effect version arguably *helps* us: it gives interpretable coefficients per rating band that we can report directly.
+Four specifications on the full 12,199 school-year sample (3,300 schools), identical except for how Ofsted enters:
 
-**Also worth addressing:** Ofsted ratings are partly *endogenous* to attainment (inspectors see results). Worth a sentence in §3.2 or Limitations noting we include Ofsted as a contextual control rather than a causal factor, and that reverse causality is likely.
+| Spec | Ofsted term |
+|---|---|
+| `O-re` | `(1 \| OFSTEDRATING_1)` — **the published specification** |
+| `O-fe` | categorical fixed effect (ref = Outstanding) |
+| `O-ord` | single linear ordinal term (Outstanding = 1 … Inadequate = 4) |
+| `O-none` | omitted entirely — bears on endogeneity |
+
+Rating distribution: Outstanding 15.2%, Good 70.1%, Requires Improvement 12.2%, Inadequate 2.4%.
+
+#### The specification choice is substantively immaterial
+
+Comparing `O-re` with `O-fe`, all pupils:
+
+| Coefficient | O-re | O-fe | Difference |
+|---|---|---|---|
+| `log(PTFSM6CLA1A)` | −0.06748 | −0.06747 | **<0.02%** |
+| `log(PERCTOT)` | −0.21323 | −0.21306 | **0.08%** |
+| `log(PNUMEAL)` | 0.00586 | 0.00585 | 0.2% |
+| `PTPRIORLO` | −0.00575 | −0.00575 | 0.0% |
+
+Disadvantaged is the same story (FSM +0.00765 → +0.00767; absence −0.30476 → −0.30452). **Every other coefficient is unchanged to three or four significant figures.** The reviewer's objection is methodologically legitimate but changes nothing substantive — which is the ideal position to be in when conceding it.
+
+B&H's LA effect is also unmoved: rank **4 → 4** (all pupils), **7 → 7** (disadvantaged). So this does not interact with R2.7.
+
+#### The fixed effect gives us something useful: reportable per-band coefficients
+
+| Rating (vs Outstanding) | All pupils | Disadvantaged |
+|---|---|---|
+| Good | −2.21 ATT8 pts | −2.04 ATT8 pts |
+| Requires Improvement | −4.24 | −3.86 |
+| Inadequate | −4.70 | −4.25 |
+
+All highly significant (\|t\| = 15–24). Note the **scale is not linear**: Outstanding → Good costs ~2.2 points and Good → RI a further ~2.0, but RI → Inadequate only a further ~0.5. Requires Improvement and Inadequate are nearly equivalent in attainment terms.
+
+**That is an argument for the categorical fixed effect over the ordinal one** the reviewer suggested: `O-ord` imposes a uniform −1.92 points per band and hides the flattening at the bottom of the scale. Worth saying so explicitly — it shows we engaged with the suggestion rather than just complying.
+
+#### Fit statistics — be careful not to over-claim
+
+| Spec | Params | Marginal R² | Conditional R² | AIC | BIC |
+|---|---|---|---|---|---|
+| `O-re` | 11 | 0.632 | 0.771 | **−22,600** | **−22,481** |
+| `O-fe` | 14 | 0.706 | 0.783 | −22,587 | −22,454 |
+| `O-ord` | 12 | 0.705 | 0.783 | −22,578 | −22,459 |
+| `O-none` | 11 | 0.689 | 0.774 | −22,002 | −21,891 |
+
+> ⚠️ The jump in marginal R² (0.632 → 0.706) is **largely definitional**, not a genuine fit gain: as a random effect Ofsted's contribution sits in the random part and is excluded from marginal R². Conditional R² moves only 0.771 → 0.783, and AIC/BIC marginally *favour* the random effect (by ~13 and ~27 points on ~22,600 — negligible). Do not present the marginal R² rise as evidence the fixed effect fits better.
+
+#### Bonus finding: including Ofsted makes our absence estimate conservative
+
+Dropping Ofsted entirely (`O-none`) *increases* the absence coefficient:
+
+| Outcome | With Ofsted | Without | Change |
+|---|---|---|---|
+| All pupils | −0.2132 | −0.2476 | **+16%** |
+| Disadvantaged | −0.3048 | −0.3437 | **+13%** |
+
+FSM barely moves (−0.0675 → −0.0699). So Ofsted is absorbing absence signal — unsurprising, since inspectors see attendance data and high-absence schools rate worse. **Because the rating is partly a consequence of absence, controlling for it attenuates absence's total effect by 13–16%: our headline absence estimate is conservative.** Worth stating — it strengthens the central claim while honestly flagging the endogeneity.
+
+---
+
+### Recommended response
+
+**Switch the main specification to the categorical fixed effect (`O-fe`).**
+
+The cost is nil (no other coefficient moves, B&H's rank is unchanged), and the gains are real: it concedes a legitimate methodological point, produces interpretable per-band coefficients the paper can report, and surfaces the non-linear structure of the rating scale.
+
+**Actions:**
+
+1. **Refit the main models with Ofsted as a categorical fixed effect** and update §3.2, §4.2 and all downstream tables.
+2. **Report the per-band coefficients** in §4.2 — they are genuinely informative and directly answer "its relationship to the outcome seems important to your argument".
+3. **Note why categorical rather than ordinal** — the RI/Inadequate flattening means a linear ordinal term would misrepresent the scale. Shows engagement with the specific suggestion.
+4. **Report the robustness explicitly**: all other coefficients unchanged to 3–4 s.f. under either specification.
+5. **Be honest about the marginal R² artefact** per the warning above.
+6. **Add the endogeneity caveat** to §3.2 or §6.7: Ofsted is included as a contextual control, not a causal factor; reverse causality is likely; and the `O-none` comparison shows this makes the absence estimate conservative rather than inflated.
+
+**Sample-definition note.** R2.4's all-pupil models use the full 12,199-row sample (rank 4, matching the published paper). R2.7's all-pupil models were fitted on the common sample shared with the disadvantaged outcome (rank 3). The disadvantaged results — the ones that matter — use the correct sample in both. Worth standardising before the final write-up so no table contradicts another.
 
 ---
 
