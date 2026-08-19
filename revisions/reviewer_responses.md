@@ -5,7 +5,7 @@
 **Journal:** Research Papers in Education (RRED) — *not "JEP"; correct in the response letter*
 **Source file:** ⚠️ **SEE [`SOURCE_VERSION_NOTE.md`](SOURCE_VERSION_NOTE.md)** — the submitted text is in `Manuscript_Anonymous.docx`, which was **hand-edited after the last render of `JEP_Paper_tight.qmd`** (~27% of body sentences differ; abstract and intro rewritten). Reconcile the qmd to the submitted text **before** editing. Model tables/figures still come from the qmd + `output/model_experiments.qmd` pipeline.
 
-**Progress: 3 / 14 analysis complete** (R2.7, R2.3, R2.4 — writing outstanding)
+**Progress: applied to RPE_Paper.qmd — R1.1, R2.1, R2.3, R2.4, R2.7 done; R2.5 partial. Remaining: R1.2, R2.2, R2.6, R2.8, R2.9, R2.10-12.**
 
 | | Reviewer 1 | Reviewer 2 | Minor | Total |
 |---|---|---|---|---|
@@ -34,7 +34,7 @@ Work in this order — the first two change results, the rest are writing.
 
 ## R1.1 — Clarify what the "selective admissions" variable captures
 
-- [ ] **Done**
+- [x] **Done** — RPE_Paper.qmd §3.2 (three-group ADMPOL_PT clarification + faith-school note)
 
 > *"greater clarity is needed regarding the inclusion of a variable labelled 'selective admissions'. Given that independent schools are excluded from the analytical sample, it is unclear what this variable captures in practice within the state-funded sector. The authors should explain whether this refers to grammar schools, partial selection, banding arrangements, aptitude-based selection, or faith-based oversubscription criteria, and indicate how prevalent such schools are within the sample."*
 
@@ -88,7 +88,7 @@ Work in this order — the first two change results, the rest are writing.
 
 ## R2.1 (§3.2) — Loss of efficiency from school-level-only prior attainment correction
 
-- [ ] **Done**
+- [x] **Done** — RPE_Paper.qmd §3.2 (pupil-level caveat) + §6.7
 
 > *"as you are not selecting Progress 8 and do not have pupil-level data, there will be a loss of efficiency in correcting for prior attainment. The most robust correction for prior attainment would be at both pupil and school level. Without it, there is a danger of over-inflating your estimates."*
 
@@ -130,7 +130,7 @@ Work in this order — the first two change results, the rest are writing.
 
 ## R2.3 (§3.2) — Only low prior attainment included; why not average KS2 score?
 
-- [ ] **Done**
+- [x] **Done** — RPE_Paper.qmd §3.2 (KS2 availability constraint + robustness summary)
 
 > *"Am I correct that only low prior attainment is included as a KS2 prior attainment control? This does not strike me as adequate. Is the average KS2 score not included in the school-level data? Why is just the low prior attainment percentage included? Is there a risk of inflated estimates elsewhere without this being well controlled for?"*
 
@@ -234,7 +234,7 @@ Adding mean KS2 moves B&H from **7th to 12th** for disadvantaged attainment — 
 
 ## R2.4 (§4.2) — Why is Ofsted rating a random effect rather than an ordinal fixed effect?
 
-- [ ] **Done**
+- [x] **Done** — RPE_Paper.qmd §4.2 (RE-vs-FE justification, per-band magnitudes, endogeneity note)
 
 > *"Random effects are usually reserved for grouping variables with many levels; Ofsted rating has only four ordered categories and its relationship to the outcome seems important to your argument. I would have assumed that an ordinal fixed effect would be more appropriate here. Can you further justify your choice?"*
 
@@ -329,7 +329,7 @@ The cost is nil (no other coefficient moves, B&H's rank is unchanged), and the g
 
 ## R2.5 (§4.2) — Make the magnitude of non-linear effects concrete
 
-- [ ] **Done**
+- [~] **Partial** — per-band Ofsted magnitudes added in §4.2 (R2.4); still to add marginal-effects signposting from §4.2 to §5.3
 
 > *"The points about strength of effect as one moves up/down the scale are interesting. Would it be possible to show this graphically or by giving examples at selected points within the scale? It is hard to concretely grasp the magnitude of this."*
 
@@ -370,7 +370,7 @@ The cost is nil (no other coefficient moves, B&H's rank is unchanged), and the g
 
 ## R2.7 (§5.2) — Is the B&H disadvantaged-performance result justifiable when controlling for absence?
 
-- [ ] **Done**
+- [x] **Done** — RPE_Paper.qmd §5.2 (comparison table + reframe), abstract, intro, §6.5 retitled+reframed
 
 > *"Am I right in saying that the result about B&H performance for disadvantaged pupils (as per Fig.3 and paragraph bottom of page 17) is based on a calculation that has controlled for absence? This does not seem justifiable to me. Would it be possible to report with and without this factor taken into account? (I assume that absence picks up both school and contextual variation – a point made later on page 20). Given the very low attendance in the city, this is a pivotal point for the overall interpretation."*
 
