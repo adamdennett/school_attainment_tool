@@ -46,14 +46,24 @@ So both files are needed, and they must be reconciled before editing.
 
 ## Recommended path
 
-1. **Back-port the docx's prose edits into `JEP_Paper_tight.qmd`** so the qmd once
-   again reproduces the submitted text. Commit that as a clean "as-submitted"
-   baseline. (Prose-merge only — no re-analysis, since numbers already match.)
-2. **Then apply the revision edits to the qmd** and re-render, so the pipeline
-   stays the single source of truth and the new model tables/figures regenerate
-   correctly.
+1. ✅ **DONE — Back-ported the docx's prose edits into a new file `RPE_Paper.qmd`**
+   (copied from `JEP_Paper_tight.qmd`, then reconciled to the submitted text).
+   This is the clean "as-submitted" baseline. Prose-merge only — model code,
+   figures and numbers untouched, so re-rendering reproduces the submitted PDF.
+   Sections reconciled: title, abstract, introduction, literature review,
+   §3 (already matched), §4, §5.1, §5.3, §5.4/§6.3 BACA-Patcham condensation,
+   §5.5, §6.1, §6.2, §6.5, CRediT (3 authors), + new Funding Details (EPSRC
+   EP/Y028392/1). Known-submitted typos left in place deliberately (e.g. "to
+   general to calculate" §4.1, "noticable" §5.3) so the revision diff is clean —
+   fix these under R2.12 and a typo pass.
+2. **Apply the revision edits to `RPE_Paper.qmd`** (drafts in
+   `draft_5.2_local_authority_effects.md`, `draft_6.5_conditional_performance.md`)
+   and re-render, keeping the pipeline as the single source of truth.
 3. **Produce the tracked-changes docx** for the journal from the revised render at
    the end (most journals want changes marked on the manuscript file).
+
+**Note:** all revision work now targets `RPE_Paper.qmd`, not `JEP_Paper_tight.qmd`
+(which remains the stale May-7 draft). The `JEP_Paper*` files can be retired.
 
 Alternative (not recommended): edit the docx directly with tracked changes and
 hand-paste the new tables. Faster for prose but the new figures/tables can't be
