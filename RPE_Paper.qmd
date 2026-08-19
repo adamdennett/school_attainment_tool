@@ -50,6 +50,7 @@ format:
           \renewcommand{\and}{}
   docx:
     output-file: RPE_Paper
+    reference-doc: Manuscript_Anonymous.docx
     toc: false
     number-sections: true
     fig-cap-location: bottom
