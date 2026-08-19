@@ -2,7 +2,8 @@
 
 **Manuscript:** *How to Pull the Right Lever: School Attainment, Open Data Analytics and Local Education Policy in England*
 **Decision:** Minor revisions
-**Source file to edit:** `JEP_Paper_tight.qmd` (supplementary: `output/model_experiments.qmd`)
+**Journal:** Research Papers in Education (RRED) — *not "JEP"; correct in the response letter*
+**Source file:** ⚠️ **SEE [`SOURCE_VERSION_NOTE.md`](SOURCE_VERSION_NOTE.md)** — the submitted text is in `Manuscript_Anonymous.docx`, which was **hand-edited after the last render of `JEP_Paper_tight.qmd`** (~27% of body sentences differ; abstract and intro rewritten). Reconcile the qmd to the submitted text **before** editing. Model tables/figures still come from the qmd + `output/model_experiments.qmd` pipeline.
 
 **Progress: 3 / 14 analysis complete** (R2.7, R2.3, R2.4 — writing outstanding)
 
