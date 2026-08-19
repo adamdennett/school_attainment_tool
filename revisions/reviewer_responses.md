@@ -5,7 +5,7 @@
 **Journal:** Research Papers in Education (RRED) — *not "JEP"; correct in the response letter*
 **Source file:** ⚠️ **SEE [`SOURCE_VERSION_NOTE.md`](SOURCE_VERSION_NOTE.md)** — the submitted text is in `Manuscript_Anonymous.docx`, which was **hand-edited after the last render of `JEP_Paper_tight.qmd`** (~27% of body sentences differ; abstract and intro rewritten). Reconcile the qmd to the submitted text **before** editing. Model tables/figures still come from the qmd + `output/model_experiments.qmd` pipeline.
 
-**Progress: applied to RPE_Paper.qmd — R1.1, R2.1, R2.3, R2.4, R2.7 done; R2.5 partial. Remaining: R1.2, R2.2, R2.6, R2.8, R2.9, R2.10-12.**
+**Progress: ALL 14 prose items applied to RPE_Paper.qmd. Outstanding: add R2.2/R2.3/R2.4 diagnostics to the supplementary (model_experiments.qmd) so the referenced tables/plots exist; then final render + response letter.**
 
 | | Reviewer 1 | Reviewer 2 | Minor | Total |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ Work in this order — the first two change results, the rest are writing.
 
 ## R1.2 — Engage more explicitly with FSM + absence as strongest predictors, and link to the admissions changes
 
-- [ ] **Done**
+- [x] **Done** — RPE §4.3 (ranking-clarity), §6.1 (two-pathway mechanism chain + expected-vs-observed caveat)
 
 > *"The results indicate that FSM eligibility (%) and school absence rates are the strongest predictors... this finding aligns with existing evidence... and warrants more explicit engagement in the paper. In particular, the conclusion could reflect more directly on these findings and clarify how, if at all, the observed attainment patterns are linked to the post-2022 admissions policy changes in Brighton & Hove. Greater discussion of the mechanisms through which admissions reforms might interact with FSM composition and attendance would strengthen the interpretation."*
 
@@ -107,7 +107,7 @@ Work in this order — the first two change results, the rest are writing.
 
 ## R2.2 (§3.2) — Justify the logarithmic functional form; per-variable diagnostics
 
-- [ ] **Done**
+- [x] **Done** — RPE §3.2 (which vars logged vs linear + supplementary diagnostics ref). ⚠️ NEED: add the diagnostics to model_experiments.qmd
 
 > *"Please provide further justification of using the logarithmic functional form. Can this be justified for all variables? Can you present information (e.g., residual plots) justifying this decision for all variables? A uniform log transformation across all variables assumes each requires the same correction, which may not be the case, particularly for proportion-based variables such as low prior attainment. Reporting variable-specific diagnostics (e.g. partial residual plots?), or at least confirm that this have been conducted, would help justify this choice."*
 
@@ -329,7 +329,7 @@ The cost is nil (no other coefficient moves, B&H's rank is unchanged), and the g
 
 ## R2.5 (§4.2) — Make the magnitude of non-linear effects concrete
 
-- [~] **Partial** — per-band Ofsted magnitudes added in §4.2 (R2.4); still to add marginal-effects signposting from §4.2 to §5.3
+- [x] **Done** — RPE §4.2 per-band Ofsted magnitudes + forward-ref to §5.3 accelerating-returns
 
 > *"The points about strength of effect as one moves up/down the scale are interesting. Would it be possible to show this graphically or by giving examples at selected points within the scale? It is hard to concretely grasp the magnitude of this."*
 
@@ -347,7 +347,7 @@ The cost is nil (no other coefficient moves, B&H's rank is unchanged), and the g
 
 ## R2.6 (§4.3) — "Differing effects" vs "differing pupils" interpretation
 
-- [ ] **Done**
+- [x] **Done** — RPE §4.3 (differing-pupils concession; policy argument holds under both)
 
 > *"Is it not equally possible that this is an issue with the measure? i.e., disadvantaged pupils, even when accounting for length of FSM status and/or attainment, are a heterogeneous group and those highly concentrated in a school are not necessarily equivalent to those with similar characteristics who are few in number. Have you any reason to favour 'differing effects, equivalent pupils' over the 'differing pupils' (within the measures available) interpretation?"*
 
@@ -509,7 +509,7 @@ That is a far stronger claim than "we are 7th best". It converts the reviewer's 
 
 ## R2.8 (§5.5) — How amenable is attendance to school/LA-level intervention?
 
-- [ ] **Done**
+- [x] **Done** -- RPE 2.2 amenability paragraph (structural vs school-manageable; cross-departmental), consistent with the decomposition
 
 > *"it was (if I've understood) controlled for in the estimates of disadvantaged pupil performance, therefore treated as a non-school factor, but in Section 5.5 the discussion is about schools addressing the issue. Could evidence be presented (in the literature review perhaps) about how amenable to change attendance is for schools and whether large-scale, local-authority wide change is likely to come from 'council-led attendance interventions' and sharing best practice as suggested? Or are there other (potentially social) interventions that should be mentioned alongside these suggestions?"*
 
@@ -532,7 +532,7 @@ That is a far stronger claim than "we are 7th best". It converts the reviewer's 
 
 ## R2.9 (Conclusion) — Academisation and reduced LA capacity as context for the analytical-infrastructure recommendation
 
-- [ ] **Done**
+- [x] **Done** — RPE §6.6 (post-2010 LA capacity erosion; MAT gap; system-level framing; simulator as prototype)
 
 > *"it is perhaps worth noting that academisation and reduced local authority resourcing since 2010 have significantly reduced LA analytical capacity... I felt more than a little exasperated with policy-makers when I saw this recommendation about investment in local analytical infrastructure given the context. Presumably MATs have taken on this function in relation to their constituent schools, but this leaves a gap for locality-wide analyses to inform local (as opposed to MAT) policy. Is this a fair point? Could it be made?"*
 
@@ -555,7 +555,7 @@ That is a far stronger claim than "we are 7th best". It converts the reviewer's 
 
 ## R2.10 — Cite an example or review for the "large volume of literature" claim (p6)
 
-- [ ] **Done**
+- [x] **Done** — RPE §2.1 (review citations added)
 
 > *"P6. End of first para. Cite an example or review of 'large volume of literature' to support readers in following this up."*
 
@@ -567,7 +567,7 @@ Add 2–3 citations to a review or meta-analysis at that point. Candidates alrea
 
 ## R2.11 — Inconsistent Burgess citation ('Simon' vs 'S') (p8)
 
-- [ ] **Done**
+- [x] **Done** — bib: expanded Burgess initials; dropped duplicate Burgess2022 from the teaching-quality cite
 
 > *"P8. Para3. There is a 'Simon' Burgess and an 'S' Burgess cited."*
 
@@ -591,7 +591,7 @@ Fix: expand initials to full names in those two entries.
 
 ## R2.12 — 'to general' typo (p11, line 22)
 
-- [ ] **Done**
+- [x] **Done** — RPE §4.1 ("to general" removed)
 
 > *"P11. Line 22. 'to general' typo."*
 
