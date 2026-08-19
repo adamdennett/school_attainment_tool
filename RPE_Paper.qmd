@@ -916,8 +916,8 @@ A two-stage decomposition[^twostage-jep] separates these elements. First, we mod
 
 The national picture is informative. Most of the school-year variation in absence is explained by the intake-only first stage; the school-controllable residual is the smaller share, and its marginal contribution to attainment is modest once intake-driven absence is accounted for. The headline raw-absence coefficient therefore borrows much of its statistical force from the structural component: the lever is real, but the school-only portion is smaller than the single coefficient implies. For LEAs this means closing a city's absence problem requires both school-level attention *and* cross-departmental work --- public health, children's services, area-level deprivation policy --- because much of what schools deal with on attendance is inherited rather than generated.
 
-```{r jep-quadrant-fits}
-#| label: jep-quadrant-fits
+```{r}
+#| label: quadrant-fits-setup
 #| include: false
 
 stage1_data_j <- imputed_full_data %>%
