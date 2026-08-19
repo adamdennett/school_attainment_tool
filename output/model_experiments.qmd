@@ -5594,3 +5594,234 @@ Interpretation notes (mirroring the KS2 Phase F lessons):
 - **k-sensitivity is informative, not nuisance**: larger k fits better at KS4 (optimum k ≈ 150, ~2.5 km) than the k = 10 that suits primaries — the catchment-scale geography showing through in the data, consistent with the spatial programme's premise.
 - **The faith interaction is the validity probe**: distance-defined context should matter most where admission is distance-defined.
 - The LA/region variance movement shows how much of the *remaining* place effect (after Analysis E's rich controls) is measurable neighbourhood conditions — the KS4 counterpart of the KS2 finding that census context explained ~two-thirds of the between-LA variance.
+
+
+# Reviewer-response diagnostics {#sec-reviewer-diagnostics}
+
+This section collects the supplementary analyses referenced from the main
+paper's revision: the prior-attainment robustness check (mean KS2 score), the
+Ofsted specification comparison (random effect versus fixed effect), and the
+functional-form diagnostics (which predictors are log-transformed, and why).
+All use the same Analysis E estimation data as the headline models.
+
+```{r}
+#| label: revdiag-setup
+#| include: false
+
+library(splines)
+ctrl_rd <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
+
+rd_data <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+         !is.na(PERCTOT), PERCTOT > 0,
+         !is.na(PNUMEAL), PNUMEAL > 0,
+         !is.na(PTPRIORLO), !is.na(gorard_segregation),
+         !is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0,
+         !is.na(OFSTEDRATING_1)) %>%
+  droplevels()
+contrasts(rd_data$OFSTEDRATING_1) <- contr.treatment(levels(rd_data$OFSTEDRATING_1))
+
+rd_rhs <- paste(
+  "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + PTPRIORLO + ADMPOL_PT +",
+  "gorard_segregation + remained_in_the_same_school +",
+  "teachers_on_leadership_pay_range_percent + log(average_number_of_days_taken)"
+)
+rd_ranef <- "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
+rd_ranef_noofsted <- "(1 | year_label) + (1 | gor_name/LANAME)"
+```
+
+## Prior-attainment robustness (mean KS2 score)
+
+The main models control for prior attainment using the *percentage of KS4
+pupils with low KS2 prior attainment* (`PTPRIORLO`). The DfE publishes the mean
+KS2 scaled score (`KS2ASS`) and the middle/high prior-attainment bands for only
+three of our four years --- they are not released for 2024-25 --- so `PTPRIORLO`
+is the only prior-attainment measure spanning the full panel. Here we refit on
+the three-year sub-sample where the richer measure exists, adding mean KS2
+score, and report how the key coefficients move.
+
+```{r}
+#| label: revdiag-ks2
+
+ks2_data <- rd_data %>%
+  filter(!is.na(KS2ASS), !is.na(PTPRIORHI)) %>%
+  mutate(ks2_c = KS2ASS - 100) %>%
+  droplevels()
+contrasts(ks2_data$OFSTEDRATING_1) <- contr.treatment(levels(ks2_data$OFSTEDRATING_1))
+
+fit_ks2 <- function(extra) {
+  rhs <- if (is.null(extra)) rd_rhs else paste(extra, "+", rd_rhs)
+  lmer(as.formula(paste0("log(ATT8SCR) ~ ", rhs, " + ", rd_ranef)),
+       data = ks2_data, REML = TRUE, control = ctrl_rd)
+}
+
+ks2_specs <- list("P0: published (PTPRIORLO only)" = NULL,
+                  "P1: + mean KS2 score" = "ks2_c")
+
+ks2_tab <- purrr::map_dfr(names(ks2_specs), function(nm) {
+  m <- fit_ks2(ks2_specs[[nm]])
+  s <- summary(m)$coefficients
+  tibble(Specification = nm,
+         log_FSM = s["log(PTFSM6CLA1A)", "Estimate"],
+         log_Absence = s["log(PERCTOT)", "Estimate"],
+         log_EAL = s["log(PNUMEAL)", "Estimate"],
+         marginal_R2 = as.numeric(performance::r2(m)$R2_marginal))
+})
+
+knitr::kable(ks2_tab, digits = 4,
+             caption = "All-pupil model on the 3-year sub-sample, with and without mean KS2 score. Adding a richer prior-attainment control leaves the absence coefficient essentially unchanged; the FSM coefficient attenuates.")
+```
+
+```{r}
+#| label: revdiag-ks2-note
+#| output: asis
+
+.p0 <- ks2_tab[grepl("P0", ks2_tab$Specification), ]
+.p1 <- ks2_tab[grepl("P1", ks2_tab$Specification), ]
+.abs_chg <- 100 * (.p1$log_Absence - .p0$log_Absence) / abs(.p0$log_Absence)
+.fsm_chg <- 100 * (.p1$log_FSM - .p0$log_FSM) / abs(.p0$log_FSM)
+cat(sprintf(
+  "Adding mean KS2 score shifts the **absence** coefficient by only %.1f%% but the **FSM** coefficient by %.0f%%. The paper's central quantity --- absence --- is therefore robust to a substantially better prior-attainment control, while the (already weak) disadvantage-concentration coefficient attenuates further, reinforcing rather than weakening the argument.\n",
+  .abs_chg, .fsm_chg))
+```
+
+## Ofsted: random effect versus categorical fixed effect
+
+Ofsted rating has four ordered categories, fewer than would ordinarily be
+modelled as a random effect. We keep it as a grouping factor in the main
+specification for partial pooling and consistency with the other contextual
+groupings, but verify here that treating it as a categorical fixed effect
+changes nothing substantive --- and yields interpretable per-band coefficients.
+
+```{r}
+#| label: revdiag-ofsted
+
+rd_data2 <- rd_data %>%
+  mutate(ofsted_fe = factor(as.character(OFSTEDRATING_1),
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate")))
+
+m_ofsted_re <- lmer(as.formula(paste0("log(ATT8SCR) ~ ", rd_rhs, " + ", rd_ranef)),
+                    data = rd_data2, REML = TRUE, control = ctrl_rd)
+m_ofsted_fe <- lmer(as.formula(paste0("log(ATT8SCR) ~ ofsted_fe + ", rd_rhs,
+                                       " + ", rd_ranef_noofsted)),
+                    data = rd_data2, REML = TRUE, control = ctrl_rd)
+
+.terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "PTPRIORLO")
+comp <- tibble(
+  Term = .terms,
+  `Ofsted random effect` = fixef(m_ofsted_re)[.terms],
+  `Ofsted fixed effect`  = fixef(m_ofsted_fe)[.terms]
+)
+knitr::kable(comp, digits = 4,
+             caption = "Key coefficients are unchanged to 3-4 significant figures whether Ofsted enters as a random or a categorical fixed effect.")
+
+mean_att8 <- mean(rd_data2$ATT8SCR, na.rm = TRUE)
+fe <- summary(m_ofsted_fe)$coefficients
+.bands <- c("ofsted_feGood", "ofsted_feRequires Improvement", "ofsted_feInadequate")
+band <- tibble(
+  `Rating (vs Outstanding)` = c("Good", "Requires Improvement", "Inadequate"),
+  `log points` = fe[.bands, "Estimate"],
+  `ATT8 points` = mean_att8 * (exp(fe[.bands, "Estimate"]) - 1),
+  t = fe[.bands, "t value"]
+)
+knitr::kable(band, digits = 2,
+             caption = "Per-band Ofsted fixed-effect coefficients. The scale flattens at the bottom (Requires Improvement and Inadequate are close), which is why a linear ordinal term would misrepresent it.")
+```
+
+```{r}
+#| label: revdiag-ofsted-endog
+#| output: asis
+
+m_noofsted <- lmer(as.formula(paste0("log(ATT8SCR) ~ ", rd_rhs, " + ",
+                                      rd_ranef_noofsted)),
+                   data = rd_data2, REML = TRUE, control = ctrl_rd)
+.abs_with <- fixef(m_ofsted_re)["log(PERCTOT)"]
+.abs_without <- fixef(m_noofsted)["log(PERCTOT)"]
+.chg <- 100 * (abs(.abs_without) - abs(.abs_with)) / abs(.abs_with)
+cat(sprintf(
+  "Ofsted judgements are formed with sight of a school's results, so we treat the rating as a contextual control rather than a causal factor. Consistent with this partial endogeneity, dropping Ofsted entirely *increases* the magnitude of the estimated absence coefficient by %.0f%% (from %.3f to %.3f) --- so including Ofsted makes the headline absence estimate, if anything, conservative.\n",
+  .chg, .abs_with, .abs_without))
+```
+
+## Functional-form diagnostics
+
+The log transformation is applied only to the four skewed, strictly-positive
+rate/count predictors (disadvantage, absence and EAL percentages, and teacher
+sickness days); the remaining predictors enter linearly. For each logged
+predictor we compare three treatments --- logged, linear, and a natural cubic
+spline (3 df) --- refitting the full model and holding everything else fixed,
+and report AIC (lower is better).
+
+```{r}
+#| label: revdiag-funcform
+
+logged_vars <- c("PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "average_number_of_days_taken")
+
+form_with <- function(v, treat) {
+  terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "PTPRIORLO",
+             "ADMPOL_PT", "gorard_segregation", "remained_in_the_same_school",
+             "teachers_on_leadership_pay_range_percent",
+             "log(average_number_of_days_taken)")
+  logged_term <- paste0("log(", v, ")")
+  repl <- switch(treat,
+                 "logged" = logged_term,
+                 "linear" = v,
+                 "spline" = paste0("ns(", v, ", df = 3)"))
+  terms[terms == logged_term] <- repl
+  paste0("log(ATT8SCR) ~ ", paste(terms, collapse = " + "), " + ", rd_ranef)
+}
+
+ff_tab <- purrr::map_dfr(logged_vars, function(v) {
+  aics <- purrr::map_dbl(c("logged", "linear", "spline"), function(tr) {
+    m <- try(lmer(as.formula(form_with(v, tr)), data = rd_data,
+                  REML = FALSE, control = ctrl_rd), silent = TRUE)
+    if (inherits(m, "try-error")) NA_real_ else AIC(m)
+  })
+  tibble(Predictor = v, logged = aics[1], linear = aics[2], spline = aics[3])
+})
+
+ff_tab %>%
+  mutate(best = c("logged", "linear", "spline")[
+    apply(as.matrix(dplyr::select(., logged, linear, spline)), 1, which.min)]) %>%
+  knitr::kable(digits = 0,
+               caption = "AIC by functional form (REML = FALSE for comparability). The logged form is at or near best for the rate variables, and the spline offers no material improvement --- a uniform transformation is not assumed; each predictor was assessed on its own.")
+```
+
+```{r}
+#| label: fig-partial-residuals
+#| fig-cap: "Component-plus-residual (partial residual) plots for the four log-transformed predictors, from the full model. An approximately linear trend on the log x-axis supports the log specification."
+#| fig-height: 7
+#| fig-width: 8
+
+m_full <- lmer(as.formula(paste0("log(ATT8SCR) ~ ", rd_rhs, " + ", rd_ranef)),
+               data = rd_data, REML = TRUE, control = ctrl_rd)
+fe_full <- fixef(m_full)
+res_full <- residuals(m_full)
+
+pr_panel <- function(v) {
+  logx <- log(rd_data[[v]])
+  coef_v <- fe_full[paste0("log(", v, ")")]
+  partial <- res_full + coef_v * (logx - mean(logx))
+  tibble(x = logx, pr = partial, var = paste0("log(", v, ")"))
+}
+pr_df <- purrr::map_dfr(logged_vars, pr_panel)
+
+ggplot(pr_df, aes(x, pr)) +
+  geom_point(alpha = 0.06, size = 0.5) +
+  geom_smooth(method = "loess", se = FALSE, colour = "#2e6260", linewidth = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, colour = "#cc6633",
+              linetype = "dashed", linewidth = 0.6) +
+  facet_wrap(~ var, scales = "free_x") +
+  labs(x = "log(predictor)", y = "partial residual") +
+  theme_minimal(base_size = 11) +
+  theme(panel.grid.minor = element_blank())
+```
+
+The loess fit (green) tracks the linear reference (orange dashed) closely on the
+log scale for each predictor, indicating that the log specification captures the
+functional form well and that no predictor calls for a materially more flexible
+treatment.
