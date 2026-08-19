@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D88ZNBVGS4"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-D88ZNBVGS4');
+  </script>
+  <title>How to Pull the Right Lever — School Attainment, Open Data Analytics and Policy</title>
+  <meta name="description" content="Multilevel modelling of KS4 Attainment 8 scores across English secondary schools, with a Brighton & Hove case study.">
+  <style>
+    @font-face {
+      font-family: "Body Sans";
+      src: url("fonts/UCLSans-Regular.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Body Sans";
+      src: url("fonts/UCLSans-Italic.otf") format("opentype");
+      font-weight: 400;
+      font-style: italic;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Body Sans";
+      src: url("fonts/UCLSans-SemiBold.otf") format("opentype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Body Sans";
+      src: url("fonts/UCLSans-ExtraLight.ttf") format("truetype");
+      font-weight: 200;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Body Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #ffffff;
+      color: #1a1a2e;
+      line-height: 1.6;
+    }
+
+    /* ── Top navigation bar ── */
+    .topnav {
+      background: #361a54;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 2.5rem;
+    }
+    .topnav-logos {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+    .topnav-logos a { display: flex; align-items: center; }
+    .topnav-logos img { height: 32px; width: auto; }
+    .topnav-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    .topnav-links a {
+      color: #ddbdff;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 400;
+      transition: color 0.2s;
+    }
+    .topnav-links a:hover { color: #ffffff; }
+
+    /* ── Hero section ── */
+    .hero {
+      position: relative;
+      min-height: 420px;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      background: #361a54;
+    }
+    .hero-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("hero-bg.png");
+      background-size: cover;
+      background-position: center 30%;
+      opacity: 0.35;
+    }
+    .hero-gradient {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(54, 26, 84, 0.3) 0%,
+        rgba(54, 26, 84, 0.6) 50%,
+        rgba(54, 26, 84, 0.95) 100%
+      );
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 900px;
+      padding: 3rem 3rem 2.5rem;
+    }
+    .hero-label {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #30d6ff;
+      margin-bottom: 0.8rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid rgba(48, 214, 255, 0.4);
+      border-radius: 3px;
+    }
+    .hero h1 {
+      color: #ffffff;
+      font-size: 2.8rem;
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .hero .subtitle {
+      color: #ddbdff;
+      font-size: 1.15rem;
+      font-weight: 200;
+      line-height: 1.5;
+      max-width: 680px;
+      margin-bottom: 1.5rem;
+    }
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      color: #b982ff;
+      font-size: 0.85rem;
+    }
+    .hero-meta .authors { color: #ddbdff; font-weight: 400; }
+    .hero-meta .authors a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.4); text-underline-offset: 3px; }
+    .hero-meta .authors a:hover { text-decoration-color: #fff; }
+    .hero-meta .date { color: #b982ff; font-weight: 200; }
+    .hero-meta .separator { color: #993bff; }
+
+    /* Accent bar */
+    .accent-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #993bff, #30d6ff);
+    }
+
+    /* ── Main content wrapper ── */
+    .main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 2.5rem;
+    }
+
+    /* ── Key actions row ── */
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 2.5rem 0 2rem;
+      border-bottom: 1px solid #eedeff;
+    }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .action-btn svg { flex-shrink: 0; }
+    .action-btn.primary {
+      background: #361a54;
+      color: #ffffff;
+    }
+    .action-btn.primary:hover {
+      background: #993bff;
+    }
+    .action-btn.secondary {
+      background: #ffffff;
+      color: #361a54;
+      border: 2px solid #361a54;
+    }
+    .action-btn.secondary:hover {
+      background: #faf5ff;
+      border-color: #993bff;
+      color: #993bff;
+    }
+    .action-btn.accent {
+      background: linear-gradient(135deg, #993bff, #7a2ce0);
+      color: #ffffff;
+    }
+    .action-btn.accent:hover {
+      background: linear-gradient(135deg, #b060ff, #993bff);
+    }
+
+    /* ── Video briefing ── */
+    .video-section {
+      padding: 2.5rem 0 0.5rem;
+    }
+    .video-section .video-heading {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #361a54;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+    .video-embed {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e8e4f0;
+      box-shadow: 0 6px 28px rgba(54, 26, 84, 0.12);
+      background: #000;
+    }
+    .video-embed iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    /* ── Abstract / overview section ── */
+    .overview {
+      padding: 2.5rem 0;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 3rem;
+      align-items: start;
+    }
+    .overview-text h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #361a54;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .overview-text p {
+      font-size: 0.95rem;
+      color: #444466;
+      line-height: 1.7;
+      margin-bottom: 1rem;
+    }
+
+    /* Key stats sidebar */
+    .key-stats {
+      background: #faf5ff;
+      border-radius: 10px;
+      padding: 1.8rem;
+      border: 1px solid #eedeff;
+    }
+    .key-stats h3 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #993bff;
+      margin-bottom: 1.2rem;
+    }
+    .stat-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #eedeff;
+    }
+    .stat-row:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .stat-number {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #361a54;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      color: #666688;
+      line-height: 1.4;
+    }
+
+    /* ── Findings highlight ── */
+    .finding-highlight {
+      background: linear-gradient(135deg, #361a54 0%, #4a2570 100%);
+      border-radius: 10px;
+      padding: 2rem 2.5rem;
+      margin: 0.5rem 0 2.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+    }
+    .finding-icon {
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      background: rgba(153, 59, 255, 0.3);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .finding-highlight p {
+      color: #ffffff;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+    .finding-highlight strong {
+      color: #30d6ff;
+      font-weight: 600;
+    }
+
+    /* ── Section headings ── */
+    .section-header {
+      padding-top: 2.5rem;
+      margin-bottom: 1.5rem;
+      border-top: 1px solid #eedeff;
+    }
+    .section-header h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #361a54;
+      letter-spacing: -0.02em;
+    }
+    .section-header p {
+      font-size: 0.9rem;
+      color: #666688;
+      margin-top: 0.3rem;
+    }
+    .section-label-sm {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #993bff;
+      margin-bottom: 0.3rem;
+    }
+
+    /* ── Resource cards (2-column grid) ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.2rem;
+      margin-bottom: 2.5rem;
+    }
+    .card {
+      display: block;
+      padding: 1.5rem;
+      border: 1px solid #e8e4f0;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      background: #ffffff;
+    }
+    .card:hover {
+      border-color: #993bff;
+      box-shadow: 0 4px 20px rgba(153, 59, 255, 0.1);
+      transform: translateY(-2px);
+    }
+    .card .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.8rem;
+    }
+    .card .card-icon.purple { background: #eedeff; }
+    .card .card-icon.blue { background: #d9f5ff; }
+    .card .card-icon.teal { background: #d4f5f4; }
+    .card .card-icon.orange { background: #ffe8d9; }
+    .card .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #361a54;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.01em;
+    }
+    .card:hover .card-title { color: #993bff; }
+    .card .card-desc {
+      font-size: 0.82rem;
+      color: #666688;
+      line-height: 1.5;
+    }
+    .card .card-tags {
+      display: flex;
+      gap: 0.35rem;
+      margin-top: 0.7rem;
+      flex-wrap: wrap;
+    }
+    .card .tag {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.12rem 0.45rem;
+      border-radius: 100px;
+      background: #f0edf5;
+      color: #5a5077;
+    }
+
+    /* Full-width card spanning both columns */
+    .card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    /* ── Coefficient chart image ── */
+    .chart-embed {
+      margin: 1rem 0 2.5rem;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e8e4f0;
+    }
+    .chart-embed img {
+      width: 100%;
+      display: block;
+    }
+    .chart-caption {
+      padding: 0.8rem 1.2rem;
+      background: #faf5ff;
+      font-size: 0.78rem;
+      color: #666688;
+      line-height: 1.5;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      background: #f8f6fb;
+      border-top: 1px solid #eedeff;
+      padding: 2.5rem;
+      text-align: center;
+    }
+    .footer-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.2rem;
+    }
+    .footer-logos a {
+      display: flex;
+      align-items: center;
+      opacity: 0.65;
+      transition: opacity 0.2s;
+    }
+    .footer-logos a:hover { opacity: 1; }
+    .footer-logos img { height: 44px; width: auto; }
+    .footer-divider { width: 1px; height: 32px; background: #ddbdff; }
+    .footer-text {
+      font-size: 0.78rem;
+      color: #8a8aaa;
+      line-height: 1.8;
+    }
+    .footer-text a {
+      color: #993bff;
+      text-decoration: none;
+    }
+    .footer-text a:hover { text-decoration: underline; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .topnav { padding: 0.6rem 1.2rem; }
+      .topnav-links { display: none; }
+      .hero-content { padding: 2rem 1.5rem; }
+      .hero h1 { font-size: 2rem; }
+      .hero .subtitle { font-size: 1rem; }
+      .main { padding: 0 1.5rem; }
+      .actions { flex-direction: column; }
+      .action-btn { justify-content: center; }
+      .overview { grid-template-columns: 1fr; gap: 1.5rem; }
+      .cards { grid-template-columns: 1fr; }
+      .finding-highlight { flex-direction: column; gap: 1rem; padding: 1.5rem; }
+    }
+
+    /* ── Selection ── */
+    ::selection {
+      background-color: rgba(153, 59, 255, 0.2);
+      color: #361a54;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top navigation -->
+  <nav class="topnav">
+    <div class="topnav-logos">
+      <a href="https://www.ucl.ac.uk/bartlett/casa" target="_blank" rel="noopener" title="CASA — Centre for Advanced Spatial Analysis">
+        <img src="fonts/casa-logo-white.png" alt="CASA logo" style="height: 36px;">
+      </a>
+      <a href="https://ai4ci.ac.uk/" target="_blank" rel="noopener" title="AI for Collective Intelligence">
+        <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="height: 28px; filter: brightness(0) invert(1);">
+      </a>
+    </div>
+    <div class="topnav-links">
+      <a href="pulling_the_right_lever.html">Full Report</a>
+      <a href="[Policy Simulator tool — link withheld for review]" target="_blank">Policy Simulator</a>
+      
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-gradient"></div>
+    <div class="hero-content">
+      <div class="hero-label">Research Briefing</div>
+      <h1>How to Pull the Right Lever</h1>
+      <p class="subtitle">School Attainment, Open Data Analytics and Policy &mdash; Lessons from Brighton and Hove</p>
+      <div class="hero-meta">
+        <span class="authors"><a href="#">[Author]</a></span>
+        <span class="separator">&middot;</span>
+        <span class="date">[Research Centre], 2025</span>
+      </div>
+    </div>
+  </section>
+  <div class="accent-bar"></div>
+
+  <div class="main">
+
+    <!-- Action buttons -->
+    <div class="actions">
+      <a class="action-btn primary" href="pulling_the_right_lever.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Read "How to Pull the Right Lever" report online
+      </a>
+      <a class="action-btn secondary" href="pulling_the_right_lever.pdf" download>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </a>
+      <a class="action-btn secondary" href="pulling_the_right_lever_slides.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Full slides
+      </a>
+      <a class="action-btn secondary" href="pulling_the_right_lever_short_slides.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Short slides
+      </a>
+      <a class="action-btn accent" href="[Policy Simulator tool — link withheld for review]" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Launch Policy Simulator
+      </a>
+    </div>
+
+    <!-- Video briefing -->
+    <div class="video-section">
+      <div class="section-label-sm">Watch</div>
+      <h2 class="video-heading">The research in brief</h2>
+      <div class="video-embed">
+        <iframe
+          src="https://www.youtube.com/embed/Qaqm8vkppI0"
+          title="How to Pull the Right Lever — [Author]"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <!-- Overview + key stats -->
+    <div class="overview">
+      <div class="overview-text">
+        <h2>Overview</h2>
+        <p>
+          School attainment matters and Policy Makers understandably want to improve it for all children to give them the best change of future success. But it is all to easy to <strong>pull the wrong policy lever</strong> when information and intelligence is incomplete. Recent experiences in Brighton and Hove have highlighted the gap between open data and actionable intelligence for Policy Makers, Schools and anyone wanting to actively contribute to statutory public consultations. Intelligence to inform local debates could be available from within freely available online data sources, but is largely hidden within mountains of data and a vast specialist literature.
+        </p>
+        <p>
+          Education professionals and researchers know what factors influence attainment and they know which are most important. But every school and every Local Education Authority is different and there is a gulf between general understanding and specific local intelligence that can target the most effective policy treatment for a particular location.
+        </p>
+        <p>
+          The <strong>How to Pull the Right Lever</strong> report desribes what can happen when good policy intentions can be derailed by an incomplete understanding, but shows how better understanding and better policy is within the grasp of any local education authority through the open data resources published by the Department for Education.
+        </p>
+        <p>
+          The Policy Simulator within this site is a first attempt bridge the open data -> actionable intelligence gap for local education policy in England. It has been designed to curate, process, visualise and analyse the extensive open data sources publised by the Department for Education in an accessible way. It allows users to explore what policy changes might have be biggest impact on school-level GCSE attainment for any state school in England, taking account of their own unique circumstances.
+        </p>
+        <p>
+          The simulator is underpinned by a robust statistical analysis of four years of DfE data detailed in the main report and supplementary materials found at the bottom of this page. The tool allows anyone to select a particular local authority or school and understand what the main attainment drivers for that place and thus what the most effective improvement policies might be.
+        </p>
+        <p>
+          Brighton and Hove is used as an illustrative case study example, the the tool and analysis are relevant for any Local Education Authority in England.
+        </p>
+      </div>
+      <div class="key-stats">
+        <h3>Key figures</h3>
+        <div class="stat-row">
+          <span class="stat-number">13,419</span>
+          <span class="stat-label">school-year observations across four years</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">80%</span>
+          <span class="stat-label">of variation in Attainment 8 explained by the model</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">#1</span>
+          <span class="stat-label">Overall absence is the strongest predictor of attainment</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-number">152</span>
+          <span class="stat-label">local authorities included with random effects</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key finding callout -->
+    <div class="finding-highlight">
+      <div class="finding-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30d6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <p>
+        If policy makers fail to take account of all relevant factors influencing attainment and particular local contexts and variations, they risk <strong>pulling the wrong lever</strong>. We hope the tool and analysis in these pages will help local authorities and schools make better decisions to improve educational outcomes for all children.
+      </p>
+    </div>
+
+    <!-- Coefficient chart -->
+    <div class="chart-embed">
+      <img src="std-coeffs.png" alt="Standardised model coefficients showing absence as the strongest predictor">
+      <div class="chart-caption">
+        Standardised coefficients from the multilevel model. Overall absence rate has the largest effect on Attainment 8 scores for all pupil groups, exceeding the impact of % FSM disadvantage.
+      </div>
+    </div>
+
+    <!-- Supplementary analysis reports -->
+    <div class="section-header">
+      <div class="section-label-sm">Supplementary Materials</div>
+      <h2>Analysis reports &amp; data</h2>
+      <p>Detailed technical reports underpinning the main paper.</p>
+    </div>
+
+    <div class="cards">
+      <a class="card" href="data_overview.html">
+        <div class="card-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <div class="card-title">Data Overview</div>
+        <div class="card-desc">Sources, panel construction, descriptive statistics, missing data patterns, imputation strategy, and variable definitions.</div>
+        <div class="card-tags"><span class="tag">Data</span><span class="tag">Panel</span><span class="tag">Descriptive</span></div>
+      </a>
+
+      <a class="card" href="model_results.html">
+        <div class="card-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div class="card-title">Model Results</div>
+        <div class="card-desc">Multilevel models, diagnostics, observed vs predicted plots, residual geography, and the disadvantage gap.</div>
+        <div class="card-tags"><span class="tag">Models</span><span class="tag">Diagnostics</span><span class="tag">Results</span></div>
+      </a>
+
+      <a class="card" href="model_experiments.html">
+        <div class="card-icon teal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a19d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <div class="card-title">Model Experiments</div>
+        <div class="card-desc">Human-readable lmer implementations, coefficient commentary, and variable importance analysis.</div>
+        <div class="card-tags"><span class="tag">lmer</span><span class="tag">Coefficients</span></div>
+      </a>
+
+      <a class="card" href="brighton_case_study.html">
+        <div class="card-icon orange">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f56300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="card-title">Brighton &amp; Hove Case Study</div>
+        <div class="card-desc">Interactive maps, non-linear effect interpretation, school-level residuals, and policy recommendations.</div>
+        <div class="card-tags"><span class="tag">Case Study</span><span class="tag">Maps</span><span class="tag">Policy</span></div>
+      </a>
+
+      <a class="card" href="financial_data_overview.html">
+        <div class="card-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#993bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="card-title">Financial Data Overview</div>
+        <div class="card-desc">School financial returns (CFR &amp; AAR): coverage, spending composition, trends, and relationships with attainment.</div>
+        <div class="card-tags"><span class="tag">Finance</span><span class="tag">CFR</span><span class="tag">AAR</span></div>
+      </a>
+
+      <a class="card" href="financial_model_experiments.html">
+        <div class="card-icon blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2196f3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div class="card-title">Financial Model Experiments</div>
+        <div class="card-desc">Systematic test of whether school financial variables improve the baseline attainment models.</div>
+        <div class="card-tags"><span class="tag">Finance</span><span class="tag">Models</span></div>
+      </a>
+
+      <a class="card" href="la_typology_report.html">
+        <div class="card-icon teal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00a19d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        </div>
+        <div class="card-title">LA Typology Report</div>
+        <div class="card-desc">Local authority clustering analysis: methodology, cluster profiles, pen portraits, and typology maps.</div>
+        <div class="card-tags"><span class="tag">Clustering</span><span class="tag">Typology</span><span class="tag">LA</span></div>
+      </a>
+
+      <a class="card" href="JEP_Paper_trimmed.pdf" download>
+        <div class="card-icon orange">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f56300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="card-title">Journal Paper (PDF)</div>
+        <div class="card-desc">Condensed JEP-submission pre-print &mdash; Chicago Author-Date citations.</div>
+        <div class="card-tags"><span class="tag">Journal</span><span class="tag">JEP</span><span class="tag">PDF</span></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Authorship & AI disclosure -->
+  <section style="max-width: 1100px; margin: 3rem auto 1rem; padding: 2rem 1.5rem; border-top: 1px solid #e5e0ec;">
+    <h2 style="color:#361a54; font-size:1.15rem; font-weight:600; margin-bottom:0.75rem;">CRediT authorship contribution statement</h2>
+    <p style="color:#333; font-size:0.95rem; line-height:1.6; margin-bottom:1.25rem;">
+      <strong>[Author]:</strong> Conceptualisation, Methodology, Software, Formal analysis, Data curation, Writing &ndash; original draft, Writing &ndash; review &amp; editing, Visualisation, Project administration.
+    </p>
+    <h2 style="color:#361a54; font-size:1.15rem; font-weight:600; margin-bottom:0.75rem;">Declaration of generative AI use</h2>
+    <p style="color:#333; font-size:0.95rem; line-height:1.6;">
+      The authors used Anthropic's Claude Code (Claude Opus 4.6) to assist with the development of R data-processing pipelines, the implementation of multilevel model fitting and visualisation code, the formatting of tables and bibliography entries, and the rendering and deployment of Quarto outputs. Any analytical decisions and interpretations during the iterative analytical process were reviewed, verified and approved by the authors, who take full responsibility for the work.
+    </p>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    
+      <a href="https://ai4ci.ac.uk/" target="_blank" rel="noopener" title="AI for Collective Intelligence">
+        <img src="fonts/ai4ci-logo.svg" alt="AI4CI logo" style="height: 38px;">
+      </a>
+      <div class="footer-divider"></div>
+      <a href="https://www.ukri.org" target="_blank" rel="noopener" title="UK Research and Innovation">
+        <img src="fonts/ukri-logo.png" alt="UKRI logo">
+      </a>
+    </div>
+    <div class="footer-text">
+      <a href="https://www.ucl.ac.uk/bartlett/casa">[Research Centre]</a> &middot; School Attainment Tool
+      <br>
+      
+    </div>
+  </footer>
+
+</body>
+</html>
