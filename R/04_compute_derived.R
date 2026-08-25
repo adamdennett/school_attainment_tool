@@ -65,6 +65,7 @@ compute_gorard_index <- function(panel) {
 #' Impute missing predictor variables for 2024-25
 #'
 #' Four variables are unavailable for 2024-25:
+#'   - KS2ASS    (mean KS2 scaled score — cancelled due to COVID)
 #'   - PTPRIORLO (KS2 prior attainment — cancelled due to COVID)
 #'   - remained_in_the_same_school (workforce turnover)
 #'   - teachers_on_leadership_pay_range_percent (workforce pay)
@@ -83,6 +84,7 @@ impute_missing_predictors <- function(panel) {
   message("Imputing missing predictors for 2024-25 ...")
 
   impute_vars <- c(
+    "KS2ASS",
     "PTPRIORLO",
     "remained_in_the_same_school",
     "teachers_on_leadership_pay_range_percent",
@@ -335,6 +337,16 @@ if (sys.nframe() == 0) {
 
   # 2. Impute missing predictors for 2024-25
   panel <- impute_missing_predictors(panel)
+
+  # 2b. Centre mean KS2 scaled score at the national standard (100) so the
+  #     model intercept is interpretable. ks2_c is the prior-attainment
+  #     control used in the models (it fits materially better than the
+  #     low-prior-attainment share; see revisions/r23b_output.txt).
+  if ("KS2ASS" %in% names(panel)) {
+    panel$ks2_c <- panel$KS2ASS - 100
+    message("  Added ks2_c (KS2ASS centred at 100): ",
+            sum(!is.na(panel$ks2_c)), " non-missing")
+  }
 
   # 3. Add log transforms
   panel <- add_log_transforms(panel)

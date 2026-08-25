@@ -67,19 +67,19 @@ contrasts(imputed_full_data$OFSTEDRATING_1) <-
 cat("Fitting stage 1 (expected absence)...\n")
 
 s1_data <- imputed_full_data %>%
-  filter(!is.na(PTPRIORLO)) %>%
+  filter(!is.na(ks2_c)) %>%
   droplevels()
 
 # Variant L: LA random effect included -> absorbs LA-level mean absence
 s1_L <- lmer(
-  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + ks2_c +
     gorard_segregation + (1 | year_label) + (1 | gor_name/LANAME),
   data = s1_data, REML = TRUE, control = ctrl
 )
 
 # Variant NoL: no LA random effect -> only intake (+ region) predicts absence
 s1_NoL <- lmer(
-  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+  log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + ks2_c +
     gorard_segregation + (1 | year_label) + (1 | gor_name),
   data = s1_data, REML = TRUE, control = ctrl
 )
@@ -103,7 +103,7 @@ cat("Stage 2 estimation sample:", nrow(d), "school-years,",
 
 # ---- Stage 2: four specifications, disadvantaged outcome ------------
 base_rhs <- paste(
-  "log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO + ADMPOL_PT +",
+  "log(PTFSM6CLA1A) + log(PNUMEAL) + ks2_c + ADMPOL_PT +",
   "gorard_segregation + remained_in_the_same_school +",
   "teachers_on_leadership_pay_range_percent +",
   "log(average_number_of_days_taken) +",

@@ -1,0 +1,78 @@
+Prior-attainment measure choice: low-attainer share vs mean KS2
+================================================================
+Estimation sample: 12199 school-years
+cor(PTPRIORLO, KS2ASS) = -0.929
+
+##############################################
+## ALL PUPILS 
+##############################################
+
+--- Fit (ML) ---
+                     spec marginal_R2 conditional_R2    AIC    BIC     dAIC
+ L: PTPRIORLO (published)     0.64191        0.76774 -22717 -22598 533.8967
+      M: mean KS2 instead     0.66125        0.77609 -23251 -23132   0.0000
+                  B: both     0.66112        0.77612 -23249 -23123   1.7974
+
+--- Coefficients on the other predictors ---
+               term L: PTPRIORLO (published) M: mean KS2 instead   B: both
+   log(PTFSM6CLA1A)                -0.067483           -0.049833 -0.049899
+       log(PERCTOT)                -0.213249           -0.207329 -0.207240
+       log(PNUMEAL)                 0.005865            0.007052  0.007069
+ gorard_segregation                -0.032907            0.025685  0.024784
+
+  (t values)
+               term L: PTPRIORLO (published) M: mean KS2 instead B: both
+   log(PTFSM6CLA1A)                  -24.913             -18.208 -18.206
+       log(PERCTOT)                  -46.054             -45.762 -45.698
+       log(PNUMEAL)                    4.930               6.098   6.109
+ gorard_segregation                   -0.696               0.582   0.561
+
+--- % change in each coefficient, M vs L ---
+               term    pct
+   log(PTFSM6CLA1A)  26.16
+       log(PERCTOT)   2.78
+       log(PNUMEAL)  20.24
+ gorard_segregation 178.05
+
+--- prior-attainment terms themselves ---
+  L: PTPRIORLO (published)   PTPRIORLO  est=-0.00575  t= -41.37
+  M: mean KS2 instead        ks2_c      est= 0.03187  t=  48.49
+  B: both                    PTPRIORLO  est=-0.00012  t=  -0.45
+  B: both                    ks2_c      est= 0.03135  t=  23.43
+
+##############################################
+## DISADVANTAGED PUPILS 
+##############################################
+
+--- Fit (ML) ---
+                     spec marginal_R2 conditional_R2    AIC    BIC     dAIC
+ L: PTPRIORLO (published)     0.56583        0.72320 -17211 -17093 184.3842
+      M: mean KS2 instead     0.57450        0.72529 -17390 -17271   6.1349
+                  B: both     0.57469        0.72594 -17396 -17270   0.0000
+
+--- Coefficients on the other predictors ---
+               term L: PTPRIORLO (published) M: mean KS2 instead  B: both
+   log(PTFSM6CLA1A)                 0.007673             0.02119  0.02104
+       log(PERCTOT)                -0.304798            -0.30007 -0.29970
+       log(PNUMEAL)                 0.023223             0.02414  0.02422
+ gorard_segregation                -0.004667             0.05218  0.04449
+
+  (t values)
+               term L: PTPRIORLO (published) M: mean KS2 instead B: both
+   log(PTFSM6CLA1A)                   2.0862               5.617   5.581
+       log(PERCTOT)                 -52.1822             -51.660 -51.601
+       log(PNUMEAL)                  15.5378              16.265  16.331
+ gorard_segregation                  -0.0775               0.875   0.748
+
+--- % change in each coefficient, M vs L ---
+               term     pct
+   log(PTFSM6CLA1A)  176.14
+       log(PERCTOT)    1.55
+       log(PNUMEAL)    3.93
+ gorard_segregation 1218.12
+
+--- prior-attainment terms themselves ---
+  L: PTPRIORLO (published)   PTPRIORLO  est=-0.00533  t= -29.96
+  M: mean KS2 instead        ks2_c      est= 0.02828  t=  33.07
+  B: both                    PTPRIORLO  est=-0.00103  t=  -2.85
+  B: both                    ks2_c      est= 0.02394  t=  13.71

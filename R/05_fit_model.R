@@ -7,7 +7,7 @@
 #      - year_label enters as an additional RANDOM effect
 #      - Formula:
 #        log(outcome) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-#          PTPRIORLO + ADMPOL_PT + gorard_segregation +
+#          ks2_c + ADMPOL_PT + gorard_segregation +
 #          remained_in_the_same_school +
 #          teachers_on_leadership_pay_range_percent +
 #          log(average_number_of_days_taken) +
@@ -60,7 +60,7 @@ OUTCOMES <- list(
 # (skewness 0.47, near-symmetric).
 FIXED_PREDICTORS <- c(
   "PTFSM6CLA1A", "PERCTOT", "PNUMEAL",
-  "PTPRIORLO", "ADMPOL_PT", "gorard_segregation",
+  "ks2_c", "ADMPOL_PT", "gorard_segregation",
   "remained_in_the_same_school",
   "teachers_on_leadership_pay_range_percent",
   "average_number_of_days_taken"
@@ -72,7 +72,7 @@ MODEL_GROUPING <- c("OFSTEDRATING_1", "gor_name", "LANAME")
 # Fixed-effects portion of the formula (shared by panel and per-year models)
 FIXED_FORMULA_RHS <- paste0(
   "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
-  "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+  "ks2_c + ADMPOL_PT + gorard_segregation + ",
   "remained_in_the_same_school + ",
   "teachers_on_leadership_pay_range_percent + ",
   "log(average_number_of_days_taken)"

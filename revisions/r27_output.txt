@@ -7,38 +7,38 @@
 Number of LAs: 151 
 
 --- Brighton and Hove ---
-     spec effect     se   ci_lo  ci_hi   sig rank
-   A-none 0.0179 0.0205 -0.0224 0.0582 FALSE   46
-    A-raw 0.0504 0.0180  0.0150 0.0857  TRUE    7
-   A-expL 0.0590 0.0189  0.0220 0.0961  TRUE    7
- A-expNoL 0.0172 0.0204 -0.0228 0.0572 FALSE   45
+     spec  effect     se    ci_lo  ci_hi   sig rank
+   A-none 0.00596 0.0205 -0.03420 0.0461 FALSE   69
+    A-raw 0.04070 0.0178  0.00576 0.0756  TRUE   15
+   A-expL 0.05110 0.0188  0.01431 0.0879  TRUE   10
+ A-expNoL 0.00455 0.0203 -0.03520 0.0443 FALSE   71
 
 --- Rank correlation between specifications (all LAs) ---
          A-none A-raw A-expL A-expNoL
-A-none    1.000 0.891  0.806    0.994
-A-raw     0.891 1.000  0.965    0.890
-A-expL    0.806 0.965  1.000    0.807
-A-expNoL  0.994 0.890  0.807    1.000
+A-none    1.000 0.890  0.795    0.995
+A-raw     0.890 1.000  0.958    0.887
+A-expL    0.795 0.958  1.000    0.796
+A-expNoL  0.995 0.887  0.796    1.000
 
 --- LAs moving most between A-raw and A-none ---
 (positive shift = LA ranks WORSE when absence is not controlled)
-                       la A-none A-raw A-expL A-expNoL shift
-                 Bradford    113    38     13      113    75
-                 Thurrock     58   111    116       58   -53
-          Buckinghamshire     93    43     21       95    50
-                   Sefton    101    52     36      102    49
-      Newcastle upon Tyne    118    73     37      114    45
-           North Tyneside     34    79     90       32   -45
-                    Derby     80   122    128       86   -42
-        Brighton and Hove     46     7      7       45    39
- East Riding of Yorkshire     71   110    119       66   -39
-                Gateshead    109    71     58      103    38
+                     la A-none A-raw A-expL A-expNoL shift
+               Bradford    107    35     12      104    72
+                 Medway     26    87    100       27   -61
+               Thurrock     41    99    117       46   -58
+      Brighton and Hove     69    15     10       71    54
+ Kensington and Chelsea     83    32     46       83    51
+   Barking and Dagenham     74   121    129       72   -47
+               Lewisham     94   135    131       95   -41
+        Buckinghamshire     62    22      7       62    40
+               Kirklees     28    68     92       26   -40
+                 Sefton    104    64     44      107    40
 
 --- Top 10 LAs under each specification ---
-A-none   : Manchester, Birmingham, Southwark, Hammersmith and Fulham, Wolverhampton, County Durham, Tower Hamlets, Westminster, Newham, Slough
-A-raw    : Hammersmith and Fulham, Westminster, Birmingham, Manchester, County Durham, Plymouth, Brighton and Hove, Newham, Southwark, Ealing
-A-expL   : Hammersmith and Fulham, Westminster, Birmingham, Plymouth, County Durham, Manchester, Brighton and Hove, Barnet, Newham, Hackney
-A-expNoL : Manchester, Birmingham, County Durham, Southwark, Hammersmith and Fulham, Wolverhampton, Tower Hamlets, Westminster, Newham, Slough
+A-none   : Manchester, Birmingham, Wolverhampton, Southwark, County Durham, Slough, Newham, Hammersmith and Fulham, Tower Hamlets, Lincolnshire
+A-raw    : Hammersmith and Fulham, Westminster, Manchester, Birmingham, County Durham, Plymouth, Ealing, Slough, Newham, Lincolnshire
+A-expL   : Westminster, Hammersmith and Fulham, Plymouth, County Durham, Manchester, Birmingham, Buckinghamshire, Lincolnshire, Newham, Brighton and Hove
+A-expNoL : Manchester, Birmingham, County Durham, Southwark, Wolverhampton, Slough, Newham, Hammersmith and Fulham, Tower Hamlets, Westminster
 
 
 ##############################################
@@ -48,42 +48,42 @@ A-expNoL : Manchester, Birmingham, County Durham, Southwark, Hammersmith and Ful
 Number of LAs: 151 
 
 --- Brighton and Hove ---
-     spec effect     se   ci_lo  ci_hi  sig rank
-   A-none 0.0356 0.0136 0.00890 0.0623 TRUE   17
-    A-raw 0.0627 0.0124 0.03839 0.0871 TRUE    3
-   A-expL 0.0552 0.0133 0.02925 0.0812 TRUE    6
- A-expNoL 0.0362 0.0136 0.00963 0.0628 TRUE   16
+     spec effect     se    ci_lo  ci_hi   sig rank
+   A-none 0.0214 0.0128 -0.00378 0.0465 FALSE   28
+    A-raw 0.0483 0.0115  0.02574 0.0709  TRUE    4
+   A-expL 0.0428 0.0123  0.01867 0.0670  TRUE    6
+ A-expNoL 0.0218 0.0127 -0.00314 0.0468 FALSE   26
 
 --- Rank correlation between specifications (all LAs) ---
          A-none A-raw A-expL A-expNoL
-A-none    1.000 0.884  0.934    0.997
-A-raw     0.884 1.000  0.982    0.883
-A-expL    0.934 0.982  1.000    0.931
-A-expNoL  0.997 0.883  0.931    1.000
+A-none    1.000 0.849  0.899    0.996
+A-raw     0.849 1.000  0.975    0.852
+A-expL    0.899 0.975  1.000    0.901
+A-expNoL  0.996 0.852  0.901    1.000
 
 --- LAs moving most between A-raw and A-none ---
 (positive shift = LA ranks WORSE when absence is not controlled)
                    la A-none A-raw A-expL A-expNoL shift
-                 York    114    31     69      112    83
-        Tower Hamlets     14    70     36       14   -56
- Richmond upon Thames     92    38     55       94    54
-             Bradford    133    82     87      133    51
-            Gateshead     80    36     47       76    44
- Kingston upon Thames     93    50     68       95    43
-             Lewisham     84   127    112       87   -43
-          Oxfordshire     67    24     33       67    43
-         Warwickshire     63    20     26       72    43
-               Sefton     95    53     60       97    42
+                 York    121    35     68      118    86
+        Tower Hamlets     19    94     58       19   -75
+          Oxfordshire     87    30     41       87    57
+ Richmond upon Thames    115    58     83      116    57
+             Bradford    133    78     72      130    55
+               Medway     69   123    115       68   -54
+         Warwickshire     74    21     28       78    53
+               Slough     36    87     67       37   -51
+       North Tyneside     54   103     99       53   -49
+ Kingston upon Thames    106    59     79      108    47
 
 --- Top 10 LAs under each specification ---
-A-none   : Manchester, Birmingham, Hackney, Southwark, Hammersmith and Fulham, Westminster, County Durham, Wandsworth, Wolverhampton, Cambridgeshire
-A-raw    : Westminster, Hammersmith and Fulham, Brighton and Hove, Birmingham, Cambridgeshire, Manchester, Hackney, Barnet, Kensington and Chelsea, County Durham
-A-expL   : Hammersmith and Fulham, Westminster, Hackney, Manchester, Birmingham, Brighton and Hove, Cambridgeshire, Barnet, County Durham, Southwark
-A-expNoL : Manchester, Birmingham, Hackney, Southwark, Hammersmith and Fulham, Westminster, County Durham, Wandsworth, Cambridgeshire, Wolverhampton
+A-none   : Manchester, Birmingham, Southwark, Hackney, Merton, Westminster, Wolverhampton, County Durham, Hammersmith and Fulham, Bolton
+A-raw    : Westminster, Hammersmith and Fulham, Manchester, Brighton and Hove, Cambridgeshire, Hackney, Birmingham, County Durham, Merton, Southwark
+A-expL   : Westminster, Hackney, Manchester, Hammersmith and Fulham, Birmingham, Brighton and Hove, Cambridgeshire, County Durham, Wakefield, Barnet
+A-expNoL : Manchester, Birmingham, Southwark, Hackney, County Durham, Westminster, Merton, Wolverhampton, Hammersmith and Fulham, Wakefield
 
 
 --- Context: B&H absence vs national ---
 National mean absence: 8.89 %
             LANAME mean_abs mean_exp_abs_L mean_exp_abs_NoL mean_fsm abs_rank
- Brighton and Hove    10.77          10.23            8.823    25.23      146
+ Brighton and Hove    10.77          10.21            8.788    25.23      146
 (abs_rank 1 = lowest absence; n LAs = 151 )
