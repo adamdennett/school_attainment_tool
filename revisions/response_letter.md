@@ -33,7 +33,7 @@ schools in particular are not separately identified in the main model.
 *"the conclusion could reflect more directly on these findings and clarify how, if at all, the observed attainment patterns are linked to the post-2022 admissions policy changes … Greater discussion of the mechanisms through which admissions reforms might interact with FSM composition and attendance would strengthen the interpretation."*
 
 We have done three things. First, in §4.3 we now state the ordering of predictors
-explicitly --- absence dominates, low prior attainment is second, and concentration
+explicitly --- absence dominates, prior attainment is second, and concentration
 of disadvantage is a distant contributor whose sign depends on the pupil group ---
 and flag that this ordering is the central empirical message of the paper. Second,
 in §6.1 we have added an explicit statement of the two mechanisms by which an
@@ -67,8 +67,8 @@ check described in the next response.
 We have clarified a point that we suspect caused the concern: the log transformation
 is *not* applied uniformly. Only the four skewed, strictly-positive rate/count
 predictors (the disadvantage, absence and EAL percentages and teacher sickness
-days) are logged; the remaining predictors, *including the low-prior-attainment
-percentage the reviewer specifically mentions*, enter linearly. §3.2 now states this
+days) are logged; the remaining predictors, *including the prior-attainment control the reviewer
+specifically mentions*, enter linearly. §3.2 now states this
 variable by variable. The supplementary material adds the diagnostics requested: for
 each logged predictor we compare logged, linear and natural-spline treatments by
 AIC (the log form is at or near best, and the spline offers no material
@@ -76,29 +76,62 @@ improvement), and we provide component-plus-residual (partial residual) plots
 showing an approximately linear relationship on the log scale for each.
 
 **§3.2 — Only low prior attainment is included; why not mean KS2 score?**
-*"Is the average KS2 score not included in the school-level data? … Is there a risk of inflated estimates elsewhere without this being well controlled for?"*
+*"Am I correct that only low prior attainment is included as a KS2 prior attainment control? This does not strike me as adequate. Is the average KS2 score not included in the school-level data? Why is just the low prior attainment percentage included? Is there a risk of inflated estimates elsewhere without this being well controlled for?"*
 
-The reviewer's question prompted us to set out the data constraint more precisely
-than the submitted version did, and we are grateful for it. The mean KS2 score is
-published for three of our four years, but the more important point --- which we
-had not stated clearly --- is that for 2024-25 *no* prior-attainment measure is
-observed at all. Because the KS2 assessments of 2019-20 and 2020-21 were cancelled
-during the pandemic, the cohorts reaching the end of KS4 in 2024-25 and 2025-26
-have no KS2 results, and the DfE publishes neither prior-attainment measures nor
-Progress 8 for those years; in the raw performance tables every prior-attainment
-field is null for that year. The low-prior-attainment share we use for 2024-25 is
-therefore carry-forward imputed from each school's most recent observed year and
-flagged as such. §3.2 now states this explicitly, with a citation to the DfE's
-statement, and §3.1 now names prior attainment among the imputed variables rather
-than referring only to workforce and Ofsted data.
+The reviewer was right on every count, and pursuing this question changed the
+paper. **We have adopted mean KS2 scaled score as the prior-attainment control
+throughout, in place of the low-attainment share.**
 
-On the substantive question of whether estimates are inflated: as a robustness
-check (supplementary material) we refit on the three-year sub-sample where prior
-attainment is genuinely observed, adding mean KS2 score alongside the
-low-prior-attainment share. The absence coefficient --- the paper's central
-quantity --- moves by under 3%, while the FSM coefficient attenuates by about a
-third, which reinforces rather than weakens our argument that concentration of
-disadvantage is a weak lever. We report this in §3.2.
+We should first correct a point of fact that our submitted version obscured. For
+2024-25 *no* prior-attainment measure is observed at all: because the KS2
+assessments of 2019-20 and 2020-21 were cancelled during the pandemic, the
+cohorts reaching the end of KS4 in 2024-25 and 2025-26 have no KS2 results, and
+the DfE publishes neither prior-attainment measures nor Progress 8 for those
+years. In the raw performance tables, every prior-attainment field is null for
+that year. Whichever measure is used therefore has to be carry-forward imputed
+for 2024-25, and both are imputable on identical terms (3,221 rows for mean KS2,
+3,222 for the low-attainment share). Data availability was consequently never a
+reason to prefer one measure over the other, and we should not have implied
+otherwise. §3.1 and §3.2 now state this explicitly, with a citation to the DfE's
+statement.
+
+On the substance, the reviewer's instinct was correct: the low-attainment share
+is an inadequate control, and demonstrably so. It observes only one tail of the
+intake distribution --- it records how many pupils arrived behind, but is silent
+on how many arrived ahead. Two schools with identical low-attainer shares can
+differ substantially in the size of their upper tail, and a model that cannot
+distinguish them will under-adjust for schools whose intake advantage sits at the
+top. Empirically, mean KS2 improves AIC by over 500 for the all-pupil model, and
+once it is included the low-attainment share is indistinguishable from zero
+(*t* = −0.45): mean KS2 fully absorbs it.
+
+The consequences, which we now report in §3.2 and in the supplementary material,
+are threefold:
+
+1. **The absence coefficient is essentially unchanged** (under 3% in either pupil
+   group). The paper's central finding does not depend on this choice.
+2. **The disadvantage-concentration coefficient attenuates by roughly a quarter**
+   for all pupils. The low-attainment share had been leaving part of the intake
+   difference between high- and low-FSM schools unmeasured, and the FSM term was
+   absorbing it. Properly controlled, disadvantage concentration is a weaker
+   lever still --- which strengthens rather than weakens our argument.
+3. **The contested positive coefficient for disadvantaged pupils becomes much
+   clearer**, with *t* rising from 2.1 to 5.6. Better prior-attainment control
+   makes that finding more robust, not less (see also our response on §4.3).
+
+One consequence should be flagged prominently because it revises a headline
+figure. Under the improved specification, Brighton and Hove's conditional
+local-authority rank for disadvantaged attainment moves from 7th to **15th of
+151** (and, without an absence control, from 46th to 69th). The city remains
+within the strongest tenth of authorities, and the substantive argument of §5.2
+is unaffected --- indeed the conditional-versus-unconditional gap widens slightly
+--- but the earlier "7th" partly reflected the weaker control, and we have
+updated the abstract, introduction, §5.2 and §6.5 accordingly.
+
+Finally, on the related point about pupil-level correction: we accept that a
+school-level aggregate remains a coarser adjustment than a pupil-and-school-level
+correction would provide, and we now say so in §3.2 and §6.7. That limitation is
+inherent to published school-level data and would require NPD access to resolve.
 
 **§4.2 — Why is Ofsted a random effect rather than an ordinal fixed effect?**
 *"Ofsted rating has only four ordered categories … I would have assumed that an ordinal fixed effect would be more appropriate here."*

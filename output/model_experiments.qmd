@@ -405,7 +405,7 @@ cat("Observations:", nrow(d), "\n")
 mod_a_all <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -452,7 +452,7 @@ cat("Observations:", nrow(d), "\n")
 mod_a_disadv <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -493,7 +493,7 @@ cat("Observations:", nrow(d), "\n")
 mod_a_nondisadv <- lmer(
   log(ATT8SCR_NFSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -553,7 +553,7 @@ for (yr in year_levels) {
   mod <- lmer(
     log(ATT8SCR) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
@@ -594,7 +594,7 @@ for (yr in year_levels) {
   mod <- lmer(
     log(ATT8SCR_FSM6CLA1A) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
@@ -635,7 +635,7 @@ for (yr in year_levels) {
   mod <- lmer(
     log(ATT8SCR_NFSM6CLA1A) ~
       log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
@@ -903,7 +903,7 @@ for (yr in core_year_levels) {
 # Analysis E: Full Panel with Imputed 2024-25 Predictors
 
 The full 9-predictor specification can now cover all 4 years because
-`04_compute_derived.R` carry-forward imputes PTPRIORLO and three
+`04_compute_derived.R` carry-forward imputes KS2ASS (mean KS2 score), PTPRIORLO and three
 workforce variables for 2024-25 (using each school's 2023-24 value, or
 its 3-year mean as a fallback). A flag column `has_imputed_predictors`
 marks which rows use estimates.
@@ -941,7 +941,7 @@ cat("Observations:", nrow(d), "\n")
 mod_e_all <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -982,7 +982,7 @@ cat("Observations:", nrow(d), "\n")
 mod_e_disadv <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -1023,7 +1023,7 @@ cat("Observations:", nrow(d), "\n")
 mod_e_nondisadv <- lmer(
   log(ATT8SCR_NFSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -1060,7 +1060,7 @@ relabel_terms <- function(term) {
     term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
     term == "log(PERCTOT)" ~ "log(% Absence)",
     term == "log(PNUMEAL)" ~ "log(% EAL)",
-    term == "PTPRIORLO" ~ "% Low Prior Attainment",
+    term == "ks2_c" ~ "Mean KS2 Prior Attainment",
     term == "gorard_segregation" ~ "Gorard Segregation",
     term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
     term == "ADMPOL_PTSEL" ~ "Admissions: Selective (ref: non-sel. in highly sel. area)",
@@ -1103,7 +1103,7 @@ structural feature of the data when prior attainment is controlled for.
 
 This section examines the coefficients from the **imputed full model**
 (Analysis E: 9 predictors, all 4 years including 2024-25 with
-carry-forward imputed PTPRIORLO and workforce variables). This is the
+carry-forward imputed prior attainment and workforce variables). This is the
 model now used in the Shiny app. For reference, the core panel model
 (Analysis C: 5 predictors) and the original 3-year full model
 (Analysis A) are compared below.
@@ -1112,7 +1112,7 @@ model now used in the Shiny app. For reference, the core panel model
 ## Imputed full model: side-by-side coefficients
 
 The imputed full model (Analysis E) includes all 9 fixed effects and
-covers all four academic years. For 2024-25, `PTPRIORLO` and three
+covers all four academic years. For 2024-25, `ks2_c` (mean KS2 score) and three
 workforce variables are carry-forward imputed from each school's
 2023-24 value (or 3-year mean as fallback). Rows using imputed values
 are flagged with `has_imputed_predictors = TRUE`.
@@ -1143,7 +1143,7 @@ knitr::kable(imputed_coef_table, align = "lrrr",
 ## Core panel model: side-by-side coefficients
 
 The core panel model (Analysis C) drops the four variables not available
-for 2024-25 — `PTPRIORLO`, `remained_in_the_same_school`,
+for 2024-25 — `ks2_c`, `remained_in_the_same_school`,
 `teachers_on_leadership_pay_range_percent`, and
 `average_number_of_days_taken` — leaving 5 fixed effects.
 
@@ -1243,7 +1243,7 @@ for (yr in year_levels) {
         as.formula(paste0(
           "log(", outcome_var, ") ~ ",
           "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
-          "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+          "ks2_c + ADMPOL_PT + gorard_segregation + ",
           "remained_in_the_same_school + ",
           "teachers_on_leadership_pay_range_percent + ",
           "log(average_number_of_days_taken) + ",
@@ -1352,7 +1352,7 @@ a 1% increase in that predictor is associated with roughly a 0.10%
 
 The most important thing to note when comparing the two specifications
 is that they do **not tell the same story** for every coefficient. The
-imputed full model (Analysis E) includes `PTPRIORLO` (% low KS2 prior
+imputed full model (Analysis E) includes `ks2_c` (mean KS2 prior
 attainment) and three workforce variables that the core model lacks.
 These omitted variables are **not random noise** — prior attainment in
 particular is one of the strongest individual predictors of school-level
@@ -1364,14 +1364,14 @@ produces some notable shifts:
   coefficient is **negative for All Pupils and Non-Disadvantaged**, and
   **flips to positive for Disadvantaged Pupils**. In the **core model**,
   FSM is negative across **all three groups** — the sign flip
-  disappears. This is because prior attainment (`PTPRIORLO`) is strongly
+  disappears. This is because prior attainment (`ks2_c`) is strongly
   correlated with FSM: schools with more disadvantaged intakes also tend
   to have more pupils with low prior attainment. In the full model,
-  `PTPRIORLO` picks up the prior-attainment component of the
+  `ks2_c` picks up the prior-attainment component of the
   disadvantage penalty, freeing up `log(PTFSM6CLA1A)` to capture the
   *residual* relationship — which, for disadvantaged pupils specifically,
   is positive (the "critical mass" effect described below). When
-  `PTPRIORLO` is absent, `log(PTFSM6CLA1A)` has to absorb both effects
+  `ks2_c` is absent, `log(PTFSM6CLA1A)` has to absorb both effects
   and the net result is negative.
 
 - **`log(PERCTOT)` (% absence):** Becomes **more negative** in the core
@@ -1457,9 +1457,9 @@ that being bilingual may confer a particular advantage within the
 disadvantaged subgroup — or that schools with high EAL proportions are
 disproportionately in urban areas with other unmeasured advantages.
 
-### 5. Prior attainment (PTPRIORLO)
+### 5. Prior attainment (mean KS2 score)
 
-The `PTPRIORLO` coefficient is **strongly negative** across all three
+The `ks2_c` coefficient is **strongly positive** across all three
 groups — a higher percentage of pupils with low KS2 prior attainment
 is associated with lower Attainment 8 scores. This is the most
 intuitive relationship in the model: schools receiving pupils with
@@ -1599,7 +1599,7 @@ library(splines)
 # rest of the specification identical. ML (REML = FALSE) so AIC / LRT are
 # comparable between the linear and spline versions.
 base_rhs <- paste(
-  "log(PERCTOT) + log(PNUMEAL) + PTPRIORLO + ADMPOL_PT +",
+  "log(PERCTOT) + log(PNUMEAL) + ks2_c + ADMPOL_PT +",
   "gorard_segregation + remained_in_the_same_school +",
   "teachers_on_leadership_pay_range_percent +",
   "log(average_number_of_days_taken) +",
@@ -1666,7 +1666,7 @@ predict_fsm <- function(fit, label) {
   g <- tibble(
     PTFSM6CLA1A = seq(quantile(d$PTFSM6CLA1A, 0.02),
                       quantile(d$PTFSM6CLA1A, 0.98), length.out = 80),
-    PERCTOT = mn("PERCTOT"), PNUMEAL = mn("PNUMEAL"), PTPRIORLO = mn("PTPRIORLO"),
+    PERCTOT = mn("PERCTOT"), PNUMEAL = mn("PNUMEAL"), ks2_c = mn("ks2_c"),
     gorard_segregation = mn("gorard_segregation"),
     remained_in_the_same_school = mn("remained_in_the_same_school"),
     teachers_on_leadership_pay_range_percent = mn("teachers_on_leadership_pay_range_percent"),
@@ -1845,7 +1845,7 @@ standardised_importance <- function(model, data, outcome_var, group_label) {
     "log(PTFSM6CLA1A)",                       "PTFSM6CLA1A",                              "log",
     "log(PERCTOT)",                            "PERCTOT",                                  "log",
     "log(PNUMEAL)",                            "PNUMEAL",                                  "log",
-    "PTPRIORLO",                               "PTPRIORLO",                                "none",
+    "ks2_c",                                   "ks2_c",                                    "none",
     "gorard_segregation",                      "gorard_segregation",                       "none",
     "remained_in_the_same_school",         "remained_in_the_same_school",              "none",
     "teachers_on_leadership_pay_range_percent", "teachers_on_leadership_pay_range_percent", "none",
@@ -1887,7 +1887,7 @@ display_names <- c(
   "log(PTFSM6CLA1A)" = "% Disadvantaged (FSM)",
   "log(PERCTOT)" = "Overall Absence Rate",
   "log(PNUMEAL)" = "% EAL",
-  "PTPRIORLO" = "% Low Prior Attainment",
+  "ks2_c" = "Mean KS2 Prior Attainment",
   "gorard_segregation" = "Gorard Segregation Index",
   "remained_in_the_same_school" = "Teacher Retention",
   "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
@@ -2209,7 +2209,7 @@ absence, reducing to 5% has a larger predicted effect than a school at
 
 **2. Support for pupils with low prior attainment.**
 
-The `PTPRIORLO` coefficient is strongly negative — schools serving a
+The `ks2_c` coefficient is strongly positive — schools serving a
 higher proportion of pupils who entered secondary school with low KS2
 scores see lower Attainment 8 outcomes. While schools cannot change their
 intake composition, they can invest in:
@@ -2383,7 +2383,7 @@ policy lever on the basis of this model.
 | `PTFSM6CLA1A` | `log(PTFSM6CLA1A)` | % eligible for Free School Meals |
 | `PERCTOT` | `log(PERCTOT)` | % total absence |
 | `PNUMEAL` | `log(PNUMEAL)` | % English as Additional Language |
-| `PTPRIORLO` | `PTPRIORLO` | % low KS2 prior attainment |
+| `ks2_c` | `ks2_c` | Mean KS2 scaled score, centred at 100 |
 | `ADMPOL_PT` | `ADMPOL_PT` | Admissions policy indicator |
 | `gorard_segregation` | `gorard_segregation` | Gorard segregation index |
 | `remained_in_the_same_school` | `remained_in_the_same_school` | Teacher retention (%) |
@@ -2415,7 +2415,7 @@ If the sign-flip appears consistently across different measures, it is more like
 d_dir <- imputed_full_data %>%
   filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
          PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
-         !is.na(PTPRIORLO),
+         !is.na(ks2_c),
          !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME),
          !is.na(remained_in_the_same_school),
          !is.na(teachers_on_leadership_pay_range_percent),
@@ -2496,7 +2496,7 @@ y_results <- map_dfr(seq_len(nrow(y_tests)), function(i) {
 
   formula_str <- paste0(
     lhs, " ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ",
-    "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+    "ks2_c + ADMPOL_PT + gorard_segregation + ",
     "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
     "log(average_number_of_days_taken) + ",
     "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
@@ -2709,7 +2709,7 @@ if (nrow(sig_rows) > 0 && nrow(nonsig_pos_rows) > 0) {
 
 Now we hold the outcome fixed at `log(ATT8SCR_FSM6CLA1A)` and swap the deprivation predictor. Each alternative X replaces `log(PTFSM6CLA1A)` in the model while keeping all other predictors unchanged.
 
-The interpretation of these tests depends on understanding how each alternative X variable relates to the two key controls already in the model — **% low prior attainment** (`PTPRIORLO`) and **% overall absence** (`log(PERCTOT)`):
+The interpretation of these tests depends on understanding how each alternative X variable relates to the two key controls already in the model — **mean KS2 prior attainment** (`ks2_c`) and **% overall absence** (`log(PERCTOT)`):
 
 - **% FSM6CLA1A** (reference): the DfE's KS4-cohort disadvantage flag (FSM-eligible in the past 6 years or looked-after). Strongly correlated with both prior attainment and absence — the sign-flip only appears once these pathways are controlled for.
 
@@ -2725,12 +2725,12 @@ The interpretation of these tests depends on understanding how each alternative 
 #| label: directionality-x-correlations
 #| fig-height: 4
 #| fig-width: 8
-#| fig-cap: "Pairwise correlations between alternative X variables and the key model controls (PTPRIORLO and PERCTOT). Higher correlations mean the X variable shares more variance with the controls, and its coefficient captures a more residual effect."
+#| fig-cap: "Pairwise correlations between alternative X variables and the key model controls (mean KS2 prior attainment and PERCTOT). Higher correlations mean the X variable shares more variance with the controls, and its coefficient captures a more residual effect."
 
 # Compute correlations between X variables and the two key controls
 x_var_names <- c("PTFSM6CLA1A", "PNUMFSMEVER", "PSEN_ALL4", "PPERSABS10", "PTEALGRP2")
 x_var_labels <- c("% FSM", "% ever FSM", "% any SEN", "% persist. absent", "% EAL not fluent")
-control_names <- c("PTPRIORLO", "PERCTOT")
+control_names <- c("ks2_c", "PERCTOT")
 control_labels <- c("% Low Prior Attainment", "% Overall Absence")
 
 cor_data <- expand_grid(
@@ -2767,8 +2767,8 @@ ggplot(cor_data, aes(x = x_label, y = control_label, fill = r)) +
 #| label: directionality-x-cor-narrative
 #| output: asis
 
-# Find the highest and lowest correlations with PTPRIORLO
-cor_prior <- cor_data %>% filter(control == "PTPRIORLO")
+# Find the highest and lowest correlations with ks2_c
+cor_prior <- cor_data %>% filter(control == "ks2_c")
 cor_abs <- cor_data %>% filter(control == "PERCTOT")
 
 cat("The correlation matrix reveals important differences in how each X variable relates to the model's controls:\n\n")
@@ -2817,7 +2817,7 @@ x_results <- map_dfr(seq_len(nrow(x_tests)), function(i) {
 
   formula_str <- paste0(
     "log(ATT8SCR_FSM6CLA1A) ~ ", x_term, " + log(PERCTOT) + log(PNUMEAL) + ",
-    "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+    "ks2_c + ADMPOL_PT + gorard_segregation + ",
     "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
     "log(average_number_of_days_taken) + ",
     "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
@@ -2905,7 +2905,7 @@ cat("Interpreting the results in light of the correlations:\n\n")
 
 for (i in seq_len(nrow(x_results))) {
   xv <- x_tests$x_var[i]
-  r_prior_val <- cor_data %>% filter(x_var == xv, control == "PTPRIORLO") %>% pull(r)
+  r_prior_val <- cor_data %>% filter(x_var == xv, control == "ks2_c") %>% pull(r)
   r_abs_val <- cor_data %>% filter(x_var == xv, control == "PERCTOT") %>% pull(r)
   sign_text <- x_results$Sign[i]
 
@@ -2991,7 +2991,7 @@ grid_results <- expand_grid(
 
     formula_str <- paste0(
       lhs, " ~ ", x_term, " + log(PERCTOT) + log(PNUMEAL) + ",
-      "PTPRIORLO + ADMPOL_PT + gorard_segregation + ",
+      "ks2_c + ADMPOL_PT + gorard_segregation + ",
       "remained_in_the_same_school + teachers_on_leadership_pay_range_percent + ",
       "log(average_number_of_days_taken) + ",
       "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
@@ -3177,7 +3177,7 @@ stage1_data <- imputed_full_data %>%
   filter(!is.na(PERCTOT), PERCTOT > 0,
          !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
          !is.na(PNUMEAL), PNUMEAL > 0,
-         !is.na(PTPRIORLO),
+         !is.na(ks2_c),
          !is.na(gorard_segregation)) %>%
   droplevels()
 
@@ -3186,7 +3186,7 @@ cat("Stage 1 observations:", nrow(stage1_data), "\n\n")
 mod_stage1 <- lmer(
   log(PERCTOT) ~
     log(PTFSM6CLA1A) + log(PNUMEAL) +
-    PTPRIORLO + gorard_segregation +
+    ks2_c + gorard_segregation +
     (1 | year_label) + (1 | gor_name/LANAME),
   data = stage1_data,
   REML = TRUE,
@@ -3271,7 +3271,7 @@ cat("Stage 2 observations:", nrow(stage2_data), "\n")
 mod_M0 <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
   data = stage2_data,
   REML = TRUE,
@@ -3282,7 +3282,7 @@ mod_M0 <- lmer(
 mod_M1 <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -3296,7 +3296,7 @@ mod_M1 <- lmer(
 mod_M2 <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
   data = stage2_data,
   REML = TRUE,
@@ -3580,7 +3580,7 @@ boot_rank <- function() {
 
   # Refit stage 1 on the bootstrap sample
   s1_b <- try(lmer(
-    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + ks2_c +
       gorard_segregation +
       (1 | year_label) + (1 | gor_name),
     data = d_boot, REML = TRUE,
@@ -3595,7 +3595,7 @@ boot_rank <- function() {
   # Refit M1 and M2
   m1_b <- try(lmer(
     log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
@@ -3606,7 +3606,7 @@ boot_rank <- function() {
 
   m2_b <- try(lmer(
     log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       (1 | year_label) + (1 | gor_name),
     data = d_boot, REML = TRUE,
     control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
@@ -3687,7 +3687,7 @@ The M1↔M2 FSM equality is partly mechanical (stage 1 residuals are orthogonal 
 mod_M_combined <- lmer(
   log(ATT8SCR) ~
     log(PTFSM6CLA1A) + log_expected_absence + residual_absence_log +
-    log(PNUMEAL) + PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    log(PNUMEAL) + ks2_c + ADMPOL_PT + gorard_segregation +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
   data = stage2_data,
   REML = TRUE,
@@ -4329,7 +4329,7 @@ cat("Disadvantaged Stage 2 observations:", nrow(stage2_data_disadv),
 mod_M2_disadv <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     (1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
   data = stage2_data_disadv,
   REML = TRUE,
@@ -4650,7 +4650,7 @@ per_year_results <- map(years_to_fit, function(yr) {
 
   # Stage 1: single-year (no year random effect needed)
   s1_y <- try(lmer(
-    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + PTPRIORLO +
+    log(PERCTOT) ~ log(PTFSM6CLA1A) + log(PNUMEAL) + ks2_c +
       gorard_segregation +
       (1 | gor_name/LANAME),
     data = d_y, REML = TRUE,
@@ -4665,7 +4665,7 @@ per_year_results <- map(years_to_fit, function(yr) {
   # Stage 2: M1 and M2 (drop year RE since within-year)
   m1_y <- try(lmer(
     log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       remained_in_the_same_school +
       teachers_on_leadership_pay_range_percent +
       log(average_number_of_days_taken) +
@@ -4676,7 +4676,7 @@ per_year_results <- map(years_to_fit, function(yr) {
 
   m2_y <- try(lmer(
     log(ATT8SCR) ~ log(PTFSM6CLA1A) + log_expected_absence + log(PNUMEAL) +
-      PTPRIORLO + ADMPOL_PT + gorard_segregation +
+      ks2_c + ADMPOL_PT + gorard_segregation +
       (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME),
     data = d_y, REML = TRUE,
     control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 20000))
@@ -4736,7 +4736,7 @@ s2_year_coefs <- map_dfr(per_year_results, function(yr_res) {
 
 # Focus on the absence-related coefficient + FSM (the variable most likely to absorb absence's influence)
 focus_terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log_expected_absence",
-                 "PTPRIORLO", "log(PNUMEAL)")
+                 "ks2_c", "log(PNUMEAL)")
 
 s2_focus <- s2_year_coefs %>%
   filter(term %in% focus_terms) %>%
@@ -5038,7 +5038,7 @@ The Analysis E specification refitted (ML, identical joined sample) as the basel
 
 f_base_formula <- log(ATT8SCR) ~
   log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-  PTPRIORLO + ADMPOL_PT + gorard_segregation +
+  ks2_c + ADMPOL_PT + gorard_segregation +
   remained_in_the_same_school +
   teachers_on_leadership_pay_range_percent +
   log(average_number_of_days_taken) +
@@ -5102,7 +5102,7 @@ comp <- bind_rows(
   as_tibble(summary(f_best)$coefficients, rownames = "Term") %>%
     mutate(Model = paste0("+ census (k=", best_k_name, ")"))
 ) %>%
-  filter(Term %in% c("log(PTFSM6CLA1A)", "log(PERCTOT)", "PTPRIORLO")) %>%
+  filter(Term %in% c("log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c")) %>%
   select(Model, Term, Estimate) %>%
   pivot_wider(names_from = Model, values_from = Estimate) %>%
   mutate(across(where(is.numeric), ~ round(., 4)))
@@ -5349,7 +5349,7 @@ contrasts(fd_dis$OFSTEDRATING_1) <- contr.treatment(levels(fd_dis$OFSTEDRATING_1
 f_dis_base <- lmer(
   log(ATT8SCR_FSM6CLA1A) ~
     log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-    PTPRIORLO + ADMPOL_PT + gorard_segregation +
+    ks2_c + ADMPOL_PT + gorard_segregation +
     remained_in_the_same_school +
     teachers_on_leadership_pay_range_percent +
     log(average_number_of_days_taken) +
@@ -5616,7 +5616,7 @@ rd_data <- imputed_full_data %>%
          !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
          !is.na(PERCTOT), PERCTOT > 0,
          !is.na(PNUMEAL), PNUMEAL > 0,
-         !is.na(PTPRIORLO), !is.na(gorard_segregation),
+         !is.na(ks2_c), !is.na(gorard_segregation),
          !is.na(remained_in_the_same_school),
          !is.na(teachers_on_leadership_pay_range_percent),
          average_number_of_days_taken > 0,
@@ -5625,7 +5625,7 @@ rd_data <- imputed_full_data %>%
 contrasts(rd_data$OFSTEDRATING_1) <- contr.treatment(levels(rd_data$OFSTEDRATING_1))
 
 rd_rhs <- paste(
-  "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + PTPRIORLO + ADMPOL_PT +",
+  "log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) + ks2_c + ADMPOL_PT +",
   "gorard_segregation + remained_in_the_same_school +",
   "teachers_on_leadership_pay_range_percent + log(average_number_of_days_taken)"
 )
@@ -5633,69 +5633,95 @@ rd_ranef <- "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"
 rd_ranef_noofsted <- "(1 | year_label) + (1 | gor_name/LANAME)"
 ```
 
-## Prior-attainment robustness (mean KS2 score)
+## Prior-attainment measure: why mean KS2 rather than the low-attainer share
 
-The main models control for prior attainment using the *percentage of KS4
-pupils with low KS2 prior attainment* (`PTPRIORLO`). It is important to be clear
-that **no** prior-attainment measure is observed for 2024-25: the KS2 tests and
-assessments of 2019-20 and 2020-21 were cancelled during the pandemic, so the
-cohorts reaching the end of KS4 in 2024-25 and 2025-26 have no KS2 results, and
-the DfE publishes neither prior-attainment measures nor Progress 8 for those
-years. In the raw 2024-25 performance-table file, `KS2ASS`, `PTPRIORLO`,
-`PTPRIORAV` and `PTPRIORHI` are all `NA` for every school. The values of
-`PTPRIORLO` that appear in our 2024-25 panel rows are therefore **carry-forward
-imputed** from each school's most recent observed year (or its multi-year mean),
-and are flagged as such by `has_imputed_predictors`.
+The models control for prior attainment using the cohort's **mean KS2 scaled
+score** (`ks2_c`, centred at the national standard of 100). An earlier version of
+this work used the *percentage of pupils with low KS2 prior attainment*
+(`PTPRIORLO`) instead. This section documents why the measure was changed, and
+what changing it does.
 
-Here we refit on the three-year sub-sample where prior attainment is genuinely
-observed, adding the mean KS2 scaled score alongside the low-prior-attainment
-share, and report how the key coefficients move. This is the only sub-sample in
-which the adequacy of the prior-attainment control can be assessed against real
-data.
+Two preliminaries. First, **no** prior-attainment measure is observed for
+2024-25: the KS2 tests and assessments of 2019-20 and 2020-21 were cancelled
+during the pandemic, so the cohorts reaching the end of KS4 in 2024-25 and
+2025-26 have no KS2 results, and the DfE publishes neither prior-attainment
+measures nor Progress 8 for those years. In the raw 2024-25 performance-table
+file, `KS2ASS`, `PTPRIORLO`, `PTPRIORAV` and `PTPRIORHI` are all `NA` for every
+school. Second, and consequently, *whichever* measure is used must be
+carry-forward imputed for that year. Both are imputable on identical terms
+(`04_compute_derived.R` imputes 3,221 rows for `KS2ASS` and 3,222 for
+`PTPRIORLO`), so data availability was never a reason to prefer one over the
+other, and the affected rows are flagged by `has_imputed_predictors`.
+
+The substantive reason for preferring mean KS2 is that the low-attainer share
+observes only one tail of the intake distribution. It records how many pupils
+arrived already behind, but is silent on how many arrived ahead. Two schools with
+the same proportion of low prior attainers can differ substantially in the size
+of their upper tail, and a model controlling only for the low-attainer share
+cannot tell them apart --- so it under-adjusts for schools whose intake advantage
+sits at the top. The comparison below refits the full model on the whole panel
+under three specifications.
 
 ```{r}
 #| label: revdiag-ks2
 
-ks2_data <- rd_data %>%
-  filter(!is.na(KS2ASS), !is.na(PTPRIORHI)) %>%
-  mutate(ks2_c = KS2ASS - 100) %>%
-  droplevels()
-contrasts(ks2_data$OFSTEDRATING_1) <- contr.treatment(levels(ks2_data$OFSTEDRATING_1))
-
-fit_ks2 <- function(extra) {
-  rhs <- if (is.null(extra)) rd_rhs else paste(extra, "+", rd_rhs)
-  lmer(as.formula(paste0("log(ATT8SCR) ~ ", rhs, " + ", rd_ranef)),
-       data = ks2_data, REML = TRUE, control = ctrl_rd)
+fit_pa <- function(prior_term) {
+  rest <- sub("ks2_c \\+ ", "", rd_rhs)   # strip the default prior term
+  lmer(as.formula(paste0("log(ATT8SCR) ~ ", prior_term, " + ", rest,
+                          " + ", rd_ranef)),
+       data = rd_data, REML = FALSE, control = ctrl_rd)
 }
 
-ks2_specs <- list("P0: published (PTPRIORLO only)" = NULL,
-                  "P1: + mean KS2 score" = "ks2_c")
+pa_specs <- list("L: low-attainer share only" = "PTPRIORLO",
+                 "M: mean KS2 only (used here)" = "ks2_c",
+                 "B: both" = "PTPRIORLO + ks2_c")
 
-ks2_tab <- purrr::map_dfr(names(ks2_specs), function(nm) {
-  m <- fit_ks2(ks2_specs[[nm]])
+pa_tab <- purrr::map_dfr(names(pa_specs), function(nm) {
+  m <- fit_pa(pa_specs[[nm]])
   s <- summary(m)$coefficients
   tibble(Specification = nm,
          log_FSM = s["log(PTFSM6CLA1A)", "Estimate"],
          log_Absence = s["log(PERCTOT)", "Estimate"],
-         log_EAL = s["log(PNUMEAL)", "Estimate"],
-         marginal_R2 = as.numeric(performance::r2(m)$R2_marginal))
-})
+         marginal_R2 = as.numeric(performance::r2(m)$R2_marginal),
+         AIC = AIC(m))
+}) %>% mutate(dAIC = AIC - min(AIC))
 
-knitr::kable(ks2_tab, digits = 4,
-             caption = "All-pupil model on the 3-year sub-sample, with and without mean KS2 score. Adding a richer prior-attainment control leaves the absence coefficient essentially unchanged; the FSM coefficient attenuates.")
+knitr::kable(pa_tab, digits = c(0, 4, 4, 3, 0, 1),
+             caption = "All-pupil model under three prior-attainment specifications (ML fits, for AIC comparability). Mean KS2 fits substantially better; adding the low-attainer share on top buys nothing.")
 ```
 
 ```{r}
 #| label: revdiag-ks2-note
 #| output: asis
 
-.p0 <- ks2_tab[grepl("P0", ks2_tab$Specification), ]
-.p1 <- ks2_tab[grepl("P1", ks2_tab$Specification), ]
-.abs_chg <- 100 * (.p1$log_Absence - .p0$log_Absence) / abs(.p0$log_Absence)
-.fsm_chg <- 100 * (.p1$log_FSM - .p0$log_FSM) / abs(.p0$log_FSM)
+.L <- pa_tab[grepl("^L:", pa_tab$Specification), ]
+.M <- pa_tab[grepl("^M:", pa_tab$Specification), ]
+.abs_chg <- 100 * (.M$log_Absence - .L$log_Absence) / abs(.L$log_Absence)
+.fsm_chg <- 100 * (.M$log_FSM - .L$log_FSM) / abs(.L$log_FSM)
+.both <- fit_pa("PTPRIORLO + ks2_c")
+.t_lo <- summary(.both)$coefficients["PTPRIORLO", "t value"]
+
 cat(sprintf(
-  "Adding mean KS2 score shifts the **absence** coefficient by only %.1f%% but the **FSM** coefficient by %.0f%%. The paper's central quantity --- absence --- is therefore robust to a substantially better prior-attainment control, while the (already weak) disadvantage-concentration coefficient attenuates further, reinforcing rather than weakening the argument.\n",
-  .abs_chg, .fsm_chg))
+"Mean KS2 improves AIC by %.0f relative to the low-attainer share, and when both are entered together the low-attainer share is indistinguishable from zero (*t* = %.2f) --- mean KS2 fully absorbs it.\n\nSwitching measure moves the **absence** coefficient by only %.1f%%, so the central finding of the paper is unaffected by the choice. The **disadvantage-concentration** coefficient, however, changes by %.0f%%: the low-attainer share had left part of the intake difference between high- and low-FSM schools unmeasured, and the FSM term had been absorbing it. Properly controlled, disadvantage concentration is a weaker predictor still.\n",
+  .L$AIC - .M$AIC, .t_lo, .abs_chg, .fsm_chg))
+```
+
+```{r}
+#| label: revdiag-ks2-disadv
+#| output: asis
+
+fit_pa_dis <- function(prior_term) {
+  rest <- sub("ks2_c \\+ ", "", rd_rhs)
+  lmer(as.formula(paste0("log(ATT8SCR_FSM6CLA1A) ~ ", prior_term, " + ", rest,
+                          " + ", rd_ranef)),
+       data = rd_data %>% filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0),
+       REML = FALSE, control = ctrl_rd)
+}
+.dL <- summary(fit_pa_dis("PTPRIORLO"))$coefficients["log(PTFSM6CLA1A)", ]
+.dM <- summary(fit_pa_dis("ks2_c"))$coefficients["log(PTFSM6CLA1A)", ]
+cat(sprintf(
+"For disadvantaged pupils the effect is more striking still. The positive coefficient on disadvantage concentration --- the paper's most contested finding --- rises from %.4f (*t* = %.2f) under the low-attainer share to %.4f (*t* = %.2f) under mean KS2. Controlling prior attainment properly makes that result substantially clearer, not weaker.\n",
+  .dL["Estimate"], .dL["t value"], .dM["Estimate"], .dM["t value"]))
 ```
 
 ## Ofsted: random effect versus categorical fixed effect
@@ -5720,7 +5746,7 @@ m_ofsted_fe <- lmer(as.formula(paste0("log(ATT8SCR) ~ ofsted_fe + ", rd_rhs,
                                        " + ", rd_ranef_noofsted)),
                     data = rd_data2, REML = TRUE, control = ctrl_rd)
 
-.terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "PTPRIORLO")
+.terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "ks2_c")
 comp <- tibble(
   Term = .terms,
   `Ofsted random effect` = fixef(m_ofsted_re)[.terms],
@@ -5772,7 +5798,7 @@ and report AIC (lower is better).
 logged_vars <- c("PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "average_number_of_days_taken")
 
 form_with <- function(v, treat) {
-  terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "PTPRIORLO",
+  terms <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "log(PNUMEAL)", "ks2_c",
              "ADMPOL_PT", "gorard_segregation", "remained_in_the_same_school",
              "teachers_on_leadership_pay_range_percent",
              "log(average_number_of_days_taken)")
