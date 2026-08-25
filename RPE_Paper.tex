@@ -223,7 +223,7 @@ absence, disadvantage gap, multilevel modelling, open data},
 \title{Pulling the Right Lever: School Attainment, Open Data Analytics
 and Local Education Policy in England}
 \author{Adam Dennett \and Beatrice Taylor \and Dan Campbell-Meiklejohn}
-\date{2026-08-19}
+\date{2026-08-25}
 \begin{document}
 \maketitle
 \begin{abstract}
@@ -420,22 +420,22 @@ compounds the challenge of disentangling school-level from pupil-level
 effects.
 
 How far attendance is amenable to \emph{school-level} action is an
-important and under-settled question. Some of the variation reflects
-school practice - pastoral systems, attendance follow-up and ethos - but
-a substantial share is driven by circumstances beyond the school gate:
-family poverty, physical and mental ill-health, special educational
-needs, caring responsibilities, and the broader adversities that depress
-attainment through multiple channels (Houtepen et al. 2020; Rakesh et
-al. 2025). The steep, largely exogenous rise in absence since the
-pandemic underlines how much of the recent problem sits outside any
-individual school's control. This distinction - between the
-intake-driven component of absence and the smaller portion a school can
-itself move - is central to how absence should be interpreted as a
-policy lever, and we make it explicit in our modelling in section 5.5.
-It also implies that authority-wide improvement is unlikely to come from
-school-led practice-sharing alone, and more probably requires
-cross-departmental action spanning health, children's services and
-family support alongside schools.
+important question. Some of the variation reflects school practice -
+pastoral systems, attendance follow-up and ethos - but a substantial
+share is driven by circumstances beyond the school gate: family poverty,
+physical and mental ill-health, special educational needs, caring
+responsibilities, and the broader adversities that depress attainment
+through multiple channels (Houtepen et al. 2020; Rakesh et al. 2025).
+The steep, largely exogenous rise in absence since the pandemic
+underlines how much of the recent problem sits outside any individual
+school's control. This distinction - between the intake-driven component
+of absence and the smaller portion a school can itself move - is central
+to how absence should be interpreted as a policy lever, and we make it
+explicit in our modelling in section 5.5. It also implies that
+authority-wide improvement is unlikely to come from school-led
+practice-sharing alone, and more probably requires strategic,
+council-led, cross-departmental action spanning health, children's
+services and family support alongside schools.
 
 \subsection{Other factors}\label{other-factors}
 
@@ -488,7 +488,10 @@ catering more for pupils with special educational needs and
 disabilities) are excluded. After the exclusion of cases with missing
 predictor values or imputation of those values required for the
 log-linear specification (principally missing workforce or Ofsted data
-in 2024-25\footnote{missing data and imputation:
+in 2024-25, together with KS2 prior attainment, which is not published
+for that year because the relevant cohort's primary assessments were
+cancelled during the pandemic - see section 3.2\footnote{missing data
+  and imputation:
   \href{https://osf.io/x82j3/overview}{https://osf.io/x82j3/overview
   (see `data\_overview.html\#missing-data` in `supplementary.zip`)}}),
 the analysis sample used in the models is approximately 12,200
@@ -510,14 +513,14 @@ that the log transformation is \emph{not} applied uniformly to every
 predictor: only the four skewed, strictly-positive count-and-rate
 variables - the disadvantage, absence and EAL percentages and teacher
 sickness days - enter in logged form, chosen on the basis of fit and the
-interpretability of elasticities. The remaining predictors, including
-the low-prior-attainment percentage, the segregation index and the
-workforce proportions, enter linearly. This variable-by-variable choice,
+interpretability of elasticities. This variable-by-variable choice,
 together with supporting diagnostics (component-plus-residual plots and
 a comparison of logged, linear and spline treatments), is documented in
 the supplementary material; the log form is retained where it both
 improves fit and yields a policy-legible elasticity, and a linear form
-is used otherwise.
+is used otherwise. The remaining predictors, including the
+low-prior-attainment percentage, the segregation index and the workforce
+proportions, enter linearly.
 
 The model specification is:
 
@@ -559,16 +562,31 @@ identified in the main model.
 
 Two points on the prior-attainment control deserve emphasis. First, we
 control for prior attainment using the \emph{percentage of KS4 pupils
-with low KS2 prior attainment}, rather than the mean KS2 scaled score.
-This is a data-availability constraint, not a preference: the DfE
-publishes school-level mean KS2 score (and the middle and high
-prior-attainment bands) for only three of our four years - it is not
-released for 2024-25 - so the low-prior-attainment share is the only
-prior-attainment measure spanning the full panel, and we use it to
-preserve the most recent and policy-relevant cohort. As a robustness
-check, we refit the models on the three-year sub-sample where the richer
-measures exist, adding mean KS2 scaled score; the absence coefficient -
-the paper's central quantity - is essentially unchanged (a shift of
+with low KS2 prior attainment}, rather than the mean KS2 scaled score,
+and for the final year of our panel no observed prior-attainment data
+exists at all. This is a hard data constraint rather than a modelling
+preference. Because the KS2 tests and assessments of 2019-20 and 2020-21
+were cancelled during the pandemic, the cohorts reaching the end of KS4
+in 2024-25 and 2025-26 have no KS2 results of any kind; the DfE
+accordingly publishes neither prior-attainment measures nor Progress 8
+for those years.\footnote{Department for Education, \emph{Key stage 4
+  performance}: ``It is not possible to calculate Progress 8 for
+  academic years 2024/25 and 2025/26. This is because there is no KS2
+  prior attainment data available to use to calculate Progress 8 when
+  the relevant cohorts reach the end of KS4 as primary tests and
+  assessments were cancelled in academic years 2019/20 and 2020/21 due
+  to COVID-19 disruption.''
+  \url{https://explore-education-statistics.service.gov.uk/find-statistics/key-stage-4-performance}}
+For 2024-25 we therefore carry forward each school's most recently
+observed low-prior-attainment share (or, where that is unavailable, its
+mean across observed years), and the affected rows are flagged in the
+panel. We use the low-prior-attainment share rather than the mean KS2
+score because it is the measure our models require and the one we can
+carry forward on a consistent basis; both are equally absent in 2024-25.
+As a robustness check, we refit the models on the three-year sub-sample
+where prior attainment is genuinely observed, adding the mean KS2 scaled
+score alongside the low-prior-attainment share; the absence coefficient
+- the paper's central quantity - is essentially unchanged (a shift of
 under 3\%), while the FSM coefficient attenuates by around a third,
 reinforcing rather than weakening our finding that concentration of
 disadvantage is a comparatively weak lever (supplementary material).

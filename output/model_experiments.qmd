@@ -5636,12 +5636,22 @@ rd_ranef_noofsted <- "(1 | year_label) + (1 | gor_name/LANAME)"
 ## Prior-attainment robustness (mean KS2 score)
 
 The main models control for prior attainment using the *percentage of KS4
-pupils with low KS2 prior attainment* (`PTPRIORLO`). The DfE publishes the mean
-KS2 scaled score (`KS2ASS`) and the middle/high prior-attainment bands for only
-three of our four years --- they are not released for 2024-25 --- so `PTPRIORLO`
-is the only prior-attainment measure spanning the full panel. Here we refit on
-the three-year sub-sample where the richer measure exists, adding mean KS2
-score, and report how the key coefficients move.
+pupils with low KS2 prior attainment* (`PTPRIORLO`). It is important to be clear
+that **no** prior-attainment measure is observed for 2024-25: the KS2 tests and
+assessments of 2019-20 and 2020-21 were cancelled during the pandemic, so the
+cohorts reaching the end of KS4 in 2024-25 and 2025-26 have no KS2 results, and
+the DfE publishes neither prior-attainment measures nor Progress 8 for those
+years. In the raw 2024-25 performance-table file, `KS2ASS`, `PTPRIORLO`,
+`PTPRIORAV` and `PTPRIORHI` are all `NA` for every school. The values of
+`PTPRIORLO` that appear in our 2024-25 panel rows are therefore **carry-forward
+imputed** from each school's most recent observed year (or its multi-year mean),
+and are flagged as such by `has_imputed_predictors`.
+
+Here we refit on the three-year sub-sample where prior attainment is genuinely
+observed, adding the mean KS2 scaled score alongside the low-prior-attainment
+share, and report how the key coefficients move. This is the only sub-sample in
+which the adequacy of the prior-attainment control can be assessed against real
+data.
 
 ```{r}
 #| label: revdiag-ks2

@@ -78,15 +78,27 @@ showing an approximately linear relationship on the log scale for each.
 **§3.2 — Only low prior attainment is included; why not mean KS2 score?**
 *"Is the average KS2 score not included in the school-level data? … Is there a risk of inflated estimates elsewhere without this being well controlled for?"*
 
-The average KS2 score *is* in the data, but the DfE publishes it (and the
-middle/high prior-attainment bands) for only three of our four years --- it is not
-released for 2024-25 --- so the low-prior-attainment share is the only
-prior-attainment measure spanning the full panel, which is why the main models use
-it. We now state this constraint in §3.2. As a robustness check (supplementary
-material) we refit on the three-year sub-sample adding mean KS2 score: the absence
-coefficient --- the paper's central quantity --- moves by under 3%, while the FSM
-coefficient attenuates by about a third, which reinforces rather than weakens our
-argument that concentration of disadvantage is a weak lever. We report this in §3.2.
+The reviewer's question prompted us to set out the data constraint more precisely
+than the submitted version did, and we are grateful for it. The mean KS2 score is
+published for three of our four years, but the more important point --- which we
+had not stated clearly --- is that for 2024-25 *no* prior-attainment measure is
+observed at all. Because the KS2 assessments of 2019-20 and 2020-21 were cancelled
+during the pandemic, the cohorts reaching the end of KS4 in 2024-25 and 2025-26
+have no KS2 results, and the DfE publishes neither prior-attainment measures nor
+Progress 8 for those years; in the raw performance tables every prior-attainment
+field is null for that year. The low-prior-attainment share we use for 2024-25 is
+therefore carry-forward imputed from each school's most recent observed year and
+flagged as such. §3.2 now states this explicitly, with a citation to the DfE's
+statement, and §3.1 now names prior attainment among the imputed variables rather
+than referring only to workforce and Ofsted data.
+
+On the substantive question of whether estimates are inflated: as a robustness
+check (supplementary material) we refit on the three-year sub-sample where prior
+attainment is genuinely observed, adding mean KS2 score alongside the
+low-prior-attainment share. The absence coefficient --- the paper's central
+quantity --- moves by under 3%, while the FSM coefficient attenuates by about a
+third, which reinforces rather than weakens our argument that concentration of
+disadvantage is a weak lever. We report this in §3.2.
 
 **§4.2 — Why is Ofsted a random effect rather than an ordinal fixed effect?**
 *"Ofsted rating has only four ordered categories … I would have assumed that an ordinal fixed effect would be more appropriate here."*
