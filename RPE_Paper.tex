@@ -223,7 +223,7 @@ absence, disadvantage gap, multilevel modelling, open data},
 \title{Pulling the Right Lever: School Attainment, Open Data Analytics
 and Local Education Policy in England}
 \author{Adam Dennett \and Beatrice Taylor \and Dan Campbell-Meiklejohn}
-\date{2026-08-25}
+\date{2026-08-26}
 \begin{document}
 \maketitle
 \begin{abstract}
@@ -323,7 +323,7 @@ governors. We do not claim our model is optimal or novel - the variables
 and effects are very similar to those reported by Macleod et al. (2015)
 over a decade ago. Our intention is to show that with freely available
 open data and a small set of well-chosen variables, it is possible to
-build a model explaining over 80\% of the variation in school-level
+build a model explaining close to 80\% of the variation in school-level
 Attainment 8, and then to use it to answer locally targeted questions
 such as: `is changing the social mix in schools likely to improve
 disadvantaged pupil attainment?', `what is the most important factor
@@ -518,14 +518,14 @@ together with supporting diagnostics (component-plus-residual plots and
 a comparison of logged, linear and spline treatments), is documented in
 the supplementary material; the log form is retained where it both
 improves fit and yields a policy-legible elasticity, and a linear form
-is used otherwise. The remaining predictors, including the
-low-prior-attainment percentage, the segregation index and the workforce
-proportions, enter linearly.
+is used otherwise. The remaining predictors, including mean KS2 prior
+attainment, the segregation index and the workforce proportions, enter
+linearly.
 
 The model specification is:
 
 \[\log(\text{ATT8}_{ij}) = \beta_0 + \sum_{k=1}^{9} \beta_k \, x_{kij} + u_{\text{year}} + u_{\text{Ofsted}} + u_{\text{region}} + u_{\text{LA|region}} + \varepsilon_{ij}
-\]\[\log(\text{ATT8}_{ij}) = \beta_0 + \sum_{k=1}^{9} \beta_k \, x_{kij} + u_{\text{year}} + u_{\text{Ofsted}} + u_{\text{region}} + u_{\text{LA|region}} + \varepsilon_{ij}\]
+\]
 
 where \(i\) indexes schools, \(j\) indexes year-observations, the
 \(\beta_k\) are fixed-effect coefficients, and the \(u\) terms are
@@ -588,36 +588,59 @@ the paper.
 
 An earlier version of this analysis controlled for prior attainment
 using only the \emph{percentage of pupils with low KS2 prior
-attainment}. We report the change because it is instructive, and because
-it materially affects two of our estimates. The low-attainment share
-measures only the bottom of a school's intake distribution: it records
-how many pupils arrived already behind, but says nothing about how many
-arrived ahead. Two schools with identical proportions of low prior
-attainers can have very different intakes, one with a large middle and a
-thin upper tail, the other with a substantial group of high attainers. A
-model controlling only for the low-attainment share cannot distinguish
-them, and so systematically under-adjusts for schools whose advantage
-lies at the \emph{top} of the distribution. Mean KS2 score, by contrast,
-reflects the whole distribution --- both tails --- and fits markedly
-better (a reduction in AIC of over 500 for the all-pupil model); once it
-is included, the low-attainment share adds nothing further (t = -0.45).
+attainment}. In this iteration we look at the mean KS2 score and discuss
+the difference here because it materially affects two of our estimates.
+The low-attainment share measures only the bottom of a school's intake
+distribution: it records how many pupils arrived already behind, but
+says nothing about how many arrived ahead. Two schools with identical
+proportions of low prior attainers can have very different intakes
+across the rest of the attainment spectrum. A model controlling only for
+the low-attainment share cannot distinguish them, and so systematically
+under-adjusts for schools whose advantage lies at the \emph{top} of the
+distribution. Mean KS2 score, in contrast, reflects the whole
+distribution - both tails - and produces a better model fit (a reduction
+in AIC of over 500 for the all-pupil model); once it is included, the
+low-attainment share adds nothing further (t = -0.45).
 
-The consequences are worth stating plainly. The coefficient on
-concentration of disadvantage falls by roughly a quarter for all pupils,
-because the low-attainment share had been leaving part of the intake
-difference between high- and low-FSM schools unmeasured, and the FSM
-variable had been absorbing it. Properly controlled, disadvantage
-concentration is an even weaker predictor of attainment than our earlier
-specification implied. For disadvantaged pupils specifically, the
-positive coefficient on disadvantage concentration becomes both larger
-and far more clearly distinguishable from zero (\emph{t} rising from 2.1
-to 5.6). The absence coefficient, by contrast, barely moves --- under
-3\% in either pupil group --- so the paper's central finding is
+This matters for the analysis we report. The coefficient on
+concentrations of disadvantage falls by roughly a \emph{quarter} for all
+pupils, because the low-attainment share had been leaving part of the
+intake difference between high- and low-FSM schools unmeasured, and the
+FSM variable had been absorbing it. Properly controlled, disadvantage
+concentration is an even \emph{weaker} predictor of attainment than our
+earlier specification implied. For disadvantaged pupils specifically,
+the positive coefficient on disadvantage concentration becomes both
+larger and far more clearly distinguishable from zero (\emph{t} rising
+from 2.1 to 5.6) - disadvantaged pupils in high disadvantage schools are
+even more positively affected by this than our earlier specification led
+us to believe. The absence coefficient, by contrast, barely moves -
+under 3\% in either pupil group - so the paper's central finding is
 unaffected by the choice. The practical lesson is that in modelling KS4
 outcomes it is not sufficient to ask how many pupils arrived behind; how
 many arrived ahead matters just as much, and a control that sees only
-one tail will quietly credit schools for intake advantages they did not
-create.
+one tail will quietly over-credit schools for intake advantages they did
+not create.
+
+It is worth saying something about how we should be cautious in our
+interpretation following this improvement. Prior attainment at Key Stage
+2 is not independent of disadvantage: it is in quiet a large way its
+accumulated product, reflecting the inequalities a child has already
+experienced before secondary school ever begins (Stopforth and Gayle
+2025; Gorard and Siddiqui 2019). A control that captures the whole
+intake distribution therefore absorbs correspondingly more of the
+poverty signal than one that captures a single tail - which is precisely
+why the disadvantage coefficient attenuates as it does when we make the
+switch. The coefficient that survives this control should not, then, be
+read as an estimate of how much poverty matters to attainment. It is a
+\emph{within-intake} comparison: what remains once schools receiving
+similar cohorts are set alongside one another. The total contribution of
+disadvantage to attainment is substantially larger than that residual
+coefficient implies, and nothing in our analysis should be taken to
+suggest otherwise. What our models do identify is the marginal
+association with the \emph{concentration} of disadvantage at school
+level, holding intake constant - a much narrower quantity, and the one
+the 2023 (FSM priority) and 2024 (increased mixing) Brighton and Hove
+policy propositions actually turned on.
 
 We fit separate models for overall Attainment 8, disadvantaged-pupil
 Attainment 8, and non-disadvantaged-pupil Attainment 8, as both panel
@@ -632,61 +655,18 @@ Likelihood estimation.
 The models explain a substantial proportion of variance in school-level
 Attainment 8. In order that these fits are more intuitive for those used
 to interpreting OLS regression models, we use the method described by
-Nakagawa and Schielzeth (2013) and Nakagawa et al.
-(2017)@nakagawa\_coefficient\_2017 to calculate indicative \(R^2\)
-values. For all pupils, the conditional \(R^2\) (fixed plus random
-effects) is 0.78, with marginal \(R^2\) (fixed effects alone) of 0.65.
-For disadvantaged pupils the conditional \(R^2\) is 0.73; for
-non-disadvantaged pupils, 0.8. School-level attainment is remarkably
-predictable from these structural factors, which makes them very useful
-for exploring the effectiveness of local policy levers.
+Nakagawa and Schielzeth (2013) and Nakagawa et al. (2017) to calculate
+indicative \(R^2\) values. For all pupils, the conditional \(R^2\)
+(fixed plus random effects) is 0.78, with marginal \(R^2\) (fixed
+effects alone) of 0.65. For disadvantaged pupils the conditional \(R^2\)
+is 0.73; for non-disadvantaged pupils, 0.8. School-level attainment is
+remarkably predictable from these structural factors, which makes them
+very useful for exploring the effectiveness of local policy levers.
 
 \subsection{Stepwise decomposition}\label{stepwise-decomposition}
 
-\begin{table}
-
-\caption{\label{tbl-stepwise}Stepwise progression to the full multilevel
-model for overall Attainment 8.}
-
-\centering{
-
-\centering\begingroup\fontsize{7}{9}\selectfont
-
-\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
-\begin{tabular}[t]{lrlrlrlrlrl}
-\toprule
-\multicolumn{1}{c}{ } & \multicolumn{2}{c}{M1: FSM} & \multicolumn{2}{c}{M2: +Absence} & \multicolumn{2}{c}{M3: +Prior} & \multicolumn{2}{c}{M4: All fixed} & \multicolumn{2}{c}{M5: Full LME} \\
-\cmidrule(l{3pt}r{3pt}){2-3} \cmidrule(l{3pt}r{3pt}){4-5} \cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){8-9} \cmidrule(l{3pt}r{3pt}){10-11}
-Variable & Est. & t & Est.  & t  & Est.   & t   & Est.    & t    & Est.     & t    \\
-\midrule
-(Intercept) & 4.473*** & 621.25 & 5.006*** & 579.97 & 4.412*** & 345.92 & 4.304*** & 263.27 & 4.261*** & 114.98\\
-log(\% FSM) & -0.201*** & -88.94 & -0.122*** & -59.66 & -0.047*** & -21.04 & -0.054*** & -21.47 & -0.050*** & -18.18\\
-log(\% Absence) &  &  & -0.364*** & -82.87 & -0.259*** & -60.47 & -0.229*** & -49.98 & -0.207*** & -45.74\\
-log(\% EAL) &  &  &  &  &  &  & 0.013*** & 12.83 & 0.007*** & 6.09\\
-Mean KS2 Prior Attainment &  &  &  &  & 0.031*** & 58.18 & 0.030*** & 46.70 & 0.032*** & 48.46\\
-Admissions: Other non-selective &  &  &  &  &  &  & 0.039*** & 8.73 & 0.028*** & 4.06\\
-Admissions: Selective &  &  &  &  &  &  & 0.019* & 2.44 & -0.004 & -0.55\\
-Gorard Segregation &  &  &  &  &  &  & 0.075** & 2.84 & 0.026 & 0.58\\
-Teacher Retention &  &  &  &  &  &  & 0.001*** & 11.66 & 0.000*** & 8.99\\
-Leadership Pay \% &  &  &  &  &  &  & -0.001*** & -5.45 & -0.001*** & -4.52\\
-log(Teacher Sickness) &  &  &  &  &  &  & -0.013*** & -5.20 & -0.013*** & -5.69\\
-Random effects &  &  &  &  &  &  &  &  &  & \\
-Year &  &  &  &  &  &  &  &  & 0.026 & (SD)\\
-Ofsted rating &  &  &  &  &  &  &  &  & 0.014 & (SD)\\
-Region &  &  &  &  &  &  &  &  & 0.045 & (SD)\\
-LA (nested in region) &  &  &  &  &  &  &  &  & 0.045 & (SD)\\
-Residual &  &  &  &  &  &  &  &  & 0.092 & (SD)\\
- &  &  &  &  &  &  &  &  &  & \\
-R² & 0.393 &  & 0.612 &  & 0.696 &  & 0.709 &  & 0.651 & (marginal)\\
-R² (conditional) &  &  &  &  &  &  &  &  & 0.779 & (fixed + random)\\
-N & 12,210 &  & 12,210 &  & 12,210 &  & 12,210 &  & 12,210 & \\
-\bottomrule
-\end{tabular}}
-\endgroup{}
-
-}
-
-\end{table}%
+\emph{{[}Table 1: Stepwise progression to the full multilevel model for
+overall Attainment 8. --- about here{]}}
 
 The stepwise progression in Table~\ref{tbl-stepwise} reveals the
 mediating structure among the key predictors. In Model 1, we start with
@@ -701,21 +681,20 @@ much of the explanatory power previously attributed to deprivation,
 although together they now account for over 60\% of the variation in
 Attainment 8 scores. Adding prior attainment in Model 3 reduces both FSM
 and absence coefficients further. By Model 3, with just three variables,
-approximately two-thirds of attainment variation is explained, with the
-t-values (in some respects a standardised version of the coefficients
-allowing for a degree of relative comparison) showing that \% absence (t
-= -65.28) is the most important variable, mean KS2 prior attainment (t =
-48.49) the next most important and \% FSM the least influential (t =
--33.46).
+close to 70\% of attainment variation is explained, with the t-values
+(in some respects a standardised version of the coefficients allowing
+for a degree of relative comparison) showing that \% absence (t = -60.5)
+is the most important variable, mean KS2 prior attainment (t = 58.2) the
+next most important and \% FSM the least influential (t = -21.0).
 
 Model 4 adds additional fixed effects including EAL proportions,
 selective admissions, workforce variables and the Gorard Segregation
 Index. Model 5 adds random effects for year, Ofsted rating, region and
-LEA nested within region, lifting the conditional \(R^2\) from 0.63
-(marginal) to approximately 0.77, indicating that 14\% of attainment
-variance is tied to these grouping factors - capturing unmeasured
-factors such as school culture, leadership quality, local authority
-support services, and community characteristics.
+LEA nested within region, lifting the \(R^2\) from 0.65 (marginal) to
+0.78 (conditional), indicating that 13\% of attainment variance is tied
+to these grouping factors - capturing unmeasured factors such as school
+culture, leadership quality, local authority support services, and
+community characteristics.
 
 Ofsted rating has only four ordered categories, fewer than would
 ordinarily be modelled as a random effect. We include it as a grouping
@@ -725,16 +704,16 @@ categorical fixed effect leaves every other coefficient unchanged to
 three or four significant figures and does not move Brighton and Hove's
 rank (supplementary material). The fixed-effect form is also informative
 in its own right: relative to an `Outstanding' school, and holding
-intake constant, a `Good' rating is associated with roughly 2.2 fewer
-Attainment 8 points, `Requires Improvement' with 4.2 fewer, and
-`Inadequate' with 4.7 fewer - a scale that flattens markedly at the
+intake constant, a `Good' rating is associated with roughly 1.9 fewer
+Attainment 8 points, `Requires Improvement' with 4.0 fewer, and
+`Inadequate' with 4.5 fewer - a scale that flattens markedly at the
 bottom, so that the gap between the two lowest ratings is small. We
 treat Ofsted as a contextual control rather than a causal factor
 throughout, since inspection judgements are formed with sight of a
 school's results and are therefore partly an expression of attainment
 rather than an independent driver of it; consistent with this, omitting
 Ofsted entirely \emph{increases} the estimated absence effect by
-13--16\%, so its inclusion makes our headline absence figure, if
+12--15\%, so its inclusion makes our headline absence figure, if
 anything, conservative.
 
 The Gorard Segregation Index is not statistically significant in Models
@@ -764,19 +743,9 @@ disadvantage distributions.
 \subsection{Relative variable
 importance}\label{relative-variable-importance}
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-standardised-coefficients-1.pdf}}
-
-}
-
-\caption{\label{fig-standardised-coefficients}Standardised coefficients
-showing relative variable importance across pupil groups. Bars show the
-change in log(ATT8) associated with a one-SD shift in each predictor.}
-
-\end{figure}%
+\emph{{[}Figure 1: Standardised coefficients showing relative variable
+importance across pupil groups. Bars show the change in log(ATT8)
+associated with a one-SD shift in each predictor. --- about here{]}}
 
 Figure~\ref{fig-standardised-coefficients} compares the standardised
 coefficients\footnote{Standardised coefficients are computed as
@@ -791,27 +760,45 @@ the supplementary materials\footnote{Stepwise Models for all pupil
   groups
   \href{https://osf.io/x82j3/overview}{https://osf.io/x82j3/overview
   (see `model\_results.html\#stepwise-model-building` in
-  `supplementary.zip`)}}). Absence is the dominant predictor across all
-groups, but it is \emph{even more} important for disadvantaged pupils -
-nearly half of the variation in school-level performance for this group
-is explained by attendance alone.
+  `supplementary.zip`)}}). Two predictors stand well clear of the rest,
+and which of them leads depends on the pupil group. Mean KS2 prior
+attainment has the largest standardised coefficient for all pupils and
+for non-disadvantaged pupils; for disadvantaged pupils, absence is
+larger. Prior attainment enters with a \emph{positive} sign - cohorts
+arriving from primary school with higher average KS2 scores go on to
+higher Attainment 8 - and its prominence is unsurprising, since it is
+the closest thing in the model to a direct measure of the intake a
+school receives.
+
+The distinction that matters for policy is that these two variables are
+not equally available to act on. Prior attainment is inherited: for a
+cohort already in secondary school it is fixed, and no admissions or
+improvement decision taken by a local authority can alter it. It belongs
+in the model as a control for intake, not as a lever. Absence, by
+contrast, is at least partly open to intervention, and it is the largest
+such factor for every pupil group. It is also markedly more important
+for disadvantaged pupils, accounting for 33\% of the combined
+standardised effect of all nine predictors for that group, against 26\%
+for non-disadvantaged pupils.
 
 Figure~\ref{fig-standardised-coefficients} makes the relative importance
-of the predictors explicit, and the ordering is the central empirical
-message of the paper. School absence is the dominant lever by a clear
-margin; prior attainment at KS2 is second; and the concentration of
-disadvantage - the variable around which the Brighton and Hove policy
-was built - is a distant contributor whose sign, as we discuss next,
-actually depends on the pupil group. Recognising this ordering matters,
-because a policy debate anchored on disadvantage concentration is, on
-this evidence, anchored on one of the weakest of the levers available.
+of the predictors explicit, and the ordering is the main empirical
+take-home message of the paper. Putting prior attainment to one side -
+as it describes the intake rather than anything a school or authority
+can change - school absence is the dominant lever by a clear margin; and
+the concentration of disadvantage - the variable around which the
+Brighton and Hove policy was built - is a distant contributor whose sign
+(direction of effect), as we discuss next, actually depends on the pupil
+group. Recognising this ordering matters, because a policy debate
+anchored on disadvantage concentration is, on this evidence, anchored on
+one of the weakest of the levers available.
 
 The most contentious finding in our analysis concerns concentrations of
 disadvantage (contentious in Brighton and Hove - although the findings
 echo the analysis of Macleod et al. (2015) a decade ago). For
 non-disadvantaged pupils, higher FSM proportions are associated with
 lower attainment. But for disadvantaged pupils, the coefficient is
-\emph{positive} - after controlling for absence and low prior
+\emph{positive} - after controlling for absence and mean KS2 prior
 attainment, disadvantaged pupils perform slightly better in schools with
 higher concentrations of other disadvantaged pupils. This finding is
 robust across individual year models and alternative specifications of
@@ -833,9 +820,9 @@ But an alternative is that the FSM binary cannot distinguish the depth
 or duration of disadvantage, so the disadvantaged pupils in a 50\%-FSM
 school may differ systematically from those in a 20\%-FSM school in ways
 our aggregate measures do not capture (`differing pupils'). We cannot
-adjudicate between these with school-level data, and we do not claim to.
-The consistency of the result across multiple operationalisations of
-both disadvantage and disadvantaged attainment makes a pure measurement
+unpick which with school-level data, and we do not try to. The
+consistency of the result across multiple operationalisations of both
+disadvantage and disadvantaged attainment makes a pure measurement
 artefact less likely, and the stronger positive association we observe
 on the vocational/technical component of Attainment 8 (supplementary
 material) is at least suggestive of a genuine specialisation mechanism
@@ -855,18 +842,18 @@ effects or curriculum-resourcing dynamics. Both findings challenge the
 further mixing of an already comparatively well-integrated set of
 schools could be counter-productive for disadvantaged attainment.
 
-Absence is the biggest predictor across all groups and is even more
-important for disadvantaged pupils, for whom nearly half of the
-school-level variation in performance is explained by attendance alone.
-Disadvantaged pupils may lack the safety net of engaged parents, private
-tutors or revision resources that some peers have, making classroom
-instruction more critical. Attendance, in this sense, is the ultimate
-equity lever. We do not advocate concentrating disadvantaged pupils, but
-the evidence does not support deconcentration policies premised on the
-assumption that disadvantaged pupils inevitably fare worse in
-higher-disadvantage schools. Where such policies require longer journeys
-that risk increasing absence (Thomson 2023), they could be actively
-counter-productive.
+Absence is the biggest modifiable predictor across all groups and is
+more important still for disadvantaged pupils, for whom it accounts for
+roughly a third of the combined standardised effect of every predictor
+in the model. Disadvantaged pupils may lack the safety net of engaged
+parents, private tutors or revision resources that some peers have,
+making classroom instruction more critical. Attendance, in this sense,
+is the ultimate equity lever. We do not advocate concentrating
+disadvantaged pupils, but the evidence does not support deconcentration
+policies premised on the assumption that disadvantaged pupils inevitably
+fare worse in higher-disadvantage schools. Where such policies require
+longer journeys that risk increasing absence (Thomson 2023), they could
+be actively counter-productive.
 
 \section{Brighton and Hove case
 study}\label{brighton-and-hove-case-study}
@@ -945,41 +932,21 @@ complexity of the issues at stake. What follows demonstrates what that
 evidence looks like and how it could inform future debates in Brighton
 and Hove and beyond.
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-catchments-1.pdf}}
-
-}
-
-\caption{\label{fig-catchments}Brighton and Hove secondary schools with
-2025/26 catchment boundaries.}
-
-\end{figure}%
+\emph{{[}Figure 2: Brighton and Hove secondary schools with 2025/26
+catchment boundaries. --- about here{]}}
 
 \subsection{Local authority effects}\label{local-authority-effects}
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-caterpillar-1.pdf}}
-
-}
-
-\caption{\label{fig-caterpillar}LA random intercepts for
-disadvantaged-pupil attainment (imputed full panel model). Top and
-bottom 10 LAs labelled; Brighton and Hove highlighted.}
-
-\end{figure}%
+\emph{{[}Figure 3: LA random intercepts for disadvantaged-pupil
+attainment (imputed full panel model). Top and bottom 10 LAs labelled;
+Brighton and Hove highlighted. --- about here{]}}
 
 Figure~\ref{fig-caterpillar} shows the local-authority random intercepts
 for disadvantaged-pupil attainment. Conditional on the structural
 factors in the model - including school absence - Brighton and Hove
-ranks \textbf{15th of 151} local authorities, a positive random
-intercept equivalent to roughly \textbf{+1.6 Attainment 8 points} above
-what those factors would predict. On the same conditional basis the city
+ranks 15th of 151 local authorities (top 10\%), a positive random
+intercept equivalent to roughly +1.6 Attainment 8 points above what
+those factors would predict. On the same conditional basis the city
 ranks 4th for non-disadvantaged pupils and 5th for all pupils. This was
 unknown at the time of the 2024 consultation and entirely absent from a
 public narrative framed around the raw attainment gap alone.
@@ -990,50 +957,16 @@ the city's performance \emph{given} the attendance its pupils actually
 record - and Brighton and Hove has among the worst attendance of any
 authority in England. Table~\ref{tbl-la-absence} reports the
 disadvantaged-attainment effect with and without that control. Without
-any absence term, the city falls from 15th to \textbf{69th of 151} and
-its effect is no longer statistically distinguishable from the national
-average. The city's apparent excellence for disadvantaged pupils is, in
-this precise sense, conditional on setting its attendance problem aside.
+any absence term, the city falls from 15th to 69th of 151 and its effect
+is no longer statistically distinguishable from the national average.
+The city's apparent excellence for disadvantaged pupils is, in this
+precise sense, conditional on setting its attendance problem aside.
 
-\begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.4045}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1236}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1798}}
-  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1910}}
-  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1011}}@{}}
-
-\caption{\label{tbl-la-absence}Brighton and Hove's local-authority
-effect for disadvantaged-pupil attainment, with and without a control
-for school absence. The intake-predicted specification controls only for
-the part of absence that intake predicts, leaving the city's excess
-absence in the residual.}
-
-\tabularnewline
-
-\toprule\noalign{}
-\begin{minipage}[b]{\linewidth}\raggedright
-Specification
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-B\&H effect
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-95\% CI
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Rank
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-ATT8 pts
-\end{minipage} \\
-\midrule\noalign{}
-\endhead
-\bottomrule\noalign{}
-\endlastfoot
-No absence control & +0.006 & -0.034 to 0.046 & 69 of 151 (n.s.) &
-+0.2 \\
-Absence controlled (main model) & +0.041 & 0.006 to 0.076 & 15 of 151 &
-+1.6 \\
-Intake-predicted absence controlled & +0.005 & -0.035 to 0.044 & 71 of
-151 (n.s.) & +0.2 \\
-
-\end{longtable}
+\emph{{[}Table 2: Brighton and Hove's local-authority effect for
+disadvantaged-pupil attainment, with and without a control for school
+absence. The intake-predicted specification controls only for the part
+of absence that intake predicts, leaving the city's excess absence in
+the residual. --- about here{]}}
 
 This is not an artefact peculiar to Brighton and Hove: controlling for
 absence reshuffles the whole distribution of local-authority effects,
@@ -1044,14 +977,14 @@ authority sits on it materially changes how its schools appear to
 perform. But the shift is unusually consequential for Brighton and Hove
 precisely because its attendance is so extreme.
 
-We regard the distance between these two numbers as the finding, rather
+The distance between these two numbers is the important finding, rather
 than either number alone. Conditional on the absence its pupils face,
-Brighton and Hove's schools sit within the strongest tenth of
-authorities in England for disadvantaged attainment; unconditionally
-they are unremarkable. \textbf{The gap between the two - about 1.4
-Attainment 8 points per disadvantaged pupil - is a direct measure of
+Brighton and Hove's schools sit within the strongest 10\% of local
+education authorities in England for disadvantaged attainment;
+unconditionally they are unremarkable. The gap between the two - about
+1.4 Attainment 8 points per disadvantaged pupil - is a direct measure of
 what the city's attendance problem costs its most disadvantaged
-children.} It is not a reason to discount the schools' underlying
+children. It is not a reason to discount the schools' underlying
 effectiveness; it is a reason to treat attendance as the single most
 valuable lever available to the city, a point we develop in section 5.5
 and quantify through the accelerating-returns analysis below. (For all
@@ -1083,21 +1016,10 @@ school starts - returns \emph{accelerate} as values improve.
 Figure~\ref{fig-accelerating-returns} places both the absence and FSM
 levers on a common y-axis.
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-accelerating-returns-1.pdf}}
-
-}
-
-\caption{\label{fig-accelerating-returns}Accelerating returns: each
-percentage-point reduction buys a progressively larger ATT8 gain
-(reading right to left). Absence delivers substantially larger gains
-than FSM at every level. Brighton and Hove schools marked on each
-curve.}
-
-\end{figure}%
+\emph{{[}Figure 4: Accelerating returns: each percentage-point reduction
+buys a progressively larger ATT8 gain (reading right to left). Absence
+delivers substantially larger gains than FSM at every level. Brighton
+and Hove schools marked on each curve. --- about here{]}}
 
 Four features are immediately visible. First, the absence curve sits
 above the FSM curve at every starting level, indicating how much more
@@ -1128,19 +1050,9 @@ unlikely to produce equivalent gains in disadvantaged attainment.
 \subsection{Contextualised school
 performance}\label{contextualised-school-performance}
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-obs-vs-pred-1.pdf}}
-
-}
-
-\caption{\label{fig-obs-vs-pred}Observed versus predicted Attainment 8
-for Brighton and Hove schools (highlighted) against all schools
-nationally, 2024--25.}
-
-\end{figure}%
+\emph{{[}Figure 5: Observed versus predicted Attainment 8 for Brighton
+and Hove schools (highlighted) against all schools nationally, 2024--25.
+--- about here{]}}
 
 Figure~\ref{fig-obs-vs-pred} shows observed versus predicted Attainment
 8 for the latest year across all schools in England (grey) with Brighton
@@ -1199,23 +1111,13 @@ cross-departmental work - public health, children's services, area-level
 deprivation policy - because much of what schools deal with on
 attendance is inherited rather than generated.
 
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-quadrant-1.pdf}}
-
-}
-
-\caption{\label{fig-quadrant}Brighton and Hove secondaries on the
-joint-signal plane: contextualised value-added (vertical, in Attainment
-8 points) versus the school-controllable absence component (horizontal,
-in percentage points). The reference lines at zero on each axis split
-the plane into four narrative quadrants discussed in the text. The full
+\emph{{[}Figure 6: Brighton and Hove secondaries on the joint-signal
+plane: contextualised value-added (vertical, in Attainment 8 points)
+versus the school-controllable absence component (horizontal, in
+percentage points). The reference lines at zero on each axis split the
+plane into four narrative quadrants discussed in the text. The full
 national version with a local-authority filter is available
-interactively in the project's HTML report.}
-
-\end{figure}%
+interactively in the project's HTML report. --- about here{]}}
 
 For local school-level diagnostics the decomposition becomes
 considerably more informative. Two signals can now be read side by side:
@@ -1289,19 +1191,37 @@ assumption. The implication is that admissions changes of the kind
 proposed in Brighton and Hove are unlikely to deliver the targeted gains
 in disadvantaged attainment and could produce the opposite outcome.
 
-The chosen lever also carries risks that the proposals did not engage
-with. Redistribution generates longer journeys to school, and the wider
-literature is clear that long commutes are associated with reduced sleep
-and its psychosocial (Fredriksen et al. 2004; Yeo et al. 2019), physical
-(Voulgaris et al. 2019; Pradhan and Sinha 2017; Pereira et al. 2014;
-Faulkner et al. 2013) and mental health (Nakajima et al. 2024;
-Chairassamee et al. 2024; Guan et al. 2025) consequences, including
-stress (Karan et al. 2021), lower wellbeing (Ding et al. 2023), and
-higher absence across multiple national settings (Otsuka et al. 2025;
-Cordes et al. 2022; Blagg et al. 2018), including England (Thomson
-2023). Absence is the largest predictor of attainment in our modelling
-and the city's most acute structural problem; a policy that even
-marginally increases it could be counterproductive. There is also a
+It is worth setting this in the longer context of what
+school-effectiveness research has consistently found, because our result
+is not a novel or contrarian one. Ever since Coleman et al. (1966), the
+share of variation in pupil outcomes attributable to differences
+\emph{between} schools - as opposed to differences in the pupils they
+admit and the circumstances those pupils bring - has been estimated at
+something in the order of 8 to 15 per cent. The landmark English study
+by Smith and Tomlinson (1989) settled on around a tenth, and Teddlie and
+Reynolds (2000) confirm that broad range across countries and phases.
+Our own between-school decomposition, reported in the supplementary
+material, recovers the same order of magnitude. This matters for how
+much any redistribution policy can be expected to achieve: if
+differences in pupil outcomes between schools are substantially nothing
+to do with what those schools do but who they admit, then policy that
+redistributes pupils between schools operates on a comparatively small
+share of the variance in the first place - it is working on the smaller
+term while leaving the larger one untouched.
+
+Furthermore, the chosen lever also carries risks that the proposals did
+not engage with. Redistribution generates longer journeys to school, and
+the wider literature is clear that long commutes are associated with
+reduced sleep and its psychosocial (Fredriksen et al. 2004; Yeo et al.
+2019), physical (Voulgaris et al. 2019; Pradhan and Sinha 2017; Pereira
+et al. 2014; Faulkner et al. 2013) and mental health (Nakajima et al.
+2024; Chairassamee et al. 2024; Guan et al. 2025) consequences,
+including stress (Karan et al. 2021), lower wellbeing (Ding et al.
+2023), and higher absence across multiple national settings (Otsuka et
+al. 2025; Cordes et al. 2022; Blagg et al. 2018), including England
+(Thomson 2023). Absence is the largest predictor of attainment in our
+modelling and the city's most acute structural problem; a policy that
+even marginally increases it could be counterproductive. There is also a
 qualitative dimension: schools serve as community anchors, supporting
 after-school participation, friendship groups, parental engagement and
 active travel (Faulkner et al. 2013). A Chicago case study (Shah 2023)
@@ -1345,13 +1265,12 @@ lever}\label{attendance-as-the-most-impactful-single-lever}
 
 A policy conversation about Brighton and Hove's disadvantage attainment
 gap that wants to make the largest predictable difference should put
-\textbf{attendance} at its centre. This sits squarely within the
-council's own framing: the December 2024 cabinet report named
-\emph{`reducing some schools' barriers to success'} for disadvantaged
-pupils as one of its three core objectives for the 2026/27 admissions
-changes \footnote{Brighton and Hove City Council (2024) \emph{School
-  Admission Arrangements 2026/27} - Cabinet Report, 5 December 2024
-  (decision to consult):
+attendance at its centre. This sits squarely within the council's own
+framing: the December 2024 cabinet report named \emph{`reducing some
+schools' barriers to success'} for disadvantaged pupils as one of its
+three core objectives for the 2026/27 admissions changes \footnote{Brighton
+  and Hove City Council (2024) \emph{School Admission Arrangements
+  2026/27} - Cabinet Report, 5 December 2024 (decision to consult):
   \url{https://democracy.brighton-hove.gov.uk/documents/s204040/School\%20Admission\%20Arrangements\%202026-27.pdf}.
   Brighton and Hove City Council (2025) \emph{School Admission
   Arrangements 2026/27} - Full Council Report, 27 February 2025
@@ -1373,15 +1292,52 @@ social, health and travel costs that a redistribution-led approach might
 produce.
 
 We should reiterate that Brighton and Hove's absence rates are not a
-necessary consequence of its intake. The city has near-average FSM
-eligibility but near-worst absence, suggesting the problem reflects
+necessary consequence of its intake. One response to an earlier
+presentation of this argument, advanced locally by the campaign group
+Class Divide\footnote{The comment was made in a blog post here:
+  \url{https://www.classdivide.co.uk/news/uk5uk5bxax0rvjz9q4tu4kgx2lbyhw}},
+offered a memorable analogy: absence is the mould, poverty is the damp.
+On this view, treating absence directly is futile, because the
+underlying poverty will simply keep bringing it back. The analogy
+captures something real. At pupil level the association between
+disadvantage and absence is strong and well evidenced (DfE 2025b), and
+our own decomposition (section 5.5) finds that a substantial part of
+school-level absence is inherited from intake rather than generated by
+the school. Any serious attendance strategy must therefore engage with
+the material circumstances of families, not merely with attendance
+procedures.
+
+But the analogy does not explain Brighton and Hove. Across English local
+education authorities, differences in poverty account for remarkably
+little of the difference in absence: regressing LEA mean absence on LEA
+mean FSM eligibility across the 152 authorities in our latest year
+yields an \(R^2\) of just 0.05. Brighton and Hove's own position makes
+the point sharply. Its FSM rate (28.8\%) is slightly \emph{below} the
+average across authorities (29.6\%), so on a poverty-only account its
+absence should be a little below average too --- around 8.2\%. It is
+10.8\%, an excess of 2.6 percentage points over what its disadvantage
+profile predicts, and the largest such excess of any authority in
+England. Among the 20 authorities whose FSM rates are within two
+percentage points of Brighton and Hove's, the city has the
+\emph{highest} absence of all, some 2.3 percentage points above their
+average. And where absence fell in 94\% of local authorities between
+2021--22 and 2024--25, the city's did not move. There is damp in many
+places; the mould is markedly worse here, and it is not getting better
+as it is elsewhere.
+
+The reasonable conclusion is not that poverty is irrelevant to absence,
+but that it cannot be the explanation for Brighton and Hove's position,
+and that treating the city's absence as an inevitable consequence of its
+social composition is empirically unsupported. A substantial part of the
+city's absence sits above what its intake predicts, which is precisely
+the part that local action can reach. The problem therefore reflects
 local factors - attendance culture, enforcement practices, transport
 friction or community dynamics - rather than being an unavoidable
-correlate of disadvantage. If the city is not already running a
+outcome of disadvantage. If the city is not already running a
 substantial cross-departmental attendance programme alongside its
-school-level work, the case for one is strong. There is a budget
-question too: the £606,000 already spent annually on supported bus
-routes and passes\footnote{Brighton and Hove City Council (2024)
+school-level work, the case for one is strong to introduce one. There is
+a budget question too: the £606,000 already spent annually on supported
+bus routes and passes\footnote{Brighton and Hove City Council (2024)
   \emph{School Admission Arrangements 2026/27 - Appendix 9: Transport
   Implications and Considerations}. Cabinet papers accompanying the
   secondary school admissions consultation, available via the
@@ -1411,63 +1367,20 @@ city's most disadvantaged catchments is, on this view, doing materially
 better for its disadvantaged pupils than the schools to which a number
 of those pupils' families have been opting to travel.
 
-\begin{table}
-
-\caption{\label{tbl-league}Value-added rankings for Brighton and Hove
-schools (panel model residuals by year, in Attainment 8 points).}
-
-\centering{
-
-\centering\begingroup\fontsize{8}{10}\selectfont
-
-\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
-\begin{tabular}[t]{rlrrrr>{}r}
-\toprule
-Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean\\
-\midrule
-\addlinespace[0.3em]
-\hline
-\multicolumn{7}{l}{\textit{\textbf{All Pupils}}}\\
-\hspace{1em}1 & Dorothy Stringer School & +2.5 & +3.1 & +2.2 & +4.8 & \textbf{+3.1}\\
-\hspace{1em}2 & Varndean School & +2.7 & +2.6 & +5.3 & +0.5 & \textbf{+2.8}\\
-\hspace{1em}3 & King's School & +3.5 & +0.9 & +5.0 & -0.5 & \textbf{+2.2}\\
-\hspace{1em}4 & Brighton Aldridge Community Academy & +2.0 & +1.4 & +1.2 & +0.8 & \textbf{+1.4}\\
-\hspace{1em}5 & Portslade Aldridge Community Academy & +3.8 & +0.6 & +2.3 & -1.3 & \textbf{+1.4}\\
-\hspace{1em}6 & Hove Park School and Sixth Form Centre & +1.5 & +0.9 & +1.4 & +0.4 & \textbf{+1.0}\\
-\hspace{1em}7 & Blatchington Mill School & -1.5 & -1.0 & +2.0 & +2.4 & \textbf{+0.5}\\
-\hspace{1em}8 & Cardinal Newman Catholic School & +1.3 & -2.2 & +1.3 & -1.5 & \textbf{-0.3}\\
-\hspace{1em}9 & Longhill High School & -0.2 & -2.3 & -1.1 & -2.5 & \textbf{-1.5}\\
-\hspace{1em}10 & Patcham High School & -2.7 & -2.8 & -4.4 & -2.9 & \textbf{-3.2}\\
-\addlinespace[0.3em]
-\hline
-\multicolumn{7}{l}{\textit{\textbf{Disadvantaged Pupils}}}\\
-\hspace{1em}1 & Brighton Aldridge Community Academy & +3.1 & -1.3 & +4.6 & +5.7 & \textbf{+3.1}\\
-\hspace{1em}2 & Varndean School & +2.2 & +3.2 & +3.9 & -2.4 & \textbf{+1.7}\\
-\hspace{1em}3 & Cardinal Newman Catholic School & +2.9 & -5.4 & +6.5 & +2.3 & \textbf{+1.6}\\
-\hspace{1em}4 & Dorothy Stringer School & +2.2 & +2.6 & -0.2 & +1.4 & \textbf{+1.5}\\
-\hspace{1em}5 & Blatchington Mill School & -5.0 & +1.1 & +4.7 & +2.9 & \textbf{+0.9}\\
-\hspace{1em}6 & King's School & +4.8 & +1.4 & +3.8 & -6.2 & \textbf{+0.9}\\
-\hspace{1em}7 & Hove Park School and Sixth Form Centre & +3.0 & -2.5 & +2.0 & +1.1 & \textbf{+0.9}\\
-\hspace{1em}8 & Portslade Aldridge Community Academy & +3.2 & -3.4 & +4.1 & -1.9 & \textbf{+0.5}\\
-\hspace{1em}9 & Patcham High School & +4.1 & +1.5 & -11.6 & -3.5 & \textbf{-2.4}\\
-\hspace{1em}10 & Longhill High School & -5.1 & -6.4 & +1.4 & -0.9 & \textbf{-2.7}\\
-\bottomrule
-\end{tabular}}
-\endgroup{}
-
-}
-
-\end{table}%
+\emph{{[}Table 3: Value-added rankings for Brighton and Hove schools
+(panel model residuals by year, in Attainment 8 points). --- about
+here{]}}
 
 During the 2024 consultation, the public debate shifted from how the
 council's proposals would improve disadvantaged attainment to how they
-would facilitate parental choice. An activist group (Equity in Education
-- supported by Class Divide) emerged from within the BACA catchment
-advocating for alternatives to that school, which then had a `requires
-improvement' Ofsted rating and some of the city's lowest raw attainment
-scores. A considerable number of BACA-catchment parents subsequently
-opted for Patcham School - `Good' rated, mid-table on raw attainment, in
-a more prosperous neighbouring catchment.
+would facilitate parental choice. An activist group (Equity in
+Education\footnote{\url{https://educationequity.kit.com/}} - supported
+by Class Divide) emerged from within the BACA catchment advocating for
+alternatives to that school, which then had a `requires improvement'
+Ofsted rating and some of the city's lowest raw attainment scores. A
+considerable number of BACA-catchment parents subsequently opted for
+Patcham School - `Good' rated, mid-table on raw attainment, in a more
+prosperous neighbouring catchment.
 
 The contextualised picture differs sharply. BACA sits in one of the most
 deprived parts of the city, experiences absence well above the high city
@@ -1476,16 +1389,16 @@ below-national-average absence, around 25\% FSM and 16\% low prior
 attainment. Once these cohort differences are accounted for, the league
 tables in Table~\ref{tbl-league} (derived from
 Figure~\ref{fig-obs-vs-pred}) show that in 2024-25 a disadvantaged pupil
-at BACA left, on average, with GCSE results around 5 points higher than
-a comparable pupil at a similar school elsewhere in England, with a
-four-year average around 3 points higher - substantially above the
+at BACA left, on average, with GCSE results around 5.7 points higher
+than a comparable pupil at a similar school elsewhere in England, with a
+four-year average around 3.1 points higher - substantially above the
 fraction of a point that might be expected from altering schools'
 disadvantage mix. BACA out-performs every other school in the city for
 disadvantaged pupils, including those popularly viewed as the `best'.
 Its April 2025 Ofsted upgrade to `Good' in all five areas\footnote{\url{https://reports.ofsted.gov.uk/provider/23/136164}}
 is unsurprising in the context of this analysis, but would have been
 surprising to anyone looking only at prior raw attainment and Ofsted
-ratings. Patcham, by contrast, sits \textasciitilde2.6 GCSE points below
+ratings. Patcham, by contrast, sits \textasciitilde2.4 GCSE points below
 expectation for disadvantaged pupils on a four-year average, with the
 gap reaching double figures in 2023-24 - differences hidden by its
 comfortable mid-table raw position. What other schools could learn from
@@ -1576,8 +1489,12 @@ The honest answer is that we do not yet know what produces this LEA
 effect. The random effect, by definition, captures variance that the
 fixed-effect predictors do not explain. It could reflect high levels of
 parental engagement and aspiration --- Brighton and Hove has a
-well-educated population with a strong civic culture. It could relate to
-the quality of school leadership and governance across the city, or to
+well-educated population with a strong civic culture (and indeed some
+new preliminary analysis not reported here suggests that part of this
+effect could be explained by levels of higher education in the
+populations in the immediate neighbourhoods around the city's schools,
+but this needs to be investigated further). It could relate to the
+quality of school leadership and governance across the city, or to
 effective local authority support services and school improvement
 programmes. It could be something about the collaborative relationships
 between schools, or community factors that are difficult to quantify. It
@@ -1616,21 +1533,44 @@ function, but only for their own constituent schools; no actor now has
 both the remit and the capacity for the \emph{locality-wide} analysis
 that spans maintained schools, academies across different trusts, and
 church schools within a single place. Brighton and Hove illustrates the
-gap precisely: the council remains the admissions authority for a system
-it has limited capacity to analyse as a whole, while its two academies -
-central to the policy question - sit outside its analytical reach. The
-need, then, is less for every council to rebuild bespoke capacity than
-for the \emph{system} to close a locality-level analytical gap, whether
-through central funding for local capacity or nationally maintained
-benchmarking tools that any locality can use.
+gap to some extent -- although to a lesser extent than some LEAs where
+it still has direct control of 6 out of 10 community secondary schools
+and academisation has not (yet) had the same impact as it has elsewhere.
+Council's frequently remain the admissions authority for systems that
+funding cuts and academisation mean they have limited capacity to
+analyse as a whole.
 
-We have developed an interactive Policy Simulator tool,\footnote{School
-  Attainment Policy Simulator:
-  \url{https://adam-dennett.shinyapps.io/School_Attainment_Policy_Simulator/}}
-underpinned by the models in this paper, as a prototype of exactly this
-kind of shared, locality-level infrastructure. The tool allows users to
-explore any school in England, compare against contextual expectations,
-and model the indicative impact of changes to key variables.
+The need, then, is less for every council to rebuild bespoke capacity
+than for the system to close a locality-level analytical gap, whether
+through central funding for local capacity or nationally maintained
+benchmarking tools that any locality can use. LEAs can also do much more
+to help themselves where capacity and funding prevent them from doing
+more and this starts with sharing and being more open with data and
+analyses they do carry out. While we have pieced together a national
+analysis here from DfE data and applied it to a local context, LEAs have
+much more data of their own that they could put into the public domain
+and make accessible - prior to Freedom of Information Requests forcing
+them to do so - so that those in the wider community can help through
+donating their time and expertise. Hiding data away either completely or
+in inaccessible PDFs tucked away in committee meeting appendices, rather
+than publishing openly in machine-readable formats does not help anyone,
+least of all those trying to construct good, evidence-based policy with
+limited resources. Data such as aggregate pupil projections for schools
+and neighbourhoods, time series preference data, distances travelled to
+school, offers by school and home neighbourhood deprivation band, Free
+School Meal eligibility by neighbourhood, appeals and their outcomes --
+these are all held by LEAs but rarely published as a matter of course.
+In an effort to demonstrate how our collective intelligence could be
+enhanced through better data analytics we have developed an interactive
+Policy Simulator tool,\footnote{School Attainment Policy Simulator: an
+  interactive R Shiny web tool developed as part of this work. URL
+  withheld for double-blind review; tool details, a walkthrough and
+  access can be made available on request from the corresponding author
+  via the editorial office.} underpinned by the data and models in this
+paper. The tool allows users to explore any school in England, compare
+against contextual expectations, and model the indicative impact of
+changes to key variables. This is only a starting point and more bespoke
+intelligence systems could be built for local situations.
 
 \subsection{Limitations}\label{limitations}
 
@@ -1646,6 +1586,26 @@ world is more complex than any model captures. What we do claim is that
 these models are accurate enough, and the patterns consistent enough
 across years and specifications, to substantially improve the quality of
 the conversation around what matters most.
+
+A note on statistical inference is also warranted, given the nature of
+the data. Our panel is not a random sample drawn from some larger frame;
+it is a population, comprising every state-funded mainstream secondary
+school in England that meets our inclusion criteria. We therefore do not
+interpret standard errors as quantifying uncertainty about generalising
+from a sample to a population. We interpret them as quantifying the
+stochastic, cohort-to-cohort variation that produces any given school's
+result in any given year: each cohort is one realisation of a process
+that would have turned out somewhat differently with a different set of
+children, and school-level scores are correspondingly unstable from year
+to year. The multilevel structure is a further guard against
+over-reading that instability, since partial pooling shrinks the
+noisiest estimates - typically those from the smallest schools - toward
+the relevant group mean. Consistent with long-standing cautions about
+the over-interpretation of p-values (Wasserstein and Lazar 2016), we
+treat significance as descriptive rather than decisive: no conclusion in
+this paper turns on a threshold being crossed. The arguments are made in
+Attainment 8 points, they are reproduced across four separate years, and
+they would stand unchanged if every test statistic were removed.
 
 \section{Conclusion}\label{conclusion}
 
@@ -1670,14 +1630,14 @@ targeted gains in disadvantaged attainment and carry a set of social and
 educational costs that the consultation did not engage with.
 
 Second, the single most consequential lever available to Brighton and
-Hove for raising disadvantaged attainment is \textbf{attendance}. The
-city had the second-worst absence rate in England in 2024-25 - and its
-absence has failed to fall while it fell almost everywhere else - and
-the modelling suggests that moving the city's worst-affected schools
-toward the national absence average would yield gains for disadvantaged
-pupils that comfortably exceed anything achievable through admissions
-reform. The two-stage decomposition we develop here also shows that this
-lever has two parts to it: a \emph{structural} component of school-level
+Hove for raising disadvantaged attainment is attendance. The city had
+the second-worst absence rate in England in 2024-25 - and its absence
+has failed to fall while it fell almost everywhere else - and the
+modelling suggests that moving the city's worst-affected schools toward
+the national absence average would yield gains for disadvantaged pupils
+that comfortably exceed anything achievable through admissions reform.
+The two-stage decomposition we develop here also shows that this lever
+has two parts to it: a \emph{structural} component of school-level
 absence inherited from intake, area health, deprivation and family
 circumstances - which schools cannot themselves change - and a smaller
 \emph{school-controllable} residual that pastoral systems, attendance
@@ -1781,6 +1741,11 @@ Chairassamee, Nattanicha, Kanokwan Chancharoenchai, and Wuthiya
 Saraithong. 2024. {``Getting There: How Commuting Time and Distance
 Impact Students' Health.''} \emph{PLoS One} 19 (12): e0314687.
 \url{https://doi.org/10.1371/journal.pone.0314687}.
+
+\bibitem[\citeproctext]{ref-Coleman1966}
+Coleman, James S., Ernest Q. Campbell, Carol J. Hobson, et al. 1966.
+\emph{Equality of {Educational} {Opportunity}}. U.S. Department of
+Health, Education,; Welfare, Office of Education.
 
 \bibitem[\citeproctext]{ref-HouseofCommons2021}
 Commons Education Committee, House of. 2021. \emph{{``{Forgotten}''}
@@ -1981,6 +1946,11 @@ of {Extended} {Commute} on {Student} {Wellbeing} \& {High} {School}
 {Experience} in {Chicago}.''} Master's thesis, University of Chicago.
 \url{https://knowledge.uchicago.edu/record/7216}.
 
+\bibitem[\citeproctext]{ref-SmithTomlinson1989}
+Smith, David J., and Sally Tomlinson. 1989. \emph{The {School} {Effect}:
+{A} {Study} of {Multi}-{Racial} {Comprehensives}}. Policy Studies
+Institute.
+
 \bibitem[\citeproctext]{ref-Snijders2012}
 Snijders, T. A. B. 2012. \emph{Multilevel Analysis: An Introduction to
 Basic and Advanced Multilevel Modeling}. 2nd ed. SAGE.
@@ -2013,6 +1983,10 @@ Goodspeed, Esra Suel, Huanfa Chen, Joana Barros, and Christopher Pettit.
 Springer Nature Switzerland.
 \url{https://doi.org/10.1007/978-3-031-98300-9_17}.
 
+\bibitem[\citeproctext]{ref-TeddlieReynolds2000}
+Teddlie, Charles, and David Reynolds. 2000. \emph{The {International}
+{Handbook} of {School} {Effectiveness} {Research}}. Falmer Press.
+
 \bibitem[\citeproctext]{ref-Thomson2023}
 Thomson, Dave. 2023. {``Are Pupils Who Live Further Away from Their
 School Absent More Often?''} In \emph{FFT Education Datalab}.
@@ -2030,6 +2004,12 @@ and Exercise Among {American} Teenagers.''} \emph{Journal of Planning
 Education and Research} 39 (2): 142--54.
 \url{https://doi.org/10.1177/0739456X17725148}.
 
+\bibitem[\citeproctext]{ref-WassersteinLazar2016}
+Wasserstein, Ronald L., and Nicole A. Lazar. 2016. {``The {ASA}
+Statement on p-Values: Context, Process, and Purpose.''} \emph{The
+American Statistician} 70 (2): 129--33.
+\url{https://doi.org/10.1080/00031305.2016.1154108}.
+
 \bibitem[\citeproctext]{ref-Yeo2019}
 Yeo, Sing Chen, Anna Mini Jos, Christina Erwin, et al. 2019.
 {``Associations of Sleep Duration on School Nights with Self-Rated
@@ -2044,6 +2024,231 @@ Institute.
 \url{https://epi.org.uk/publications-and-research/the-influence-of-headteachers-on-their-schools/}.
 
 \end{CSLReferences}
+
+\section*{Figures and Tables}\label{figures-and-tables}
+\addcontentsline{toc}{section}{Figures and Tables}
+
+\begin{table}
+
+\caption{\label{tbl-stepwise}Stepwise progression to the full multilevel
+model for overall Attainment 8.}
+
+\centering{
+
+\centering\begingroup\fontsize{7}{9}\selectfont
+
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{lrlrlrlrlrl}
+\toprule
+\multicolumn{1}{c}{ } & \multicolumn{2}{c}{M1: FSM} & \multicolumn{2}{c}{M2: +Absence} & \multicolumn{2}{c}{M3: +Prior} & \multicolumn{2}{c}{M4: All fixed} & \multicolumn{2}{c}{M5: Full LME} \\
+\cmidrule(l{3pt}r{3pt}){2-3} \cmidrule(l{3pt}r{3pt}){4-5} \cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){8-9} \cmidrule(l{3pt}r{3pt}){10-11}
+Variable & Est. & t & Est.  & t  & Est.   & t   & Est.    & t    & Est.     & t    \\
+\midrule
+(Intercept) & 4.473 *** & 621.25 & 5.006 *** & 579.97 & 4.412 *** & 345.92 & 4.304 *** & 263.27 & 4.261 *** & 114.98\\
+log(\% FSM) & -0.201 *** & -88.94 & -0.122 *** & -59.66 & -0.047 *** & -21.04 & -0.054 *** & -21.47 & -0.050 *** & -18.18\\
+log(\% Absence) &  &  & -0.364 *** & -82.87 & -0.259 *** & -60.47 & -0.229 *** & -49.98 & -0.207 *** & -45.74\\
+log(\% EAL) &  &  &  &  &  &  & 0.013 *** & 12.83 & 0.007 *** & 6.09\\
+Mean KS2 Prior Attainment &  &  &  &  & 0.031 *** & 58.18 & 0.030 *** & 46.70 & 0.032 *** & 48.46\\
+Admissions: Other non-selective &  &  &  &  &  &  & 0.039 *** & 8.73 & 0.028 *** & 4.06\\
+Admissions: Selective &  &  &  &  &  &  & 0.019 * & 2.44 & -0.004 & -0.55\\
+Gorard Segregation &  &  &  &  &  &  & 0.075 ** & 2.84 & 0.026 & 0.58\\
+Teacher Retention &  &  &  &  &  &  & 0.001 *** & 11.66 & 0.000 *** & 8.99\\
+Leadership Pay \% &  &  &  &  &  &  & -0.001 *** & -5.45 & -0.001 *** & -4.52\\
+log(Teacher Sickness) &  &  &  &  &  &  & -0.013 *** & -5.20 & -0.013 *** & -5.69\\
+Random effects &  &  &  &  &  &  &  &  &  & \\
+Year &  &  &  &  &  &  &  &  & 0.026 & (SD)\\
+Ofsted rating &  &  &  &  &  &  &  &  & 0.014 & (SD)\\
+Region &  &  &  &  &  &  &  &  & 0.045 & (SD)\\
+LA (nested in region) &  &  &  &  &  &  &  &  & 0.045 & (SD)\\
+Residual &  &  &  &  &  &  &  &  & 0.092 & (SD)\\
+ &  &  &  &  &  &  &  &  &  & \\
+R² & 0.393 &  & 0.612 &  & 0.696 &  & 0.709 &  & 0.651 & (marginal)\\
+R² (conditional) &  &  &  &  &  &  &  &  & 0.779 & (fixed + random)\\
+N & 12,210 &  & 12,210 &  & 12,210 &  & 12,210 &  & 12,210 & \\
+\bottomrule
+\end{tabular}}
+\endgroup{}
+
+}
+
+\end{table}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-standardised-coefficients-1.pdf}}
+
+}
+
+\caption{\label{fig-standardised-coefficients}Standardised coefficients
+showing relative variable importance across pupil groups. Bars show the
+change in log(ATT8) associated with a one-SD shift in each predictor.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-catchments-1.pdf}}
+
+}
+
+\caption{\label{fig-catchments}Brighton and Hove secondary schools with
+2025/26 catchment boundaries.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-caterpillar-1.pdf}}
+
+}
+
+\caption{\label{fig-caterpillar}LA random intercepts for
+disadvantaged-pupil attainment (imputed full panel model). Top and
+bottom 10 LAs labelled; Brighton and Hove highlighted.}
+
+\end{figure}%
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.4045}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1236}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1798}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1910}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1011}}@{}}
+
+\caption{\label{tbl-la-absence}Brighton and Hove's local-authority
+effect for disadvantaged-pupil attainment, with and without a control
+for school absence. The intake-predicted specification controls only for
+the part of absence that intake predicts, leaving the city's excess
+absence in the residual.}
+
+\tabularnewline
+
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Specification
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+B\&H effect
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+95\% CI
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Rank
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+ATT8 pts
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+No absence control & +0.006 & -0.034 to 0.046 & 69 of 151 (n.s.) &
++0.2 \\
+Absence controlled (main model) & +0.041 & 0.006 to 0.076 & 15 of 151 &
++1.6 \\
+Intake-predicted absence controlled & +0.005 & -0.035 to 0.044 & 71 of
+151 (n.s.) & +0.2 \\
+
+\end{longtable}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-accelerating-returns-1.pdf}}
+
+}
+
+\caption{\label{fig-accelerating-returns}Accelerating returns: each
+percentage-point reduction buys a progressively larger ATT8 gain
+(reading right to left). Absence delivers substantially larger gains
+than FSM at every level. Brighton and Hove schools marked on each
+curve.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-obs-vs-pred-1.pdf}}
+
+}
+
+\caption{\label{fig-obs-vs-pred}Observed versus predicted Attainment 8
+for Brighton and Hove schools (highlighted) against all schools
+nationally, 2024--25.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{RPE_Paper_files/figure-pdf/fig-quadrant-1.pdf}}
+
+}
+
+\caption{\label{fig-quadrant}Brighton and Hove secondaries on the
+joint-signal plane: contextualised value-added (vertical, in Attainment
+8 points) versus the school-controllable absence component (horizontal,
+in percentage points). The reference lines at zero on each axis split
+the plane into four narrative quadrants discussed in the text. The full
+national version with a local-authority filter is available
+interactively in the project's HTML report.}
+
+\end{figure}%
+
+\begin{table}
+
+\caption{\label{tbl-league}Value-added rankings for Brighton and Hove
+schools (panel model residuals by year, in Attainment 8 points).}
+
+\centering{
+
+\centering\begingroup\fontsize{8}{10}\selectfont
+
+\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+\begin{tabular}[t]{rlrrrr>{}r}
+\toprule
+Rank & School & 2021-22 & 2022-23 & 2023-24 & 2024-25 & Mean\\
+\midrule
+\addlinespace[0.3em]
+\hline
+\multicolumn{7}{l}{\textit{\textbf{All Pupils}}}\\
+\hspace{1em}1 & Dorothy Stringer School & +2.5 & +3.1 & +2.2 & +4.8 & \textbf{+3.1}\\
+\hspace{1em}2 & Varndean School & +2.7 & +2.6 & +5.3 & +0.5 & \textbf{+2.8}\\
+\hspace{1em}3 & King's School & +3.5 & +0.9 & +5.0 & -0.5 & \textbf{+2.2}\\
+\hspace{1em}4 & Brighton Aldridge Community Academy & +2.0 & +1.4 & +1.2 & +0.8 & \textbf{+1.4}\\
+\hspace{1em}5 & Portslade Aldridge Community Academy & +3.8 & +0.6 & +2.3 & -1.3 & \textbf{+1.4}\\
+\hspace{1em}6 & Hove Park School and Sixth Form Centre & +1.5 & +0.9 & +1.4 & +0.4 & \textbf{+1.0}\\
+\hspace{1em}7 & Blatchington Mill School & -1.5 & -1.0 & +2.0 & +2.4 & \textbf{+0.5}\\
+\hspace{1em}8 & Cardinal Newman Catholic School & +1.3 & -2.2 & +1.3 & -1.5 & \textbf{-0.3}\\
+\hspace{1em}9 & Longhill High School & -0.2 & -2.3 & -1.1 & -2.5 & \textbf{-1.5}\\
+\hspace{1em}10 & Patcham High School & -2.7 & -2.8 & -4.4 & -2.9 & \textbf{-3.2}\\
+\addlinespace[0.3em]
+\hline
+\multicolumn{7}{l}{\textit{\textbf{Disadvantaged Pupils}}}\\
+\hspace{1em}1 & Brighton Aldridge Community Academy & +3.1 & -1.3 & +4.6 & +5.7 & \textbf{+3.1}\\
+\hspace{1em}2 & Varndean School & +2.2 & +3.2 & +3.9 & -2.4 & \textbf{+1.7}\\
+\hspace{1em}3 & Cardinal Newman Catholic School & +2.9 & -5.4 & +6.5 & +2.3 & \textbf{+1.6}\\
+\hspace{1em}4 & Dorothy Stringer School & +2.2 & +2.6 & -0.2 & +1.4 & \textbf{+1.5}\\
+\hspace{1em}5 & Blatchington Mill School & -5.0 & +1.1 & +4.7 & +2.9 & \textbf{+0.9}\\
+\hspace{1em}6 & King's School & +4.8 & +1.4 & +3.8 & -6.2 & \textbf{+0.9}\\
+\hspace{1em}7 & Hove Park School and Sixth Form Centre & +3.0 & -2.5 & +2.0 & +1.1 & \textbf{+0.9}\\
+\hspace{1em}8 & Portslade Aldridge Community Academy & +3.2 & -3.4 & +4.1 & -1.9 & \textbf{+0.5}\\
+\hspace{1em}9 & Patcham High School & +4.1 & +1.5 & -11.6 & -3.5 & \textbf{-2.4}\\
+\hspace{1em}10 & Longhill High School & -5.1 & -6.4 & +1.4 & -0.9 & \textbf{-2.7}\\
+\bottomrule
+\end{tabular}}
+\endgroup{}
+
+}
+
+\end{table}%
 
 
 

@@ -23,9 +23,17 @@ ui <- page_navbar(
   title = "School Attainment Policy Simulator",
   id = "main_nav",
 
-  # Load custom CSS
+  # Load custom CSS + Google Analytics (gtag.js)
   tags$head(
-    tags$link(rel = "stylesheet", href = "custom.css")
+    tags$link(rel = "stylesheet", href = "custom.css"),
+    tags$script(async = NA,
+                src = "https://www.googletagmanager.com/gtag/js?id=G-Z84BNDJTVT"),
+    tags$script(HTML("
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-Z84BNDJTVT');
+    "))
   ),
 
   theme = bs_theme(

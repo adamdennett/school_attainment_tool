@@ -1,0 +1,86 @@
+---
+title: "Who are our schools for? A reply — and the fuller picture"
+description: "A response to Class Divide on absence, admissions and fairness in Brighton and Hove's schools — and to the academic critics of the report behind it."
+date: 2026-07-29
+draft: true
+---
+
+Last week *Brighton and Hove News* ran [a short piece of mine](https://www.brightonandhovenews.org/2026/07/26/absence-and-attendance-matter-much-more-than-admissions/) about what the data on our city's schools actually shows. Class Divide replied, thoughtfully and generously, with [a piece of their own](https://www.brightonandhovenews.org/2026/07/28/who-are-our-schools-for/) under the title "Who are our schools for?". It is a good question, asked by people who have earned the right to ask it, and it deserves a proper answer rather than a 700-word one. A blog gives me the room a comment column doesn't — so I want to reply properly, and while I am at it, to bring in the other strand of this conversation: the criticism the underlying report drew from two eminent education academics. Taken together, I think they point somewhere useful.
+
+Let me start where I think most of us already stand.
+
+## What we agree on
+
+A great deal, as it turns out.
+
+Poverty is the root of the attainment gap. Brighton and Hove is already one of the more socially mixed cities in England. Attendance is a real and serious problem here. And Class Divide's long work on the hardships our poorest families face — the cost of the bus, the daily arithmetic of getting a child to school — is right, and has been right for years.
+
+Their central image is a good one. *"The damp is the cause,"* they write. *"Poverty is the damp. Absence is the mould."* I would not argue with a word of that. Absence is, overwhelmingly, a symptom of the conditions children live in, not a failing of the children themselves. Anyone who reads what I have written as "blame the family" or "blame the school" has read the opposite of what is there.
+
+So this is not a disagreement about the diagnosis. It is a conversation about what follows from it — and about one place where I think two arguments have been allowed to drift past each other.
+
+## Completing the metaphor
+
+If poverty is the damp and absence is the mould, then the honest response is the one Class Divide themselves reach at the end of their piece: *"A city that is serious about all of its children will do both."* Yes. You treat the mould **and** you fix the damp. You do the long, hard, cross-department work on poverty — and, because that work takes years, you also do the things that get a child into the classroom next term: the bus pass a family can't afford, the support that keeps an anxious child in school, the unmet special needs.
+
+That is not choosing the symptom over the cause. It is refusing to let a child miss two more years of school while we wait for the cause to be solved. The reason I keep returning to attendance is not that it is more important than poverty — it plainly isn't — but that it is the biggest thing we can actually move *for these children, now*. If every school in the city attended as well as our own best-attended school already does, the modelling suggests disadvantaged children would leave with around five more GCSE grade points each. Nothing else on the table comes close, and it asks us to move no child anywhere.
+
+## Where the two arguments meet: absence
+
+Here is the point I most want to make, because I think it is the one that has been missed on all sides — including, at first, by me.
+
+Attendance and admissions are not separate subjects that I have chosen to rank against each other. They meet, and they meet at absence.
+
+The admissions reform works by moving some children further from home. And the best national evidence we have — from [FFT Education Datalab](https://ffteducationdatalab.org.uk/2023/11/are-pupils-who-live-further-away-from-their-school-absent-more-often/), using the government's own data — is that children who live further from their school are absent slightly more often, that the effect is *stronger* for disadvantaged children, and that it bites hardest in Years 10 and 11, the years that decide GCSEs. Put those facts together and the policy points the wrong way down the single most important lever there is: a reform intended to help disadvantaged children is designed in a way that plausibly *raises their absence*.
+
+That is why I compared the two. Not to rank a question of fairness below a question of attainment, but because the admissions policy has a measurable attainment cost, and it runs through exactly the channel — absence — that matters most.
+
+Think of it as a set of scales. On one side, a certain cost: some children travelling further, every day, for years. On the other, the benefit the reform promises. My report puts the average gain from redistributing pupils to even out disadvantage at perhaps one to two GCSE points — and, tellingly, not for the disadvantaged children it is meant to help. Set a certain cost against a benefit the evidence says is close to zero, and the scales do not balance. And because absence does so much more damage to disadvantaged children than to anyone else — roughly twice as much — even a small rise in absence among those who now travel further could cancel the whole of it out.
+
+I want to be careful here. The distance effect is real but modest, and it is an association, not a proven law. So I am not claiming the reform *will* harm these children. I am saying it carries a real risk of doing so, on the one measure that matters most — and that nobody has yet checked. Which is why the single most important thing the ongoing evaluation could do is measure it: **are the children who, because of these reforms, now travel further to school missing more of it?** That is the measurement I would put at the very heart of the review.
+
+## Two things the argument struggles to hold at once
+
+I offer the next point about the *argument*, not the people making it. I share Class Divide's goal, and I do not doubt their motives for a second.
+
+But two claims have been made that are hard to hold together.
+
+The first is about outcomes. The reforms were argued for, in part, as a way to improve results for disadvantaged children — the "golden ticket" of a place at a more sought-after school. The evidence does not support that promise. When it is pointed out that moving children between schools does little for their attainment, the reply is that the reform was really about fairness, not results. But you cannot make the case for a policy on the strength of the good it will do children's outcomes, and then, when the outcome evidence disappoints, say outcomes were never the point.
+
+The second is about the word "trade". Class Divide write that they *"will not trade one kind of fairness for another."* I understand the sentiment, but I don't think the policy can honour it. In a city where the popular schools are oversubscribed, *any* admissions system is a trade: give one group better access and, by arithmetic, another group gets less. That is not a criticism unique to this reform — it is true of the system it replaced, too. The old arrangement traded in favour of families who happened to live in the central catchments. So the honest question is not *whether* we trade — we always do — but *who* we ask to bear the cost, and whether the trade actually delivers for the people it is meant to help.
+
+And that is the crux. Class Divide could fairly reply that the previous system was itself an unfair trade, tilted toward the advantaged, and that they are simply rebalancing it. That is a coherent and serious position, and I take it seriously. But a rebalancing that raises absence for the very children it names — on the lever that matters most — is not obviously delivering fairness to them. It may be asking them to pay, in missed school, for a fairness that was promised to them.
+
+## What the academics said — and why it doesn't rescue the policy
+
+The report behind all this also drew criticism from two distinguished professors of education, Stephen Gorard and Diane Reay. I have [replied to them in full elsewhere](https://adamdennett.github.io/school_attainment_tool/), but the short version matters here, because their strongest points actually converge on the same conclusion.
+
+Let me concede what I should. Professor Gorard is right that Brighton and Hove's segregation is not remarkable by national standards, and that our attainment gap is smaller than in many places — both facts I wish had been louder in the original consultations. Both are right that prior attainment is, in large part, accumulated poverty. Professor Reay is right that absence, disadvantage and attainment are deeply interconnected and should not be treated as tidy, separate things. And she is right — this is the deepest point either of them makes — that how we allocate school places is a question of justice, not a sum, and cannot be settled by a coefficient.
+
+But notice where those concessions lead. Professor Reay's point that absence is inseparable from poverty is the same point Class Divide make with their damp and mould — and far from weakening my argument, it strengthens it. If absence carries so much of poverty's effect on attainment, then a policy that increases absence for disadvantaged children is doing real harm through poverty's own main channel. And Professor Gorard's expert evidence to the council was that, in de-clustering disadvantage, *"no one loses"*. The travel-and-absence evidence is precisely the reason that claim does not hold: some children do lose, in missed school, and they are the children least able to afford it.
+
+There is one more thing worth saying plainly. The finding that a school explains only a small share of how well a child does — around a tenth of the variation, most of it set by family, poverty and neighbourhood — is not something I have conjured. It is one of the most settled results in education research, from the Coleman report of the 1960s through the international school-effectiveness studies since. My contribution was simply to run the latest open data, on every school in England, through the same test and find that it still holds. That is why no reshuffling of children between schools can do what the "golden ticket" promised: the ticket was mostly a mirage before anyone moved.
+
+## Why this has been so fierce
+
+Let me step outside the argument for a moment, because it is worth being honest about why it has been so sharp — on their side, and at times on mine.
+
+Class Divide have spent the better part of a decade fighting for the children of the poorest parts of this city. That is not a talking point for them; it is their community and their children, and they carried the fight when almost no one else would. When someone turns up with a report suggesting that the reform they finally won may not do what they hoped — or might even cost the very children they fought for — of course they come out swinging. I would too. A hard-won victory is not something you set down lightly because a professor arrives with a spreadsheet.
+
+And I should be honest about how I look from where they stand. I am a professor; I live in a comfortable part of town; and I opposed these reforms from the start. So a report by me, concluding that the reforms will not help, is exactly the kind of thing they have every reason to be wary of. Communities like theirs have spent generations being told, by people with more letters after their name and more money in the bank, that what they are reaching for will not work. They are right to be suspicious of that voice. I would only ask them to consider that, this time, it is not what it looks like — and that the way to check is not to weigh my postcode or my title, but to look at the evidence itself, which belongs to everyone and can be taken apart by anyone.
+
+Because here is what I keep coming back to. Class Divide and I want very nearly the same thing: for the children of Whitehawk and Moulsecoomb and Portslade to get the best this city can give them. We disagree about one policy and how much it will help. That, in the end, is most of it. I do not experience them as opponents, whatever the last few weeks have looked like, and I would far rather spend the next decade working alongside them than scoring points off them. If I have been sharp about the argument, it has never been because I doubt the people making it.
+
+## So — who are our schools for?
+
+It is the right question, and I won't pretend a spreadsheet can answer it. Whether a child's school should hang on their postcode is a matter of values, and reasonable, decent people will land in different places on it. I have tried throughout not to dress a question of fairness up as a question of arithmetic.
+
+But there is one test a policy defended on fairness has to pass: it has to actually be fair to the children in whose name it is made. And the fair thing to do, right now, is not to insist the policy is working, nor to insist that it is failing, but to *find out* — to measure whether the children who now travel further are missing more school, before we build any more of the city's future on the assumption that they are not.
+
+Class Divide end by saying a city serious about all its children will do both. I could not agree more. So let me be concrete about what "both" should mean. Fix the damp: keep up the fight on bus fares, on child poverty, on the unmet needs that keep children at home. And treat the mould as the emergency it is: help the poorest with the cost of the journey, fund the support that keeps anxious children in class, and honestly evaluate the effect of longer journeys on the children now making them.
+
+That is the work I would like to do, not against Class Divide but alongside them, and alongside the council and our schools. We already have some of the best schools in the country for the children who need them most. Imagine what they could do if everyone turned up.
+
+---
+
+*The talk and full report behind this post are [here](https://adamdennett.github.io/school_attainment_tool/). I am a Brighton parent and Professor of Urban Analytics at UCL; all of the analysis is built on data the government publishes for every school in England, and the methods are open for anyone to check.*

@@ -638,3 +638,173 @@ Once items are ticked off, this document converts into the formal response. Stru
 > **Response.** [what we did, where it now appears — section/page/figure]
 
 Keep the verbatim quotes above intact for that purpose.
+
+---
+
+# Author-initiated additions (not reviewer-prompted)
+
+## A1 (§6.2) — Class Divide "mould and damp" analogy
+
+- [x] Done
+
+Local campaign group Class Divide responded to an earlier presentation of this
+work with the analogy that **absence is the mould and poverty is the damp** —
+i.e. that treating absence directly is futile because the underlying poverty
+will keep regenerating it. The paper previously mentioned Class Divide only in
+passing (as a supporting organisation for Equity in Education) and did not
+engage the argument. §6.2 now does.
+
+The passage concedes what is right about the analogy — at pupil level the
+disadvantage/absence association is strong and well evidenced (DfE2025b), and
+our own two-stage decomposition (§5.5) shows a substantial share of school-level
+absence is inherited from intake — then shows it does not account for Brighton
+and Hove:
+
+| Evidence | Value |
+|---|---|
+| LA-level regression of mean absence on mean FSM | **R² = 0.033** |
+| B&H FSM eligibility | 25.2% (national 28.5% — *below* average) |
+| B&H absence predicted from FSM alone | 8.82% |
+| B&H actual absence | 10.77% (**+1.95pp excess**) |
+| Rank of that excess | **5th largest of 152 LAs** |
+| Mean absence of the 25 LAs within 2pp of B&H's FSM rate | 9.04% vs B&H 10.77% |
+| Absence change 2021-22 → 2024-25 | national −0.88pp; B&H −0.03pp (143rd of 152) |
+
+Framing: the conclusion drawn is *not* that poverty is irrelevant to absence,
+but that it cannot explain Brighton and Hove's position, and that the portion of
+the city's absence sitting above its intake prediction is precisely the portion
+local action can reach.
+
+---
+
+## A2 — Cross-check of prose figures against recomputed tables
+
+- [x] Done
+
+After the switch to mean KS2, several numbers quoted in the prose no longer
+matched the tables the models now produce. All figures below were recomputed
+from `data/panel_data.rds` / `data/models_imputed.rds`. Where practical the
+corrected values are now **inline R expressions** rather than typed constants,
+so they cannot drift again.
+
+### Table 1 (stepwise) — §4.2
+
+| Claim in prose | Was | Now | Note |
+|---|---|---|---|
+| M1 FSM coefficient | −0.201 | −0.201 | correct |
+| M1 R² ("almost 40%") | ~40% | 0.393 | correct |
+| M2 FSM ("halves to") | −0.122 | −0.122 | correct |
+| M2 R² ("over 60%") | >60% | 0.612 | correct |
+| M3 variance explained | "approximately two-thirds" | **0.696** | now "close to 70%", inline |
+| M3 *t*, % absence | −65.28 | **−60.5** | inline |
+| M3 *t*, mean KS2 | 48.49 | **58.2** | 48.49 was the *M5* value, inline |
+| M3 *t*, % FSM | −33.46 | **−21.0** | inline |
+| M5 marginal R² | 0.63 | **0.65** | inline |
+| M5 conditional R² | ~0.77 | **0.78** | inline |
+| Variance from grouping factors | 14% | **13%** | inline |
+
+### Ofsted (§4.2)
+
+Fixed-effect form, vs 'Outstanding': Good **−1.9** (was 2.2), Requires
+Improvement **−4.0** (was 4.2), Inadequate **−4.5** (was 4.7). Omitting Ofsted
+increases the absence effect by **12–15%** (was 13–16%).
+
+### Figure 1 (standardised coefficients) — §4.3 — substantive
+
+Switching to mean KS2 **changed the ordering**. Prior attainment now enters
+*positively* and is the largest standardised coefficient for all pupils
+(0.089 vs absence 0.059) and for non-disadvantaged pupils (0.085 vs 0.047).
+Absence remains largest for **disadvantaged** pupils (0.086 vs 0.079).
+
+The text claimed "absence is the dominant predictor across all groups", which is
+no longer true. Rewritten to distinguish **inherited intake** from **actionable
+levers**: prior attainment is fixed for a cohort already in school and belongs in
+the model as an intake control, so absence remains the largest factor open to
+intervention. The paper's argument and the abstract's "most impactful single
+policy lever" are unaffected.
+
+Separately, the claim that "nearly half of the variation for disadvantaged
+pupils is explained by attendance alone" was never supported: absence is
+**33%** of the combined standardised effect (34.8% under the old specification).
+Corrected to "roughly a third".
+
+### Value added (§5.6) — BACA improves
+
+Confirmed: BACA's disadvantaged value added *rises* under the new
+specification. Latest year **+5.2 → +5.7**; four-year mean **+2.81 → +3.06**.
+Still rank 1 of 10 in the city. Patcham's four-year mean moves **−2.57 → −2.37**
+(text said "~2.6", now inline). All now computed inline from `bh_long`.
+
+### Class Divide passage (§6.2) — recomputed on the paper's own sample
+
+The figures first drafted came from an ad-hoc sample. Recomputed on
+`national_latest` (the same basis as the "second-worst absence" claim) they are
+**stronger**: LA-level absence~FSM R² = **0.05**; B&H FSM 28.8% vs 29.6% average;
+predicted absence 8.2% vs actual 10.8%; excess **+2.6pp, the largest of any
+authority in England** (was reported as 5th); among the **20** authorities within
+2pp of its FSM rate, B&H has the highest absence, **2.3pp** above their mean.
+Now computed inline in a `mould-stats` chunk.
+
+### Other fixes
+
+- Intro claim "over 80% of the variation" → **"close to 80%"** (conditional R² is 0.78).
+- §3.2 "the remaining predictors, including the low-prior-attainment percentage" → mean KS2.
+- §4.3 "after controlling for absence and low prior attainment" → mean KS2.
+- Duplicated model equation (`$$…$$$$…$$`) removed — an editing artefact.
+- Duplicated citation `@nakagawa_coefficient_2017@nakagawa_coefficient_2017` collapsed.
+
+### Word table formatting
+
+Table cells use pandoc's `Compact` paragraph style, which inherited 12pt Times
+New Roman **double-spaced** from `Normal` — the reason tables overflowed. All 415
+`Compact` paragraphs in the document are inside tables (none outside), so
+restyling it is precisely targeted. `RPE_reference.docx` is a copy of
+`Manuscript_Anonymous.docx` with `Compact` set to **8pt, single-spaced** and
+table cell margins reduced from 108 to 43 twips. `RPE_Paper.qmd` now points at it.
+
+---
+
+## A3 — Three additions arising from post-submission critiques
+
+- [x] Done
+
+Prompted by criticisms of the underlying report from Prof. Gorard and Prof. Reay
+(commissioned by Class Divide and circulated to councillors). Those reviews are
+unpublished and so cannot be cited; each addition therefore stands on its own as
+the authors' own methodological reasoning, engaging only published work. All four
+references used were already in `SchoolAttainment.bib` but previously unused.
+
+**1. §3.2 — what the disadvantage coefficient measures.** The concession Adam
+judged most persuasive, and made sharper by the switch to mean KS2: a whole-
+distribution control absorbs more of the poverty signal than a single-tail one,
+which is why FSM attenuated by a quarter. New paragraph states the surviving
+coefficient is a *within-intake* comparison, not an estimate of poverty's total
+role. Cites `StopforthGayle2025`, `gorard_how_2019`. Closes the "his own model
+shows disadvantage barely matters" misreading — the mirror image of the mould/damp
+passage in §6.2.
+
+**2. §6.1 — school-effect magnitude.** The paper had no citation to the school-
+effectiveness literature. Now anchors "redistribution is a weak lever" to the
+8–15% between-school consensus: `Coleman1966`, `SmithTomlinson1989` (~10%),
+`TeddlieReynolds2000`. Own decomposition (supplementary) recovers the same order.
+Converts an assertion into a recovery of settled consensus.
+
+**3. §6.8 Limitations — inference on population data.** New paragraph: the panel
+is a population, not a sample; standard errors are interpreted as cohort-to-cohort
+stochastic variation; multilevel shrinkage guards against over-reading small-school
+noise; significance treated descriptively, citing `WassersteinLazar2016`. **No one
+is named and Gorard (2016) is deliberately not cited** — citing it would invite the
+argument into the paper. Pre-empts the objection for readers who have heard it.
+
+### Deliberately excluded
+
+- All material from `blog_gorarded_draft.md` — combative, names a senior academic;
+  its own counsel note advises holding it.
+- The commissioning context (Class Divide soliciting the reviews) — score-settling.
+- The "already established vs methodologically unsound" tension — a debate move.
+
+### Already covered, no action taken
+
+- Reay on reframing a political question as technical — intro scope paragraph.
+- "No one loses" / commute→absence mechanism — §6.1, incl. the pushback on
+  'almost no cost' citing `gorard_how_2019`.

@@ -117,3 +117,18 @@ data/early_years/
 
 # OSM tile cache (ggspatial/rosm map rendering)
 rosm.cache/
+
+# Screen recordings (too large for git; GitHub rejects files over 100MB)
+*.mp4
+
+# Word lock files
+~$*
+
+# Screen/audio recordings (too large for git)
+video/
+
+# Backups of data artefacts that are themselves ignored above
+data/_backup_*/
+
+# Third-party copyrighted PDFs - not ours to redistribute in a public repo
+Gorard_Papers/

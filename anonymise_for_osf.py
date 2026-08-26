@@ -102,6 +102,10 @@ URL_REWRITES = [
     # Logo image alt-text and src filenames that name the institution
     (re.compile(r'alt="UCL[^"]*"', flags=re.IGNORECASE), 'alt="logo"'),
     (re.compile(r'fonts/ucl-logo[^"\']*', flags=re.IGNORECASE), ''),
+    # UCL Sans is UCL's corporate typeface; the filename names the institution
+    # in view-source. The .otf/.ttf files are not shipped to OSF, so this
+    # reference is already broken and renaming it costs nothing.
+    (re.compile(r'UCLSans', flags=re.IGNORECASE), 'BodySans'),
 ]
 
 # Block-level scrub: remove the header-logos and footer-logos includes that
@@ -110,20 +114,42 @@ URL_REWRITES = [
 HEADER_SCRUB = [
     # Strip the entire UCL/AI4CI/UKRI logo strip wherever it appears.
     # Different files use different class names: header-logos (index),
-    # page-header-logos and page-footer-logos (Quarto-generated pages).
+    # topnav-logos (the index nav bar), and page-header-logos /
+    # page-footer-logos (Quarto-generated pages). The topnav variant carries
+    # a CASA logo whose alt text and link title name the institution.
     (re.compile(
-        r'<div class="(?:page-)?(?:header|footer)-logos">.*?</div>',
+        r'<div class="(?:(?:page-)?(?:header|footer|topnav)-logos|page-logo-bar)">.*?</div>',
         flags=re.DOTALL | re.IGNORECASE
     ), ''),
+    # Any title/alt attribute naming the institution directly.
+    (re.compile(
+        r'(title|alt|aria-label)="[^"]*(CASA|Centre for Advanced Spatial Analysis|UCL|Bartlett|AI4CI)[^"]*"',
+        flags=re.IGNORECASE
+    ), r'\1="logo"'),
     # 'View source on GitHub' footer link
     (re.compile(
         r'<a[^>]*github\.com/adamdennett[^>]*>.*?</a>',
+        flags=re.DOTALL | re.IGNORECASE
+    ), ''),
+    # Whole anchors pointing at the institution or the funder, wherever they
+    # sit (the index footer carries these outside any logo container). Must
+    # run BEFORE the href-neutralising rule below, which would otherwise strip
+    # the domain and leave the logo behind.
+    (re.compile(
+        r'<a[^>]*(?:ucl\.ac\.uk|ai4ci\.ac\.uk|ukri\.org)[^>]*>.*?</a>',
         flags=re.DOTALL | re.IGNORECASE
     ), ''),
     # Any remaining anchor whose href points at adamdennett.github.io but
     # that the relative-link rewrite missed (e.g. mailto-style or fragment)
     (re.compile(
         r'href="https?://adamdennett\.github\.io[^"]*"'
+    ), 'href="#"'),
+    # Institutional hrefs. The visible link TEXT is replaced above, but the
+    # URL itself also names the institution (e.g. ucl.ac.uk/bartlett/casa),
+    # which is visible on hover and in view-source.
+    (re.compile(
+        r'href="https?://[^"]*ucl\.ac\.uk[^"]*"',
+        flags=re.IGNORECASE
     ), 'href="#"'),
     # aria-label or alt naming the UCL logo directly (in case any survived
     # the outer-div strip)
@@ -202,8 +228,8 @@ def main():
     print()
     print("Post-anonymisation audit:")
     audit_terms = ["Adam Dennett", "adamdennett", "adam-dennett",
-                   "University College London", "Bartlett",
-                   "a.dennett@ucl.ac.uk", "profiles.ucl.ac.uk",
+                   "University College London", "Bartlett", "CASA",
+                   "ucl.ac.uk", "a.dennett@ucl.ac.uk", "profiles.ucl.ac.uk",
                    "Professor of Urban Analytics"]
     for name, _ in FILES:
         dst_path = DST / name
@@ -212,7 +238,14 @@ def main():
         text = dst_path.read_text(encoding="utf-8", errors="ignore")
         hits = []
         for term in audit_terms:
-            n = text.count(term)
+            # Ignore matches inside base64 blobs (embedded fonts/images):
+            # a genuine hit sits near markup or whitespace.
+            n = 0
+            for mm in re.finditer(re.escape(term.lower()), text.lower()):
+                a, b = max(0, mm.start() - 80), min(len(text), mm.end() + 80)
+                ctx = text[a:b]
+                if " " in ctx or "<" in ctx or ">" in ctx:
+                    n += 1
             if n > 0:
                 hits.append(f"{term}={n}")
         status = "  CLEAN" if not hits else "  ATTENTION: " + ", ".join(hits)
@@ -250,8 +283,10 @@ def main():
         "## Reviewer-response diagnostics\n\n"
         "The revised manuscript references three additional analyses, all in\n"
         "`model_experiments.html` under **Reviewer-response diagnostics**:\n\n"
-        "- **Prior-attainment robustness** — refits adding mean KS2 scaled score\n"
-        "  on the three-year sub-sample where it is published.\n"
+        "- **Prior-attainment measure** — why the models now control for the\n"
+        "  cohort's mean KS2 scaled score rather than the low-attainer share,\n"
+        "  comparing the two measures and both together, with the consequences\n"
+        "  for the disadvantage and absence coefficients.\n"
         "- **Ofsted specification** — random effect versus categorical fixed\n"
         "  effect, with per-band coefficients.\n"
         "- **Functional-form diagnostics** — AIC comparison of logged, linear and\n"

@@ -1,0 +1,7 @@
+00:22:11	Adam Dennett:	We'll start shortly - post any questions here to be addressed at the end in the Q&A session
+00:35:54	Beatrice Taylor:	Hi everyone, please feel free to post any questions you have here in the chat, or using the Q&A function. Adam will answer questions following the talk.
+01:38:48	Beatrice Taylor:	If you have questions about the presentation feel free to post them. However, please remain respectful, anyone using racist, homophobic, or otherwise offensive language will be removed.
+01:42:16	Beatrice Taylor:	Q1: Are there any other variables you’d have liked to have included in the model?
+01:51:12	Beatrice Taylor:	You can find all of Adam’s research including report and analysis here: https://adamdennett.github.io/school_attainment_tool/
+02:35:34	Beatrice Taylor:	Thank you everyone for attending and your questions.
+02:36:50	Beatrice Taylor:	We will make sure that Adam is able to see all the questions and comments.

@@ -38,8 +38,10 @@ viewer, which shows raw HTML source only.
 The revised manuscript references three additional analyses, all in
 `model_experiments.html` under **Reviewer-response diagnostics**:
 
-- **Prior-attainment robustness** — refits adding mean KS2 scaled score
-  on the three-year sub-sample where it is published.
+- **Prior-attainment measure** — why the models now control for the
+  cohort's mean KS2 scaled score rather than the low-attainer share,
+  comparing the two measures and both together, with the consequences
+  for the disadvantage and absence coefficients.
 - **Ofsted specification** — random effect versus categorical fixed
   effect, with per-band coefficients.
 - **Functional-form diagnostics** — AIC comparison of logged, linear and
