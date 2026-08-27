@@ -273,7 +273,7 @@ mod_school_selector_server <- function(id, selected_outcome, selected_school_urn
           `% Disadvantaged` = PTFSM6CLA1A,
           `Overall Absence (%)` = PERCTOT,
           `% EAL` = PNUMEAL,
-          `% Low Prior` = PTPRIORLO,
+          `Mean KS2` = KS2ASS,
           `Pupils` = TOTPUPS,
           Ofsted = OFSTEDRATING_1
         ) %>%

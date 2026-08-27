@@ -24,6 +24,8 @@ variable_display_name <- function(var_name) {
     PPERSABS10 = "Persistent Absence Rate (%)",
     PTFSM6CLA1A = "Disadvantaged Pupils (%)",
     PNUMEAL = "English as Additional Language (%)",
+    ks2_c = "Mean KS2 Prior Attainment (points above 100)",
+    KS2ASS = "Mean KS2 Scaled Score",
     PTPRIORLO = "Low Prior Attainment (%)",
     PTPRIORHI = "High Prior Attainment (%)",
     ADMPOL_PT = "Admissions Policy",
@@ -38,9 +40,11 @@ variable_display_name <- function(var_name) {
 }
 
 
-# Note: PTPRIORLO_BETA workaround removed — the imputed full model
-# (Analysis E) now includes PTPRIORLO directly in the model formula,
-# so predict_slim() handles it natively via the beta coefficients.
+# Prior attainment is controlled with the cohort's mean KS2 scaled score,
+# centred at the national standard of 100 (ks2_c). Earlier versions of the
+# model used the share of pupils arriving with LOW prior attainment
+# (PTPRIORLO), which sees only one tail of the intake distribution. ks2_c
+# enters the model linearly and predict_slim() handles it via the betas.
 
 
 #' Get the slider configuration for adjustable variables
@@ -72,12 +76,22 @@ get_slider_config <- function() {
       step = 1,
       direction = "higher_is_better"
     ),
-    PTPRIORLO = list(
-      display_name = "% Low Prior Attainment (KS2)",
-      unit = "%",
-      min_change = -30, max_change = 30,
-      step = 1,
-      direction = "lower_is_better"
+    ks2_c = list(
+      display_name = "Mean KS2 Prior Attainment",
+      unit = " pts",
+      # Centred at 100. Across the panel the cohort mean sits ~4.3 points
+      # above the national standard with an SD of ~2.8, so +/-6 spans
+      # roughly two standard deviations.
+      min_change = -6, max_change = 6,
+      step = 0.25,
+      direction = "higher_is_better",
+      # Centred at 100, so genuinely negative for below-average intakes.
+      # Without this the slider floor would clamp such schools up to zero
+      # and silently bake in a phantom improvement.
+      allow_negative = TRUE,
+      # Intake, not a policy lever: a school cannot change the prior
+      # attainment of a cohort it has already admitted.
+      is_intake = TRUE
     ),
     remained_in_the_same_school = list(
       display_name = "Teacher Retention (%)",
@@ -121,7 +135,7 @@ get_slider_config <- function() {
 #
 # The imputed full model formula (Analysis E) is:
 #   log(Y) ~ log(PTFSM6CLA1A) + log(PERCTOT) + log(PNUMEAL) +
-#            PTPRIORLO + ADMPOL_PT + gorard_segregation +
+#            ks2_c + ADMPOL_PT + gorard_segregation +
 #            remained_in_the_same_school +
 #            teachers_on_leadership_pay_range_percent +
 #            log(average_number_of_days_taken) +
@@ -170,7 +184,7 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
 
   # Linear continuous predictors (entered on raw scale)
   # remained_in_the_same_school moved here (skewness 0.47, near-symmetric)
-  linear_vars <- c("gorard_segregation", "PTPRIORLO",
+  linear_vars <- c("gorard_segregation", "ks2_c",
                     "teachers_on_leadership_pay_range_percent",
                     "remained_in_the_same_school")
   for (v in linear_vars) {
@@ -263,11 +277,11 @@ predict_slim <- function(slim_model, newdata, include_re = TRUE,
 #' @param slim_model A slim model list (from slim_imputed_models.rds)
 #' @param school_data A single-row dataframe with the school's current values
 #' @param modifications Named list of changes to apply (on the original scale).
-#'   e.g. list(PERCTOT = -5, PTFSM6CLA1A = -3, PTPRIORLO = -10)
+#'   e.g. list(PERCTOT = -5, PTFSM6CLA1A = -3, ks2_c = 1.5)
 #' @param include_re Logical. If TRUE (default), include random effects.
 #' @param ofsted_override Optional character: Ofsted rating to use for scenario.
 #' @param model_name Character name of the model (e.g. "all") — kept for API
-#'   compatibility but no longer used for PTPRIORLO lookup (now in model).
+#'   compatibility but no longer used for prior-attainment lookup (now in model).
 #' @return A list with baseline, scenario, change, and percent change values
 predict_scenario_slim <- function(slim_model, school_data, modifications = list(),
                                    include_re = TRUE, ofsted_override = NULL,
@@ -279,7 +293,7 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
   baseline <- predict_slim(slim_model, school_data, include_re = include_re)
 
   # 2. Apply all modifications to create scenario data
-  # All variables (including PTPRIORLO and workforce) are now in the model
+  # All variables (including ks2_c and workforce) are now in the model
   # directly, so no special-case handling is needed.
   scenario_data <- school_data
   for (var_name in names(modifications)) {
@@ -318,7 +332,7 @@ predict_scenario_slim <- function(slim_model, school_data, modifications = list(
 #' @param modifications Named list of changes
 #' @param include_re Logical
 #' @param ofsted_override Optional Ofsted rating override
-#' @param model_name Character model name for PTPRIORLO lookup
+#' @param model_name Character model name (retained for API compatibility)
 #' @return A tibble with variable, current_value, scenario_value, marginal_effect
 decompose_scenario_slim <- function(slim_model, school_data, modifications = list(),
                                      include_re = TRUE, ofsted_override = NULL,

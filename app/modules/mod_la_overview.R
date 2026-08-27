@@ -239,7 +239,7 @@ mod_la_overview_server <- function(id, selected_outcome) {
           `% Disadv.` = PTFSM6CLA1A,
           `Absence (%)` = PERCTOT,
           `% EAL` = PNUMEAL,
-          `% Low Prior` = PTPRIORLO,
+          `Mean KS2` = KS2ASS,
           `Adm. Policy` = ADMPOL_PT,
           `Segregation` = gorard_segregation,
           `Teacher Retention` = remained_in_the_same_school,

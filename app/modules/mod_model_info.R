@@ -234,9 +234,12 @@ mod_model_info_server <- function(id, selected_outcome) {
               tags$td("log(PNUMEAL)")
             ),
             tags$tr(
-              tags$td("PTPRIORLO"),
-              tags$td("Percentage of pupils with low prior attainment (at Key Stage 2)"),
-              tags$td("PTPRIORLO")
+              tags$td("ks2_c"),
+              tags$td(paste0("Cohort mean Key Stage 2 scaled score, centred at the ",
+                             "national standard of 100. Captures the whole intake ",
+                             "distribution rather than one tail: it records both how ",
+                             "many pupils arrived behind and how many arrived ahead.")),
+              tags$td("ks2_c")
             ),
             tags$tr(
               tags$td("ADMPOL_PT"),
@@ -302,10 +305,14 @@ mod_model_info_server <- function(id, selected_outcome) {
                   "(e.g. absence, teaching quality). The effect shown is indicative of the ",
                   "average difference between schools at each Ofsted rating, ",
                   "all else being equal."),
-          tags$li("The ", tags$strong("Low Prior Attainment (PTPRIORLO)"), " slider uses ",
-                  "an approximate coefficient from the full model (which includes workforce ",
-                  "and prior attainment data for 2021\u201324). This variable is unavailable ",
-                  "for 2024-25, so its effect is estimated from earlier years only.")
+          tags$li("The ", tags$strong("Mean KS2 Prior Attainment"), " slider describes ",
+                  "the intake a school receives, not a lever it can pull: the prior ",
+                  "attainment of a cohort already admitted cannot be changed. It is ",
+                  "included so you can see how much of a school's result is attributable ",
+                  "to who it admits. Note also that no prior-attainment data exists for ",
+                  "2024-25 (the KS2 assessments of 2019-20 and 2020-21 were cancelled ",
+                  "during the pandemic), so values for that year are carried forward from ",
+                  "each school's most recent observed cohort.")
         ),
         tags$p(class = "text-muted",
                tags$em("Data sources: DfE Performance Tables, Explore Education Statistics, ",

@@ -14,6 +14,7 @@ TWIN_VAR_GROUPS <- list(
   "Pupil Intake" = c(
     "PTFSM6CLA1A",    # % disadvantaged
     "PNUMEAL",        # % EAL
+    "KS2ASS",         # cohort mean KS2 scaled score (the model's measure)
     "PTPRIORLO",      # % low prior attainment (KS2)
     "PTPRIORHI",      # % high prior attainment (KS2)
     "PNUMFSMEVER",    # % FSM ever
@@ -45,6 +46,7 @@ TWIN_VAR_GROUPS <- list(
 TWIN_LABELS <- c(
   PTFSM6CLA1A = "% Disadvantaged",
   PNUMEAL = "% EAL",
+  KS2ASS = "Mean KS2 Score",
   PTPRIORLO = "% Low Prior (KS2)",
   PTPRIORHI = "% High Prior (KS2)",
   PNUMFSMEVER = "% FSM Ever",
@@ -593,7 +595,7 @@ mod_school_twin_server <- function(id, selected_outcome, selected_school_urn) {
       # Join with full data for display
       display_cols <- c(
         "URN", "SCHNAME", "LANAME", "gor_name",
-        "TOTPUPS", "PTFSM6CLA1A", "PNUMEAL", "PTPRIORLO", "PTPRIORHI",
+        "TOTPUPS", "PTFSM6CLA1A", "PNUMEAL", "KS2ASS", "PTPRIORLO", "PTPRIORHI",
         "PERCTOT", "PPERSABS10", "OFSTEDRATING_1", "SCHOOLTYPE",
         "ADMPOL_PT", "gender_name", "RELCHAR",
         "remained_in_the_same_school",

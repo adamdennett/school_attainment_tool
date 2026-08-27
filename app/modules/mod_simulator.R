@@ -114,8 +114,14 @@ mod_simulator_server <- function(id, selected_outcome, selected_school_urn) {
 
         if (is.na(current_val)) return(NULL)
 
-        # Calculate slider range
-        min_val <- max(current_val + cfg$min_change, 0.01)
+        # Calculate slider range. Most predictors are percentages or counts
+        # that must stay positive (several are log-transformed in the model),
+        # so their range is floored just above zero. Variables flagged
+        # allow_negative -- currently mean KS2, which is centred at 100 -- are
+        # left unfloored, otherwise a below-average school would be clamped up
+        # to zero and the scenario would bake in an improvement nobody asked for.
+        min_val <- current_val + cfg$min_change
+        if (!isTRUE(cfg$allow_negative)) min_val <- max(min_val, 0.01)
         max_val <- current_val + cfg$max_change
 
         # Look up England and LA averages for this variable and year
