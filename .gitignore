@@ -132,3 +132,6 @@ data/_backup_*/
 
 # Third-party copyrighted PDFs - not ours to redistribute in a public repo
 Gorard_Papers/
+
+# Copyrighted book PDF kept locally for reference, not redistributed
+osf_supplementary/*.pdf
