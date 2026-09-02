@@ -194,6 +194,33 @@ HEADER_SCRUB = [
 ]
 
 
+# The files that actually ship inside supplementary.zip. The index links to a
+# good deal more than this -- the report, the slide decks, the case study, the
+# financial and typology reports -- none of which is in the archive, and most
+# of which is NOT anonymised. Left as links they would dangle for a reviewer
+# who extracts the zip, and would advertise deliverables carrying the author's
+# name. We therefore unwrap those anchors, keeping the link text but removing
+# the link itself.
+SHIPPED = {
+    "index.html", "data_overview.html", "model_results.html",
+    "model_experiments.html", "about.html", "absence.html", "README.md",
+}
+
+_ANCHOR = re.compile(r'<a ([^>]*?)href="([^"]+)"([^>]*)>(.*?)</a>',
+                     flags=re.DOTALL | re.IGNORECASE)
+
+
+def _unwrap_unshipped(match: "re.Match") -> str:
+    href, inner = match.group(2), match.group(4)
+    low = href.strip().lower()
+    if low.startswith(("http://", "https://", "mailto:", "data:", "#")):
+        return match.group(0)                      # external or in-page: leave
+    base = href.split("#")[0].split("?")[0].strip()
+    if base in SHIPPED or base.startswith("absence_files"):
+        return match.group(0)                      # resolves inside the archive
+    return inner                                   # drop the link, keep the text
+
+
 def anonymise(text: str) -> str:
     # Block-level scrubs first so we don't waste passes on text inside
     # removed sections
@@ -205,6 +232,8 @@ def anonymise(text: str) -> str:
     # Plain substring replacements for visible text
     for needle, repl in TEXT_REPLACEMENTS:
         text = text.replace(needle, repl)
+    # Finally, neutralise links to anything not shipped in the archive.
+    text = _ANCHOR.sub(_unwrap_unshipped, text)
     return text
 
 
