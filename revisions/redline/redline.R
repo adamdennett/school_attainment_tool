@@ -12,12 +12,48 @@ AUTH <- "Revision"
 DATE <- "2026-08-25T00:00:00Z"
 DISCLOSIVE <- "adamdennett.github.io"
 
-read_paras <- function(f) {
+# Marker holding a multi-line block together as a single diff element.
+NL <- "\001"
+
+# Read one converted document into diff elements.
+#
+# Two things need care:
+#   * Footnotes. Both versions number their notes from [^1], so interleaving
+#     them would give duplicate definitions and misresolved references. Each
+#     document's labels are prefixed with a per-source tag to keep them apart.
+#   * Tables. Pandoc emits pipe tables one row per line, and the output below
+#     is reassembled with a blank line between elements -- which would split
+#     every row into its own paragraph and destroy the table. Contiguous table
+#     rows are collapsed into a single element here and expanded again at the
+#     end, so a table travels through the diff as one indivisible unit.
+read_blocks <- function(f, tag) {
   x <- readLines(f, warn = FALSE)
-  x[trimws(x) != ""]
+  x <- gsub("\\[\\^([A-Za-z0-9_.-]+)\\]", paste0("[^", tag, "\\1]"), x)
+
+  out <- character(0)
+  i <- 1L
+  n <- length(x)
+  # A table line is either a row (starts "|") or a grid border ("+---", "+:--").
+  is_row <- function(k) k >= 1L && k <= n &&
+    grepl("^[[:space:]]*([|]|[+][-:=])", x[k])
+  while (i <= n) {
+    if (is_row(i)) {
+      # Absorb contiguous table lines only. A blank line separates one table
+      # from the next, so tolerating blanks here would merge every table in
+      # the floats section into a single block.
+      j <- i
+      while (is_row(j + 1L)) j <- j + 1L
+      out <- c(out, paste(x[i:j], collapse = NL))
+      i <- j + 1L
+    } else {
+      if (trimws(x[i]) != "") out <- c(out, x[i])
+      i <- i + 1L
+    }
+  }
+  out
 }
-a <- read_paras(file.path(SP, "v1.md"))
-b <- read_paras(file.path(SP, "v2.md"))
+a <- read_blocks(file.path(SP, "v1.md"), "a")
+b <- read_blocks(file.path(SP, "v2.md"), "b")
 
 # ---- normalisation used for MATCHING only -----------------------------
 # Text is always emitted in its raw form; only the comparison key is
@@ -56,6 +92,27 @@ lcs_idx <- function(kx, ky) {
 span <- function(txt, cls)
   sprintf('[%s]{.%s author="%s" date="%s"}', txt, cls, AUTH, DATE)
 
+# Tables survive the docx -> markdown -> docx round trip only as ASCII art
+# inside a line block, which renders as an unreadable wall of pipes rather
+# than a table. Since table content is not tracked either way, we substitute a
+# short note naming the table. The body still carries the float placeholder
+# showing where each table belongs, and the manuscript itself has the real one.
+table_note <- function(s) {
+  rows <- strsplit(s, NL, fixed = TRUE)[[1]]
+  # The caption sits in the first cell, after the grid border, so scan for it
+  # rather than assuming it is the first line of the block.
+  cand <- gsub(" ", " ", rows)   # captions use a non-breaking space
+  cand <- trimws(gsub("^[[:space:]]*[|][[:space:]]*", "", cand))
+  cand <- trimws(gsub("[[:space:]]+", " ", cand))
+  hit  <- which(grepl("^(Table|Figure)[[:space:]]*[0-9]", cand))
+  cap  <- if (length(hit)) cand[hit[1]] else "Table"
+  cap  <- trimws(gsub("[[:space:]]*[|][[:space:]]*$", "", cap))  # trailing cell edge
+  kind <- if (grepl("^Figure", cap)) "figure" else "table"
+  if (nchar(cap) > 110) cap <- paste0(substr(cap, 1, 107), "...")
+  paste0("*[", cap, " — ", kind, " content is not tracked; see the manuscript ",
+         "for the current version.]*")
+}
+
 # ---- word-level diff of one paragraph --------------------------------
 word_diff <- function(s1, s2) {
   t1 <- strsplit(s1, " ", fixed = TRUE)[[1]]
@@ -79,9 +136,16 @@ word_diff <- function(s1, s2) {
   paste(out, collapse = " ")
 }
 
-# lines we do not word-diff (tables, images, fenced divs, maths)
-is_literal <- function(s) grepl("^[[:space:]]*([|]|:::|![[]|[{]|---|[+]-|[$])", s) ||
-                          grepl("[$][$]|varepsilon", s)
+# Blocks we never word-diff: tables, images, fenced divs, display maths, and
+# footnote definitions. A tracked redline through a results table is
+# unreadable; revision spans break TeX; and a definition wrapped in a span --
+# [[^b1]: text]{.insertion} -- is no longer a footnote definition at all, so
+# pandoc drops it and every reference to it renders as stray text. These all
+# pass through as whole units showing the new version.
+is_literal <- function(s) grepl("^[[:space:]]*([|]|:::|![[]|[{]|---|[+]-|[$]|<table)", s) ||
+                          grepl("^[[:space:]]*\\[\\^[A-Za-z0-9_.-]+\\]:", s) ||
+                          grepl("[$][$]|varepsilon", s) ||
+                          grepl(NL, s, fixed = TRUE)
 split_prefix <- function(s) {
   m <- regmatches(s, regexpr("^[[:space:]]*((#+|[-*+]|[0-9]+[.)]|>)[[:space:]]+)?", s))
   list(prefix = m, rest = substring(s, nchar(m) + 1))
@@ -90,7 +154,7 @@ split_prefix <- function(s) {
 # ---- paragraph-level alignment ---------------------------------------
 pops <- lcs_idx(norm(a), norm(b))
 res <- character(0)
-n_mod <- 0; n_ins <- 0; n_del <- 0; n_quiet <- 0
+n_mod <- 0; n_ins <- 0; n_del <- 0; n_quiet <- 0; n_tbl <- 0
 
 emit_changed_block <- function(di, si) {
   k <- min(length(di), length(si))
@@ -98,7 +162,14 @@ emit_changed_block <- function(di, si) {
     d <- a[di[n]]; s <- b[si[n]]
     # Never reveal a removed identifying URL: emit the new text untracked.
     if (is_disclosive(d)) { res <<- c(res, s); n_quiet <<- n_quiet + 1; next }
-    if (is_literal(d) || is_literal(s)) { res <<- c(res, s); n_mod <<- n_mod + 1; next }
+    if (is_literal(d) || is_literal(s)) {
+      if (grepl(NL, s, fixed = TRUE)) {
+        res <<- c(res, table_note(s)); n_tbl <<- n_tbl + 1
+      } else {
+        res <<- c(res, s); n_mod <<- n_mod + 1
+      }
+      next
+    }
     pd <- split_prefix(d); ps <- split_prefix(s)
     res <<- c(res, paste0(ps$prefix, word_diff(pd$rest, ps$rest)))
     n_mod <<- n_mod + 1
@@ -112,7 +183,11 @@ emit_changed_block <- function(di, si) {
   }
   if (length(si) > k) for (n in (k+1):length(si)) {
     s <- b[si[n]]
-    if (is_literal(s)) { res <<- c(res, s); next }
+    if (is_literal(s)) {
+      if (grepl(NL, s, fixed = TRUE)) { res <<- c(res, table_note(s)); n_tbl <<- n_tbl + 1 }
+      else res <<- c(res, s)
+      next
+    }
     p <- split_prefix(s)
     res <<- c(res, paste0(p$prefix, span(p$rest, "insertion"))); n_ins <<- n_ins + 1
   }
@@ -122,12 +197,44 @@ di <- integer(0); si <- integer(0)
 for (o in pops) {
   if (o[1] == 0L) {
     if (length(di) || length(si)) { emit_changed_block(di, si); di <- integer(0); si <- integer(0) }
-    res <- c(res, b[o[3]])          # unchanged: emit the NEW text
+    blk <- b[o[3]]                  # unchanged: emit the NEW text
+    if (grepl(NL, blk, fixed = TRUE)) { res <- c(res, table_note(blk)); n_tbl <- n_tbl + 1 }
+    else res <- c(res, blk)
   } else if (o[1] == -1L) di <- c(di, o[2])
   else si <- c(si, o[3])
 }
 if (length(di) || length(si)) emit_changed_block(di, si)
 
-writeLines(paste(res, collapse = "\n\n"), file.path(SP, "redline.md"))
-cat(sprintf("paragraphs: v1=%d v2=%d | modified=%d inserted=%d deleted=%d | untracked(disclosive)=%d\n",
-            length(a), length(b), n_mod, n_ins, n_del, n_quiet))
+# ---- reassemble -------------------------------------------------------
+txt <- paste(res, collapse = "\n\n")
+txt <- gsub(NL, "\n", txt, fixed = TRUE)      # restore table rows
+
+# Drop orphaned footnotes. Suppressing a disclosive note removes its
+# definition, and a reference left without one renders as stray text in Word;
+# a definition nobody references makes pandoc warn and emit nothing.
+def_pat <- "^\\[\\^([A-Za-z0-9_.-]+)\\]:"
+ref_pat <- "\\[\\^([A-Za-z0-9_.-]+)\\]"
+
+lines   <- strsplit(txt, "\n", fixed = TRUE)[[1]]
+is_def  <- grepl(def_pat, lines)
+defined <- sub("\\].*$", "", sub("^\\[\\^", "", lines[is_def]))
+
+refs <- unlist(regmatches(lines[!is_def], gregexpr(ref_pat, lines[!is_def])))
+referenced <- unique(gsub("^\\[\\^|\\]$", "", refs))
+
+orphan_refs <- setdiff(referenced, defined)
+unused_defs <- setdiff(defined, referenced)
+
+if (length(unused_defs)) {
+  drop <- is_def & (sub("\\].*$", "", sub("^\\[\\^", "", lines)) %in% unused_defs)
+  lines <- lines[!drop]
+}
+txt <- paste(lines, collapse = "\n")
+for (lab in orphan_refs) txt <- gsub(paste0("[^", lab, "]"), "", txt, fixed = TRUE)
+
+writeLines(txt, file.path(SP, "redline.md"))
+
+cat(sprintf("blocks: v1=%d v2=%d | modified=%d inserted=%d deleted=%d | tables passed through=%d | untracked(disclosive)=%d\n",
+            length(a), length(b), n_mod, n_ins, n_del, n_tbl, n_quiet))
+cat(sprintf("footnotes: %d defined, %d referenced | %d orphan refs stripped, %d unused defs dropped\n",
+            length(defined), length(referenced), length(orphan_refs), length(unused_defs)))

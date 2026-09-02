@@ -3462,6 +3462,89 @@ knitr::kable(cor_table, digits = 3,
 If the rank correlation between **M1 and M2** is very high (say > 0.95), the absence-vs-expected-absence choice barely moves the rankings overall --- the two specifications largely agree about who is doing well. The interesting cases sit where they disagree.
 
 
+
+## Why the paper uses M0 rather than M2 {#sec-m0-choice}
+
+Earlier versions of the manuscript built the quadrant figure's vertical axis
+from **M2** — the specification that substitutes stage 1's *expected* absence
+for raw absence. That choice is econometrically unsound, and the paper now uses
+**M0** instead. The reasoning is worth setting out, because the two produce
+almost identical results and a reader is entitled to know the choice does not
+drive anything.
+
+**The problem.** Expected absence is, by construction, a linear combination of
+the stage 1 predictors plus stage 1's random intercepts:
+
+$$\widehat{\log(\text{absence})} = \hat\beta_1 \log(\text{FSM}) + \hat\beta_2 \log(\text{EAL}) + \hat\beta_3 \text{KS2} + \hat\beta_4 \text{Seg} + \hat u_{\text{year}} + \hat u_{\text{region}} + \hat u_{\text{LA}}$$
+
+Every one of those terms already appears in M2. Regressing expected absence on
+M2's other fixed effects together with LA and year indicators returns
+$R^2 = 1.000$ exactly — it is a *perfect* linear combination, and the variance
+inflation factor is infinite. The model does not fail, because stage 2's place
+and year terms are random effects: shrinkage stops them absorbing stage 1's
+intercepts completely, and the sliver of variation that survives is what
+identifies the coefficient. That identification is an artefact of the shrinkage,
+not information about absence, so the coefficient on expected absence should not
+be interpreted despite its apparently comfortable *t*-statistic.
+
+**Why it barely matters in practice.** Collinearity inflates the variance of
+coefficients; it does not bias fitted values or residuals. Since the quadrant
+figure uses only residuals, moving from M2 to M0 changes very little:
+
+```{r}
+#| label: tbl-m0-m2-sensitivity
+#| tbl-cap: "Sensitivity of the value-added axis to dropping the expected-absence term."
+
+.r_m2 <- residuals(mod_M2)
+.r_m0 <- residuals(mod_M0)
+
+.sch <- stage2_data %>%
+  mutate(r_m2 = .r_m2, r_m0 = .r_m0) %>%
+  group_by(URN) %>%
+  summarise(att8 = mean(ATT8SCR, na.rm = TRUE),
+            m2 = mean(r_m2), m0 = mean(r_m0), .groups = "drop") %>%
+  mutate(va_m2 = att8 * (exp(m2) - 1),
+         va_m0 = att8 * (exp(m0) - 1))
+
+tibble(
+  Quantity = c("Residual correlation (school-year)",
+               "Value-added correlation (school)",
+               "Mean absolute change in value added (Att8 points)",
+               "Largest change in value added (Att8 points)",
+               "Schools changing sign of value added"),
+  Value = c(sprintf("%.5f", cor(.r_m2, .r_m0)),
+            sprintf("%.5f", cor(.sch$va_m2, .sch$va_m0)),
+            sprintf("%.3f", mean(abs(.sch$va_m2 - .sch$va_m0))),
+            sprintf("%.2f", max(abs(.sch$va_m2 - .sch$va_m0))),
+            sprintf("%d of %d (%.1f%%)",
+                    sum(sign(.sch$va_m2) != sign(.sch$va_m0)), nrow(.sch),
+                    100 * mean(sign(.sch$va_m2) != sign(.sch$va_m0))))
+) %>%
+  knitr::kable(align = "lr")
+```
+
+**The interpretive cost, and the discipline it imposes.** M0 omits absence
+altogether, so the disadvantage coefficient absorbs it: `log(PTFSM6CLA1A)` reads
+around −0.092 in M0 against −0.055 in the headline specification that controls
+absence directly. M0 is therefore a residual-generating device only, and none of
+its coefficients should be quoted. Every disadvantage estimate in the manuscript
+comes from the headline model.
+
+**A limitation shared by both.** Neither M0 nor M2 controls observed absence, so
+absence that lies outside a school's control but is not captured by intake or
+place is charged to the school's value added. Stage 1 explains 55% of absence
+variation, so this residual is not negligible. This is a property of the design
+— attendance management is deliberately counted inside the school's contribution
+— rather than a consequence of the M0/M2 choice.
+
+**A cleaner alternative, and why we do not use it.** A two-stage design would be
+econometrically sound if stage 1 contained predictors excluded from stage 2. The
+census neighbourhood measures used in Analysis F are the obvious candidates, but
+they fail the exclusion restriction on this project's own evidence: neighbourhood
+%-level-4+ survives the full Analysis E controls as a predictor of *attainment*
+at *t* ≈ 16. Instruments that predict the outcome directly are not valid
+instruments, so we prefer the simpler M0 specification.
+
 ## Where the specifications disagree most
 
 ```{r vadd-shifts}

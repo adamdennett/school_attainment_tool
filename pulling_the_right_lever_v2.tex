@@ -252,7 +252,7 @@ Analytics and Policy in England}
 \makeatother
 \subtitle{Lessons from Brighton and Hove --- Version 2.0}
 \author{Adam Dennett}
-\date{2026-08-26}
+\date{2026-08-28}
 \begin{document}
 \maketitle
 
@@ -513,7 +513,7 @@ effect on the conclusions.
   \url{https://github.com/adamdennett/school_attainment_tool}
 \end{itemize}
 
-\begin{tcolorbox}[enhanced jigsaw, colback=white, toprule=.15mm, opacityback=0, breakable, rightrule=.15mm, leftrule=.75mm, left=2mm, bottomrule=.15mm, colframe=quarto-callout-note-color-frame, arc=.35mm]
+\begin{tcolorbox}[enhanced jigsaw, opacityback=0, breakable, leftrule=.75mm, arc=.35mm, bottomrule=.15mm, rightrule=.15mm, colframe=quarto-callout-note-color-frame, left=2mm, colback=white, toprule=.15mm]
 \begin{minipage}[t]{5.5mm}
 \textcolor{quarto-callout-note-color}{\faInfo}
 \end{minipage}%
@@ -2351,24 +2351,37 @@ easily be distinguished from one whose absence is wholly structural.
 In supplementary analyses\footnote{Full technical details, model fits
   and diagnostics:
   \url{https://adamdennett.github.io/school_attainment_tool/model_experiments.html\#sec-two-stage-absence}},
-we have implemented a two-stage decomposition that addresses this.
-\textbf{Stage 1} models school-level absence on the intake variables we
-treat as exogenous (FSM, EAL, low prior attainment, segregation, plus
-place and year random effects), yielding two derived quantities for
-every school-year: an \emph{expected absence} (the part the intake
-predicts) and a \emph{residual absence} (what is left over --- broadly,
-the school-controllable component). \textbf{Stage 2} refits the
-attainment model using expected absence in place of raw absence, and
-drops the workforce predictors. The school-level residual from this
-revised attainment model is a more honest value-added measure: it gives
-credit for what the school adds to attainment over and above its intake,
-\emph{with} attendance management already counted as part of the
-school's contribution rather than stripped away as a control.
+we address this with two parallel models built on a single principle:
+adjust for what a school inherits, not for what it does. The
+\textbf{first model} predicts school-level absence from the intake
+variables we treat as exogenous (FSM, EAL, mean KS2 prior attainment,
+segregation, plus place and year random effects), yielding two
+quantities for every school-year: an \emph{expected absence} (the part
+the intake predicts) and a \emph{residual absence} (what is left over
+--- broadly, the school-controllable component). The \textbf{second
+model} predicts attainment from those same intake variables, with no
+absence control and no workforce predictors, since attendance management
+and workforce decisions are things a school does rather than things it
+receives. The school-level residual from this second model is a more
+honest value-added measure: it gives credit for what the school adds to
+attainment over and above its intake, \emph{with} attendance management
+already counted as part of the school's contribution rather than
+stripped away as a control.
 
-The national-level picture this paints is informative. Most of the
-school-year variation in absence is explained at stage 1 --- it is
-dominated by intake and place-level structural factors. The
-school-controllable residual is the smaller share, and at population
+Two caveats follow from this design. Because neither model controls
+observed absence, absence that is genuinely outside a school's control
+but not captured by intake or place will be charged to that school's
+value added --- the first model explains 55\% of absence variation, so
+the remainder is not trivial. And the second model's coefficients cannot
+be read as effects: with absence left out, the disadvantage term absorbs
+it and roughly doubles in size. We therefore use its residuals only, and
+every disadvantage estimate quoted elsewhere in this report comes from
+the headline model, which controls absence directly.
+
+The national-level picture this paints is informative. A little over
+half of the school-year variation in absence is explained by the first
+model --- it is dominated by intake and place-level structural factors.
+The school-controllable residual is the smaller share, and at population
 level its marginal contribution to attainment is modest after
 intake-driven absence is already accounted for. This does not mean
 attendance management is unimportant --- it means \emph{the headline
@@ -2383,20 +2396,20 @@ is inherited rather than generated.
 
 For local school-level diagnostics, however, the decomposition becomes
 considerably more informative. Two signals can now be read side by side:
-the school's value-added in the revised model, and its residual absence
-(positive when the school runs more absence than its intake would
-predict, negative when less). Sorted on these two axes, schools fall
-into four meaningful policy stories. Schools that add value \emph{and}
-manage attendance better than their intake predicts present an
-internally consistent strong-management profile. Schools that add value
-\emph{despite} worse-than-predicted attendance are pedagogically
-impressive cases where the obvious next lever is attendance. Schools
-that underperform \emph{and} run worse-than-predicted absence are the
-cleanest single-lever targets --- both signals point the same way.
-Schools that underperform \emph{despite} unusually good attendance
-management are the most awkward cases for an LEA to act on, since the
-gap must come from somewhere other than absence and the levers available
-are all harder to pull.
+the school's total value added, and its residual absence (positive when
+the school runs more absence than its intake would predict, negative
+when less). Sorted on these two axes, schools fall into four meaningful
+policy stories. Schools that add value \emph{and} manage attendance
+better than their intake predicts present an internally consistent
+strong-management profile. Schools that add value \emph{despite}
+worse-than-predicted attendance are pedagogically impressive cases where
+the obvious next lever is attendance. Schools that underperform
+\emph{and} run worse-than-predicted absence are the cleanest
+single-lever targets --- both signals point the same way. Schools that
+underperform \emph{despite} unusually good attendance management are the
+most awkward cases for an LEA to act on, since the gap must come from
+somewhere other than absence and the levers available are all harder to
+pull.
 
 The figure below previews this four-quadrant view for England's
 secondary schools. Each dot is one school. In the HTML version of this
@@ -2573,7 +2586,7 @@ high-performing city was mistaken for a failing one, but that a city
 with one specific, severe and addressable problem was prescribed a
 treatment for a different problem it did not have.
 
-\begin{tcolorbox}[enhanced jigsaw, colback=white, toprule=.15mm, opacityback=0, breakable, rightrule=.15mm, leftrule=.75mm, left=2mm, bottomrule=.15mm, colframe=quarto-callout-note-color-frame, arc=.35mm]
+\begin{tcolorbox}[enhanced jigsaw, opacityback=0, breakable, leftrule=.75mm, arc=.35mm, bottomrule=.15mm, rightrule=.15mm, colframe=quarto-callout-note-color-frame, left=2mm, colback=white, toprule=.15mm]
 \begin{minipage}[t]{5.5mm}
 \textcolor{quarto-callout-note-color}{\faInfo}
 \end{minipage}%
@@ -3338,7 +3351,7 @@ back.
 The analogy captures something real, and it deserves a serious answer
 rather than a dismissal. At pupil level the association between
 disadvantage and absence is strong and well evidenced (DfE, 2025b), and
-our own two-stage decomposition (Section~\ref{sec-decomposing-absence})
+our own absence decomposition (Section~\ref{sec-decomposing-absence})
 finds that a substantial part of school-level absence is inherited from
 intake rather than generated by the school. Any attendance strategy that
 ignores the material circumstances of families will disappoint, and we
@@ -3760,8 +3773,8 @@ this work is that, at the school level at least, we would not expect big
 improvements in attainment from changes to the social composition of
 schools.
 
-A further finding from this work, developed through the two-stage
-absence decomposition introduced in section 6, deserves explicit
+A further finding from this work, developed through the absence
+decomposition introduced in section 6, deserves explicit
 acknowledgement. While absence consistently emerges as the most powerful
 predictor of school-level attainment in our headline models, much of
 that statistical force is borrowed from a structural component --- the

@@ -135,3 +135,6 @@ Gorard_Papers/
 
 # Copyrighted book PDF kept locally for reference, not redistributed
 osf_supplementary/*.pdf
+
+# Local scratch: embargoed / pre-release data and analyses
+local/

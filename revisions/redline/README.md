@@ -64,3 +64,43 @@ unzip -p RPE_Paper_tracked_changes.docx word/document.xml | grep -c adamdennett
 ```
 
 This must return 0.
+
+## Footnotes and tables
+
+Two problems in the docx -> markdown -> docx round trip needed handling, both
+now solved in `redline.R`:
+
+**Footnotes were silently dropped.** Both versions number their notes from
+`[^1]`, so interleaving them produced duplicate definitions. Worse, a
+definition caught by the paragraph diff was wrapped in a revision span —
+`[[^b1]: text]{.insertion}` — which is no longer a footnote definition at all,
+so pandoc discarded it and every reference rendered as stray text. Labels are
+now prefixed per source (`a` for the old version, `b` for the new), definitions
+are treated as literal blocks that are never span-wrapped, and a final pass
+strips references whose definition has gone (which happens when a disclosive
+note is suppressed) and definitions nothing references. The output now carries
+the same 23 footnote entries and 21 references as the manuscript itself.
+
+**Tables came through as an unreadable wall of pipes.** Pandoc renders the
+manuscript's tables as grid tables — ASCII art spanning many lines — and the
+diff reassembles elements with a blank line between them, which split every row
+into its own paragraph. Contiguous table lines (rows starting `|`, borders
+starting `+-` or `+:`) are now collapsed into a single indivisible block. Since
+table content is not tracked either way, each block is replaced by a short
+italic note naming the table, e.g.
+
+> *[Table 1: Stepwise progression to the full multilevel model for overall
+> Attainment 8. — table content is not tracked; see the manuscript for the
+> current version.]*
+
+The body still carries the float placeholder showing where each table belongs,
+and the manuscript has the real thing.
+
+Verify after each build:
+
+```bash
+unzip -p RPE_Paper_tracked_changes.docx word/footnotes.xml | grep -c "<w:footnote "
+unzip -p RPE_Paper_tracked_changes.docx word/document.xml | sed 's/<[^>]*>//g' | grep -c "———————"
+```
+
+The first should match the manuscript's own count; the second must be 0.
