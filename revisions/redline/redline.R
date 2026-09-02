@@ -229,6 +229,33 @@ if (length(unused_defs)) {
   drop <- is_def & (sub("\\].*$", "", sub("^\\[\\^", "", lines)) %in% unused_defs)
   lines <- lines[!drop]
 }
+
+# Restore the bibliography style. Reference entries carry the "Bibliography"
+# paragraph style in the manuscript, which is where their hanging indent comes
+# from, but that marker is lost converting docx -> markdown and they would
+# otherwise be written back as ordinary body text. Wrapping the block in a div
+# with custom-style makes pandoc's docx writer apply the style again, picking
+# up the indent defined in RPE_reference.docx.
+hdr <- grep("^#+[[:space:]]+References", lines)
+if (length(hdr)) {
+  h    <- hdr[1]
+  nxt  <- grep("^#+[[:space:]]", lines)
+  nxt  <- nxt[nxt > h]
+  end  <- if (length(nxt)) nxt[1] - 1L else length(lines)
+  body <- lines[(h + 1L):end]
+  if (any(trimws(body) != "")) {
+    lines <- c(lines[seq_len(h)],
+               "",
+               "::: {custom-style=\"Bibliography\"}",
+               body,
+               ":::",
+               "",
+               if (end < length(lines)) lines[(end + 1L):length(lines)] else character(0))
+    n_refs <- sum(trimws(body) != "")
+    cat(sprintf("bibliography: %d reference entries wrapped in the Bibliography style\n", n_refs))
+  }
+}
+
 txt <- paste(lines, collapse = "\n")
 for (lab in orphan_refs) txt <- gsub(paste0("[^", lab, "]"), "", txt, fixed = TRUE)
 

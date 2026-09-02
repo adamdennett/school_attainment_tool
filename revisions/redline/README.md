@@ -104,3 +104,19 @@ unzip -p RPE_Paper_tracked_changes.docx word/document.xml | sed 's/<[^>]*>//g' |
 ```
 
 The first should match the manuscript's own count; the second must be 0.
+
+## Bibliography indent
+
+Reference entries carry the `Bibliography` paragraph style in the manuscript,
+which is where their hanging indent comes from. That style marker does not
+survive the docx -> markdown conversion, so the entries were being written back
+as ordinary body text with the indent lost. The reference block is now wrapped
+in a div with `custom-style="Bibliography"`, which makes pandoc's docx writer
+apply the style again and pick up the indent defined in `RPE_reference.docx`.
+
+The redline's count runs one or two above the manuscript's, which is expected:
+references deleted between versions appear in the redline as tracked deletions.
+
+```bash
+unzip -p RPE_Paper_tracked_changes.docx word/document.xml | grep -c 'w:pStyle w:val="Bibliography"'
+```
