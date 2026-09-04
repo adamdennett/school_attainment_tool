@@ -381,6 +381,44 @@ step_tbl <- tibble(term = all_terms) %>%
 
 n_fixed <- nrow(step_tbl)
 
+# -- Apportioning the shared variance between the three main predictors --
+# t-values in a multiple regression describe each predictor's UNIQUE
+# contribution, so where predictors are correlated -- and these are strongly
+# correlated -- they cannot rank importance. We therefore also compute each
+# variable's R-squared on its own, and its Shapley (LMG) share: the average
+# increase in R-squared it produces across every possible order of entry,
+# which is the standard way of apportioning variance two predictors share.
+# Every subset must be fitted on the SAME rows, or the incremental R-squared
+# values are not comparable: lm() drops incomplete cases silently, so a model
+# containing mean KS2 would otherwise be fitted on 11 fewer school-years than
+# one without it.
+decomp_data <- step_data %>%
+  filter(!is.na(ks2_c), !is.na(PTFSM6CLA1A), !is.na(PERCTOT), !is.na(ATT8SCR))
+
+.r2_of <- function(vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste("log(ATT8SCR) ~", rhs)), data = decomp_data))$r.squared
+}
+.three  <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c")
+
+r2_alone <- setNames(vapply(.three, \(v) .r2_of(v), numeric(1)), .three)
+
+.perms  <- list(c(1,2,3), c(1,3,2), c(2,1,3), c(2,3,1), c(3,1,2), c(3,2,1))
+.shap   <- setNames(numeric(3), .three)
+for (p in .perms) {
+  sofar <- character(0)
+  for (i in p) {
+    v <- .three[i]
+    .shap[v] <- .shap[v] + (.r2_of(c(sofar, v)) - .r2_of(sofar))
+    sofar <- c(sofar, v)
+  }
+}
+shapley_share <- (.shap / length(.perms)) / sum(.shap / length(.perms))
+
+# correlations among the three, for the text
+cor_fsm_ks2 <- cor(log(decomp_data$PTFSM6CLA1A), decomp_data$ks2_c)
+cor_abs_ks2 <- cor(log(decomp_data$PERCTOT), decomp_data$ks2_c)
+
 vc <- as.data.frame(VarCorr(m5))
 re_rows <- tibble(
   term = c("Random effects", paste0("  ", c("Year", "Ofsted rating", "Region",
@@ -426,7 +464,13 @@ if (tbl_fmt == "latex") {
 }
 ```
 
-The stepwise progression in @tbl-stepwise reveals the mediating structure among the key predictors. In Model 1, we start with the % KS4 pupils who are disadvantaged (%FSM for short) as the only predictor - mainly as this was the variable that has dominated the policy discussion in Brighton and Hove in recent years, leading to the 2023 FSM priority policy and the 2024 mixing policy. the FSM coefficient is --0.201 and statistically significant, on its own accounting for almost 40% of the variation in Attainment 8 across schools in England. However, adding absence in Model 2 halves it to --0.122. Absence shares explanatory power attributed to deprivation, reducing the coefficient of %FSM, and adds further explanation, together they now account for over 60% of the variation in Attainment 8 scores. Adding prior attainment in Model 3 reduces both FSM and absence coefficients further. By Model 3, with just three variables, close to `r round(summary(m3)$r.squared * 100)`% of attainment variation is explained, with the t-values (in some respects a standardised version of the coefficients allowing for a degree of relative comparison) showing that % absence (t = `r sprintf("%.1f", summary(m3)$coefficients["log(PERCTOT)", "t value"])`) is the most important variable, mean KS2 prior attainment (t = `r sprintf("%.1f", summary(m3)$coefficients["ks2_c", "t value"])`) the next most important and % FSM the least influential (t = `r sprintf("%.1f", summary(m3)$coefficients["log(PTFSM6CLA1A)", "t value"])`).
+The stepwise progression in @tbl-stepwise reveals the mediating structure among the key predictors. In Model 1, we start with the % KS4 pupils who are disadvantaged (%FSM for short) as the only predictor - mainly as this was the variable that has dominated the policy discussion in Brighton and Hove in recent years, leading to the 2023 FSM priority policy and the 2024 mixing policy. the FSM coefficient is --0.201 and statistically significant, on its own accounting for almost 40% of the variation in Attainment 8 across schools in England. However, adding absence in Model 2 halves it to --0.122. Absence shares explanatory power attributed to deprivation, reducing the coefficient of %FSM, and adds further explanation, together they now account for over 60% of the variation in Attainment 8 scores. Adding prior attainment in Model 3 reduces both FSM and absence coefficients further. By Model 3, with just three variables, close to `r round(summary(m3)$r.squared * 100)`% of attainment variation is explained.
+
+Ranking these three predictors by importance needs more care than it might appear, and it is worth being explicit about why. The t-values in Model 3 (% absence `r sprintf("%.1f", summary(m3)$coefficients["log(PERCTOT)", "t value"])`, mean KS2 `r sprintf("%.1f", summary(m3)$coefficients["ks2_c", "t value"])`, % FSM `r sprintf("%.1f", summary(m3)$coefficients["log(PTFSM6CLA1A)", "t value"])`) describe how precisely each coefficient is estimated once the other two are held constant --- that is, each variable's *unique* contribution. But these three variables are strongly correlated with one another (% FSM with mean KS2 at `r sprintf("%.2f", cor_fsm_ks2)`, % absence with mean KS2 at `r sprintf("%.2f", cor_abs_ks2)`), so a great deal of the variance they explain is shared between them rather than belonging to any one. A variable that shares heavily with the others will have a modest t-value even where it accounts for a large share of attainment on its own, and t-values therefore cannot settle which factor matters most.
+
+Two measures that can apportion the shared variance point the same way as each other. Taken on its own, mean KS2 explains `r round(r2_alone[["ks2_c"]] * 100)`% of the variation in Attainment 8, absence `r round(r2_alone[["log(PERCTOT)"]] * 100)`% and % FSM `r round(r2_alone[["log(PTFSM6CLA1A)"]] * 100)`%. Apportioning the shared variance more formally, by averaging each variable's contribution across every possible order in which the three could enter the model (the Shapley or LMG decomposition [@Gromping2007]), gives mean KS2 `r round(shapley_share[["ks2_c"]] * 100)`% of the explained variance, absence `r round(shapley_share[["log(PERCTOT)"]] * 100)`% and % FSM `r round(shapley_share[["log(PTFSM6CLA1A)"]] * 100)`%.
+
+Prior attainment, then, is the largest single source of variation in school-level attainment, with absence close behind --- consistent with the standardised coefficients we report in section 4.3. The point that matters for policy survives every one of these measures: **concentrations of disadvantage come last on all three**, whether judged by unique contribution, by explanatory power alone, or by apportioned share. We return in section 4.3 to what follows from this, and in particular to the distinction between a factor that is large and a factor that can be acted upon.
 
 Before we get to Model 4, at this point, it is worth noting that in this iteration of the analysis we switch from low KS2 prior attainment to mean KS2 score - the difference materially affects two of our estimates. The low-attainment share measures only the bottom of a school's intake distribution: it records how many pupils arrived already behind, but says nothing about how many arrived ahead. Two schools with identical proportions of low prior attainers can have very different intakes across the rest of the attainment spectrum. A model controlling only for the low-attainment share cannot distinguish them, and so systematically under-adjusts for schools whose advantage lies at the *top* of the distribution. Mean KS2 score, contrastingly, reflects the whole distribution - both tails - and produces a better model fit (a reduction in AIC of over 500 for the all-pupil model); once it is included, the low-attainment share adds nothing further (t = -0.45).
 

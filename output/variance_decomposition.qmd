@@ -1,0 +1,504 @@
+---
+title: "Shared Variance and Relative Importance"
+subtitle: "How much does each predictor really explain, and does the answer depend on how we ask?"
+author: "Supplementary note"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    fig-width: 9
+    fig-height: 6
+    fig-dpi: 150
+    df-print: kable
+    embed-resources: true
+bibliography: ../SchoolAttainment.bib
+csl: ../chicago-author-date.csl
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(here)
+library(knitr)
+library(kableExtra)
+library(scales)
+
+panel <- readRDS(here::here("data", "panel_data.rds"))
+
+# The Analysis E estimation sample, restricted to complete cases on every
+# predictor so that all subsets below are fitted on identical rows. This
+# matters: lm() drops incomplete cases silently, so models containing
+# different variables would otherwise be fitted on different samples and
+# their R-squared values would not be comparable.
+d <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(ks2_c), !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+         !is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0) %>%
+  droplevels()
+
+PREDS <- c(
+  "log(PTFSM6CLA1A)"                         = "% FSM (disadvantage)",
+  "log(PERCTOT)"                             = "% Absence",
+  "ks2_c"                                    = "Mean KS2 prior attainment",
+  "log(PNUMEAL)"                             = "% EAL",
+  "ADMPOL_PT"                                = "Admissions policy",
+  "gorard_segregation"                       = "Gorard segregation",
+  "remained_in_the_same_school"              = "Teacher retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership pay %",
+  "log(average_number_of_days_taken)"        = "Teacher sickness days"
+)
+
+FOCAL <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c")
+
+r2_of <- function(vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste("log(ATT8SCR) ~", rhs)), data = d))$r.squared
+}
+
+lbl <- function(v) unname(PREDS[v])
+
+theme_vd <- theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40"),
+        panel.grid.minor = element_blank())
+```
+
+## Why this note exists
+
+The paper's stepwise table (Model 1 to Model 5) reports coefficients and
+*t*-values for each predictor. It is tempting to read those *t*-values as a
+ranking of importance, and an earlier draft of section 4.2 did exactly that.
+That reading is not safe, for a reason worth setting out carefully.
+
+In a multiple regression, each coefficient describes a predictor's **unique**
+contribution: the association that remains once every other predictor is held
+constant. Where predictors are uncorrelated, unique contribution and total
+contribution are the same thing and nothing is lost. Where predictors are
+correlated, a large part of the variance they explain is **shared** between
+them, and the model has no way to attribute that shared part to one variable
+rather than another. It simply goes unallocated. A variable that overlaps
+heavily with the others will therefore show a modest *t*-value even when it
+accounts for a great deal of the outcome on its own.
+
+Our three main predictors overlap a good deal, so this is not a hypothetical
+concern. This note quantifies it: it reports what each predictor explains on
+its own, what every combination of predictors explains, and how the shared
+variance is apportioned when we use a method designed for that purpose. It
+then asks the question that actually matters --- whether the paper's
+conclusions depend on which measure we choose.
+
+The analysis sample is `r format(nrow(d), big.mark = ",")` school-years, the
+same rows used for the paper's models, restricted to complete cases so that
+every model below is fitted on identical data.
+
+## How much do the predictors overlap?
+
+```{r}
+#| label: fig-corr
+#| fig-cap: "Correlations between the model's continuous predictors. Strong off-diagonal values mean shared variance that a multiple regression cannot attribute to one variable rather than another."
+#| fig-height: 6.5
+
+num_preds <- setdiff(names(PREDS), "ADMPOL_PT")
+X <- as.data.frame(lapply(num_preds, function(v) {
+  raw <- sub("^log\\((.*)\\)$", "\\1", v)
+  x <- d[[raw]]
+  if (grepl("^log\\(", v)) log(x) else x
+}))
+names(X) <- lbl(num_preds)
+
+cm <- cor(X, use = "complete.obs")
+cm_long <- as.data.frame(as.table(cm)) %>%
+  setNames(c("a", "b", "r"))
+
+ggplot(cm_long, aes(a, b, fill = r)) +
+  geom_tile(colour = "white", linewidth = 0.6) +
+  geom_text(aes(label = sprintf("%.2f", r),
+                colour = abs(r) > 0.55), size = 3.1, show.legend = FALSE) +
+  scale_fill_gradient2(low = "#c0392b", mid = "white", high = "#2e6260",
+                       midpoint = 0, limits = c(-1, 1), name = "r") +
+  scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "grey20")) +
+  labs(title = "Correlations between predictors",
+       subtitle = "The three main predictors overlap substantially",
+       x = NULL, y = NULL) +
+  coord_equal() +
+  theme_vd +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+```{r}
+#| label: tbl-focal-corr
+#| tbl-cap: "Correlations between the three main predictors."
+
+fx <- data.frame(
+  fsm = log(d$PTFSM6CLA1A), abs = log(d$PERCTOT), ks2 = d$ks2_c
+)
+tibble(
+  Pair = c("% FSM and mean KS2", "% Absence and mean KS2", "% FSM and % Absence"),
+  r = c(cor(fx$fsm, fx$ks2), cor(fx$abs, fx$ks2), cor(fx$fsm, fx$abs))
+) %>%
+  mutate(r = sprintf("%+.3f", r)) %>%
+  kable(align = "lr")
+```
+
+Schools with more disadvantaged intakes have markedly lower prior attainment,
+and schools with higher absence also have lower prior attainment. These are
+not nuisance correlations to be controlled away; they are the structure of the
+problem. But they do mean that a large share of the variance in attainment is
+explained by these variables *jointly*, and any claim about which one matters
+most has to say how the joint part is being handled.
+
+## What each predictor explains on its own
+
+The simplest question: fit each predictor alone against attainment, and record
+the $R^2$. This is the *total* association, including everything the variable
+shares with the others.
+
+```{r}
+#| label: tbl-univariate
+#| tbl-cap: "Each predictor fitted on its own. This is total explanatory power, sharing included."
+
+uni <- map_dfr(names(PREDS), function(v) {
+  tibble(Predictor = lbl(v), `R²` = r2_of(v))
+}) %>% arrange(desc(`R²`))
+
+uni %>%
+  mutate(`R²` = sprintf("%.3f", `R²`),
+         `Variance explained` = percent(as.numeric(`R²`), accuracy = 0.1)) %>%
+  kable(align = "lrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-univariate
+#| fig-cap: "Variance in school-level Attainment 8 explained by each predictor on its own."
+#| fig-height: 4.5
+
+uni %>%
+  mutate(Predictor = fct_reorder(Predictor, `R²`)) %>%
+  ggplot(aes(`R²`, Predictor)) +
+  geom_col(fill = "#4e3c56", width = 0.72) +
+  geom_text(aes(label = percent(`R²`, accuracy = 0.1)),
+            hjust = -0.15, size = 3.2, colour = "grey25") +
+  scale_x_continuous(labels = percent, limits = c(0, 0.68),
+                     expand = expansion(mult = c(0, 0.02))) +
+  labs(title = "Explanatory power of each predictor on its own",
+       subtitle = "Total association, including variance shared with other predictors",
+       x = "R² alone", y = NULL) +
+  theme_vd
+```
+
+On this measure prior attainment leads, absence follows, and disadvantage is
+third. Note how different this is from the *t*-values in the paper's Model 3,
+where absence appears strongest and disadvantage weakest by a wide margin. The
+gap between the two pictures is precisely the shared variance.
+
+## Every combination of the three main predictors
+
+The table below fits all eight possible subsets of disadvantage, absence and
+prior attainment, and reports both the model $R^2$ and how each coefficient
+and *t*-value moves as its companions are added.
+
+```{r}
+#| label: tbl-subsets
+#| tbl-cap: "All 8 subsets of the three main predictors, fitted on identical rows. Watch the FSM coefficient shrink as its companions enter."
+
+subsets <- list(character(0), "log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c",
+                c("log(PTFSM6CLA1A)", "log(PERCTOT)"),
+                c("log(PTFSM6CLA1A)", "ks2_c"),
+                c("log(PERCTOT)", "ks2_c"),
+                FOCAL)
+
+fit_sub <- function(vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  m <- lm(as.formula(paste("log(ATT8SCR) ~", rhs)), data = d)
+  s <- summary(m)$coefficients
+  get <- function(v, col) if (v %in% vs) s[v, col] else NA_real_
+  tibble(
+    Model = if (length(vs) == 0) "(intercept only)"
+            else paste(c("FSM", "Absence", "KS2")[match(vs, FOCAL)], collapse = " + "),
+    `R²`      = summary(m)$r.squared,
+    `FSM β`   = get("log(PTFSM6CLA1A)", "Estimate"),
+    `FSM t`   = get("log(PTFSM6CLA1A)", "t value"),
+    `Abs β`   = get("log(PERCTOT)", "Estimate"),
+    `Abs t`   = get("log(PERCTOT)", "t value"),
+    `KS2 β`   = get("ks2_c", "Estimate"),
+    `KS2 t`   = get("ks2_c", "t value")
+  )
+}
+subs <- map_dfr(subsets, fit_sub)
+
+subs %>%
+  mutate(across(where(is.numeric), \(x) ifelse(is.na(x), "—", sprintf("%.3f", x)))) %>%
+  kable(align = "lrrrrrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 12)
+```
+
+```{r}
+#| label: fig-coef-drift
+#| fig-cap: "How the disadvantage coefficient changes as the other predictors are added. Each bar is a model; the coefficient more than halves once absence and prior attainment are present."
+#| fig-height: 4
+
+subs %>%
+  filter(!is.na(`FSM β`)) %>%
+  mutate(Model = fct_reorder(Model, `FSM β`)) %>%
+  ggplot(aes(`FSM β`, Model)) +
+  geom_col(fill = "#c0392b", width = 0.6) +
+  geom_text(aes(label = sprintf("%.3f", `FSM β`)), hjust = 1.15,
+            colour = "white", size = 3.2) +
+  scale_x_continuous(expand = expansion(mult = c(0.02, 0))) +
+  labs(title = "The disadvantage coefficient depends heavily on what else is in the model",
+       subtitle = "log(% FSM) coefficient across the four models that contain it",
+       x = "Coefficient on log(% FSM)", y = NULL) +
+  theme_vd
+```
+
+This is the shared-variance problem made visible. Disadvantage on its own
+carries a coefficient of about −0.20; with absence and prior attainment
+alongside it, that falls to roughly −0.05. Nothing about the schools has
+changed --- only what else the model is being told.
+
+Which of those numbers is "the effect of disadvantage" depends entirely on the
+question. If you want the total association between a school's intake
+composition and its results, the first is closer. If you want the association
+that remains between two schools with the same absence and the same prior
+attainment, the last is closer. The paper needs the second, because its
+question is what happens if you change intake composition while everything
+else stays as it is --- but it should not then describe that number as the
+importance of disadvantage in general, and section 3.2 now says so explicitly.
+
+## Apportioning the shared variance
+
+Neither "$R^2$ alone" nor "the coefficient in the full model" is a complete
+answer. The first hands each variable all of the shared variance; the second
+hands it none. The standard resolution is to average over every possible
+order in which the variables could enter: a variable's contribution is
+computed when it enters first, second and third, and these are averaged. This
+is the Shapley value from cooperative game theory, known in this context as
+the LMG decomposition after @Lindeman1980, and implemented for R by
+@Gromping2007.
+
+```{r}
+#| label: shapley-focal
+
+# 3 variables = 6 orderings; done by hand to avoid a package dependency
+perms3 <- list(c(1,2,3), c(1,3,2), c(2,1,3), c(2,3,1), c(3,1,2), c(3,2,1))
+shap3 <- setNames(numeric(3), FOCAL)
+for (p in perms3) {
+  sofar <- character(0)
+  for (i in p) {
+    v <- FOCAL[i]
+    shap3[v] <- shap3[v] + (r2_of(c(sofar, v)) - r2_of(sofar))
+    sofar <- c(sofar, v)
+  }
+}
+shap3 <- shap3 / length(perms3)
+```
+
+```{r}
+#| label: tbl-shapley
+#| tbl-cap: "Shapley (LMG) decomposition of the three-predictor model. Each variable's contribution is averaged over all six orders of entry, so the shared variance is split rather than assigned arbitrarily."
+
+tibble(
+  Predictor = lbl(FOCAL),
+  `R² alone` = vapply(FOCAL, r2_of, numeric(1)),
+  `Shapley R²` = as.numeric(shap3[FOCAL]),
+  `Share of explained variance` = as.numeric(shap3[FOCAL]) / sum(shap3)
+) %>%
+  arrange(desc(`Shapley R²`)) %>%
+  mutate(
+    `R² alone` = sprintf("%.3f", `R² alone`),
+    `Shapley R²` = sprintf("%.3f", `Shapley R²`),
+    `Share of explained variance` = percent(`Share of explained variance`, accuracy = 0.1)
+  ) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-three-rankings
+#| fig-cap: "The three predictors ranked three ways. Prior attainment and absence swap places depending on the measure; disadvantage is last on all three."
+#| fig-height: 4.5
+
+m3 <- lm(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + ks2_c, data = d)
+tvals <- abs(summary(m3)$coefficients[FOCAL, "t value"])
+
+rank_df <- bind_rows(
+  tibble(Predictor = lbl(FOCAL), Measure = "R² alone",
+         Value = vapply(FOCAL, r2_of, numeric(1)) / sum(vapply(FOCAL, r2_of, numeric(1)))),
+  tibble(Predictor = lbl(FOCAL), Measure = "|t| in the 3-variable model",
+         Value = tvals / sum(tvals)),
+  tibble(Predictor = lbl(FOCAL), Measure = "Shapley (LMG) share",
+         Value = as.numeric(shap3[FOCAL]) / sum(shap3))
+) %>%
+  mutate(Measure = factor(Measure, levels = c("|t| in the 3-variable model",
+                                              "R² alone", "Shapley (LMG) share")))
+
+ggplot(rank_df, aes(Value, fct_rev(factor(Predictor)), fill = Predictor)) +
+  geom_col(width = 0.68, show.legend = FALSE) +
+  geom_text(aes(label = percent(Value, accuracy = 0.1)), hjust = -0.12,
+            size = 3, colour = "grey25") +
+  facet_wrap(~ Measure, nrow = 1) +
+  scale_x_continuous(labels = percent, limits = c(0, 0.62),
+                     expand = expansion(mult = c(0, 0.02))) +
+  scale_fill_manual(values = c("% FSM (disadvantage)" = "#c0392b",
+                               "% Absence" = "#2e6260",
+                               "Mean KS2 prior attainment" = "#4e3c56")) +
+  labs(title = "Relative importance under three different measures",
+       subtitle = "Each measure rescaled to shares so the three are comparable",
+       x = "Share of the total", y = NULL) +
+  theme_vd
+```
+
+The ranking of the top two **does** depend on the measure. By *t*-value,
+absence leads; by explanatory power alone and by the Shapley decomposition,
+prior attainment leads. This is exactly why the paper no longer rests any
+claim on the *t*-value ordering.
+
+What does not change is the position of disadvantage: **last under all three
+measures**, whether it is credited with all of the shared variance, none of
+it, or an even split. The paper's substantive argument depends only on that,
+and it is robust to the choice.
+
+## All nine predictors
+
+The same decomposition across the full fixed-effect specification. With nine
+predictors there are $2^9 = 512$ subsets and $9! = 362{,}880$ orderings, so
+the Shapley values are computed from the subset lattice rather than by
+enumerating permutations --- the two are mathematically identical, but the
+first is tractable.
+
+```{r}
+#| label: shapley-full
+#| cache: false
+
+vars9 <- names(PREDS)
+k <- length(vars9)
+
+# R-squared for every subset, indexed by bitmask
+masks <- 0:(2^k - 1)
+r2_cache <- numeric(length(masks))
+for (m in masks) {
+  sel <- vars9[bitwAnd(m, 2^(seq_len(k) - 1)) > 0]
+  r2_cache[m + 1] <- r2_of(sel)
+}
+
+# Shapley value from the lattice:
+#   phi_i = sum over subsets S not containing i of
+#           |S|!(k-|S|-1)!/k! * (R2(S+i) - R2(S))
+lfact <- lfactorial
+phi <- numeric(k)
+for (i in seq_len(k)) {
+  bit <- 2^(i - 1)
+  for (m in masks) {
+    if (bitwAnd(m, bit) == 0) {
+      s <- sum(bitwAnd(m, 2^(seq_len(k) - 1)) > 0)
+      w <- exp(lfact(s) + lfact(k - s - 1) - lfact(k))
+      phi[i] <- phi[i] + w * (r2_cache[bitwOr(m, bit) + 1] - r2_cache[m + 1])
+    }
+  }
+}
+names(phi) <- vars9
+```
+
+```{r}
+#| label: tbl-shapley-full
+#| tbl-cap: "Shapley (LMG) decomposition across all nine fixed-effect predictors, computed over all 512 subsets."
+
+full_tbl <- tibble(
+  Predictor = lbl(vars9),
+  `R² alone` = vapply(vars9, r2_of, numeric(1)),
+  `Shapley R²` = phi,
+  `Share` = phi / sum(phi)
+) %>% arrange(desc(`Shapley R²`))
+
+full_tbl %>%
+  mutate(`R² alone` = sprintf("%.3f", `R² alone`),
+         `Shapley R²` = sprintf("%.3f", `Shapley R²`),
+         `Share` = percent(`Share`, accuracy = 0.1)) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-shapley-full
+#| fig-cap: "Explanatory power alone against apportioned share, all nine predictors. Variables far above the diagonal owe much of their apparent strength to variance shared with others."
+#| fig-height: 5.5
+
+full_tbl %>%
+  mutate(Predictor = fct_reorder(Predictor, `Shapley R²`)) %>%
+  pivot_longer(c(`R² alone`, `Shapley R²`), names_to = "Measure", values_to = "Value") %>%
+  ggplot(aes(Value, Predictor, fill = Measure)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.68) +
+  scale_fill_manual(values = c("R² alone" = "#abc766", "Shapley R²" = "#4e3c56")) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.04))) +
+  labs(title = "Alone versus apportioned",
+       subtitle = "The gap between the two bars is variance the predictor shares with others",
+       x = "Variance explained", y = NULL, fill = NULL) +
+  theme_vd +
+  theme(legend.position = "bottom")
+```
+
+The sum of the Shapley values is
+`r sprintf("%.3f", sum(phi))`, which by construction equals the $R^2$ of the
+full nine-predictor model --- the decomposition allocates all of the explained
+variance and none of it twice.
+
+## What this means for the paper
+
+Three conclusions, in order of how much they matter.
+
+**The importance ranking of the top two predictors is method-dependent, and
+the paper should not assert one.** Section 4.2 previously ranked the three by
+*t*-value and called absence the most important. That has been rewritten: it
+now reports the *t*-values as measures of precision, states plainly that they
+cannot rank importance where predictors are correlated, and gives the
+explanatory-power and Shapley figures alongside. Section 4.3, which uses
+standardised coefficients from the full model, already placed prior attainment
+first; the two sections no longer contradict one another.
+
+**The paper's argument does not depend on the choice.** Concentrations of
+disadvantage rank last on every measure tried here. The claim the paper
+actually makes --- that disadvantage concentration is a weak lever relative to
+absence, and that an admissions policy built on it is unlikely to deliver the
+gains sought --- is unaffected by how the shared variance is apportioned.
+
+**Prior attainment is large but is not a lever.** The measures above rank
+*explanatory power*, not *actionability*. Prior attainment is the single
+largest source of variation on two of the three measures, but it is fixed for
+any cohort already in secondary school: it describes the intake a school
+receives, not something the school or its authority can change. Once it is set
+aside as intake rather than lever, absence is the largest factor remaining
+that is open to intervention --- which is the distinction section 4.3 draws
+and the one on which the policy argument rests.
+
+## A caveat on all of this
+
+Every measure here is descriptive. None of them licenses a causal reading, and
+the relative-importance literature is explicit that these decompositions
+apportion *variance explained*, not *effect* [@Gromping2007]. Two predictors
+can share variance because one causes the other, because a third thing causes
+both, or because they are alternative measurements of the same underlying
+disadvantage --- and no decomposition of an observational dataset can tell
+these apart. That prior attainment, absence and disadvantage overlap so
+heavily is itself the substantive finding: they are facets of a single
+structure, and the policy question is not which is "most important" but which
+of them can actually be moved.

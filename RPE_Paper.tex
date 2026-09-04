@@ -139,20 +139,20 @@
  
 
 
-\usepackage{booktabs}
-\usepackage{longtable}
-\usepackage{array}
-\usepackage{multirow}
-\usepackage{wrapfig}
-\usepackage{float}
-\usepackage{colortbl}
-\usepackage{pdflscape}
-\usepackage{tabu}
-\usepackage{threeparttable}
-\usepackage{threeparttablex}
-\usepackage[normalem]{ulem}
-\usepackage{makecell}
-\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
 \usepackage{authblk}
 \renewcommand\Affilfont{\small\itshape}
 \renewcommand\Authfont{\normalsize}
@@ -223,7 +223,7 @@ absence, disadvantage gap, multilevel modelling, open data},
 \title{Pulling the Right Lever: School Attainment, Open Data Analytics
 and Local Education Policy in England}
 \author{Adam Dennett \and Beatrice Taylor \and Dan Campbell-Meiklejohn}
-\date{2026-09-02}
+\date{2026-09-04}
 \begin{document}
 \maketitle
 \begin{abstract}
@@ -638,11 +638,38 @@ explanatory power attributed to deprivation, reducing the coefficient of
 60\% of the variation in Attainment 8 scores. Adding prior attainment in
 Model 3 reduces both FSM and absence coefficients further. By Model 3,
 with just three variables, close to 70\% of attainment variation is
-explained, with the t-values (in some respects a standardised version of
-the coefficients allowing for a degree of relative comparison) showing
-that \% absence (t = -60.5) is the most important variable, mean KS2
-prior attainment (t = 58.2) the next most important and \% FSM the least
-influential (t = -21.0).
+explained.
+
+Ranking these three predictors by importance needs more care than it
+might appear, and it is worth being explicit about why. The t-values in
+Model 3 (\% absence -60.5, mean KS2 58.2, \% FSM -21.0) describe how
+precisely each coefficient is estimated once the other two are held
+constant --- that is, each variable's \emph{unique} contribution. But
+these three variables are strongly correlated with one another (\% FSM
+with mean KS2 at -0.69, \% absence with mean KS2 at -0.59), so a great
+deal of the variance they explain is shared between them rather than
+belonging to any one. A variable that shares heavily with the others
+will have a modest t-value even where it accounts for a large share of
+attainment on its own, and t-values therefore cannot settle which factor
+matters most.
+
+Two measures that can apportion the shared variance point the same way
+as each other. Taken on its own, mean KS2 explains 59\% of the variation
+in Attainment 8, absence 50\% and \% FSM 39\%. Apportioning the shared
+variance more formally, by averaging each variable's contribution across
+every possible order in which the three could enter the model (the
+Shapley or LMG decomposition (Grömping 2007)), gives mean KS2 42\% of
+the explained variance, absence 36\% and \% FSM 23\%.
+
+Prior attainment, then, is the largest single source of variation in
+school-level attainment, with absence close behind --- consistent with
+the standardised coefficients we report in section 4.3. The point that
+matters for policy survives every one of these measures:
+\textbf{concentrations of disadvantage come last on all three}, whether
+judged by unique contribution, by explanatory power alone, or by
+apportioned share. We return in section 4.3 to what follows from this,
+and in particular to the distinction between a factor that is large and
+a factor that can be acted upon.
 
 Before we get to Model 4, at this point, it is worth noting that in this
 iteration of the analysis we switch from low KS2 prior attainment to
@@ -1906,6 +1933,11 @@ Grant, Catherine. 2017. \emph{The {Contribution} of {Education} to
 {Economic} {Growth}}. Report. The Institute of Development Studies;
 Partner Organisations.
 \url{https://opendocs.ids.ac.uk/articles/report/The_Contribution_of_Education_to_Economic_Growth/26453986/1}.
+
+\bibitem[\citeproctext]{ref-Gromping2007}
+Grömping, Ulrike. 2007. {``Relative Importance for Linear Regression in
+{R}: The Package {relaimpo}.''} \emph{Journal of Statistical Software}
+17 (1): 1--27. \url{https://doi.org/10.18637/jss.v017.i01}.
 
 \bibitem[\citeproctext]{ref-Guan2025}
 Guan, Hongwei, Jingjing Xue, Yaqi Zhang, Fang Chang, and Wei Liu. 2025.
