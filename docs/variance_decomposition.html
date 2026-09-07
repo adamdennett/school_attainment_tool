@@ -2899,7 +2899,8 @@ Figure 3: How the disadvantage coefficient changes as the other predictors are 
 </section>
 <section id="apportioning-the-shared-variance" class="level2" data-number="5">
 <h2 data-number="5" class="anchored" data-anchor-id="apportioning-the-shared-variance"><span class="header-section-number">5</span> Apportioning the shared variance</h2>
-<p>Neither “<span class="math inline">\(R^2\)</span> alone” nor “the coefficient in the full model” is a complete answer. The first hands each variable all of the shared variance; the second hands it none. The standard resolution is to average over every possible order in which the variables could enter: a variable’s contribution is computed when it enters first, second and third, and these are averaged. This is the Shapley value from cooperative game theory, known in this context as the LMG decomposition after <span class="citation" data-cites="Lindeman1980">Lindeman et al. (<a href="#ref-Lindeman1980" role="doc-biblioref">1980</a>)</span>, and implemented for R by <span class="citation" data-cites="Gromping2007">Grömping (<a href="#ref-Gromping2007" role="doc-biblioref">2007</a>)</span>.</p>
+<p>Neither “<span class="math inline">\(R^2\)</span> alone” nor “the coefficient in the full model” is a complete answer. The first hands each variable all of the shared variance; the second hands it none. The standard resolution is to average over every possible order in which the variables could enter: a variable’s contribution is computed when it enters first, second and third, and these are averaged. This is the Shapley value from cooperative game theory <span class="citation" data-cites="Shapley1953">(<a href="#ref-Shapley1953" role="doc-biblioref">Shapley 1953</a>)</span>, known in this context as the LMG decomposition after <span class="citation" data-cites="Lindeman1980">Lindeman et al. (<a href="#ref-Lindeman1980" role="doc-biblioref">1980</a>)</span> and set out for regression by <span class="citation" data-cites="Gromping2007">Grömping (<a href="#ref-Gromping2007" role="doc-biblioref">2007</a>)</span>.</p>
+<p>The values reported here are computed directly in this document rather than taken from a package: for three predictors by averaging over all six orders of entry, and for the nine-predictor model by summing weighted marginal contributions over the subset lattice. The <code>relaimpo</code> package <span class="citation" data-cites="Gromping2007">(<a href="#ref-Gromping2007" role="doc-biblioref">Grömping 2007</a>)</span> implements the same quantity as <code>calc.relimp(type = &quot;lmg&quot;)</code>, and reproducing the nine-predictor decomposition through it returns identical figures — the largest discrepancy is of order <span class="math inline">\(10^{-14}\)</span>, which is floating-point noise. Computing it inline keeps the cohort-by-cohort and outcome-by-outcome variants used later in this note on a single code path.</p>
 <div class="cell">
 <div id="tbl-shapley" class="cell quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -3654,6 +3655,9 @@ Grömping, Ulrike. 2007. <span>“Relative Importance for Linear Regression in <
 </div>
 <div id="ref-Lindeman1980" class="csl-entry" role="listitem">
 Lindeman, Richard H., Peter F. Merenda, and Ruth Z. Gold. 1980. <em>Introduction to Bivariate and Multivariate Analysis</em>. Scott, Foresman.
+</div>
+<div id="ref-Shapley1953" class="csl-entry" role="listitem">
+Shapley, Lloyd S. 1953. <span>“A Value for n-Person Games.”</span> In <em>Contributions to the Theory of Games, Volume <span>II</span></em>, edited by Harold W. Kuhn and Albert W. Tucker, vol. 28, 28. Annals of Mathematics Studies. Princeton University Press. <a href="https://doi.org/10.1515/9781400881970-018">https://doi.org/10.1515/9781400881970-018</a>.
 </div>
 </div></section></div></main>
 <!-- /main column -->

@@ -292,9 +292,19 @@ answer. The first hands each variable all of the shared variance; the second
 hands it none. The standard resolution is to average over every possible
 order in which the variables could enter: a variable's contribution is
 computed when it enters first, second and third, and these are averaged. This
-is the Shapley value from cooperative game theory, known in this context as
-the LMG decomposition after @Lindeman1980, and implemented for R by
-@Gromping2007.
+is the Shapley value from cooperative game theory [@Shapley1953], known in
+this context as the LMG decomposition after @Lindeman1980 and set out for
+regression by @Gromping2007.
+
+The values reported here are computed directly in this document rather than
+taken from a package: for three predictors by averaging over all six orders of
+entry, and for the nine-predictor model by summing weighted marginal
+contributions over the subset lattice. The `relaimpo` package [@Gromping2007]
+implements the same quantity as `calc.relimp(type = "lmg")`, and reproducing
+the nine-predictor decomposition through it returns identical figures --- the
+largest discrepancy is of order $10^{-14}$, which is floating-point noise.
+Computing it inline keeps the cohort-by-cohort and outcome-by-outcome variants
+used later in this note on a single code path.
 
 ```{r}
 #| label: shapley-focal
