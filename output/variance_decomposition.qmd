@@ -33,6 +33,8 @@ library(here)
 library(knitr)
 library(kableExtra)
 library(scales)
+library(patchwork)
+library(lme4)
 
 panel <- readRDS(here::here("data", "panel_data.rds"))
 
@@ -1113,3 +1115,175 @@ here are unweighted, so those schools carry the same weight as large ones.
 This is one plausible contributor to the lower explained variance for the
 disadvantaged cohort, and it should be borne in mind before reading the
 residual as headroom.
+
+## A combined figure: direction and apportioned magnitude together {#sec-combined-figure}
+
+The paper's Figure 1 plots standardised coefficients for the three pupil
+groups. That shows *direction*, which matters --- the sign on disadvantage
+concentration reverses between cohorts, and the reversal is one of the paper's
+substantive findings --- but a standardised coefficient is a partial quantity,
+so it understates any predictor that shares a lot of variance with the others.
+The Shapley shares computed above have the opposite property: they apportion
+the shared variance, but a variance decomposition has no sign.
+
+Neither quantity is dispensable, and neither can be made to carry the other's
+information. The figure below therefore shows both, on a shared vertical axis,
+with predictors ordered by apportioned share.
+
+```{r}
+#| label: fig1-combined-data
+
+# Standardised coefficients come from the paper's fitted multilevel models, so
+# the left panel is the quantity Figure 1 already reports. Shapley shares are
+# computed by OLS over the full subset lattice, as everywhere else in this
+# note: 2^9 subsets per cohort is tractable with lm() and is not with lmer().
+models_imputed <- readRDS(here::here("data", "models_imputed.rds"))
+
+FIG_MODELS <- list("All pupils"        = models_imputed$all,
+                   "Disadvantaged"     = models_imputed$disadvantaged,
+                   "Non-disadvantaged" = models_imputed$non_disadvantaged)
+FIG_OUTCOME <- c("All pupils"        = "ATT8SCR",
+                 "Disadvantaged"     = "ATT8SCR_FSM6CLA1A",
+                 "Non-disadvantaged" = "ATT8SCR_NFSM6CLA1A")
+
+FIG_LABELS <- c(
+  "log(PERCTOT)"                             = "Overall absence",
+  "ks2_c"                                    = "Mean KS2 prior attainment",
+  "log(PTFSM6CLA1A)"                         = "% disadvantaged (FSM)",
+  "ADMPOL_PT"                                = "Selective admissions",
+  "log(PNUMEAL)"                             = "% EAL",
+  "remained_in_the_same_school"              = "Teacher retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership pay %",
+  "log(average_number_of_days_taken)"        = "Teacher sickness days",
+  "gorard_segregation"                       = "Gorard segregation index"
+)
+FIG_VARS <- names(FIG_LABELS)
+
+# The comparison needs every cohort outcome present on the same rows.
+fig_d <- d %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+fig_sd <- function(v) {
+  if (v == "ADMPOL_PT") return(sd(as.numeric(fig_d$ADMPOL_PT == "SEL"), na.rm = TRUE))
+  raw <- sub("^log\\((.*)\\)$", "\\1", v)
+  x <- if (grepl("^log\\(", v)) log(fig_d[[raw]]) else fig_d[[raw]]
+  sd(x, na.rm = TRUE)
+}
+
+# signed standardised coefficient from the fitted multilevel model
+fig_std <- function(model) {
+  fe <- lme4::fixef(model)
+  vapply(FIG_VARS, function(v) {
+    nm <- if (v == "ADMPOL_PT") "ADMPOL_PTSEL" else v
+    if (!nm %in% names(fe)) return(NA_real_)
+    unname(fe[[nm]]) * fig_sd(v)
+  }, numeric(1))
+}
+
+# Shapley over all 2^9 subsets, by OLS, on the same rows
+fig_r2 <- function(y, vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste0("log(", y, ") ~ ", rhs)), data = fig_d))$r.squared
+}
+fig_shapley <- function(y) {
+  k <- length(FIG_VARS)
+  masks <- 0:(2^k - 1)
+  r2c <- vapply(masks, function(m)
+    fig_r2(y, FIG_VARS[bitwAnd(m, 2^(seq_len(k) - 1)) > 0]), numeric(1))
+  phi <- numeric(k)
+  for (i in seq_len(k)) {
+    bit <- 2^(i - 1)
+    for (m in masks) {
+      if (bitwAnd(m, bit) == 0) {
+        s <- sum(bitwAnd(m, 2^(seq_len(k) - 1)) > 0)
+        w <- exp(lfactorial(s) + lfactorial(k - s - 1) - lfactorial(k))
+        phi[i] <- phi[i] + w * (r2c[bitwOr(m, bit) + 1] - r2c[m + 1])
+      }
+    }
+  }
+  setNames(phi, FIG_VARS)
+}
+
+fig_dat <- purrr::map_dfr(names(FIG_MODELS), function(nm) {
+  phi <- fig_shapley(FIG_OUTCOME[[nm]])
+  tibble(Cohort = nm, var = FIG_VARS, Predictor = unname(FIG_LABELS[FIG_VARS]),
+         share = as.numeric(phi) / sum(phi),
+         std   = as.numeric(fig_std(FIG_MODELS[[nm]])))
+})
+
+fig_lev <- fig_dat %>% filter(Cohort == "All pupils") %>%
+  arrange(share) %>% pull(Predictor)
+fig_dat <- fig_dat %>%
+  mutate(Predictor = factor(Predictor, levels = fig_lev),
+         Cohort = factor(Cohort, levels = names(FIG_MODELS)))
+```
+
+```{r}
+#| label: fig-combined
+#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils."
+#| fig-width: 11
+#| fig-height: 5.8
+
+COH_COL <- c("All pupils" = "#4e3c56", "Disadvantaged" = "#c0392b",
+             "Non-disadvantaged" = "#2e6260")
+
+fig_theme <- theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(colour = "grey35", size = 9, lineheight = 1.1),
+        legend.position = "bottom")
+
+p_left <- ggplot(fig_dat, aes(std, Predictor, fill = Cohort)) +
+  geom_vline(xintercept = 0, colour = "grey40") +
+  geom_col(position = position_dodge(width = 0.78), width = 0.7) +
+  scale_fill_manual(values = COH_COL) +
+  labs(subtitle = "Direction and unique contribution\n(standardised coefficient)",
+       x = "Change in log(Attainment 8) per 1 SD", y = NULL) +
+  fig_theme
+
+p_right <- ggplot(fig_dat, aes(share, Predictor, fill = Cohort)) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.7) +
+  scale_fill_manual(values = COH_COL) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.04))) +
+  labs(subtitle = "Apportioned share of explained variance\n(Shapley, sharing resolved)",
+       x = "Share of model R²", y = NULL) +
+  fig_theme +
+  theme(axis.text.y = element_blank())
+
+(p_left | p_right) +
+  patchwork::plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+Reading the two panels together gives the paper's argument in one view.
+
+**Absence is the largest factor a school can act on.** Prior attainment is
+larger still on the right-hand panel for two of the three groups, but it
+describes the intake a school receives rather than anything it can change for a
+cohort already on roll. Set it aside and absence leads everywhere --- and for
+disadvantaged pupils it is the largest term outright, on both panels.
+
+**Disadvantage concentration is small, and its direction depends on who is
+being asked about.** On the right it sits third for every group. On the left the
+sign reverses: negative for all pupils and for the non-disadvantaged, positive
+for the disadvantaged. Neither panel could show this alone. The Shapley shares
+would say only that the predictor is small; the standardised coefficients would
+understate how small, because a variable sharing this much variance with the
+others gets little credit in a partial measure.
+
+**The two panels disagree about ordering, and that disagreement is the point.**
+For all pupils the standardised coefficient makes absence look larger than
+prior attainment, while the apportioned share reverses them. Nothing is wrong
+in either: they answer different questions, one about unique contribution and
+one about total contribution with the sharing split. Reporting only the first,
+as the paper's stepwise table did in an earlier draft, invites a ranking it
+cannot support.
+
+A note on construction. The standardised coefficients are taken from the
+multilevel models the paper fits, so the left panel reports exactly the
+quantity Figure 1 reports now. The Shapley shares are computed by OLS over all
+512 subsets of the nine fixed effects: with `lmer()` the lattice would need
+1,536 multilevel fits and is not practical, and the ordering is in any case
+governed by the fixed part. Both panels use the same school-years, restricted
+to rows where all three cohort outcomes are published.
