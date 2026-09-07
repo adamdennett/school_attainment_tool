@@ -1222,7 +1222,7 @@ fig_dat <- fig_dat %>%
 
 ```{r}
 #| label: fig-combined
-#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils."
+#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils. The two panels rank the leading pair differently for all pupils: the standardised coefficient makes absence appear larger than prior attainment, while the apportioned share reverses them. This is expected rather than contradictory, since the first measures each predictor's unique contribution and the second its total contribution with the shared variance divided between them. Disadvantage concentration ranks third on both panels for every pupil group."
 #| fig-width: 11
 #| fig-height: 5.8
 
