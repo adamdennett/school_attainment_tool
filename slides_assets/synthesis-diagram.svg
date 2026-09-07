@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" font-family="'Arial', 'Helvetica', sans-serif">
+
+  <!-- Panel backgrounds -->
+  <rect width="960" height="310" fill="#FAFAFA"/>
+  <rect x="0" y="0" width="457" height="310" fill="#fff8fa"/>
+  <rect x="503" y="0" width="457" height="310" fill="#f8f5fb"/>
+
+  <!-- Panel headers -->
+  <rect x="12" y="8" width="430" height="36" rx="6" fill="#ED357D"/>
+  <text x="227" y="31" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Single-strand thinking</text>
+
+  <rect x="518" y="8" width="430" height="36" rx="6" fill="#3A1857"/>
+  <text x="733" y="31" text-anchor="middle" font-size="14" fill="white" font-weight="bold">Multi-factor synthesis</text>
+
+  <!-- Centre divider -->
+  <line x1="480" y1="5" x2="480" y2="305" stroke="#ddd" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <circle cx="480" cy="168" r="18" fill="#FAFAFA" stroke="#ddd" stroke-width="1.5"/>
+  <text x="480" y="173" text-anchor="middle" font-size="12" fill="#aaa" font-weight="bold">vs</text>
+
+  <!-- ===== LEFT PANEL: greyed factor boxes ===== -->
+
+  <!-- Row 1: Deprivation -->
+  <rect x="15" y="55" width="185" height="32" rx="5" fill="#f0e8f4" stroke="#d8cce6" stroke-width="1"/>
+  <text x="107" y="75" text-anchor="middle" font-size="12" fill="#b0a0c0">Deprivation / FSM</text>
+
+  <!-- Row 2: Prior attainment -->
+  <rect x="15" y="94" width="185" height="32" rx="5" fill="#f0e8f4" stroke="#d8cce6" stroke-width="1"/>
+  <text x="107" y="114" text-anchor="middle" font-size="12" fill="#b0a0c0">Prior attainment</text>
+
+  <!-- Row 3: School intake — HIGHLIGHTED -->
+  <rect x="15" y="133" width="185" height="32" rx="5" fill="#ED357D" stroke="#c0274a" stroke-width="1.5"/>
+  <text x="107" y="153" text-anchor="middle" font-size="12" fill="white" font-weight="bold">School intake / segregation</text>
+
+  <!-- Row 4: Absence -->
+  <rect x="15" y="172" width="185" height="32" rx="5" fill="#f0e8f4" stroke="#d8cce6" stroke-width="1"/>
+  <text x="107" y="192" text-anchor="middle" font-size="12" fill="#b0a0c0">Absence / attendance</text>
+
+  <!-- Row 5: School effectiveness -->
+  <rect x="15" y="211" width="185" height="32" rx="5" fill="#f0e8f4" stroke="#d8cce6" stroke-width="1"/>
+  <text x="107" y="231" text-anchor="middle" font-size="12" fill="#b0a0c0">School effectiveness</text>
+
+  <!-- Row 6: SEND -->
+  <rect x="15" y="250" width="185" height="32" rx="5" fill="#f0e8f4" stroke="#d8cce6" stroke-width="1"/>
+  <text x="107" y="270" text-anchor="middle" font-size="12" fill="#b0a0c0">SEND / vulnerability</text>
+
+  <!-- Disconnected dashed stubs from greyed factors -->
+  <line x1="200" y1="71"  x2="228" y2="71"  stroke="#d8cce6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="200" y1="110" x2="228" y2="110" stroke="#d8cce6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="200" y1="188" x2="228" y2="188" stroke="#d8cce6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="200" y1="227" x2="228" y2="227" stroke="#d8cce6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="200" y1="266" x2="228" y2="266" stroke="#d8cce6" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- Solid arrow: segregation → decision box -->
+  <line x1="200" y1="149" x2="262" y2="149" stroke="#ED357D" stroke-width="2.5"/>
+  <polygon points="262,149 254,145 254,153" fill="#ED357D"/>
+
+  <!-- Decision box -->
+  <rect x="262" y="131" width="168" height="38" rx="6" fill="#ED357D" stroke="#b8234a" stroke-width="1.5"/>
+  <text x="346" y="148" text-anchor="middle" font-size="11" fill="white" font-weight="bold">Policy conclusion:</text>
+  <text x="346" y="163" text-anchor="middle" font-size="11" fill="white">"Segregation is the cause"</text>
+
+  <!-- Left annotation -->
+  <text x="227" y="223" text-anchor="middle" font-size="11" fill="#c0274a" font-style="italic">Other drivers never tested</text>
+  <text x="227" y="240" text-anchor="middle" font-size="11" fill="#c0274a" font-style="italic">— no basis to judge their weight</text>
+
+  <!-- ===== RIGHT PANEL: active factors converging ===== -->
+
+  <!-- Row 1: Deprivation -->
+  <rect x="510" y="55" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="75" text-anchor="middle" font-size="12" fill="white">Deprivation / FSM</text>
+
+  <!-- Row 2: Prior attainment -->
+  <rect x="510" y="94" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="114" text-anchor="middle" font-size="12" fill="white">Prior attainment</text>
+
+  <!-- Row 3: School intake -->
+  <rect x="510" y="133" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="153" text-anchor="middle" font-size="12" fill="white">School intake / segregation</text>
+
+  <!-- Row 4: Absence -->
+  <rect x="510" y="172" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="192" text-anchor="middle" font-size="12" fill="white">Absence / attendance</text>
+
+  <!-- Row 5: School effectiveness -->
+  <rect x="510" y="211" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="231" text-anchor="middle" font-size="12" fill="white">School effectiveness</text>
+
+  <!-- Row 6: SEND -->
+  <rect x="510" y="250" width="165" height="32" rx="5" fill="#3A1857"/>
+  <text x="592" y="270" text-anchor="middle" font-size="12" fill="white">SEND / vulnerability</text>
+
+  <!-- Convergence lines: factor right edges → synthesis box left centre (705, 169) -->
+  <line x1="675" y1="71"  x2="705" y2="169" stroke="#993AFF" stroke-width="1.5" opacity="0.60"/>
+  <line x1="675" y1="110" x2="705" y2="169" stroke="#993AFF" stroke-width="1.5" opacity="0.60"/>
+  <line x1="675" y1="149" x2="705" y2="169" stroke="#993AFF" stroke-width="2"   opacity="0.85"/>
+  <line x1="675" y1="188" x2="705" y2="169" stroke="#993AFF" stroke-width="1.5" opacity="0.60"/>
+  <line x1="675" y1="227" x2="705" y2="169" stroke="#993AFF" stroke-width="1.5" opacity="0.60"/>
+  <line x1="675" y1="266" x2="705" y2="169" stroke="#993AFF" stroke-width="1.5" opacity="0.60"/>
+
+  <!-- Synthesis box -->
+  <rect x="705" y="152" width="105" height="34" rx="7" fill="#993AFF" stroke="#6a10c0" stroke-width="2"/>
+  <text x="757" y="167" text-anchor="middle" font-size="10" fill="white" font-weight="bold">Simultaneous</text>
+  <text x="757" y="180" text-anchor="middle" font-size="10" fill="white" font-weight="bold">analysis</text>
+
+  <!-- Arrow: synthesis → output -->
+  <line x1="810" y1="169" x2="840" y2="169" stroke="#3A1857" stroke-width="2.5"/>
+  <polygon points="840,169 832,165 832,173" fill="#3A1857"/>
+
+  <!-- Output box -->
+  <rect x="840" y="152" width="108" height="34" rx="7" fill="#3A1857" stroke="#993AFF" stroke-width="2"/>
+  <text x="894" y="167" text-anchor="middle" font-size="10" fill="white" font-weight="bold">Contextual</text>
+  <text x="894" y="180" text-anchor="middle" font-size="10" fill="white" font-weight="bold">judgement</text>
+
+  <!-- Right annotation -->
+  <text x="810" y="223" text-anchor="middle" font-size="11" fill="#3A1857" font-style="italic">Relative influence of each factor</text>
+  <text x="810" y="240" text-anchor="middle" font-size="11" fill="#3A1857" font-style="italic">visible, ranked and context-specific</text>
+
+</svg>
