@@ -5944,3 +5944,187 @@ The loess fit (green) tracks the linear reference (orange dashed) closely on the
 log scale for each predictor, indicating that the log specification captures the
 functional form well and that no predictor calls for a materially more flexible
 treatment.
+
+## Progress 8 as a check on the cohort decomposition {#sec-p8-check}
+
+The variance decomposition note reports that, among the three main predictors,
+absence takes the largest share of explained variance for the disadvantaged
+cohort while prior attainment leads for the non-disadvantaged cohort. There is
+an obvious objection to that comparison. Our prior-attainment control,
+`ks2_c`, is the mean KS2 score of the *whole* intake, not of the disadvantaged
+part of it. It might therefore describe the non-disadvantaged cohort more
+faithfully than the disadvantaged one, in which case the difference in shares
+would be an artefact of the measure rather than a fact about pupils.
+
+The performance tables do not publish prior attainment disaggregated by
+disadvantage. `KS2ASS`, `PTPRIORLO`, `PTPRIORAV` and `PTPRIORHI` are all
+whole-cohort figures in every year, and the underlying data files carry subject
+and qualification detail rather than intake, so the disaggregated control
+cannot simply be substituted in.
+
+Progress 8 offers a way round this. It is defined as attainment relative to
+pupils nationally with the same KS2 starting point, and it *is* published split
+by disadvantage (`P8MEA_FSM6CLA1A`, `P8MEA_NFSM6CLA1A`). Cohort-specific prior
+attainment is therefore already built into the outcome, at pupil level, which
+is a finer adjustment than any school-level mean could provide. If the finding
+is an artefact of `ks2_c`, it should weaken or reverse when the outcome itself
+carries the adjustment.
+
+Two things constrain the test. Progress 8 is unavailable for 2024-25, for the
+reason set out in section 3.2, so this runs on three years rather than four.
+And Progress 8 is a signed difference measure centred near zero, so unlike
+Attainment 8 it cannot be log-transformed and enters untransformed. Both
+outcome families below are fitted on identical rows so the comparison isolates
+the outcome rather than the sample.
+
+```{r}
+#| label: p8-check-fit
+
+p8_data <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         !is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0,
+         !is.na(P8MEA), !is.na(P8MEA_FSM6CLA1A), !is.na(P8MEA_NFSM6CLA1A),
+         !is.na(ks2_c)) %>%
+  droplevels()
+
+P8_FOCAL <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c")
+
+p8_lhs <- function(y) if (grepl("^P8", y)) y else paste0("log(", y, ")")
+
+p8_r2 <- function(y, vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste(p8_lhs(y), "~", rhs)), data = p8_data))$r.squared
+}
+
+p8_shapley <- function(y) {
+  perms <- list(c(1,2,3), c(1,3,2), c(2,1,3), c(2,3,1), c(3,1,2), c(3,2,1))
+  ct <- setNames(numeric(3), P8_FOCAL)
+  for (p in perms) {
+    sofar <- character(0)
+    for (i in p) {
+      v <- P8_FOCAL[i]
+      ct[v] <- ct[v] + (p8_r2(y, c(sofar, v)) - p8_r2(y, sofar))
+      sofar <- c(sofar, v)
+    }
+  }
+  ct / length(perms)
+}
+
+P8_OUT <- list(
+  list(nm = "All pupils",        y = "ATT8SCR",            fam = "Attainment 8"),
+  list(nm = "Disadvantaged",     y = "ATT8SCR_FSM6CLA1A",  fam = "Attainment 8"),
+  list(nm = "Non-disadvantaged", y = "ATT8SCR_NFSM6CLA1A", fam = "Attainment 8"),
+  list(nm = "All pupils",        y = "P8MEA",              fam = "Progress 8"),
+  list(nm = "Disadvantaged",     y = "P8MEA_FSM6CLA1A",    fam = "Progress 8"),
+  list(nm = "Non-disadvantaged", y = "P8MEA_NFSM6CLA1A",   fam = "Progress 8")
+)
+
+p8_tbl <- purrr::map_dfr(P8_OUT, function(o) {
+  s <- p8_shapley(o$y)
+  tibble(
+    Measure    = o$fam,
+    Cohort     = o$nm,
+    `Total R2` = p8_r2(o$y, P8_FOCAL),
+    `% FSM`    = s[["log(PTFSM6CLA1A)"]] / sum(s),
+    `% Absence`= s[["log(PERCTOT)"]] / sum(s),
+    `Mean KS2` = s[["ks2_c"]] / sum(s)
+  )
+})
+```
+
+```{r}
+#| label: tbl-p8-shapley
+#| tbl-cap: "Shapley (LMG) shares of the three-predictor R-squared, Attainment 8 against Progress 8, fitted on identical rows."
+
+p8_tbl %>%
+  mutate(across(c(`% FSM`, `% Absence`, `Mean KS2`), \(x) sprintf("%.1f%%", 100 * x)),
+         `Total R2` = sprintf("%.3f", `Total R2`)) %>%
+  rename(Outcome = Measure) %>%
+  knitr::kable(align = "llrrrr")
+```
+
+```{r}
+#| label: fig-p8-shapley
+#| fig-cap: "Shapley shares under each outcome. Prior attainment's share collapses under Progress 8 because the outcome already contains it; absence leads on every Progress 8 cohort."
+#| fig-height: 4.6
+
+p8_tbl %>%
+  pivot_longer(c(`% FSM`, `% Absence`, `Mean KS2`),
+               names_to = "Predictor", values_to = "Share") %>%
+  mutate(Cohort = factor(Cohort, levels = c("All pupils", "Disadvantaged",
+                                            "Non-disadvantaged")),
+         Predictor = factor(Predictor,
+                            levels = c("% FSM", "% Absence", "Mean KS2"))) %>%
+  ggplot(aes(Share, fct_rev(Cohort), fill = Predictor)) +
+  geom_col(width = 0.68) +
+  facet_wrap(~ Measure, nrow = 1) +
+  scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.02))) +
+  scale_fill_manual(values = c("% FSM" = "#c0392b", "% Absence" = "#2e6260",
+                               "Mean KS2" = "#4e3c56")) +
+  labs(title = "Where the explained variance goes, by outcome and cohort",
+       subtitle = "Shares of the three-predictor R-squared; identical rows throughout",
+       x = "Share of explained variance", y = NULL, fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40"))
+```
+
+```{r}
+#| label: tbl-p8-fsm-drift
+#| tbl-cap: "The coefficient on log(% FSM) alone, and with absence and prior attainment held constant, under each outcome."
+
+purrr::map_dfr(P8_OUT, function(o) {
+  b1 <- coef(lm(as.formula(paste(p8_lhs(o$y), "~ log(PTFSM6CLA1A)")),
+                data = p8_data))[2]
+  m3 <- lm(as.formula(paste(p8_lhs(o$y), "~", paste(P8_FOCAL, collapse = " + "))),
+           data = p8_data)
+  tibble(
+    Outcome = o$fam,
+    Cohort = o$nm,
+    `FSM alone` = sprintf("%+.4f", b1),
+    `FSM controlled` = sprintf("%+.4f", coef(m3)[["log(PTFSM6CLA1A)"]]),
+    `t` = sprintf("%+.1f", summary(m3)$coefficients["log(PTFSM6CLA1A)", "t value"])
+  )
+}) %>%
+  knitr::kable(align = "llrrr")
+```
+
+### What the check shows
+
+**The artefact explanation does not hold.** If the disadvantaged cohort's
+reliance on absence were an artefact of `ks2_c` measuring the whole intake,
+moving to an outcome with pupil-level prior attainment built in should have
+weakened it. It does the opposite: absence takes the largest share on *every*
+Progress 8 cohort, and its share is largest of all for disadvantaged pupils.
+The ordering reported in the paper is robust to the objection.
+
+**Prior attainment's collapse is mechanical, not a finding.** Its share falls
+from roughly two-fifths under Attainment 8 to around an eighth under Progress
+8. That is what should happen. Progress 8 is constructed by conditioning on
+prior attainment, so most of that variable's explanatory power has been moved
+out of the predictors and into the outcome. It would be a mistake to read this
+as prior attainment mattering less than we thought.
+
+**The shares should be read as shares.** Absence taking some 85% of the
+explained variance for the disadvantaged Progress 8 model does not mean absence
+explains 85% of progress. It is 85% of the variance these three predictors
+jointly explain, and the total R-squared is itself lower under Progress 8
+precisely because the outcome is already partly residualised.
+
+**The contested positive coefficient survives in a stronger form.** For
+disadvantaged pupils, the coefficient on disadvantage concentration moves from
+negative on its own to positive once absence and prior attainment are held
+constant, under both outcomes. Under Progress 8, where each pupil has already
+been benchmarked against others with the same starting point, it remains
+positive and precisely estimated. The most natural objection to that finding,
+that the prior-attainment adjustment for the disadvantaged subgroup was too
+coarse, is closed by this specification rather than merely argued against.
+
+**Caveats.** This runs on `r format(nrow(p8_data), big.mark = ",")` school-years
+across three years only, since Progress 8 does not exist for 2024-25. It is a
+robustness check on a subset, not a replacement for the main analysis. Progress
+8 also embeds the DfE's own modelling choices, including its treatment of
+extreme values and its national benchmarking, which we inherit rather than
+control.
