@@ -502,3 +502,614 @@ these apart. That prior attainment, absence and disadvantage overlap so
 heavily is itself the substantive finding: they are facets of a single
 structure, and the policy question is not which is "most important" but which
 of them can actually be moved.
+
+## Disadvantaged and non-disadvantaged pupils, taken separately
+
+Everything above treats the school's headline Attainment 8 --- the average
+across all its pupils --- as the outcome. That average is a mixture. A school
+with a high proportion of disadvantaged pupils scores lower partly because
+disadvantaged pupils score lower on average nationally, quite apart from
+anything happening inside the school. The published data lets us take the
+mixture apart: DfE reports Attainment 8 separately for the disadvantaged
+cohort (`ATT8SCR_FSM6CLA1A`) and the non-disadvantaged cohort
+(`ATT8SCR_NFSM6CLA1A`) in each school. Repeating the whole decomposition on
+each of these asks a sharper question --- not "what explains a school's
+average result" but "what explains how *these pupils* do here" --- and the
+answers differ in ways that matter for the policy argument.
+
+```{r}
+#| label: setup-subgroups
+#| include: false
+
+# Restrict to rows where BOTH subgroup outcomes are reported as well as the
+# headline figure, so that all three outcomes below are modelled on identical
+# rows and their R-squared values are directly comparable. This drops a small
+# number of school-years where a cohort was too small to publish.
+d3 <- d %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+# The rows the subgroup requirement removes, kept so the section can describe
+# what is being excluded rather than waving it away as a rounding difference.
+dd <- anti_join(d, d3, by = c("URN", "academic_year"))
+
+OUTCOMES3 <- c("All pupils"        = "ATT8SCR",
+               "Disadvantaged"     = "ATT8SCR_FSM6CLA1A",
+               "Non-disadvantaged" = "ATT8SCR_NFSM6CLA1A")
+
+OUT_COL <- c("All pupils"        = "#4e3c56",
+             "Disadvantaged"     = "#c0392b",
+             "Non-disadvantaged" = "#2e6260")
+
+out_lvl <- names(OUTCOMES3)
+
+# Generalised version of r2_of(): outcome as well as predictors vary.
+r2_out <- function(y, vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste0("log(", y, ") ~ ", rhs)), data = d3))$r.squared
+}
+
+vars9 <- names(PREDS)
+```
+
+The comparison sample is `r format(nrow(d3), big.mark = ",")` school-years,
+`r format(nrow(d) - nrow(d3), big.mark = ",")` fewer than the sample used
+above, and the all-pupil figures are recomputed on it throughout this section
+so that the three columns are like-for-like.
+
+That exclusion is not random, and it matters enough to name. A school-year
+drops out when DfE suppresses one of the cohort figures because the cohort is
+too small to publish, which in practice means schools with very few
+disadvantaged pupils. The rows dropped here have a median disadvantage share
+of `r sprintf("%.0f%%", median(dd$PTFSM6CLA1A))` against
+`r sprintf("%.0f%%", median(d3$PTFSM6CLA1A))` in the retained sample, and a
+median Attainment 8 of `r sprintf("%.0f", median(dd$ATT8SCR))` against
+`r sprintf("%.0f", median(d3$ATT8SCR))`; `r sum(dd$ADMPOL_PT == "SEL")` of the
+`r nrow(dd)` are selective schools. Removing them trims the extreme
+high-attainment, low-disadvantage corner of the distribution, and the effect
+on the all-pupil figures is not negligible: prior attainment alone rises from
+an $R^2$ of `r sprintf("%.3f", r2_of("ks2_c"))` in section 3 to
+`r sprintf("%.3f", r2_out("ATT8SCR", "ks2_c"))` here, and absence from
+`r sprintf("%.3f", r2_of("log(PERCTOT)"))` to
+`r sprintf("%.3f", r2_out("ATT8SCR", "log(PERCTOT)"))`, while admissions
+policy falls from `r sprintf("%.3f", r2_of("ADMPOL_PT"))` to
+`r sprintf("%.3f", r2_out("ATT8SCR", "ADMPOL_PT"))` as the selective category
+loses its most distinctive members. The all-pupil column below is the right
+comparator for the two cohort columns, but it is *not* interchangeable with
+the headline figures in sections 3 to 6, and the two sets should not be read
+across. None of the rankings change.
+
+```{r}
+#| label: tbl-outcome-summary
+#| tbl-cap: "The three outcomes on the common sample. Disadvantaged attainment is both lower and considerably more variable between schools."
+
+tibble(
+  Outcome = out_lvl,
+  Mean = vapply(OUTCOMES3, \(y) mean(d3[[y]]), numeric(1)),
+  `SD between schools` = vapply(OUTCOMES3, \(y) sd(d3[[y]]), numeric(1)),
+  `SD of log` = vapply(OUTCOMES3, \(y) sd(log(d3[[y]])), numeric(1))
+) %>%
+  mutate(across(where(is.numeric), \(x) sprintf("%.2f", x))) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+The average gap between the two cohorts within a school is
+`r sprintf("%.1f", mean(d3$ATT8SCR_NFSM6CLA1A - d3$ATT8SCR_FSM6CLA1A))`
+Attainment 8 points. The two subgroup scores correlate at
+`r sprintf("%.2f", cor(log(d3$ATT8SCR_FSM6CLA1A), log(d3$ATT8SCR_NFSM6CLA1A)))`
+across schools: schools that do well by one cohort tend to do well by the
+other, but far from perfectly.
+
+### What each predictor explains, by cohort
+
+```{r}
+#| label: tbl-uni-subgroup
+#| tbl-cap: "Each predictor fitted on its own against each of the three outcomes. Total association, sharing included."
+
+uni3 <- map_dfr(out_lvl, function(nm) {
+  y <- OUTCOMES3[[nm]]
+  tibble(Outcome = nm, Predictor = lbl(vars9),
+         R2 = vapply(vars9, \(v) r2_out(y, v), numeric(1)))
+})
+
+uni3 %>%
+  pivot_wider(names_from = Outcome, values_from = R2) %>%
+  arrange(desc(`All pupils`)) %>%
+  mutate(across(where(is.numeric), \(x) sprintf("%.3f", x))) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-uni-subgroup
+#| fig-cap: "Explanatory power of each predictor on its own, for each cohort. Prior attainment loses most ground when the outcome is restricted to disadvantaged pupils; absence loses least."
+#| fig-height: 5.5
+
+ord <- uni3 %>% filter(Outcome == "All pupils") %>% arrange(R2) %>% pull(Predictor)
+
+uni3 %>%
+  mutate(Predictor = factor(Predictor, levels = ord),
+         Outcome = factor(Outcome, levels = out_lvl)) %>%
+  ggplot(aes(R2, Predictor, fill = Outcome)) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.72) +
+  scale_fill_manual(values = OUT_COL) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.04))) +
+  labs(title = "Explanatory power of each predictor on its own, by cohort",
+       subtitle = "Same predictors, same schools, three different outcomes",
+       x = "R² alone", y = NULL, fill = NULL) +
+  theme_vd +
+  theme(legend.position = "bottom")
+```
+
+Two things stand out immediately.
+
+**Prior attainment is a much weaker predictor of disadvantaged pupils'
+results.** On its own it explains
+`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR_NFSM6CLA1A", "ks2_c"))` of the
+variation in non-disadvantaged attainment but only
+`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR_FSM6CLA1A", "ks2_c"))` of the
+variation in disadvantaged attainment. Part of that is a measurement artefact
+--- `ks2_c` is the school's mean prior attainment across *all* pupils, so it
+describes the non-disadvantaged cohort more faithfully than the disadvantaged
+one --- but the size of the gap is larger than that alone would suggest.
+
+**Absence is the one predictor that holds up.** It explains
+`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR_FSM6CLA1A", "log(PERCTOT)"))` of
+disadvantaged attainment against
+`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR_NFSM6CLA1A", "log(PERCTOT)"))` of
+non-disadvantaged attainment --- almost the same. For the disadvantaged
+cohort it is the strongest single predictor in the set, ahead of prior
+attainment.
+
+Note also that the proportion of disadvantaged pupils explains far less of
+disadvantaged pupils' own attainment
+(`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR_FSM6CLA1A", "log(PTFSM6CLA1A)"))`)
+than it does of the headline average
+(`r sprintf("%.0f%%", 100 * r2_out("ATT8SCR", "log(PTFSM6CLA1A)"))`). That
+discrepancy is the subject of the next section.
+
+### The disadvantage coefficient changes sign
+
+Section 4 showed the coefficient on log(% FSM) shrinking from about −0.20 to
+−0.05 as absence and prior attainment were added. Repeating that exercise for
+each cohort produces something more dramatic.
+
+```{r}
+#| label: tbl-fsm-drift-subgroup
+#| tbl-cap: "The coefficient on log(% FSM) across the four models that contain it, for each outcome. For disadvantaged pupils it does not merely shrink — it reverses."
+
+drift_specs <- list(
+  "FSM"                 = "log(PTFSM6CLA1A)",
+  "FSM + Absence"       = c("log(PTFSM6CLA1A)", "log(PERCTOT)"),
+  "FSM + KS2"           = c("log(PTFSM6CLA1A)", "ks2_c"),
+  "FSM + Absence + KS2" = FOCAL
+)
+
+drift <- map_dfr(out_lvl, function(nm) {
+  y <- OUTCOMES3[[nm]]
+  map_dfr(names(drift_specs), function(sp) {
+    m <- lm(as.formula(paste0("log(", y, ") ~ ",
+                              paste(drift_specs[[sp]], collapse = " + "))),
+            data = d3)
+    s <- summary(m)$coefficients
+    tibble(Outcome = nm, Model = sp,
+           beta = s["log(PTFSM6CLA1A)", "Estimate"],
+           t    = s["log(PTFSM6CLA1A)", "t value"],
+           R2   = summary(m)$r.squared)
+  })
+})
+
+drift %>%
+  transmute(Outcome, Model,
+            `FSM β` = sprintf("%+.4f", beta),
+            `FSM t` = sprintf("%+.1f", t),
+            `R²`    = sprintf("%.3f", R2)) %>%
+  select(-Outcome) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  pack_rows(index = table(factor(drift$Outcome, levels = out_lvl)))
+```
+
+```{r}
+#| label: fig-fsm-signflip
+#| fig-cap: "The disadvantage coefficient by cohort and specification. Conditional on absence and prior attainment, disadvantaged pupils do better in schools with more disadvantaged pupils, not worse."
+#| fig-height: 4.6
+
+drift %>%
+  mutate(Model = factor(Model, levels = rev(names(drift_specs))),
+         Outcome = factor(Outcome, levels = out_lvl)) %>%
+  ggplot(aes(beta, Model, fill = Outcome)) +
+  geom_vline(xintercept = 0, colour = "grey35", linewidth = 0.5) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.72) +
+  scale_fill_manual(values = OUT_COL) +
+  scale_x_continuous(expand = expansion(mult = c(0.06, 0.06))) +
+  labs(title = "The disadvantage coefficient reverses for the disadvantaged cohort",
+       subtitle = "Coefficient on log(% FSM), by outcome and by what else is in the model",
+       x = "Coefficient on log(% FSM)", y = NULL, fill = NULL) +
+  theme_vd +
+  theme(legend.position = "bottom")
+```
+
+Taken on its own, a higher share of disadvantaged pupils is associated with
+*lower* attainment for the disadvantaged cohort
+(β = `r sprintf("%+.3f", drift$beta[drift$Outcome == "Disadvantaged" & drift$Model == "FSM"])`).
+Hold absence and prior attainment constant and the sign flips to
+`r sprintf("%+.3f", drift$beta[drift$Outcome == "Disadvantaged" & drift$Model == "FSM + Absence + KS2"])`
+--- a large and precisely estimated positive association. Compare two schools
+with the same attendance and the same intake prior attainment, and the one
+with the *more* disadvantaged intake gets better results out of its
+disadvantaged pupils. For the non-disadvantaged cohort the coefficient stays
+negative throughout but collapses to
+`r sprintf("%+.4f", drift$beta[drift$Outcome == "Non-disadvantaged" & drift$Model == "FSM + Absence + KS2"])`,
+close enough to zero to be of no practical consequence despite its
+significance.
+
+This is not a statistical curiosity. It says that the headline association
+between intake composition and results --- the association on which a
+composition-based admissions policy would rest --- survives at the level of
+the school average but largely vanishes, or reverses, at the level of the
+pupils it is supposed to help.
+
+### Why the aggregate says something the cohorts do not
+
+The reason is arithmetic, and worth making explicit. A school's headline
+Attainment 8 is the FSM-weighted average of its two cohort scores:
+
+$$\text{ATT8} \;=\; w \cdot \text{ATT8}_{\text{disadv}} \;+\; (1 - w) \cdot \text{ATT8}_{\text{non-disadv}}$$
+
+where $w$ is the school's share of disadvantaged pupils. Raising $w$ shifts
+weight onto the lower-scoring group and pulls the average down *even if
+neither cohort's score changes at all*. Some of the headline FSM association
+is therefore pure mixing, with no schooling content whatsoever.
+
+```{r}
+#| label: composition-arith
+
+w  <- d3$PTFSM6CLA1A / 100
+cf <- w * mean(d3$ATT8SCR_FSM6CLA1A) + (1 - w) * mean(d3$ATT8SCR_NFSM6CLA1A)
+
+b_obs  <- coef(lm(log(ATT8SCR) ~ log(PTFSM6CLA1A), data = d3))[2]
+b_comp <- coef(lm(log(cf) ~ log(PTFSM6CLA1A), data = d3))[2]
+```
+
+Fixing both cohort scores at their sample means and letting only $w$ vary
+reproduces an elasticity of `r sprintf("%.3f", b_comp)` on log(% FSM), against
+the `r sprintf("%.3f", b_obs)` actually observed. Roughly
+**`r percent(as.numeric(b_comp / b_obs), accuracy = 1)` of the raw
+disadvantage--attainment association is mechanical composition**, present
+before any question of school quality, teaching or peer effects arises. The
+remainder is shared with absence and prior attainment, which is what the rest
+of this note has been about.
+
+### Apportioning the shared variance, by cohort
+
+```{r}
+#| label: shapley-focal-subgroup
+
+shap3_for <- function(y) {
+  perms <- list(c(1,2,3), c(1,3,2), c(2,1,3), c(2,3,1), c(3,1,2), c(3,2,1))
+  s <- setNames(numeric(3), FOCAL)
+  for (p in perms) {
+    sofar <- character(0)
+    for (i in p) {
+      v <- FOCAL[i]
+      s[v] <- s[v] + (r2_out(y, c(sofar, v)) - r2_out(y, sofar))
+      sofar <- c(sofar, v)
+    }
+  }
+  s / length(perms)
+}
+
+shap3_all <- set_names(map(OUTCOMES3, shap3_for), unname(OUTCOMES3))
+```
+
+```{r}
+#| label: tbl-shapley-subgroup
+#| tbl-cap: "Shapley (LMG) decomposition of the three-predictor model, separately by cohort. Cells show the apportioned R² and, in brackets, its share of the three."
+
+shap3_tbl <- map_dfr(out_lvl, function(nm) {
+  s <- shap3_all[[OUTCOMES3[[nm]]]]
+  tibble(Outcome = nm, Predictor = lbl(FOCAL),
+         `Shapley R²` = as.numeric(s[FOCAL]),
+         Share = as.numeric(s[FOCAL]) / sum(s))
+})
+
+shap3_tbl %>%
+  mutate(cell = paste0(sprintf("%.3f", `Shapley R²`), " (",
+                       percent(Share, accuracy = 0.1), ")")) %>%
+  select(Outcome, Predictor, cell) %>%
+  pivot_wider(names_from = Outcome, values_from = cell) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE)
+```
+
+```{r}
+#| label: fig-shapley-subgroup
+#| fig-cap: "Shares of the explained variance in the three-predictor model, by cohort. Absence overtakes prior attainment for disadvantaged pupils and falls behind it for non-disadvantaged pupils."
+#| fig-height: 4.4
+
+shap3_tbl %>%
+  mutate(Outcome = factor(Outcome, levels = out_lvl),
+         Predictor = factor(Predictor, levels = rev(lbl(FOCAL)))) %>%
+  ggplot(aes(Share, Predictor, fill = Predictor)) +
+  geom_col(width = 0.68, show.legend = FALSE) +
+  geom_text(aes(label = percent(Share, accuracy = 0.1)), hjust = -0.12,
+            size = 3, colour = "grey25") +
+  facet_wrap(~ Outcome, nrow = 1) +
+  scale_x_continuous(labels = percent, limits = c(0, 0.68),
+                     expand = expansion(mult = c(0, 0.02))) +
+  scale_fill_manual(values = c("% FSM (disadvantage)" = "#c0392b",
+                               "% Absence" = "#2e6260",
+                               "Mean KS2 prior attainment" = "#4e3c56")) +
+  labs(title = "Apportioned share of explained variance, by cohort",
+       subtitle = "Shapley (LMG) decomposition of the three main predictors",
+       x = "Share of the three", y = NULL) +
+  theme_vd
+```
+
+For all pupils and for the non-disadvantaged cohort, prior attainment takes
+the largest share. For the disadvantaged cohort the order changes: absence
+takes `r percent(shap3_tbl$Share[shap3_tbl$Outcome == "Disadvantaged" & shap3_tbl$Predictor == "% Absence"], accuracy = 0.1)`
+of the explained variance, more than prior attainment and more than five times
+the share taken by intake composition. Whatever measure is used, and for
+whichever cohort, disadvantage concentration comes last of the three.
+
+### All nine predictors, by cohort
+
+```{r}
+#| label: shapley-full-subgroup
+
+k <- length(vars9)
+bits <- 2^(seq_len(k) - 1)
+masks <- 0:(2^k - 1)
+
+shapley_full <- function(y) {
+  r2c <- numeric(length(masks))
+  for (m in masks) r2c[m + 1] <- r2_out(y, vars9[bitwAnd(m, bits) > 0])
+  ph <- numeric(k)
+  for (i in seq_len(k)) {
+    b <- bits[i]
+    for (m in masks) {
+      if (bitwAnd(m, b) == 0) {
+        s <- sum(bitwAnd(m, bits) > 0)
+        ph[i] <- ph[i] +
+          exp(lfactorial(s) + lfactorial(k - s - 1) - lfactorial(k)) *
+          (r2c[bitwOr(m, b) + 1] - r2c[m + 1])
+      }
+    }
+  }
+  setNames(ph, vars9)
+}
+
+phi_all <- set_names(map(OUTCOMES3, shapley_full), unname(OUTCOMES3))
+```
+
+```{r}
+#| label: tbl-shapley-full-subgroup
+#| tbl-cap: "Shapley (LMG) shares across all nine fixed-effect predictors, by cohort. Each column sums to 100%; the R² being apportioned is given in the final row."
+
+phi_tbl <- map_dfr(out_lvl, function(nm) {
+  ph <- phi_all[[OUTCOMES3[[nm]]]]
+  tibble(Outcome = nm, Predictor = lbl(vars9),
+         `Shapley R²` = as.numeric(ph), Share = as.numeric(ph) / sum(ph))
+})
+
+body <- phi_tbl %>%
+  select(Outcome, Predictor, Share) %>%
+  pivot_wider(names_from = Outcome, values_from = Share) %>%
+  arrange(desc(`All pupils`)) %>%
+  mutate(across(where(is.numeric), \(x) percent(x, accuracy = 0.1)))
+
+totals <- c(list(Predictor = "Total R² apportioned"),
+            setNames(as.list(sprintf(
+              "%.3f", vapply(out_lvl, \(nm) sum(phi_all[[OUTCOMES3[[nm]]]]),
+                             numeric(1)))), out_lvl))
+
+bind_rows(body, as_tibble(totals)) %>%
+  kable(align = "lrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  row_spec(nrow(body) + 1, bold = TRUE)
+```
+
+```{r}
+#| label: fig-shapley-full-subgroup
+#| fig-cap: "Apportioned share of explained variance across all nine predictors, by cohort. Admissions policy and EAL matter appreciably more for the disadvantaged cohort; prior attainment matters appreciably less."
+#| fig-height: 6
+
+ord9 <- phi_tbl %>% filter(Outcome == "All pupils") %>% arrange(Share) %>% pull(Predictor)
+
+phi_tbl %>%
+  mutate(Predictor = factor(Predictor, levels = ord9),
+         Outcome = factor(Outcome, levels = out_lvl)) %>%
+  ggplot(aes(Share, Predictor, fill = Outcome)) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.72) +
+  scale_fill_manual(values = OUT_COL) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.04))) +
+  labs(title = "Apportioned share of explained variance, all nine predictors",
+       subtitle = "Shapley (LMG) shares within each cohort's own model",
+       x = "Share of that cohort's explained variance", y = NULL, fill = NULL) +
+  theme_vd +
+  theme(legend.position = "bottom")
+```
+
+The full model explains
+`r sprintf("%.3f", sum(phi_all[["ATT8SCR"]]))` of the variance in headline
+attainment and
+`r sprintf("%.3f", sum(phi_all[["ATT8SCR_NFSM6CLA1A"]]))` for the
+non-disadvantaged cohort, but only
+`r sprintf("%.3f", sum(phi_all[["ATT8SCR_FSM6CLA1A"]]))` for the disadvantaged
+cohort. Structural school characteristics predict how advantaged pupils do
+considerably better than they predict how disadvantaged pupils do. The
+residual variation --- what schools do, and how well they do it, over and
+above their intake and their attendance --- is substantially larger for the
+pupils the policy is aimed at.
+
+Two predictors are much more important for the disadvantaged cohort than for
+the others. Admissions policy takes
+`r percent(phi_tbl$Share[phi_tbl$Outcome == "Disadvantaged" & phi_tbl$Predictor == "Admissions policy"], accuracy = 0.1)`
+of the explained variance against
+`r percent(phi_tbl$Share[phi_tbl$Outcome == "All pupils" & phi_tbl$Predictor == "Admissions policy"], accuracy = 0.1)`
+for all pupils, and EAL takes
+`r percent(phi_tbl$Share[phi_tbl$Outcome == "Disadvantaged" & phi_tbl$Predictor == "% EAL"], accuracy = 0.1)`
+against
+`r percent(phi_tbl$Share[phi_tbl$Outcome == "All pupils" & phi_tbl$Predictor == "% EAL"], accuracy = 0.1)`.
+The EAL result is the familiar one that disadvantaged pupils with English as
+an additional language outperform disadvantaged pupils without it; the
+admissions result reflects the selective and highly-selective-area categories,
+where the small disadvantaged cohorts that do get in are unrepresentative of
+disadvantaged pupils generally. Neither is a lever in the sense the paper
+uses the word.
+
+## Synthesis: what holds across cohorts and what does not
+
+```{r}
+#| label: tbl-synthesis
+#| tbl-cap: "Rank of the three main predictors under each measure and for each cohort. 1 = largest."
+
+rank_tbl <- map_dfr(out_lvl, function(nm) {
+  y <- OUTCOMES3[[nm]]
+  m3 <- lm(as.formula(paste0("log(", y, ") ~ ",
+                             paste(FOCAL, collapse = " + "))), data = d3)
+  tv <- abs(summary(m3)$coefficients[FOCAL, "t value"])
+  bind_rows(
+    tibble(Outcome = nm, Measure = "R² alone",
+           Predictor = lbl(FOCAL), Value = vapply(FOCAL, \(v) r2_out(y, v), numeric(1))),
+    tibble(Outcome = nm, Measure = "Absolute t in the 3-variable model",
+           Predictor = lbl(FOCAL), Value = as.numeric(tv)),
+    tibble(Outcome = nm, Measure = "Shapley (LMG)",
+           Predictor = lbl(FOCAL), Value = as.numeric(shap3_all[[y]][FOCAL]))
+  )
+}) %>%
+  group_by(Outcome, Measure) %>%
+  mutate(Rank = rank(-Value)) %>%
+  ungroup()
+
+rank_tbl %>%
+  mutate(Measure = factor(Measure, levels = c("Absolute t in the 3-variable model",
+                                              "R² alone", "Shapley (LMG)")),
+         Outcome = factor(Outcome, levels = out_lvl)) %>%
+  arrange(Measure, Outcome) %>%
+  select(Measure, Outcome, Predictor, Rank) %>%
+  pivot_wider(names_from = Predictor, values_from = Rank) %>%
+  kable(align = "llrrr") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+### Three things that hold everywhere
+
+**Disadvantage concentration is never the leading factor.** Across three
+outcomes and three measures --- nine combinations in all --- the share of
+disadvantaged pupils in a school ranks last of the three main predictors in
+every one. It ranks last when it is credited with all of the variance it
+shares with the others, when it is credited with none of it, and when the
+shared part is split evenly. The paper's central claim does not depend on
+which cohort is examined or on how the sharing is resolved.
+
+**Absence is always the largest movable factor.** Prior attainment leads on
+two of the three outcomes, but it is a description of the intake rather than
+something a school or an authority can act on. Set it aside and absence is the
+largest remaining factor for all pupils, for disadvantaged pupils and for
+non-disadvantaged pupils alike. For the disadvantaged cohort it is the largest
+factor full stop.
+
+**Shared variance is substantial in every case, so *t*-values remain unsafe as
+a ranking.** The gap between "$R^2$ alone" and "Shapley" that motivated this
+note is just as wide for both subgroups as it is for the headline outcome. As
+it happens, the *t*-value ordering agrees with the other two measures for both
+cohorts, and disagrees only for all pupils --- the reverse of what one might
+expect. That agreement is a fact about this data rather than a reason to trust
+*t*-values: the predictors are just as correlated in the cohort models, the
+*t*-values still allocate none of the shared variance, and nothing in the
+method guarantees that the orderings will coincide. Where they happen to
+coincide it is luck, and section 4.2 of the paper should not lean on it.
+
+### Three things that differ
+
+**Absence and prior attainment change places.** For non-disadvantaged pupils,
+prior attainment is comfortably the largest factor
+(`r percent(shap3_tbl$Share[shap3_tbl$Outcome == "Non-disadvantaged" & shap3_tbl$Predictor == "Mean KS2 prior attainment"], accuracy = 0.1)`
+of the explained variance against
+`r percent(shap3_tbl$Share[shap3_tbl$Outcome == "Non-disadvantaged" & shap3_tbl$Predictor == "% Absence"], accuracy = 0.1)`
+for absence). For disadvantaged pupils the order reverses and absence becomes
+the dominant term
+(`r percent(shap3_tbl$Share[shap3_tbl$Outcome == "Disadvantaged" & shap3_tbl$Predictor == "% Absence"], accuracy = 0.1)`
+against
+`r percent(shap3_tbl$Share[shap3_tbl$Outcome == "Disadvantaged" & shap3_tbl$Predictor == "Mean KS2 prior attainment"], accuracy = 0.1)`).
+Part of this is that `ks2_c` measures the whole intake rather than the
+disadvantaged part of it, and so tracks the non-disadvantaged cohort more
+closely. But the direction of the difference points the same way as the
+attendance literature: missed schooling costs disadvantaged pupils more,
+because they have less capacity to make the lost ground up outside school.
+This strengthens rather than weakens the paper's case for attendance as the
+priority lever, since the lever bites hardest exactly where the gap is.
+
+**The disadvantage coefficient changes sign between cohorts.** Conditional on
+absence and prior attainment, a more disadvantaged intake is associated with
+*better* results for disadvantaged pupils
+(`r sprintf("%+.3f", drift$beta[drift$Outcome == "Disadvantaged" & drift$Model == "FSM + Absence + KS2"])`)
+and with marginally worse results for non-disadvantaged pupils
+(`r sprintf("%+.4f", drift$beta[drift$Outcome == "Non-disadvantaged" & drift$Model == "FSM + Absence + KS2"])`).
+The negative headline association is therefore not one effect operating on
+everyone: it is composition arithmetic, plus a very small negative association
+for the advantaged cohort, running against a positive association for the
+disadvantaged cohort. A policy that dispersed disadvantaged pupils into less
+disadvantaged schools would, on these figures, be moving them into settings
+where --- attendance and prior attainment held equal --- disadvantaged pupils
+do slightly worse rather than better. That is a more awkward result for
+composition-based admissions policy than the headline model alone suggests,
+and it is worth stating in the paper.
+
+**Disadvantaged attainment is markedly less predictable.** The full
+nine-predictor model reaches an $R^2$ of
+`r sprintf("%.2f", sum(phi_all[["ATT8SCR_NFSM6CLA1A"]]))` for the
+non-disadvantaged cohort but only
+`r sprintf("%.2f", sum(phi_all[["ATT8SCR_FSM6CLA1A"]]))` for the disadvantaged
+cohort, despite disadvantaged attainment varying *more* between schools
+(SD of log
+`r sprintf("%.2f", sd(log(d3$ATT8SCR_FSM6CLA1A)))` against
+`r sprintf("%.2f", sd(log(d3$ATT8SCR_NFSM6CLA1A)))`). More between-school
+variation, less of it accounted for: around
+`r percent(1 - sum(phi_all[["ATT8SCR_FSM6CLA1A"]]), accuracy = 1)` of the
+variation in how disadvantaged pupils do is not explained by any of the
+structural characteristics available here. Read optimistically that is
+headroom --- school-level practice that the intake does not determine. Read
+cautiously it is a warning that the measurable characteristics of a school
+tell you least about the pupils the policy most wants to help.
+
+### Caveats specific to the subgroup analysis
+
+Three limitations apply to this section over and above the general caveat in
+section 8.
+
+*The prior-attainment measure is not cohort-specific.* `ks2_c` is the school's
+mean KS2 score across all pupils, so it is a better proxy for the
+non-disadvantaged cohort's starting point than for the disadvantaged cohort's.
+Some of the apparent weakness of prior attainment in the disadvantaged column
+is measurement rather than substance, and the figure for a cohort-specific
+prior attainment measure would be higher. The direction of the difference is
+nonetheless likely to be right, since a cohort-specific measure would raise
+the disadvantaged prior-attainment figure without lowering the absence figure.
+
+*The absence measure is likewise school-wide.* Overall absence and
+disadvantaged pupils' own absence are strongly related but not identical, and
+disadvantaged absence is the higher of the two in almost every school. This
+makes the absence result for the disadvantaged cohort conservative if
+anything: a cohort-specific absence measure would be expected to strengthen
+it.
+
+*Small cohorts are noisy.* Schools with few disadvantaged pupils produce
+disadvantaged Attainment 8 figures based on a handful of pupils, which inflates
+the between-school variance in that column and depresses its $R^2$. The models
+here are unweighted, so those schools carry the same weight as large ones.
+This is one plausible contributor to the lower explained variance for the
+disadvantaged cohort, and it should be borne in mind before reading the
+residual as headroom.
