@@ -1232,7 +1232,7 @@ fig_dat <- fig_dat %>%
 
 ```{r}
 #| label: fig-combined
-#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils. The two panels rank the leading pair differently for all pupils: the standardised coefficient makes absence appear larger than prior attainment, while the apportioned share reverses them. This is expected rather than contradictory, since the first measures each predictor's unique contribution and the second its total contribution with the shared variance divided between them. Disadvantage concentration ranks third on both panels for every pupil group."
+#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils. The two measures answer different questions - one about unique contribution, the other about total contribution with the shared variance divided between predictors - but they agree on the leading pair in every pupil group: mean KS2 prior attainment leads for all pupils and for non-disadvantaged pupils, and overall absence leads for disadvantaged pupils. Disadvantage concentration ranks third on both panels for all pupils and for non-disadvantaged pupils, and fifth for disadvantaged pupils."
 #| fig-width: 11
 #| fig-height: 5.8
 
@@ -1269,26 +1269,31 @@ p_right <- ggplot(fig_dat, aes(share, Predictor, fill = Cohort)) +
 Reading the two panels together gives the paper's argument in one view.
 
 **Absence is the largest factor a school can act on.** Prior attainment is
-larger still on the right-hand panel for two of the three groups, but it
-describes the intake a school receives rather than anything it can change for a
-cohort already on roll. Set it aside and absence leads everywhere --- and for
+larger still for two of the three groups, on both panels, but it describes the
+intake a school receives rather than anything it can change for a cohort
+already on roll. Set it aside and absence leads everywhere --- and for
 disadvantaged pupils it is the largest term outright, on both panels.
 
 **Disadvantage concentration is small, and its direction depends on who is
-being asked about.** On the right it sits third for every group. On the left the
-sign reverses: negative for all pupils and for the non-disadvantaged, positive
-for the disadvantaged. Neither panel could show this alone. The Shapley shares
+being asked about.** It sits third for all pupils and for the non-disadvantaged,
+and fifth for the disadvantaged, on both panels alike. On the left the sign
+reverses: negative for all pupils and for the non-disadvantaged, positive for
+the disadvantaged. Neither panel could show this alone. The Shapley shares
 would say only that the predictor is small; the standardised coefficients would
 understate how small, because a variable sharing this much variance with the
 others gets little credit in a partial measure.
 
-**The two panels disagree about ordering, and that disagreement is the point.**
-For all pupils the standardised coefficient makes absence look larger than
-prior attainment, while the apportioned share reverses them. Nothing is wrong
-in either: they answer different questions, one about unique contribution and
-one about total contribution with the sharing split. Reporting only the first,
-as the paper's stepwise table did in an earlier draft, invites a ranking it
-cannot support.
+**The two panels agree on the ordering, which is not guaranteed.** The measures
+answer different questions - one about unique contribution, one about total
+contribution with the sharing split - and there is nothing in either method
+that forces them to coincide. Here they do: prior attainment leads for all
+pupils and for the non-disadvantaged, absence for the disadvantaged, on both
+panels. That agreement is worth more than either panel alone, because the
+obvious objection to a ranking drawn from partial coefficients is that it
+ignores the shared variance, and apportioning that variance does not change the
+answer. It is the *t*-values, reported in section 4.2, that disagree - ranking
+absence above prior attainment for all pupils - and that is precisely why they
+should not be used to rank correlated predictors.
 
 A note on construction. The standardised coefficients are taken from the
 multilevel models the paper fits, so the left panel reports exactly the

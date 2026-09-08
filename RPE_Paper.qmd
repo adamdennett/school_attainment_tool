@@ -90,6 +90,7 @@ library(kableExtra)
 library(scales)
 library(here)
 library(ggrepel)
+library(patchwork)
 
 source(here::here("R", "helpers.R"))
 
@@ -216,11 +217,12 @@ bh_abs_rank <- la_means_abs %>% filter(grepl("Brighton", LANAME))
 
 Pupil outcomes, including attainment, are a recurrent policy theme given the established links to individual life outcomes [@Farquharson2024] and our collective national success through measures such as economic productivity [@Grant2017]. The UK Government's 2026 schools white paper [@dfe_every_2026] sets ambitious targets including halving the disadvantage attainment gap, improving attendance, reforming admissions and tackling place-based disadvantage. These ambitions will require local education authorities (LEAs) to understand the specific drivers in their areas and choose interventions accordingly.
 
-Focusing on the secondary school attainment, this paper argues that the Department for Education's (DfE) open data provides most of the raw materials needed for such nuanced localised understanding, but a crucial gap exists between data availability and accessible, contextualised intelligence for decision makers. We demonstrate this through an analysis of school-level attainment across England, combined with a case study of Brighton and Hove where a policy direction would be predicted by our model, to potentially do more harm than good.
+Focusing on secondary school attainment, this paper argues that the Department for Education's (DfE) open data provides most of the raw materials needed for such nuanced localised understanding, but a crucial gap exists between data availability and accessible, contextualised intelligence for decision makers. We demonstrate this through an analysis of school-level attainment across England, combined with a case study of Brighton and Hove where a policy direction would be predicted by our model, to potentially do more harm than good.
 
 Brighton and Hove provides a particularly instructive case. The city already has a distinctive admissions landscape featuring catchment areas with a lottery tie-break for oversubscribed schools, introduced following a secondary school closure in 2005 [@Allen2013], and an admissions priority for Free-School-Meal (FSM)-eligible pupils across its community schools. In 2024, the council launched proposals to reduce Published Admission Numbers at popular central-catchment schools, reserve places for out-of-catchment children in those catchments ahead of in-catchment children, and redraw catchment boundaries. The proposals were promoted on the premise that attainment in the city was 'driven by economic advantage' and that redistributing pupils would narrow the attainment gap. The public response was overwhelmingly negative, yet parents and schools lacked the tools to challenge the proposals effectively and the core policy direction persisted, albeit slightly watered down.
 
-Raw data on the attainment gap, without context, was presented to the city alongside statements correlating concentrations of disadvantage with lower attainment. The gap was framed as a unique failure requiring urgent action; the second-order impacts of the proposed interventions - longer school journeys, displacement from local communities, effects on well-being - were not scrutinised in depth. Our modelling addresses a critical blind spot in local decision-making: without the ability to account for structural factors like absence and prior attainment, councillors and citizens were unaware that, *after controlling for absence in particular*, Brighton and Hove was already among the highest-performing LEAs nationally for taking students beyond those factors - ranking 15th of 151 for disadvantaged pupils and 4th for non-disadvantaged pupils. As we show later, that conditional ranking is itself a measure of how much the city's severe absence problem is costing its disadvantaged pupils: set absence aside and the schools look exceptional; leave it in the ledger and the city is ordinary. These insights come from the analysis of open data presented in this paper and carried out after the consultation had closed. However, with more timely analysis and with this knowledge, the approach to improving outcomes for disadvantaged pupils in the city could have been more effective and different questions asked: "what can we learn from what the city is doing right?" and "would asking pupils to travel out of their communities to schools jeopardise this success?" Some rapidly-produced analysis was put into the public domain by some of the authors of this paper[^1], but as a response to, not a contribution to, policy formation.
+Raw data on the attainment gap, without context, was presented to the city alongside statements correlating concentrations of disadvantage with lower attainment. The gap was framed as a unique failure requiring urgent action; the second-order impacts of the proposed interventions - longer school journeys, displacement from local communities, effects on well-being - were not scrutinised in depth. Our modelling addresses a critical blind spot in local decision-making: without the ability to account for structural factors like absence and prior attainment, councillors and citizens were unaware that, *after controlling for absence in particular*, Brighton and Hove was already among the highest-performing LEAs nationally for contextualised GCSE attainment - ranking 15th of 151 for disadvantaged pupils and 4th for non-disadvantaged pupils. As we show later, that conditional ranking is itself a measure of how much the city's severe absence problem is costing its disadvantaged pupils. If we set absence aside
+the schools look exceptional, if we factor it in, the city is ordinary. These insights come from the analysis of open data presented in this paper and carried out after the consultation had closed. However, with more timely analysis and with this knowledge, the approach to improving outcomes for disadvantaged pupils in the city could have been more effective and different questions asked: "what can we learn from what the city is doing right?" and "would asking pupils to travel out of their communities to schools jeopardise this success?" Some rapidly-produced analysis was put into the public domain by some of the authors of this paper[^1], but as a response to, not a contribution to, policy formation.
 
 [^1]: <https://osf.io/x82j3/overview> (see \`about.html\` in \`supplementary.zip\`)
 
@@ -289,13 +291,9 @@ The selective-admissions variable is the DfE's own performance-tables admissions
 
 There are two points relating to the prior-attainment variable that need highlighting. Firstly, we control for prior attainment using the cohort's *mean KS2 scaled score*, and for the final year of our panel no observed prior-attainment data exists at all. Because the KS2 tests and assessments of 2019-20 and 2020-21 were cancelled during the pandemic, the cohorts reaching the end of KS4 in 2024-25 and 2025-26 have no KS2 results of any kind; the DfE accordingly publishes neither prior-attainment measures nor Progress 8 for those years.[^19] For 2024-25 we therefore carry forward each school's most recently observed value (or, where that is unavailable, its mean across observed years), and the affected rows are flagged in the panel (see Supplementary material[^5] for methods and diagnostic plots). Secondly, because we lack pupil-level data, prior attainment is corrected only at the school level; this is a coarser adjustment than a pupil-and-school-level correction would provide, and therefore we can't rule out some confounding of the intake coefficients where a common cause exists. We return to this limitation later in the paper.
 
-Our reasons for preferring the mean score to the more commonly reported share of pupils arriving with *low* prior attainment are set out in section 4.2, alongside the results.
-
 [^19]: Department for Education, *Key stage 4 performance*: "It is not possible to calculate Progress 8 for academic years 2024/25 and 2025/26. This is because there is no KS2 prior attainment data available to use to calculate Progress 8 when the relevant cohorts reach the end of KS4 as primary tests and assessments were cancelled in academic years 2019/20 and 2020/21 due to COVID-19 disruption." <https://explore-education-statistics.service.gov.uk/find-statistics/key-stage-4-performance>
 
-We fit separate models for overall Attainment 8, disadvantaged-pupil Attainment 8, and non-disadvantaged-pupil Attainment 8, as both panel models (all four years) and individual year models. Models were estimated using the `lme4` package in R with Restricted Maximum Likelihood estimation.
-
-Variable selection was informed by the literature review and by the policy narrative in Brighton and Hove, where segregation featured prominently in the council justification. Full details of the variables and the full analysis panel can be found in the supplementary material [^5].
+We fit separate models for overall Attainment 8, disadvantaged-pupil Attainment 8, and non-disadvantaged-pupil Attainment 8, as both panel models (all four years) and individual year models. Models were estimated using the `lme4` package in R with Restricted Maximum Likelihood estimation. Variable selection was informed by the literature review and by the policy narrative in Brighton and Hove, where segregation featured prominently in the council justification. Full details of the variables and the full analysis panel can be found in the supplementary material [^5].
 
 # Results
 
@@ -466,21 +464,23 @@ if (tbl_fmt == "latex") {
 
 The stepwise progression in @tbl-stepwise reveals the mediating structure among the key predictors. In Model 1, we start with the % KS4 pupils who are disadvantaged (%FSM for short) as the only predictor - mainly as this was the variable that has dominated the policy discussion in Brighton and Hove in recent years, leading to the 2023 FSM priority policy and the 2024 mixing policy. the FSM coefficient is --0.201 and statistically significant, on its own accounting for almost 40% of the variation in Attainment 8 across schools in England. However, adding absence in Model 2 halves it to --0.122. Absence shares explanatory power attributed to deprivation, reducing the coefficient of %FSM, and adds further explanation, together they now account for over 60% of the variation in Attainment 8 scores. Adding prior attainment in Model 3 reduces both FSM and absence coefficients further. By Model 3, with just three variables, close to `r round(summary(m3)$r.squared * 100)`% of attainment variation is explained.
 
-Ranking these three predictors by importance needs more care than it might appear, and it is worth being explicit about why. The t-values in Model 3 (% absence `r sprintf("%.1f", summary(m3)$coefficients["log(PERCTOT)", "t value"])`, mean KS2 `r sprintf("%.1f", summary(m3)$coefficients["ks2_c", "t value"])`, % FSM `r sprintf("%.1f", summary(m3)$coefficients["log(PTFSM6CLA1A)", "t value"])`) describe how precisely each coefficient is estimated once the other two are held constant --- that is, each variable's *unique* contribution. But these three variables are strongly correlated with one another (% FSM with mean KS2 at `r sprintf("%.2f", cor_fsm_ks2)`, % absence with mean KS2 at `r sprintf("%.2f", cor_abs_ks2)`), so a great deal of the variance they explain is shared between them rather than belonging to any one. A variable that shares heavily with the others will have a modest t-value even where it accounts for a large share of attainment on its own, and t-values therefore cannot settle which factor matters most.
+Ranking these three predictors in terms of their importance is not quite as simple as examining the t-values in Model 3 (% absence `r sprintf("%.1f", summary(m3)$coefficients["log(PERCTOT)", "t value"])`, mean KS2 `r sprintf("%.1f", summary(m3)$coefficients["ks2_c", "t value"])`, % FSM `r sprintf("%.1f", summary(m3)$coefficients["log(PTFSM6CLA1A)", "t value"])`). T-values get you close as they standardise each coefficient in the presence of the others - an indication of each variable's *unique* contribution. But the issue is, these three variables are strongly correlated with one another (% FSM with mean KS2 at `r sprintf("%.2f", cor_fsm_ks2)`, % absence with mean KS2 at `r sprintf("%.2f", cor_abs_ks2)`), so a great deal of the variance they explain is *shared* between them rather than belonging to any one. A variable that shares heavily with the others will have an apparently small t-value even where it accounts for a large share of attainment on its own. As such we can't rely on t-values on their own to decide which factor matters most.
 
-Two measures that can apportion the shared variance point the same way as each other. Taken on its own, mean KS2 explains `r round(r2_alone[["ks2_c"]] * 100)`% of the variation in Attainment 8, absence `r round(r2_alone[["log(PERCTOT)"]] * 100)`% and % FSM `r round(r2_alone[["log(PTFSM6CLA1A)"]] * 100)`%. Apportioning the shared variance more formally, by averaging each variable's contribution across every possible order in which the three could enter the model (the Shapley value [@Shapley1953], known in this context as the LMG decomposition after @Lindeman1980; see @Gromping2007), gives mean KS2 `r round(shapley_share[["ks2_c"]] * 100)`% of the explained variance, absence `r round(shapley_share[["log(PERCTOT)"]] * 100)`% and % FSM `r round(shapley_share[["log(PTFSM6CLA1A)"]] * 100)`%.
+Taking each variable on their own, mean KS2 explains `r round(r2_alone[["ks2_c"]] * 100)`% of the variation in Attainment 8, absence `r round(r2_alone[["log(PERCTOT)"]] * 100)`% and % FSM `r round(r2_alone[["log(PTFSM6CLA1A)"]] * 100)`%. However, we can apportion the shared variance more formally, by averaging each variable's contribution across every possible order in which the three could enter the model. This is know as the Shapley value [@Shapley1953] or the LMG decomposition after @Lindeman1980; see @Gromping2007). This gives mean KS2 prior attainment `r round(shapley_share[["ks2_c"]] * 100)`% of the explained variance, absence `r round(shapley_share[["log(PERCTOT)"]] * 100)`% and % FSM `r round(shapley_share[["log(PTFSM6CLA1A)"]] * 100)`% (for all Pupils).
 
-Prior attainment, then, is the largest single source of variation in school-level attainment, with absence close behind --- consistent with the standardised coefficients we report in section 4.3. The point that matters for policy survives every one of these measures: **concentrations of disadvantage come last on all three**, whether judged by unique contribution, by explanatory power alone, or by apportioned share. We return in section 4.3 to what follows from this, and in particular to the distinction between a factor that is large and a factor that can be acted upon.
+Prior attainment, then, is the largest single source of variation in school-level attainment, with absence close behind - this is consistent with the standardised coefficients we report in section 4.3. The point that matters for the Brighton and Hove policy discussion is that concentrations of disadvantage are least the least important of the three whether judged by unique contribution, by explanatory power alone, or by apportioned share. We will return to this in section 4.3.
 
-Before we get to Model 4, it is worth setting out why prior attainment enters as the cohort's *mean* KS2 score rather than as the share of pupils arriving with low prior attainment, which is the measure more often reported. The low-attainment share describes only the bottom of a school's intake distribution: it records how many pupils arrived already behind, but says nothing about how many arrived ahead. Two schools with identical proportions of low prior attainers can have very different intakes across the rest of the attainment spectrum, and a model controlling only for the low-attainment share cannot distinguish them, so it systematically under-adjusts for schools whose advantage lies at the *top*. Selective schools are the clearest case: their share of low prior attainers is close to zero and cannot fall further, so the measure is unable to register how selective their intake actually is. Mean KS2, by contrast, reflects both tails. It produces a substantially better fit (a reduction in AIC of over 500 for the all-pupil model), and once it is included the low-attainment share adds nothing further (*t* = -0.45).
+Before we get to Model 4, it is worth explaining why prior attainment comes into the model as *mean* KS2 score rather than as the share of pupils arriving with low prior attainment, which is the measure more often reported (and used in an earlier iteration of this work). The low-attainment share describes only the bottom of a school's intake distribution: it records how many pupils arrived already behind, but says nothing about how many arrived ahead. Two schools with identical proportions of low prior attainers can have very different intakes across the rest of the attainment spectrum. Therefore a model controlling only for the low-attainment share systematically under-adjusts for schools who have an advantage through more pupils arriving in year 7 at the top of the prior attainment distribution. Selective schools are the clearest case of this: their share of low prior attainers is close to zero and cannot fall further, so just looking at low prior attainment means we can't disentangle how selective their intake actually is. Mean KS2, by contrast, reflects both tails of the distribution. It produces a substantially better fit (a reduction in AIC of over 500 for the all-pupil model), and once it is included the low-attainment variable adds nothing further (*t* = -0.45).
 
-The choice has consequences for the intake coefficients. A control that sees only one tail leaves part of the intake difference between high- and low-FSM schools unmeasured, and the disadvantage variable absorbs what is left over: under the low-attainment share, the coefficient on concentrations of disadvantage is around a quarter larger than it should be. The absence coefficient, by contrast, is barely affected either way - under 3% in either pupil group. The practical lesson for modelling KS4 outcomes is that it is not sufficient to ask how many pupils arrived behind; how many arrived ahead matters just as much, and a control that sees only the lower tail quietly credits schools for intake advantages they did not create. A fuller comparison of the two measures, and of both together, is given in the supplementary material.
+The choice has consequences for the other intake-related coefficients. A low prior attainment control leaves part of the intake difference between high- and low-FSM schools unmeasured, and the disadvantage variable absorbs what is left over. The result is under the low-attainment share, the coefficient on concentrations of disadvantage is around a quarter larger than it should be. The absence coefficient, by contrast, is barely affected either way - under 3% in either pupil group. What this means for modelling KS4 outcomes is that we can't just ask how many pupils arrived behind, as how many arrived ahead matters just as much. A model just incorporating the lower tail quietly credits schools for intake advantages they did not create. A detailed comparison of the two measures, and of both together, is given in the supplementary material.
 
-We should add a note of caution relating to interpretations following this improvement. Prior attainment at Key Stage 2 is not independent of disadvantage: a large chunk of prior attainment actually reflects the inequalities a child has already experienced before secondary school ever begins [@StopforthGayle2025; @gorard_how_2019]. A variable that captures the whole intake distribution therefore absorbs correspondingly more of the poverty signal than one that captures just the low attainment tail - which is precisely why the disadvantage coefficient is smaller under this control than under one that sees only the lower tail. The coefficient that survives this control should not, then, be read as an estimate of how much poverty matters to attainment. It is a *within-intake* comparison: what remains once schools receiving similar cohorts are set alongside one another. The total contribution of disadvantage to attainment is substantially larger than that residual coefficient implies, and nothing in our analysis should be taken to suggest otherwise. What our models do identify is the marginal association with the *concentration* of disadvantage at school level, holding intake constant - a much narrower quantity, and the one the 2023 (FSM priority) and 2024 (increased mixing) Brighton and Hove policy propositions actually turned on.
+We should add a note of caution relating to interpretations following this improvement. Prior attainment at Key Stage 2 is not independent of disadvantage: a large chunk of prior attainment actually reflects the inequalities a child has already experienced before secondary school ever begins [@StopforthGayle2025; @gorard_how_2019]. A variable that captures the whole intake distribution therefore absorbs correspondingly more of the poverty signal than one that captures just the low attainment tail - which is precisely why the disadvantage coefficient is smaller under mean KS2 than low KS2 attainment. 
+
+Where we still have a significant FSM coefficient after controlling for prior attainment, it should not be interpreted as an estimate of how much poverty matters to attainment. Instead it is what remains once schools receiving similar cohorts are set alongside one another - the total contribution of disadvantage to attainment is substantially larger than that residual coefficient implies. What our models do identify is the marginal association with the *concentration* of disadvantage at school level, holding intake constant - a much narrower quantity. However it is also the quantity the 2023 (FSM priority) and 2024 (increased mixing) Brighton and Hove policy propositions actually turned on.
 
 Prior attainment carries an additional structural meaning due to Ofqual’s 'comparable outcomes' approach, which calibrates national GCSE grade boundaries against the incoming cohort's KS2 profile. Because this calibration is a national, year-to-year adjustment, any mechanical scaling is absorbed by our year random effect. The fixed effect for mean KS2 therefore safely isolates the genuine within-year, between-school association between inherited intake and attainment.
 
-Returning to the stepwise decomposition, Model 4 adds additional fixed effects including EAL proportions, selective admissions, workforce variables and the Gorard Segregation Index. Model 5 adds random effects for year, Ofsted rating, region and LEA nested within region, lifting the $R^2$ from `r sprintf("%.2f", r2_m5$R2_marginal)` (marginal) to `r sprintf("%.2f", r2_m5$R2_conditional)` (conditional), indicating that `r round(100 * (r2_m5$R2_conditional - r2_m5$R2_marginal))`% of attainment variance is tied to these grouping factors - capturing unmeasured factors such as school culture, leadership quality, local authority support services, and community characteristics. The marginal $R^2$ captures the model's total explained variance, which includes the substantial variance shared between correlated structural predictors due to shared underlying causes (e.g. poverty).  As @tbl-stepwise demonstrates, when new variables enter the model, this shared variance is absorbed into the overall predictive power of the model rather than being credited to any single predictor. Consequently, the individual coefficients shrink, leaving them to represent strictly unique, partial effects to compare.
+Returning to the stepwise decomposition, Model 4 adds additional fixed effects including EAL (English as an Additional Language) proportions, selective admissions, workforce variables and the Gorard Segregation Index. Model 5 adds random effects for year, Ofsted rating, region and LEA nested within region, lifting the $R^2$ from `r sprintf("%.2f", r2_m5$R2_marginal)` (marginal) to `r sprintf("%.2f", r2_m5$R2_conditional)` (conditional), indicating that `r round(100 * (r2_m5$R2_conditional - r2_m5$R2_marginal))`% of attainment variance is tied to these grouping factors - capturing unmeasured factors such as school culture, leadership quality, local authority support services, and community characteristics. The marginal $R^2$ captures the model's total explained variance, which includes the substantial variance shared between correlated structural predictors due to shared underlying causes (e.g. poverty).  As @tbl-stepwise demonstrates, when new variables enter the model, this shared variance is absorbed into the overall predictive power of the model rather than being credited to any single predictor. Consequently, the individual coefficients shrink, leaving them to represent strictly unique, partial effects to compare.
 
 Ofsted rating has only four ordered categories, fewer than would ordinarily be modelled as a random effect. We include it as a grouping factor for partial pooling and consistency with the other contextual groupings, but we have verified that treating it instead as a categorical fixed effect leaves every other coefficient unchanged to three or four significant figures and does not move Brighton and Hove's rank (supplementary material[^8]). The fixed-effect form is also informative in its own right: relative to an 'Outstanding' school, and holding intake constant, a 'Good' rating is associated with roughly 1.9 fewer Attainment 8 points, 'Requires Improvement' with 4.0 fewer, and 'Inadequate' with 4.5 fewer - a scale that flattens markedly at the bottom, so that the gap between the two lowest ratings is small. We treat Ofsted as a contextual control rather than a causal factor throughout, since inspection judgements are formed with sight of a school's results and are therefore partly an expression of attainment rather than an independent driver of it; consistent with this, omitting Ofsted entirely *increases* the estimated absence effect by 12--15%, so its inclusion makes our headline absence figure, if anything, conservative.
 
@@ -491,90 +491,150 @@ A crucial feature of these models is that the log-transformed variables encode n
 ## Relative variable importance
 
 ```{r}
-#| label: fig-standardised-coefficients
-#| fig-cap: "Standardised coefficients showing relative variable importance across pupil groups. Bars show the change in log(ATT8) associated with a one-SD shift in each predictor."
-#| fig-height: 5
-#| fig-width: 7
+#| label: importance-sample
+#| include: false
 
-standardised_importance <- function(model, data, outcome_var, group_label) {
-  fe <- fixef(model)
-  fe <- fe[names(fe) != "(Intercept)"]
-  coef_info <- tribble(
-    ~term, ~data_col, ~transform,
-    "log(PTFSM6CLA1A)", "PTFSM6CLA1A", "log",
-    "log(PERCTOT)", "PERCTOT", "log",
-    "log(PNUMEAL)", "PNUMEAL", "log",
-    "ks2_c", "ks2_c", "none",
-    "ADMPOL_PTSEL", "ADMPOL_PT", "dummy_SEL",
-    "gorard_segregation", "gorard_segregation", "none",
-    "remained_in_the_same_school", "remained_in_the_same_school", "none",
-    "teachers_on_leadership_pay_range_percent", "teachers_on_leadership_pay_range_percent", "none",
-    "log(average_number_of_days_taken)", "average_number_of_days_taken", "log"
-  )
-  results <- coef_info %>%
-    filter(term %in% names(fe)) %>%
-    rowwise() %>%
-    mutate(
-      coef = fe[term],
-      x_vals = list(
-        if (transform == "log") log(data[[data_col]][!is.na(data[[data_col]]) & data[[data_col]] > 0])
-        else if (transform == "dummy_SEL") as.numeric(data[[data_col]] == "SEL")[!is.na(data[[data_col]])]
-        else data[[data_col]][!is.na(data[[data_col]])]
-      ),
-      sd_x = sd(unlist(x_vals), na.rm = TRUE),
-      std_coef = coef * sd_x,
-      abs_std_coef = abs(std_coef),
-      Group = group_label
-    ) %>%
-    ungroup() %>%
-    select(term, coef, sd_x, std_coef, abs_std_coef, Group)
-  results
+# The Analysis E estimation sample, restricted to complete cases on every
+# predictor so that all subsets below are fitted on identical rows. This
+# matters: lm() drops incomplete cases silently, so models containing
+# different variables would otherwise be fitted on different samples and
+# their R-squared values would not be comparable.
+d <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(ks2_c), !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+         !is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0) %>%
+  droplevels()
+```
+
+
+```{r}
+#| label: fig1-combined-data
+#| include: false
+
+# Standardised coefficients come from the paper's fitted multilevel models, so
+# the left panel is the quantity the figure reported previously. Shapley shares
+# are computed by OLS over the full subset lattice: 2^9 subsets per cohort is
+# tractable with lm() and is not with lmer().
+FIG_MODELS <- list("All pupils"        = models_imputed$all,
+                   "Disadvantaged"     = models_imputed$disadvantaged,
+                   "Non-disadvantaged" = models_imputed$non_disadvantaged)
+FIG_OUTCOME <- c("All pupils"        = "ATT8SCR",
+                 "Disadvantaged"     = "ATT8SCR_FSM6CLA1A",
+                 "Non-disadvantaged" = "ATT8SCR_NFSM6CLA1A")
+
+FIG_LABELS <- c(
+  "log(PERCTOT)"                             = "Overall absence",
+  "ks2_c"                                    = "Mean KS2 prior attainment",
+  "log(PTFSM6CLA1A)"                         = "% disadvantaged (FSM)",
+  "ADMPOL_PT"                                = "Selective admissions",
+  "log(PNUMEAL)"                             = "% EAL",
+  "remained_in_the_same_school"              = "Teacher retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership pay %",
+  "log(average_number_of_days_taken)"        = "Teacher sickness days",
+  "gorard_segregation"                       = "Gorard segregation index"
+)
+FIG_VARS <- names(FIG_LABELS)
+
+# The comparison needs every cohort outcome present on the same rows.
+fig_d <- d %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+fig_sd <- function(v) {
+  if (v == "ADMPOL_PT") return(sd(as.numeric(fig_d$ADMPOL_PT == "SEL"), na.rm = TRUE))
+  raw <- sub("^log\\((.*)\\)$", "\\1", v)
+  x <- if (grepl("^log\\(", v)) log(fig_d[[raw]]) else fig_d[[raw]]
+  sd(x, na.rm = TRUE)
 }
 
-display_names <- c(
-  "log(PTFSM6CLA1A)" = "% Disadvantaged (FSM)",
-  "log(PERCTOT)" = "Overall Absence Rate",
-  "log(PNUMEAL)" = "% EAL",
-  "ks2_c" = "Mean KS2 Prior Attainment",
-  "ADMPOL_PTSEL" = "Selective Admissions",
-  "gorard_segregation" = "Gorard Segregation Index",
-  "remained_in_the_same_school" = "Teacher Retention",
-  "teachers_on_leadership_pay_range_percent" = "Leadership Pay %",
-  "log(average_number_of_days_taken)" = "Teacher Sickness Days"
-)
+# signed standardised coefficient from the fitted multilevel model
+fig_std <- function(model) {
+  fe <- lme4::fixef(model)
+  vapply(FIG_VARS, function(v) {
+    nm <- if (v == "ADMPOL_PT") "ADMPOL_PTSEL" else v
+    if (!nm %in% names(fe)) return(NA_real_)
+    unname(fe[[nm]]) * fig_sd(v)
+  }, numeric(1))
+}
 
-imp_all <- standardised_importance(mod_e_all, imputed_full_data, "ATT8SCR", "All Pupils")
-imp_dis <- standardised_importance(mod_e_disadv, imputed_full_data, "ATT8SCR_FSM6CLA1A", "Disadvantaged")
-imp_non <- standardised_importance(mod_e_nondisadv, imputed_full_data, "ATT8SCR_NFSM6CLA1A", "Non-Disadvantaged")
+# Shapley over all 2^9 subsets, by OLS, on the same rows
+fig_r2 <- function(y, vs) {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste0("log(", y, ") ~ ", rhs)), data = fig_d))$r.squared
+}
+fig_shapley <- function(y) {
+  k <- length(FIG_VARS)
+  masks <- 0:(2^k - 1)
+  r2c <- vapply(masks, function(m)
+    fig_r2(y, FIG_VARS[bitwAnd(m, 2^(seq_len(k) - 1)) > 0]), numeric(1))
+  phi <- numeric(k)
+  for (i in seq_len(k)) {
+    bit <- 2^(i - 1)
+    for (m in masks) {
+      if (bitwAnd(m, bit) == 0) {
+        s <- sum(bitwAnd(m, 2^(seq_len(k) - 1)) > 0)
+        w <- exp(lfactorial(s) + lfactorial(k - s - 1) - lfactorial(k))
+        phi[i] <- phi[i] + w * (r2c[bitwOr(m, bit) + 1] - r2c[m + 1])
+      }
+    }
+  }
+  setNames(phi, FIG_VARS)
+}
 
-importance_national <- bind_rows(imp_all, imp_dis, imp_non) %>%
-  mutate(display_name = display_names[term])
+fig_dat <- purrr::map_dfr(names(FIG_MODELS), function(nm) {
+  phi <- fig_shapley(FIG_OUTCOME[[nm]])
+  tibble(Cohort = nm, var = FIG_VARS, Predictor = unname(FIG_LABELS[FIG_VARS]),
+         share = as.numeric(phi) / sum(phi),
+         std   = as.numeric(fig_std(FIG_MODELS[[nm]])))
+})
 
-importance_chart_data <- importance_national %>%
-  mutate(
-    display_name = factor(display_name),
-    Group = factor(Group, levels = c("All Pupils", "Disadvantaged", "Non-Disadvantaged"))
-  )
+fig_lev <- fig_dat %>% filter(Cohort == "All pupils") %>%
+  arrange(share) %>% pull(Predictor)
+fig_dat <- fig_dat %>%
+  mutate(Predictor = factor(Predictor, levels = fig_lev),
+         Cohort = factor(Cohort, levels = names(FIG_MODELS)))
+```
 
-var_order <- importance_chart_data %>%
-  group_by(display_name) %>%
-  summarise(avg_abs = mean(abs_std_coef)) %>%
-  arrange(avg_abs) %>%
-  pull(display_name)
 
-importance_chart_data <- importance_chart_data %>%
-  mutate(display_name = factor(display_name, levels = var_order))
+```{r}
+#| label: fig-standardised-coefficients
+#| fig-cap: "Relative importance of each predictor of school-level Attainment 8, by pupil group. The left panel gives the standardised coefficient from the multilevel model, which carries the direction of each association but only its unique contribution. The right panel gives the Shapley share of explained variance, which apportions the variance predictors share but has no sign. Predictors are ordered by Shapley share for all pupils. The two measures answer different questions - one about unique contribution, the other about total contribution with the shared variance divided between predictors - but they agree on the leading pair in every pupil group: mean KS2 prior attainment leads for all pupils and for non-disadvantaged pupils, and overall absence leads for disadvantaged pupils. Disadvantage concentration ranks third on both panels for all pupils and for non-disadvantaged pupils, and fifth for disadvantaged pupils."
+#| fig-width: 11
+#| fig-height: 5.8
 
-ggplot(importance_chart_data,
-       aes(x = display_name, y = std_coef, fill = Group)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
-  coord_flip() +
-  scale_fill_manual(values = c("All Pupils" = "#2e6260",
-                                "Disadvantaged" = "#4e3c56",
-                                "Non-Disadvantaged" = "#abc766")) +
-  labs(x = NULL, y = "Standardised Coefficient (signed)", fill = NULL) +
-  theme_pub
+COH_COL <- c("All pupils" = "#4e3c56", "Disadvantaged" = "#c0392b",
+             "Non-disadvantaged" = "#2e6260")
+
+fig_theme <- theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(colour = "grey35", size = 9, lineheight = 1.1),
+        legend.position = "bottom")
+
+p_left <- ggplot(fig_dat, aes(std, Predictor, fill = Cohort)) +
+  geom_vline(xintercept = 0, colour = "grey40") +
+  geom_col(position = position_dodge(width = 0.78), width = 0.7) +
+  scale_fill_manual(values = COH_COL) +
+  labs(subtitle = "Direction and unique contribution\n(standardised coefficient)",
+       x = "Change in log(Attainment 8) per 1 SD", y = NULL) +
+  fig_theme
+
+p_right <- ggplot(fig_dat, aes(share, Predictor, fill = Cohort)) +
+  geom_col(position = position_dodge(width = 0.78), width = 0.7) +
+  scale_fill_manual(values = COH_COL) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.04))) +
+  labs(subtitle = "Apportioned share of explained variance\n(Shapley, sharing resolved)",
+       x = "Share of model R²", y = NULL) +
+  fig_theme +
+  theme(axis.text.y = element_blank())
+
+(p_left | p_right) +
+  patchwork::plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 ```
 
 ```{r}
@@ -582,40 +642,44 @@ ggplot(importance_chart_data,
 #| include: false
 
 # Share of the combined standardised effect attributable to each predictor,
-# and which predictor leads, per pupil group.
-imp_shares <- importance_national %>%
-  group_by(Group) %>%
-  mutate(share = abs_std_coef / sum(abs_std_coef)) %>%
+# and which predictor leads, per pupil group. Computed from fig_dat so that
+# these figures and the left panel of the figure above are the same numbers.
+imp_shares <- fig_dat %>%
+  group_by(Cohort) %>%
+  mutate(share_std = abs(std) / sum(abs(std))) %>%
   ungroup()
 
-imp_share_of <- function(grp, tm) {
-  imp_shares %>% filter(Group == grp, term == tm) %>% pull(share)
+imp_share_of <- function(grp, pred) {
+  imp_shares %>% filter(Cohort == grp, Predictor == pred) %>% pull(share_std)
 }
 imp_leader <- function(grp) {
-  imp_shares %>% filter(Group == grp) %>% slice_max(abs_std_coef, n = 1) %>%
-    pull(display_name)
+  imp_shares %>% filter(Cohort == grp) %>%
+    slice_max(abs(std), n = 1) %>% pull(Predictor) %>% as.character()
 }
 
-abs_share_all <- imp_share_of("All Pupils", "log(PERCTOT)")
-abs_share_dis <- imp_share_of("Disadvantaged", "log(PERCTOT)")
-abs_share_non <- imp_share_of("Non-Disadvantaged", "log(PERCTOT)")
+abs_share_all <- imp_share_of("All pupils", "Overall absence")
+abs_share_dis <- imp_share_of("Disadvantaged", "Overall absence")
+abs_share_non <- imp_share_of("Non-disadvantaged", "Overall absence")
 ```
 
-@fig-standardised-coefficients compares the standardised coefficients[^6] across all three pupil groups (all pupils, disadvantaged pupils and non-disadvantaged pupils - full model outputs available in the supplementary materials[^7]). Two predictors stand well clear of the rest, and which of them leads depends on the pupil group. Mean KS2 prior attainment has the largest standardised coefficient for all pupils and for non-disadvantaged pupils; for disadvantaged pupils, absence is larger. Prior attainment enters with a *positive* sign - cohorts arriving from primary school with higher average KS2 scores go on to higher Attainment 8 - and its prominence is unsurprising, since it is the closest thing in the model to a direct measure of the intake a school receives.
+@fig-standardised-coefficients (left panel) compares the standardised coefficients[^6] across all three pupil groups (all pupils, disadvantaged pupils and non-disadvantaged pupils - full model outputs available in the supplementary materials[^7]) alongside the apportioned share of the variance in the model (the Shapley $R^2$ after @Shapley1953, also known as the LMG decomposition after @Lindeman1980 and set out for regression by @Gromping2007) each variable claims (right panel). Two predictors stand out, but their ranked importance depends on the pupil group. Mean KS2 prior attainment has the largest standardised coefficient and Shapley $R^2$ for all pupils and non-disadvantaged pupils; for disadvantaged pupils, absence is larger. Prior attainment has a *positive* association - cohorts arriving from primary school with higher average KS2 scores go on to higher Attainment 8 - and it is the closest thing in the model to a direct measure of the intake a school receives.
 
-The distinction that matters for policy is that these two variables are not equally available to act on. Prior attainment is inherited: for a cohort already in secondary school it is fixed, and no admissions or improvement decision taken by a local authority can alter it. It belongs in the model as a control for intake, not as a lever. Absence, by contrast, is at least partly open to intervention, and it is the largest such factor for every pupil group. It is also markedly more important for disadvantaged pupils; for this group, the standardised coefficient for absence is roughly a third larger than the next most impactful predictor, whereas for non-disadvantaged pupils, prior attainment is the dominant factor.
+Addressing the challenges of prior attainment and absence require very different policy responses from LEAs and schools. However, what is clear is absence is markedly more important for disadvantaged pupils; for this group, absence has the largest standardised coefficient of any predictor, ahead of mean KS2 prior attainment, whereas for non-disadvantaged pupils prior attainment is clearly dominant and its standardised coefficient is over 70% larger than that of absence.
 
-[^6]: Standardised coefficients are computed as $\beta^*_k = \hat{\beta}_k \times \text{SD}(x_k) / \text{SD}(\log \text{ATT8})$, where $\text{SD}(x_k)$ is the sample standard deviation of the predictor (log-transformed where applicable). This rescales each coefficient to represent the change in outcome, in standard-deviation units, associated with a one-standard-deviation change in the predictor.
+[^6]: Standardised coefficients are computed as $\beta^*_k = \hat{\beta}_k \times \text{SD}(x_k)$, where $\text{SD}(x_k)$ is the sample standard deviation of the predictor (log-transformed where applicable, and taken as the 0/1 indicator for selective admissions). Each coefficient therefore represents the change in log Attainment 8 associated with a one-standard-deviation change in the predictor. The outcome is left on its log scale rather than divided by its own standard deviation, so that the three pupil groups are compared in the same units; because the disadvantaged, non-disadvantaged and whole-cohort outcomes vary by different amounts between schools, rescaling each by its own standard deviation would make the three sets of bars answer subtly different questions.
 
 [^7]: Stepwise Models for all pupil groups [https://osf.io/x82j3/overview (see \`model_results.html#stepwise-model-building\` in \`supplementary.zip\`)](https://osf.io/x82j3/overview){.uri}
 
-@fig-standardised-coefficients makes the relative importance of the predictors explicit, and the ordering is the main empirical take-home message of the paper. Putting prior attainment to one side - as it describes the intake rather than anything a school or authority can change - school absence is the dominant lever by a clear margin; and the concentration of disadvantage - the variable around which the Brighton and Hove policy was built - is a distant contributor whose sign (direction of effect), as we discuss next, actually depends on the pupil group. Recognising this ordering matters, because a policy debate anchored on disadvantage concentration is, on this evidence, anchored on one of the weakest of the levers available.
+@fig-standardised-coefficients makes the relative importance of the predictors explicit, and the ordering is the main empirical take-home message of the paper. Policies that could be implemented to mitigate the worst impacts of low prior attainment or to directly address low levels of attendance are likely to have the most impact on attainment. Policies focusing on concentrations of disadvantage (%FSM) - the focus in Brighton and Hove - are on this evidence likely to have much less impact. But not only would such policies be anchored on one of the weaker of the levers available, the effect itself runs in the opposite direction to the one such policies assume.
 
-The most contentious finding in our analysis concerns concentrations of disadvantage (contentious in Brighton and Hove - although the findings echo the analysis of @macleod_supporting_2015 a decade ago). For non-disadvantaged pupils, higher FSM proportions are associated with lower attainment. But for disadvantaged pupils, the coefficient is *positive* - after controlling for absence and mean KS2 prior attainment, disadvantaged pupils perform slightly better in schools with higher concentrations of other disadvantaged pupils. This finding is robust across individual year models and alternative specifications of disadvantaged attainment and disadvantage measures.[^8] In the full multilevel model, this positive coefficient shrinks substantially, suggesting the effect operates through LEA-level and Ofsted-level factors rather than concentration *per se* - schools with higher FSM proportions in certain LEAs appear to have developed effective support systems, possibly through targeted use of Pupil Premium funding and other specialisations.
+This is likely to be the most contentious finding in our analysis - contentious in Brighton and Hove as it runs counter to statements made by the council during the 2024 consultation that *"children from disadvantaged homes are less likely to do well at school and that can be made worse when more disadvantaged children all go to school together[^dis_stu]"* - although the findings echo the analysis of @macleod_supporting_2015 a decade ago. 
 
+@fig-standardised-coefficients shows that for non-disadvantaged pupils, higher FSM proportions are associated with lower attainment. But for disadvantaged pupils, the coefficient is *positive*. After controlling for absence and mean KS2 prior attainment, disadvantaged pupils perform slightly *better* in schools with higher concentrations of other disadvantaged pupils. This finding is robust across individual year models and alternative specifications of disadvantaged attainment and disadvantage measures.[^8] In the full multilevel model, this positive coefficient shrinks substantially, suggesting the effect operates through LEA-level and Ofsted-level factors rather than concentration *per se* - schools with higher FSM proportions in certain LEAs appear to have developed effective support systems, possibly through targeted use of Pupil Premium funding and other specialisations.
+
+[^dis_stu]: Brighton and Hove Council 2024 Consultation Papers can be downloaded from here - <https://yourvoice.brighton-hove.gov.uk/en-GB/projects/school-admission-arrangements-public-consultation/1>
 [^8]: See supplementary material for robustness checks: [https://osf.io/x82j3/overview (see \`model_experiments.html\` in \`supplementary.zip\`)](https://osf.io/x82j3/overview){.uri}
 
-We should be careful about the interpretation of this positive coefficient. One reading is that equivalent disadvantaged pupils do genuinely better in higher-concentration schools ('differing effects'). But an alternative is that the FSM binary cannot distinguish the depth or duration of disadvantage, so the disadvantaged pupils in a 50%-FSM school may differ systematically from those in a 20%-FSM school in ways our aggregate measures do not capture ('differing pupils'). With school-level data this is impossible to unpick definitively. However, the consistency of the result across multiple operationalisations of both disadvantage and disadvantaged attainment makes a pure measurement artefact less likely, and the stronger positive association we observe on the vocational/technical component of Attainment 8 (supplementary material) is at least suggestive of a genuine specialisation mechanism rather than pure composition. But the composition interpretation cannot be excluded, and distinguishing the two would require pupil-level data with disadvantage histories. Importantly, our policy argument does not depend on which interpretation holds: under either, there is no evidence that concentrating disadvantaged pupils *harms* their attainment, and therefore no support for the premise that de-concentration would *improve* it.
+We should be careful about the interpretation of this positive coefficient. One reading is that equivalent disadvantaged pupils do genuinely better in higher-concentration schools ('differing effects'). But an alternative is that the FSM binary cannot distinguish the depth or duration of disadvantage, so the disadvantaged pupils in a 50%-FSM school may differ systematically from those in a 20%-FSM school in ways our aggregate measures do not capture ('differing pupils'). With school-level data this is impossible to unpick definitively. However, the consistency of the result across multiple operationalisations of both disadvantage and disadvantaged attainment makes a pure measurement artefact less likely, and the stronger positive association we observe on the vocational/technical component of Attainment 8 (supplementary material) is at least suggestive of a genuine specialisation mechanism rather than pure composition. But the composition interpretation cannot be excluded, and distinguishing the two would require pupil-level data with disadvantage histories. Importantly, our policy argument does not depend on which interpretation is correct as under either, there is no evidence that concentrating disadvantaged pupils *harms* their attainment, and therefore no support for the premise that de-concentration would *improve* it.
 
 For non-disadvantaged pupils, the effect of higher disadvantage concentrations is more clearly negative - being in a higher-disadvantage school depresses Attainment 8 for this group, possibly through peer effects or curriculum-resourcing dynamics. Both findings challenge the 'no cost' conjecture and, in the Brighton and Hove context, suggest that further mixing of an already comparatively well-integrated set of schools could be counter-productive for disadvantaged attainment.
 
@@ -786,7 +850,7 @@ abs_excess <- round(r27$bh_obs_abs - r27$bh_exp_abs_intake, 1)
 
 @fig-caterpillar shows the local-authority random intercepts for disadvantaged-pupil attainment. Conditional on the structural factors in the model - including school absence - Brighton and Hove ranks `r raw_rank`th of `r n_dis` local authorities (top 10%), a positive random intercept equivalent to roughly +`r round(raw_pts, 1)` Attainment 8 points above what those factors would predict. On the same conditional basis the city ranks 4th for non-disadvantaged pupils and 5th for all pupils. This was unknown at the time of the 2024 consultation and entirely absent from a public narrative framed around the raw attainment gap alone.
 
-That conditional ranking, however, depends on a modelling choice that turns out to carry most of the result. Controlling for absence estimates the city's performance *given* the attendance its pupils actually record - and Brighton and Hove has among the worst attendance of any authority in England. @tbl-la-absence reports the disadvantaged-attainment effect with and without that control. Without any absence term, the city falls from `r raw_rank`th to `r none_rank`th of `r n_dis` and its effect is no longer statistically distinguishable from the national average. The city's apparent excellence for disadvantaged pupils is, in this precise sense, conditional on setting its attendance problem aside.
+That conditional ranking, however, depends the variables we include or exclude from our model. Controlling for absence estimates the city's performance *given* the attendance its pupils actually record - and Brighton and Hove has among the worst attendance of any authority in England. @tbl-la-absence reports the disadvantaged-attainment effect with and without that control. Without any absence term, the city falls from `r raw_rank`th to `r none_rank`th of `r n_dis` and its effect is no longer statistically distinguishable from the national average. The city's apparent excellence for disadvantaged pupils is, in this precise sense, conditional on putting the absence problems for these children to one side.
 
 ```{r}
 #| label: tbl-la-absence
