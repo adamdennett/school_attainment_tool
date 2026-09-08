@@ -35,7 +35,7 @@ viewer, which shows raw HTML source only.
 
 ## Reviewer-response diagnostics
 
-The revised manuscript references three additional analyses, all in
+The revised manuscript references a set of additional analyses, all in
 `model_experiments.html` under **Reviewer-response diagnostics**:
 
 - **Prior-attainment measure** — why the models now control for the
@@ -46,6 +46,17 @@ The revised manuscript references three additional analyses, all in
   effect, with per-band coefficients.
 - **Functional-form diagnostics** — AIC comparison of logged, linear and
   spline treatments, plus component-plus-residual plots.
+- **Shared variance and relative importance** — the predictors overlap
+  heavily, so *t*-values cannot rank them. This section reports the
+  correlations and variance inflation factors, what each predictor
+  explains alone, every combination of the three main predictors, and a
+  Shapley (LMG) decomposition for three and for all nine predictors and
+  separately by pupil group. It also quantifies how much of the raw
+  disadvantage–attainment association is compositional arithmetic rather
+  than a difference in what schools do.
+- **Progress 8 as an independent route** — the same findings approached
+  through an outcome already conditioned on pupil-level prior attainment
+  by the DfE, so no school-level prior-attainment control is needed.
 
 ## Policy Simulator tool
 

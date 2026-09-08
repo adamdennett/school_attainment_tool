@@ -5946,6 +5946,476 @@ functional form well and that no predictor calls for a materially more flexible
 treatment.
 
 
+## Shared variance and relative importance {#sec-variance-decomposition}
+
+The paper's three main predictors --- the concentration of disadvantage, overall
+absence and mean KS2 prior attainment --- are strongly correlated with one
+another. That creates a problem for any claim about which of them matters most.
+A *t*-value in a multiple regression measures how precisely a coefficient is
+estimated once every other predictor is held constant, so it credits a variable
+only with the variance it alone explains. Where predictors overlap heavily,
+that unique portion can be small for all of them, and the ordering of *t*-values
+need not track the ordering of explanatory importance at all.
+
+This section works the problem from several directions: how far the predictors
+overlap, what each explains on its own, what happens across every possible
+combination of them, and how the shared portion looks when it is apportioned
+formally rather than assigned to whichever variable is credited first. The
+motivation is to establish whether the paper's substantive claim --- that
+disadvantage concentration is a weak lever relative to absence --- depends on
+the method used to rank predictors. It does not.
+
+```{r}
+#| label: vd-setup
+#| include: false
+
+# Complete cases on every predictor, so that all subsets below are fitted on
+# identical rows. This matters: lm() drops incomplete cases silently, so models
+# containing different variables would otherwise be fitted on different samples
+# and their R-squared values would not be comparable.
+vd_data <- imputed_full_data %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(ks2_c), !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+         !is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0) %>%
+  droplevels()
+
+VD_PREDS <- c(
+  "log(PTFSM6CLA1A)"                         = "% FSM (disadvantage)",
+  "log(PERCTOT)"                             = "% Absence",
+  "ks2_c"                                    = "Mean KS2 prior attainment",
+  "log(PNUMEAL)"                             = "% EAL",
+  "ADMPOL_PT"                                = "Admissions policy",
+  "gorard_segregation"                       = "Gorard segregation",
+  "remained_in_the_same_school"              = "Teacher retention",
+  "teachers_on_leadership_pay_range_percent" = "Leadership pay %",
+  "log(average_number_of_days_taken)"        = "Teacher sickness days"
+)
+VD_FOCAL <- c("log(PTFSM6CLA1A)", "log(PERCTOT)", "ks2_c")
+vd_lbl <- function(v) unname(VD_PREDS[v])
+
+# R-squared of an OLS fit of log(ATT8SCR) on an arbitrary predictor set.
+vd_r2 <- function(vs, dat = vd_data, y = "ATT8SCR") {
+  rhs <- if (length(vs) == 0) "1" else paste(vs, collapse = " + ")
+  summary(lm(as.formula(paste0("log(", y, ") ~ ", rhs)), data = dat))$r.squared
+}
+
+# Shapley value over the full subset lattice. For k predictors this visits all
+# 2^k subsets and weights each marginal contribution by |S|!(k-|S|-1)!/k!,
+# which is identical to averaging over all k! orders of entry but tractable.
+vd_shapley <- function(vars, dat = vd_data, y = "ATT8SCR") {
+  k <- length(vars)
+  masks <- 0:(2^k - 1)
+  r2c <- vapply(masks, function(m)
+    vd_r2(vars[bitwAnd(m, 2^(seq_len(k) - 1)) > 0], dat, y), numeric(1))
+  phi <- numeric(k)
+  for (i in seq_len(k)) {
+    bit <- 2^(i - 1)
+    for (m in masks) {
+      if (bitwAnd(m, bit) == 0) {
+        s <- sum(bitwAnd(m, 2^(seq_len(k) - 1)) > 0)
+        w <- exp(lfactorial(s) + lfactorial(k - s - 1) - lfactorial(k))
+        phi[i] <- phi[i] + w * (r2c[bitwOr(m, bit) + 1] - r2c[m + 1])
+      }
+    }
+  }
+  setNames(phi, vars)
+}
+
+vd_theme <- theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey40"),
+        panel.grid.minor = element_blank())
+```
+
+This runs on `r format(nrow(vd_data), big.mark = ",")` school-years.
+
+### How far do the predictors overlap?
+
+```{r}
+#| label: tbl-vd-overlap
+#| tbl-cap: "Pairwise correlations among the three main predictors, on the estimation sample."
+
+vd_mat <- cbind(
+  `% FSM (log)`   = log(vd_data$PTFSM6CLA1A),
+  `% Absence (log)` = log(vd_data$PERCTOT),
+  `Mean KS2`      = vd_data$ks2_c
+)
+round(cor(vd_mat), 3) %>% knitr::kable()
+```
+
+```{r}
+#| label: tbl-vd-vif
+#| tbl-cap: "Variance inflation factors for the full fixed-effect specification, computed from auxiliary regressions of each predictor on all the others."
+
+vd_vif <- vapply(names(VD_PREDS), function(v) {
+  others <- setdiff(names(VD_PREDS), v)
+  lhs <- if (v == "ADMPOL_PT") "as.numeric(ADMPOL_PT == 'SEL')" else v
+  r2 <- summary(lm(as.formula(paste(lhs, "~", paste(others, collapse = " + "))),
+                   data = vd_data))$r.squared
+  1 / (1 - r2)
+}, numeric(1))
+
+tibble(Predictor = vd_lbl(names(VD_PREDS)), VIF = as.numeric(vd_vif)) %>%
+  arrange(desc(VIF)) %>%
+  mutate(VIF = sprintf("%.2f", VIF)) %>%
+  knitr::kable(align = "lr")
+```
+
+The three main predictors are substantially correlated, but no variance
+inflation factor approaches the conventional thresholds of 5 or 10. The models
+are not unstable; the difficulty is one of attribution rather than estimation.
+Multicollinearity of this degree does not bias the coefficients or inflate the
+standard errors to the point of unreliability --- it simply means that a large
+part of the explained variance cannot be assigned to any one predictor on the
+evidence of the coefficients alone.
+
+### What each predictor explains on its own
+
+```{r}
+#| label: tbl-vd-alone
+#| tbl-cap: "Each main predictor as the sole regressor. The R-squared values sum to far more than the R-squared of the three together, which is the overlap made visible."
+
+vd_alone <- tibble(
+  Predictor = vd_lbl(VD_FOCAL),
+  `R² alone` = vapply(VD_FOCAL, \(v) vd_r2(v), numeric(1))
+) %>% arrange(desc(`R² alone`))
+
+vd_r2_three <- vd_r2(VD_FOCAL)
+
+vd_alone %>%
+  mutate(`R² alone` = sprintf("%.3f", `R² alone`)) %>%
+  knitr::kable(align = "lr")
+```
+
+Individually the three predictors account for
+`r sprintf("%.0f%%", 100 * vd_alone$"R² alone"[1])`,
+`r sprintf("%.0f%%", 100 * vd_alone$"R² alone"[2])` and
+`r sprintf("%.0f%%", 100 * vd_alone$"R² alone"[3])`
+of the variation in log Attainment 8. Together they account for
+`r sprintf("%.0f%%", 100 * vd_r2_three)`, not the
+`r sprintf("%.0f%%", 100 * sum(vd_alone$"R² alone"))`
+that simple addition would give. The difference is variance held in common.
+
+### Every combination of the three main predictors
+
+```{r}
+#| label: tbl-vd-subsets
+#| tbl-cap: "All seven non-empty subsets of the three main predictors, with the R-squared of each and the increment each variable adds to the other two."
+
+vd_sub <- purrr::map_dfr(1:3, function(k) {
+  combn(VD_FOCAL, k, simplify = FALSE) %>%
+    purrr::map_dfr(function(s) tibble(
+      k = k,
+      Predictors = paste(vd_lbl(s), collapse = " + "),
+      `R²` = vd_r2(s)))
+})
+
+vd_sub %>%
+  mutate(`R²` = sprintf("%.3f", `R²`)) %>%
+  select(`Variables` = k, Predictors, `R²`) %>%
+  knitr::kable(align = "clr")
+```
+
+```{r}
+#| label: tbl-vd-increment
+#| tbl-cap: "What each predictor adds when it enters last, against what it explains on its own. The gap between the two columns is the variance it shares with the other two."
+
+tibble(
+  Predictor = vd_lbl(VD_FOCAL),
+  `R² alone` = vapply(VD_FOCAL, \(v) vd_r2(v), numeric(1)),
+  `R² added last` = vapply(VD_FOCAL,
+    \(v) vd_r2(VD_FOCAL) - vd_r2(setdiff(VD_FOCAL, v)), numeric(1))
+) %>%
+  mutate(Shared = `R² alone` - `R² added last`) %>%
+  arrange(desc(`R² alone`)) %>%
+  mutate(across(where(is.numeric), \(x) sprintf("%.3f", x))) %>%
+  knitr::kable(align = "lrrr")
+```
+
+The two columns give the two extreme answers to the attribution question. "R²
+alone" credits a predictor with everything it shares with the others; "R² added
+last" credits it with none of that. Neither is a defensible ranking on its own,
+and for these variables the two orderings need not agree.
+
+### Apportioning the shared variance
+
+The standard resolution is to average over every possible order in which the
+variables could enter, so that each predictor is credited with the shared
+variance exactly as often as it is denied it. This is the Shapley value from
+cooperative game theory (Shapley 1953), known in the regression context as the
+LMG decomposition after Lindeman, Merenda and Gold (1980) and set out for regression by
+Grömping (2007). The values below are computed directly over the subset lattice
+rather than taken from a package; the `relaimpo` package implements the same
+quantity as `calc.relimp(type = "lmg")` and reproduces these figures to
+floating-point precision.
+
+```{r}
+#| label: tbl-vd-shapley3
+#| tbl-cap: "Shapley (LMG) decomposition of the three-predictor model. Each variable's contribution is averaged over all six orders of entry, so the shared variance is split rather than assigned arbitrarily."
+
+vd_shap3 <- vd_shapley(VD_FOCAL)
+
+vd_shap3_tbl <- tibble(
+  Predictor = vd_lbl(VD_FOCAL),
+  `Shapley R²` = as.numeric(vd_shap3),
+  Share = as.numeric(vd_shap3) / sum(vd_shap3)
+) %>% arrange(desc(`Shapley R²`))
+
+vd_shap3_tbl %>%
+  mutate(`Shapley R²` = sprintf("%.3f", `Shapley R²`),
+         Share = sprintf("%.1f%%", 100 * Share)) %>%
+  knitr::kable(align = "lrr")
+```
+
+```{r}
+#| label: fig-vd-three-measures
+#| fig-cap: "The three main predictors under three different measures of importance. The ordering of the leading pair is method-dependent; the position of disadvantage concentration is not."
+#| fig-width: 8
+#| fig-height: 4
+
+vd_tv <- summary(lm(log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(PERCTOT) + ks2_c,
+                    data = vd_data))$coefficients[-1, "t value"]
+
+bind_rows(
+  tibble(Predictor = vd_lbl(VD_FOCAL), Measure = "|t| in the joint model",
+         Value = abs(as.numeric(vd_tv[VD_FOCAL])) / sum(abs(vd_tv))),
+  tibble(Predictor = vd_lbl(VD_FOCAL), Measure = "R² alone",
+         Value = vapply(VD_FOCAL, \(v) vd_r2(v), numeric(1)) /
+                 sum(vapply(VD_FOCAL, \(v) vd_r2(v), numeric(1)))),
+  tibble(Predictor = vd_lbl(VD_FOCAL), Measure = "Shapley (LMG) share",
+         Value = as.numeric(vd_shap3) / sum(vd_shap3))
+) %>%
+  mutate(Measure = factor(Measure, levels = c("|t| in the joint model",
+                                              "R² alone", "Shapley (LMG) share")),
+         Predictor = factor(Predictor, levels = rev(vd_lbl(VD_FOCAL)))) %>%
+  ggplot(aes(Value, Predictor, fill = Measure)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.72) +
+  scale_x_continuous(labels = function(x) paste0(round(100 * x), "%")) +
+  scale_fill_manual(values = c("#c0392b", "#abc766", "#4e3c56")) +
+  labs(x = "Share of the three predictors' combined value", y = NULL,
+       fill = NULL) +
+  vd_theme + theme(legend.position = "bottom")
+```
+
+The leading pair changes places depending on the measure used: by *t*-value
+absence leads, while by explanatory power alone and by the Shapley
+decomposition mean KS2 prior attainment leads. This is precisely why the paper
+does not rest any claim on the *t*-value ordering. What no measure changes is
+the position of disadvantage concentration, which ranks last of the three under
+all of them.
+
+### All nine predictors
+
+```{r}
+#| label: vd-shapley9
+#| include: false
+
+vd_shap9 <- vd_shapley(names(VD_PREDS))
+```
+
+```{r}
+#| label: tbl-vd-shapley9
+#| tbl-cap: "Shapley (LMG) decomposition across all nine fixed-effect predictors, computed over all 512 subsets."
+
+vd_shap9_tbl <- tibble(
+  Predictor = vd_lbl(names(VD_PREDS)),
+  `R² alone` = vapply(names(VD_PREDS), \(v) vd_r2(v), numeric(1)),
+  `Shapley R²` = as.numeric(vd_shap9),
+  Share = as.numeric(vd_shap9) / sum(vd_shap9)
+) %>% arrange(desc(`Shapley R²`))
+
+vd_shap9_tbl %>%
+  mutate(across(c(`R² alone`, `Shapley R²`), \(x) sprintf("%.3f", x)),
+         Share = sprintf("%.1f%%", 100 * Share)) %>%
+  knitr::kable(align = "lrrr")
+```
+
+```{r}
+#| label: fig-vd-shapley9
+#| fig-cap: "Explanatory power alone against the apportioned Shapley share, all nine predictors. Predictors whose 'alone' bar far exceeds their Shapley bar are those that borrow most heavily from the others."
+#| fig-width: 8
+#| fig-height: 5
+
+vd_shap9_tbl %>%
+  mutate(Predictor = fct_reorder(Predictor, `Shapley R²`)) %>%
+  pivot_longer(c(`R² alone`, `Shapley R²`), names_to = "Measure",
+               values_to = "Value") %>%
+  ggplot(aes(Value, Predictor, fill = Measure)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.68) +
+  scale_fill_manual(values = c("R² alone" = "#abc766",
+                               "Shapley R²" = "#4e3c56")) +
+  labs(x = expression(R^2), y = NULL, fill = NULL) +
+  vd_theme + theme(legend.position = "bottom")
+```
+
+The Shapley values sum to `r sprintf("%.3f", sum(vd_shap9))`, which is the
+$R^2$ of the full nine-predictor OLS model --- the decomposition is exact, and
+distributes the whole of the explained variance without remainder.
+
+### By pupil group
+
+The same decomposition, run separately on the disadvantaged and
+non-disadvantaged Attainment 8 outcomes. This requires school-years where all
+three outcomes are published, so the sample is slightly smaller.
+
+```{r}
+#| label: vd-cohort
+#| include: false
+
+vd_d3 <- vd_data %>%
+  filter(!is.na(ATT8SCR_FSM6CLA1A), ATT8SCR_FSM6CLA1A > 0,
+         !is.na(ATT8SCR_NFSM6CLA1A), ATT8SCR_NFSM6CLA1A > 0) %>%
+  droplevels()
+
+VD_OUT <- c("All pupils" = "ATT8SCR",
+            "Disadvantaged" = "ATT8SCR_FSM6CLA1A",
+            "Non-disadvantaged" = "ATT8SCR_NFSM6CLA1A")
+
+vd_coh <- purrr::map(VD_OUT, \(y) vd_shapley(VD_FOCAL, vd_d3, y))
+```
+
+```{r}
+#| label: tbl-vd-cohort
+#| tbl-cap: "Shapley (LMG) decomposition of the three-predictor model, separately by pupil group. Cells give the apportioned R-squared and, in brackets, its share of the three."
+
+purrr::imap_dfr(vd_coh, \(ph, nm) tibble(
+  Outcome = nm, Predictor = vd_lbl(VD_FOCAL),
+  cell = sprintf("%.3f (%.1f%%)", as.numeric(ph), 100 * as.numeric(ph) / sum(ph))
+)) %>%
+  pivot_wider(names_from = Outcome, values_from = cell) %>%
+  knitr::kable(align = "lrrr")
+```
+
+Absence and prior attainment change places between the two groups. For
+non-disadvantaged pupils prior attainment is comfortably the largest term; for
+disadvantaged pupils absence becomes the dominant one. Part of this is
+measurement --- `ks2_c` is the mean KS2 score of the school's whole intake, so
+it proxies the non-disadvantaged cohort's starting point more closely than the
+disadvantaged cohort's, and a cohort-specific measure would raise the
+disadvantaged prior-attainment figure. But the direction of the difference is
+what the attendance literature would predict: missed schooling costs
+disadvantaged pupils more, because they have less capacity to make up the lost
+ground outside school.
+
+Disadvantage concentration ranks last of the three for every pupil group, as it
+does on every other measure in this section.
+
+### How much of the disadvantage association is compositional?
+
+A school's headline Attainment 8 is an average taken over its whole cohort, and
+is therefore, by construction, the weighted mean of its disadvantaged and
+non-disadvantaged pupils' scores:
+
+$$\text{ATT8} = w \cdot \text{ATT8}_{\text{disadv}} + (1 - w) \cdot \text{ATT8}_{\text{non-disadv}}$$
+
+where $w$ is the school's disadvantaged share. Raising $w$ shifts weight onto
+the lower-scoring group and pulls the average down *even if neither group's
+score changes at all*. Part of the headline association between disadvantage
+and attainment is therefore mechanical --- a property of how the measure is
+constructed rather than evidence about what schools do.
+
+```{r}
+#| label: vd-composition
+#| include: false
+
+vd_w  <- vd_d3$PTFSM6CLA1A / 100
+vd_cf <- vd_w * mean(vd_d3$ATT8SCR_FSM6CLA1A) +
+         (1 - vd_w) * mean(vd_d3$ATT8SCR_NFSM6CLA1A)
+
+vd_b_obs  <- coef(lm(log(ATT8SCR) ~ log(PTFSM6CLA1A), data = vd_d3))[[2]]
+vd_b_comp <- coef(lm(log(vd_cf) ~ log(vd_d3$PTFSM6CLA1A)))[[2]]
+
+vd_dec <- vd_d3 %>%
+  mutate(dec = ntile(PTFSM6CLA1A, 10), cf = vd_cf) %>%
+  group_by(dec) %>%
+  summarise(fsm = mean(PTFSM6CLA1A), obs = mean(ATT8SCR), cf = mean(cf),
+            dis = mean(ATT8SCR_FSM6CLA1A), non = mean(ATT8SCR_NFSM6CLA1A),
+            .groups = "drop")
+```
+
+The size of that component can be estimated directly. Fixing both cohort scores
+at their sample means, so that schools differ only in composition and not at
+all in quality, and letting only $w$ vary reproduces an elasticity of
+`r sprintf("%.3f", vd_b_comp)` on log(% FSM) against the
+`r sprintf("%.3f", vd_b_obs)` actually observed --- roughly
+`r sprintf("%.0f%%", 100 * vd_b_comp / vd_b_obs)` of the raw association.
+
+```{r}
+#| label: tbl-vd-composition
+#| tbl-cap: "Observed Attainment 8 by decile of disadvantage, against what composition alone would produce if every school taught both groups equally well."
+
+vd_dec %>%
+  transmute(
+    `Decile of % FSM` = dec,
+    `Mean % FSM` = sprintf("%.1f", fsm),
+    `Observed ATT8` = sprintf("%.1f", obs),
+    `Composition-only ATT8` = sprintf("%.1f", cf),
+    `ATT8 disadvantaged` = sprintf("%.1f", dis),
+    `ATT8 non-disadvantaged` = sprintf("%.1f", non)
+  ) %>%
+  knitr::kable(align = "crrrrr")
+```
+
+Average Attainment 8 falls by
+`r sprintf("%.1f", vd_dec$obs[1] - vd_dec$obs[10])` points between the least and
+most disadvantaged tenths of schools, of which
+`r sprintf("%.1f", vd_dec$cf[1] - vd_dec$cf[10])` points would remain if every
+school in the country taught both groups equally well. The remainder is real ---
+the last two columns show that both cohorts genuinely score lower in
+high-disadvantage schools --- but it is considerably smaller than the raw
+figures imply.
+
+One caveat on the table: the least-disadvantaged decile is unusual, in that
+disadvantaged pupils there average
+`r sprintf("%.1f", vd_dec$dis[1])` points against
+`r sprintf("%.1f", mean(vd_dec$dis[5:10]))` across the upper half of the
+distribution. That decile is dominated by selective and highly advantaged
+schools where the few disadvantaged pupils are unrepresentative, so the
+compositional share should be read as an average across the range rather than a
+constant.
+
+### What this section does and does not establish
+
+**The importance ranking of the top two predictors is method-dependent.** By
+*t*-value absence leads; by explanatory power alone and by the Shapley
+decomposition prior attainment leads. The paper therefore reports *t*-values as
+measures of precision and does not use them to rank predictors.
+
+**The paper's argument does not depend on the choice.** Disadvantage
+concentration ranks last of the three main predictors on every measure tried
+here, for every pupil group, and third or fifth of nine in the full
+specification. The claim that it is a weak lever relative to absence is
+unaffected by how the shared variance is apportioned.
+
+**Prior attainment is large but is not a lever.** These measures rank
+explanatory power, not actionability. Prior attainment is the single largest
+source of variation on most of them, but it is fixed for any cohort already in
+secondary school. Once it is set aside as a description of intake, absence is
+the largest remaining factor open to intervention.
+
+**None of this licenses a causal reading.** The relative-importance literature
+is explicit that these decompositions apportion *variance explained*, not
+*effect* (Grömping 2007). Two predictors can share variance because one causes
+the other, because a third thing causes both, or because they are alternative
+measurements of the same underlying disadvantage, and no decomposition of
+observational data can distinguish these. That prior attainment, absence and
+disadvantage overlap so heavily is itself the substantive finding: they are
+facets of a single structure, and the policy question is not which is most
+important but which of them can actually be moved.
+
+### References for this section
+
+- Grömping, U. (2007) Relative importance for linear regression in R: the
+  package `relaimpo`. *Journal of Statistical Software* 17(1), 1--27.
+- Lindeman, R. H., Merenda, P. F. and Gold, R. Z. (1980) *Introduction to
+  Bivariate and Multivariate Analysis*. Glenview, IL: Scott, Foresman.
+- Shapley, L. S. (1953) A value for n-person games. In H. W. Kuhn and A. W.
+  Tucker (eds) *Contributions to the Theory of Games, Volume II*. Princeton, NJ:
+  Princeton University Press, 307--317.
+
 ## Progress 8 as an independent route to the same answer {#sec-p8-check}
 
 Two of this paper's findings invite the same objection. We report that absence
