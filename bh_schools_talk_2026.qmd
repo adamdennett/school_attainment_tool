@@ -301,7 +301,7 @@ The better question is not *"what is the city doing wrong?"* but *"what is it do
 Leave absence out of the model and the city ranks `r ordinal(rank_without)` for disadvantaged pupils rather than `r ordinal(rk_dis$rank)`. That difference, about **`r sprintf("%.1f", r27$att8_gap_dis)` GCSE points per pupil**, is roughly what absence costs the city's disadvantaged children.
 :::
 
-## Relative variable importance
+## What causes differences in Attainment 8 between schools?
 
 ```{r std-coef}
 #| fig-height: 5.5
@@ -433,7 +433,7 @@ It is an argument against assuming that deconcentration helps them, especially w
 :::::
 :::::::
 
-## Brighton Aldridge: the local example {.smaller}
+## BACA: the local example {.smaller}
 
 :::::: columns
 ::: {.column width="50%"}
@@ -506,7 +506,11 @@ flowchart LR
 ```
 
 ::: key-finding
-Brighton Aldridge is **last of ten** on the headline measure and **`r ordinal(rank(-cd$va)[cd$short == "Brighton Aldridge"])`** on value added. Changing the guidance, and publishing a contextualised measure beside the headline, would cost nothing.
+BACA is **last of ten** on the raw Attainment 8 but **`r ordinal(rank(-cd$va)[cd$short == "Brighton Aldridge"])`** on value added. It ranks **1st** for disadvantaged student value-added.
+
+Objectively a great school - but parents choosing on raw attainment and it is losing out. 
+
+Changing the guidance, and publishing a contextualised measure beside the headline, would cost nothing.
 :::
 
 # The city's schools {.divider-slide background-color="#3A1857"}
@@ -576,33 +580,32 @@ ggplot() +
   theme_map()
 ```
 
-## Who can reach a school within 30 minutes
+## Poor access and child poverty in the same places
 
-```{r access}
-#| fig-width: 11.5
-#| fig-height: 4.6
-acc_sf <- lsoa |>
-  dplyr::inner_join(acc$lsoa |> dplyr::select(lsoa, places_30, places_30_elm), by = c("lsoa21cd" = "lsoa")) |>
-  tidyr::pivot_longer(c(places_30, places_30_elm), names_to = "site", values_to = "places") |>
-  dplyr::mutate(site = factor(ifelse(site == "places_30", "Longhill at Ovingdean (today)",
-                                     "Longhill at the top of Elm Grove"),
-                              levels = c("Longhill at Ovingdean (today)", "Longhill at the top of Elm Grove")))
-elm_lab <- sf::st_sf(site = factor("Longhill at the top of Elm Grove", levels = levels(acc_sf$site)),
-                     geometry = sf::st_geometry(elm_pt))
-lh_lab <- sch |> dplyr::filter(grepl("Longhill", name)) |>
-  dplyr::mutate(site = factor("Longhill at Ovingdean (today)", levels = levels(acc_sf$site)))
-ggplot() +
-  geom_sf(data = acc_sf, aes(fill = places), colour = NA) +
-  geom_sf(data = catch, fill = NA, colour = "white", linewidth = 0.25) +
-  geom_sf(data = lh_lab, shape = 21, fill = "white", colour = "black", size = 3.4, stroke = 1.2) +
-  geom_sf(data = elm_lab, shape = 21, fill = "white", colour = "black", size = 3.4, stroke = 1.2) +
-  facet_wrap(~ site) +
-  scale_fill_viridis_c(option = "viridis", direction = -1, labels = scales::label_comma(),
-                       name = "School places\nwithin 30 min") +
+```{r bivariate}
+#| fig-width: 11
+#| fig-height: 6
+BIV <- c("1-1" = "#3b4994", "1-2" = "#8c62aa", "1-3" = "#be64ac",
+         "2-1" = "#5698b9", "2-2" = "#a5add3", "2-3" = "#dfb0d6",
+         "3-1" = "#5ac8c8", "3-2" = "#ace4e4", "3-3" = "#e8e8e8")
+biv <- lsoa |> dplyr::inner_join(acc$bivariate |> dplyr::select(lsoa, biv_key), by = c("lsoa21cd" = "lsoa"))
+main <- ggplot() +
+  geom_sf(data = biv, aes(fill = biv_key), colour = "white", linewidth = 0.05) +
+  geom_sf(data = catch, fill = NA, colour = "grey15", linewidth = 0.4) +
+  geom_sf(data = sch, shape = 21, fill = "white", colour = "black", size = 2.4) +
+  scale_fill_manual(values = BIV, guide = "none") +
   coord_sf(xlim = CITY_X, ylim = CITY_Y) +
-  labs(title = sprintf("%s neighbourhoods can reach no school place within 30 minutes by walk and bus", nrow(no30)),
-       subtitle = "Darker is more places in reach; yellow is few or none. The white dot is Longhill.") +
+  labs(title = "Dark blue: the least reachable school places and the most child poverty, together",
+       subtitle = sprintf("Accessibility and child poverty correlate at %.2f across neighbourhoods", acc$acc_dep_spearman)) +
   theme_map(14)
+key <- expand.grid(a = 1:3, d = 1:3) |>
+  dplyr::mutate(k = paste0(a, "-", d)) |>
+  ggplot(aes(d, a, fill = k)) + geom_tile(colour = "white") +
+  scale_fill_manual(values = BIV, guide = "none") +
+  labs(x = "Less deprived →", y = "More reachable →") + coord_fixed() +
+  theme_minimal(10) + theme(axis.text = element_blank(), panel.grid = element_blank())
+(main + inset_element(key, left = 0.0, bottom = 0.02, right = 0.2, top = 0.36)) &
+  theme(plot.background = element_rect(fill = "#FAFAFA", colour = NA))
 ```
 
 ## Nine of ten schools are spending their reserves
