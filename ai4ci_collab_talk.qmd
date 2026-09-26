@@ -337,6 +337,7 @@ Verbatim, from the logs. The counts are the tool calls that followed.
 ::: key-finding
 Median instruction: **199 characters**. About thirty-six words.
 :::
+:::
 :::::
 
 ## But the short ones only work if you know what to say {.smaller}
@@ -476,6 +477,7 @@ spread.
 The answer: one struggling school's intake nearly doubles, the surplus stops
 concentrating in three schools — and the total number of empty places does
 not move at all.
+:::
 :::
 :::::
 
