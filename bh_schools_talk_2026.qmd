@@ -719,6 +719,51 @@ Taking places out only helps if the academies and faith schools share it: cuttin
 
 # What the model says about the options {.divider-slide background-color="#3A1857"}
 
+## Brighton Secondary School System Simulator
+
+![](slides_assets/simulator-front.png){fig-align="center" width="93%"}
+
+::: {style="font-size:0.56em; text-align:center; color:#555; margin-top:-10px"}
+Every option in this talk is a run of this — in a browser, no login, and
+[you can try your own](https://adamdennett-bh-school-system.share.connect.posit.cloud/).
+:::
+
+## Why build a simulator? {.smaller}
+
+```{r sim-why}
+#| include: false
+wv_sim <- bh_data("ward_validation.rds")
+r_ward <- cor(wv_sim$compare$modelled, wv_sim$compare$ks2)
+mt_sim <- bh_data("model_terms.rds")$runs$M5
+r2_sim <- cor(mt_sim$observed, mt_sim$modelled)^2
+```
+
+::::: columns
+::: {.column width="54%"}
+**You can try a policy before you try it on children.**
+
+In 2024 the city argued for months about options whose effects nobody — council, schools or parents — could see in advance. Decisions were taken on assertion, and trust was spent that has not come back.
+
+A model does not settle what the city *should* want. It answers a narrower question: **if you did this, what would follow?** Journeys, intakes, the social mix, budgets, who gets displaced.
+
+And it makes the trade-offs visible. Almost nothing here is free: every option that helps one thing costs another, and the argument is about which price is worth paying.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+**It is accurate enough to be worth using.**
+
+Modelled against the places the city's schools actually offered for September 2026: **R² = `r sprintf("%.2f", r2_sim)`**.
+
+Against the council's own count of pupils by home ward, from a source the model never saw: **correlation `r sprintf("%.2f", r_ward)`**.
+:::
+
+It is fitted to what families *ask for*, not to the offers it is then tested against — so reproducing the offers is a check, not a circularity.
+
+Every input is published data. Every line of code is open. If you think it is wrong, you can show where.
+:::
+:::::
+
 ## A model of the whole city
 
 ```{mermaid}
