@@ -1,0 +1,483 @@
+---
+title: "A Conversation That Built a Model"
+subtitle: "Five months, one city's school system, and a record of who did what"
+author:
+  - name: Adam Dennett FRGS FAcSS
+    affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
+date: "2026-10-01"
+date-format: "dddd D MMMM YYYY"
+format:
+  revealjs:
+    theme: [default, ucl-slides-theme.scss]
+    logo: slides_assets/ucl-logo-purple.png
+    slide-number: true
+    progress: true
+    hash: true
+    navigation-mode: linear
+    controls: true
+    width: 1280
+    height: 720
+    margin: 0.08
+    fig-cap-location: bottom
+    fig-width: 10
+    fig-height: 5.5
+    fig-dpi: 150
+    embed-resources: true
+    auto-stretch: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+library(ggplot2)
+library(dplyr)
+
+INK    <- "#1a1a2e"
+PURPLE <- "#361a54"
+BRIGHT <- "#993bff"
+WARM   <- "#f56300"
+CYAN   <- "#30d6ff"
+PALE   <- "#eedeff"
+GREY   <- "#666688"
+
+theme_talk <- function(base = 15) {
+  theme_minimal(base_size = base) +
+    theme(
+      plot.title      = element_text(face = "bold", colour = PURPLE, size = rel(1.05)),
+      plot.subtitle   = element_text(colour = GREY, size = rel(0.85)),
+      axis.text       = element_text(colour = INK),
+      axis.title      = element_text(colour = GREY, size = rel(0.85)),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(colour = "#e8e4f0", linewidth = 0.4),
+      plot.background  = element_rect(fill = "#FAFAFA", colour = NA),
+      panel.background = element_rect(fill = "#FAFAFA", colour = NA),
+      legend.position = "top",
+      legend.title    = element_blank()
+    )
+}
+knitr::opts_chunk$set(dev.args = list(bg = "#FAFAFA"))
+
+# ---------------------------------------------------------------------------
+# The record. Counted from the Claude Code session transcripts held locally
+# (~250 MB of JSONL across 10 sessions) and from git history across the
+# project repositories. Snapshot taken 26 September 2026.
+# ---------------------------------------------------------------------------
+
+days <- as.Date(c(
+  "2026-04-13","2026-04-14","2026-04-21","2026-04-26","2026-04-29","2026-04-30",
+  "2026-05-01","2026-05-05","2026-05-06","2026-05-08","2026-05-11","2026-05-12",
+  "2026-05-13","2026-05-14","2026-05-15","2026-05-16","2026-05-17","2026-05-19",
+  "2026-05-20","2026-05-21","2026-05-22","2026-06-02","2026-06-09","2026-06-10",
+  "2026-06-11","2026-06-30","2026-07-01","2026-07-02","2026-07-03","2026-07-04",
+  "2026-07-08","2026-07-10","2026-07-15","2026-07-16","2026-07-21","2026-07-22",
+  "2026-07-23","2026-07-24","2026-07-27","2026-07-29","2026-08-08","2026-08-09",
+  "2026-08-14","2026-08-16","2026-08-17","2026-08-18","2026-08-19","2026-08-25",
+  "2026-08-26","2026-08-27","2026-08-28","2026-09-01","2026-09-02","2026-09-03",
+  "2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11",
+  "2026-09-13","2026-09-15","2026-09-16","2026-09-17","2026-09-21","2026-09-22",
+  "2026-09-24","2026-09-25","2026-09-26"))
+
+tool_calls <- c(121,105,43,74,57,66,39,82,118,83,525,13,57,70,112,12,3,316,15,28,
+                69,14,19,218,179,3,192,328,208,39,11,37,119,11,80,102,107,15,42,7,
+                58,383,481,380,678,308,274,283,251,91,48,22,176,18,138,75,224,462,
+                1140,558,624,597,686,96,408,321,441,170,321)
+
+instructions <- c(13,30,4,30,14,14,5,22,16,17,45,1,4,11,21,1,1,26,1,8,11,4,2,16,15,
+                  15,39,33,36,8,3,3,14,7,29,15,21,7,7,5,16,12,19,31,57,42,37,21,12,
+                  5,6,11,17,8,9,12,12,31,44,26,41,52,73,5,68,35,16,11,17)
+
+rec <- tibble(day = days, tool_calls = tool_calls, instructions = instructions)
+
+N_INSTR   <- sum(instructions)   # 1320
+N_TOOLS   <- sum(tool_calls)     # 13451
+N_DAYS    <- length(days)        # 69
+N_ELAPSED <- 166                 # days from first message to last
+N_HOURS   <- 108                 # summing gaps under 10 minutes
+
+fam <- tibble(
+  what = factor(c("Running shell & R", "Writing code and prose", "Reading the codebase",
+                  "Driving a browser", "Looking things up", "Other"),
+                levels = rev(c("Running shell & R", "Writing code and prose",
+                               "Reading the codebase", "Driving a browser",
+                               "Looking things up", "Other"))),
+  n = c(7953, 2919, 1088, 878, 196, 417))
+```
+
+## Who I am, and why this talk {.smaller}
+
+::::: columns
+::: {.column width="56%"}
+I am a Professor of Urban Analytics at UCL's Centre for Advanced Spatial
+Analysis. I build spatial models — of migration, of housing, of how people
+move around cities.
+
+I am also a parent in Brighton & Hove, a city that spent 2024 arguing
+bitterly about which children should go to which secondary school.
+
+Over five months I built a model of the whole system: every child, every
+school, every journey. A public document, a technical guide, an interactive
+simulator.
+
+**I wrote almost none of the code.**
+:::
+
+::: {.column width="44%"}
+::: key-finding
+This talk is not "I used AI to write my code". It is an attempt to describe
+honestly what a research collaboration with an AI system actually looked
+like — with the receipts.
+:::
+
+Part of the **AI for Collective Intelligence** hub's interest in how AI
+changes the practice of applied research.
+:::
+:::::
+
+## What exists now {.smaller}
+
+| The thing | Scale |
+|:--|:--|
+| A strategic analysis of the city's school system | 9,712 lines of Quarto |
+| A technical guide auditing every model term | 4,736 lines |
+| The model itself, plus data assembly | ~7,400 lines of R |
+| An interactive policy simulator (Shiny) | ~3,000 lines |
+| A private analysis repository | ~8,200 lines |
+| Three slide decks | ~3,500 lines |
+| Commits across six repositories | 805 |
+
+::: {style="font-size:0.8em"}
+A production-constrained spatial interaction model with a competing-destinations
+term, calibrated per catchment, fitted against the council's published offer
+data. It reproduces the September 2026 allocations with an R² of 0.95.
+:::
+
+## The record I am drawing on {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+Claude Code keeps a transcript of every session: every instruction I typed,
+every action it took, timestamped.
+
+For this talk I parsed **~250 MB of those logs** across ten sessions, plus
+the git history of six repositories.
+
+So the numbers that follow are counted, not remembered. They are also
+**a snapshot** — the work is still going.
+:::
+
+::: {.column width="48%"}
+::: key-finding
+**1,320** instructions from me.
+
+**13,451** tool calls from Claude.
+
+**69** working days, spread over 166.
+:::
+
+About **ten actions for every sentence I typed**.
+:::
+:::::
+
+## Five months, in one chart
+
+```{r fig-timeline}
+#| fig-width: 11.5
+#| fig-height: 4.8
+ggplot(rec, aes(day)) +
+  geom_col(aes(y = tool_calls), fill = BRIGHT, width = 1.9, alpha = 0.9) +
+  geom_line(aes(y = instructions * 10), colour = WARM, linewidth = 0.9, linetype = "31") +
+  scale_y_continuous(
+    name = "Claude tool calls per day",
+    sec.axis = sec_axis(~ . / 10, name = "My instructions per day")) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(x = NULL,
+       title = "The work was bursty, and it accelerated",
+       subtitle = "Bars: actions taken by Claude. Dashed line: instructions from me.") +
+  theme_talk(14) +
+  theme(axis.title.y.right = element_text(colour = WARM),
+        axis.title.y.left  = element_text(colour = BRIGHT))
+```
+
+::: {style="font-size:0.72em"}
+The April–July work is a different project — a national school attainment
+model. The Brighton system model starts on **8 September** and is finished
+eighteen days later.
+:::
+
+## What the 13,451 actions actually were
+
+```{r fig-families}
+#| fig-width: 11
+#| fig-height: 4.4
+ggplot(fam, aes(n, what)) +
+  geom_col(fill = PURPLE, width = 0.62) +
+  geom_text(aes(label = format(n, big.mark = ",")), hjust = -0.15,
+            size = 4.8, colour = INK) +
+  scale_x_continuous(limits = c(0, 9200), expand = expansion(mult = c(0, 0.05))) +
+  labs(x = NULL, y = NULL,
+       title = "Mostly running things and checking what happened",
+       subtitle = "Every tool call across ten sessions, grouped by what it was for") +
+  theme_talk(14) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4))
+```
+
+::: {style="font-size:0.75em"}
+The largest single category is not writing code. It is **running code and
+reading the result** — the loop that turns a plausible script into a correct one.
+:::
+
+## The division of labour {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**What I brought**
+
+- The question, and why it mattered
+- Knowledge of the school system: admissions law, catchments, the politics
+- Judgement about what is defensible to publish
+- Knowing when an answer was wrong
+- The argument, and the voice it is written in
+- Every decision about what to do next
+:::
+
+::: {.column width="50%"}
+**What Claude brought**
+
+- The model implementation, and its calibration
+- Data wrangling across a dozen published sources
+- R, Shiny, Quarto, `ggplot2`, `sf`, routing with `r5r`
+- Debugging, and the patience for it
+- Documentation written as it went
+- Deployment, rendering, version control
+:::
+:::::
+
+::: key-finding
+The vision and the domain knowledge were mine. The technical expertise and
+the implementation were its. Neither half would have produced this alone.
+:::
+
+## Worked example: a school in the wrong place {.smaller}
+
+::::: columns
+::: {.column width="55%"}
+The model had Hove Park School at its Nevill Road site. Reasonable — that is
+the address in the published data.
+
+Five months in, I realised: the school has operated **two campuses**. Year 7
+and 8 were at the Valley Campus, a mile away, until a closure proposal in 2026.
+
+The model had been calibrated on the wrong location for the children who
+actually generate the demand.
+:::
+
+::: {.column width="45%"}
+::: key-finding
+No amount of code quality would have caught this. It needed someone who
+knew the city.
+:::
+
+Re-calibrating moved about **a quarter of Hove Park's modelled intake**
+between wards, and changed the disadvantage figures materially.
+:::
+:::::
+
+::: {style="font-size:0.75em"}
+It also became a genuine test: the model could now predict what happens when
+the school consolidates onto one site.
+:::
+
+## Worked example: a question only a human asks {.smaller}
+
+Families choose schools on the published Attainment 8 score — which mostly
+measures the intake, not the teaching.
+
+I asked: **what if they chose on value added instead?**
+
+::::: columns
+::: {.column width="50%"}
+That is not a coding task. It is a question about how a city might behave
+differently, and it took about a day to answer properly: a new attractiveness
+basis, a switch in the simulator, a measure of how evenly children would be
+spread.
+:::
+
+::: {.column width="50%"}
+::: key-finding
+The answer: one struggling school's intake nearly doubles, the surplus stops
+concentrating in three schools — and the total number of empty places does
+not move at all.
+:::
+:::::
+
+## Worked example: catching it being wrong {.smaller}
+
+::::: columns
+::: {.column width="54%"}
+Claude reported a school's value-added score as being in the "top 100% in
+England". It had applied an Attainment 8 percentile function to a
+value-added figure. Silently wrong, confidently stated.
+
+Later, the attainment charts appeared to show huge jumps when the
+value-added option was selected — because they were reading a different
+variable than I thought.
+
+I caught both. It fixed both in minutes.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+The failure mode is not gibberish. It is **plausible, well-formatted,
+confidently-presented wrongness** — exactly what a domain expert catches
+and a non-expert does not.
+:::
+
+This is the strongest argument I have for why the human in this loop has to
+be someone who knows the subject.
+:::
+:::::
+
+## The other failure modes, honestly {.smaller}
+
+| What went wrong | What it cost |
+|:--|:--|
+| A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating |
+| An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake |
+| A variable name collision inside the app | Silent wrong behaviour until tested |
+| Model outputs stale after re-calibration | Needed a discipline of re-running everything |
+| Confident summaries of work not yet verified | Needed me to ask "did you actually check?" |
+
+::: {style="font-size:0.78em"}
+None of these are exotic. They are the ordinary failure modes of a fast,
+capable, over-confident collaborator — and they are managed the same way you
+manage those in a person: tests, checks, and someone reading the output.
+:::
+
+## The workflow {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+Everything is **Quarto**. The analysis document, the technical guide, the
+slide decks — all `.qmd`, all executing live R against the same data.
+
+The loop, many times a day:
+
+1. I say what I want, usually in two or three sentences
+2. Claude edits the source and runs it
+3. It renders, screenshots, checks the numbers
+4. It commits and pushes
+5. I read the rendered output and react
+:::
+
+::: {.column width="48%"}
+::: key-finding
+The document **is** the analysis. There is no separate "writing up" —
+changing the model changes the paragraph that describes it, because the
+paragraph is generated from the model.
+:::
+
+Git is the memory. 805 commits, each with a message explaining why.
+:::
+:::::
+
+## Why Quarto matters more than it sounds {.smaller}
+
+When I asked "does the Hove Park change affect section 5.5?", that was
+answerable — because section 5.5 is code, and the code re-runs.
+
+When I asked for the deck to be rebuilt with the new numbers, no one had to
+re-type any numbers.
+
+::: key-finding
+Reproducibility stops being a virtue you aspire to and becomes the only way
+the thing can work at this speed. If the outputs were hand-copied into Word,
+none of this would survive its own rate of change.
+:::
+
+## The recursion {.smaller}
+
+The interesting part is not that it wrote code. It is the **loop**:
+
+::: incremental
+1. A model produces a result.
+2. The result goes into a document, written to be read by councillors.
+3. Writing it clearly exposes a hole in the argument.
+4. The hole becomes a new question for the model.
+5. Answering it changes the model — and the document rewrites itself.
+:::
+
+. . .
+
+That cycle ran perhaps two hundred times. Each turn took minutes, not weeks.
+**That compression is the whole story.**
+
+## Eighteen days {.smaller}
+
+```{r fig-sept}
+#| fig-width: 11
+#| fig-height: 4.0
+sept <- rec |> filter(day >= as.Date("2026-09-07"))
+ggplot(sept, aes(day, tool_calls)) +
+  geom_col(fill = BRIGHT, width = 0.65) +
+  geom_text(aes(label = tool_calls), vjust = -0.5, size = 4.2, colour = INK) +
+  scale_x_date(date_breaks = "3 days", date_labels = "%d %b") +
+  scale_y_continuous(limits = c(0, 1300)) +
+  labs(x = NULL, y = "Tool calls",
+       title = "From nothing to a working city model",
+       subtitle = "8 September: first commit. 26 September: model, site, simulator, three decks.") +
+  theme_talk(14)
+```
+
+## What I would say to a colleague {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**It does not replace knowing things.** Every moment that mattered in this
+project turned on domain knowledge I had and it did not.
+
+**It does collapse the cost of trying.** The scenarios I tested would each
+have been a week of work. Testing twenty of them was previously impossible,
+so I would have tested two.
+:::
+
+::: {.column width="50%"}
+**It writes better documentation than I do**, because it never gets bored
+of writing it.
+
+**It needs supervision that looks like peer review**, not like proofreading.
+
+**The bottleneck moved.** It is no longer implementation. It is knowing
+which question is worth asking.
+:::
+:::::
+
+## Open questions {.smaller}
+
+::: incremental
+- **Authorship.** What is the honest way to describe this on a paper? I directed
+  every step and verified every output — but I did not write the code.
+- **Verification at speed.** I can generate analysis faster than I can
+  properly check it. That is a new kind of risk.
+- **Reproducibility of the process.** The code is reproducible. The
+  *conversation* that produced it is not, in any meaningful sense.
+- **Who else can do this?** This worked because I could tell right from wrong.
+  What happens when the person in the loop cannot?
+:::
+
+## Links
+
+::: {style="font-size:0.9em"}
+- The analysis — <https://adamdennett.github.io/bh-school-system/>
+- The simulator — <https://adamdennett-bh-school-system.share.connect.posit.cloud/>
+- The national report — <https://adamdennett.github.io/school_attainment_tool/>
+- Everything is open source on GitHub
+:::
+
+::: key-finding
+Happy to be argued with — particularly about the open questions.
+:::
