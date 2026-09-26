@@ -100,6 +100,15 @@ N_DAYS    <- length(days)        # 69
 N_ELAPSED <- 166                 # days from first message to last
 N_HOURS   <- 108                 # summing gaps under 10 minutes
 
+# Scenario outputs from the model itself, for the worked examples.
+BHS  <- "E:/bh_school_system/data"
+hpc  <- readRDS(file.path(BHS, "hove_park_campus.rds"))
+vac  <- readRDS(file.path(BHS, "value_added_choice.rds"))
+short_sch <- function(x) {
+  x <- sub(" (School|Catholic School|High School|Community Academy)$", "", x)
+  sub("Portslade Aldridge", "Portslade", sub("Brighton Aldridge", "BACA", x))
+}
+
 fam <- tibble(
   what = factor(c("Running shell & R", "Writing code and prose", "Reading the codebase",
                   "Driving a browser", "Looking things up", "Other"),
@@ -409,9 +418,42 @@ between wards, and changed the disadvantage figures materially.
 :::
 :::::
 
+## What re-calibrating it showed {.smaller}
+
+```{r fig-hovepark}
+#| fig-width: 11
+#| fig-height: 4.2
+mv <- hpc$move |>
+  select(year, Valley = valley, `Nevill Road` = nevill) |>
+  tidyr::pivot_longer(-year, names_to = "site", values_to = "intake")
+ggplot(mv, aes(factor(year), intake, fill = site)) +
+  geom_col(position = position_dodge(width = 0.72), width = 0.66) +
+  geom_text(aes(label = round(intake)),
+            position = position_dodge(width = 0.72), vjust = -0.5,
+            size = 4.4, colour = INK) +
+  scale_fill_manual(values = c(Valley = GREY, `Nevill Road` = BRIGHT)) +
+  scale_y_continuous(limits = c(0, 205)) +
+  labs(x = "Entry year", y = "Modelled Year 7 intake",
+       title = "The same school, half a mile apart",
+       subtitle = "Modelled intake with Hove Park at the Valley Campus, and consolidated at Nevill Road") +
+  theme_talk(14)
+```
+
+::: key-finding
+Moving site is worth about **twelve extra children a year** — roughly a 7%
+lift, from geography alone. Real, but far smaller than the school's
+attractiveness. The question "is it the site or the reputation?" now has a
+number attached.
+:::
+
+## Worked example: the simulator {.smaller}
+
+![](slides_assets/simulator-front.png){fig-align="center" width="74%"}
+
 ::: {style="font-size:0.75em"}
-It also became a genuine test: the model could now predict what happens when
-the school consolidates onto one site.
+Every scenario in this talk is a control in here. Built in about two days,
+and the reason the "what if" questions became cheap enough to ask twenty
+times instead of twice.
 :::
 
 ## Worked example: a question only a human asks {.smaller}
@@ -436,6 +478,36 @@ concentrating in three schools — and the total number of empty places does
 not move at all.
 :::
 :::::
+
+## What the city would look like {.smaller}
+
+```{r fig-va}
+#| fig-width: 11
+#| fig-height: 4.4
+va <- vac$detail |>
+  mutate(school = forcats::fct_reorder(short_sch(name), mult),
+         up = mult >= 1)
+ggplot(va, aes(mult, school)) +
+  geom_vline(xintercept = 1, colour = GREY, linetype = "31") +
+  geom_segment(aes(x = 1, xend = mult, yend = school, colour = up), linewidth = 1.1) +
+  geom_point(aes(colour = up), size = 4) +
+  geom_text(aes(label = sprintf("%.2f x", mult), hjust = ifelse(up, -0.3, 1.3)),
+            size = 4.1, colour = INK) +
+  scale_colour_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = WARM), guide = "none") +
+  scale_x_continuous(limits = c(0, 3.2)) +
+  labs(x = "Change in how attractive the school looks", y = NULL,
+       title = "If families read value added instead of Attainment 8",
+       subtitle = "Multiplier on each school's attractiveness. 1.0 = no change.") +
+  theme_talk(14) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4))
+```
+
+::: {style="font-size:0.72em"}
+Brighton Aldridge — the lowest Attainment 8 in the city — is adding more
+progress than almost anywhere. Patcham, comfortably mid-table on the
+headline number, is bottom of the city on value added.
+:::
 
 ## Worked example: catching it being wrong {.smaller}
 
