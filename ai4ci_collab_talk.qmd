@@ -6,6 +6,8 @@ author:
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
 date: "2026-10-01"
 date-format: "dddd D MMMM YYYY"
+title-slide-attributes:
+  data-background-color: "#361a54"
 format:
   revealjs:
     theme: [default, ucl-slides-theme.scss]
@@ -92,7 +94,7 @@ instructions <- c(13,30,4,30,14,14,5,22,16,17,45,1,4,11,21,1,1,26,1,8,11,4,2,16,
 
 rec <- tibble(day = days, tool_calls = tool_calls, instructions = instructions)
 
-N_INSTR   <- sum(instructions)   # 1320
+N_INSTR   <- 1277L  # real instructions, after removing system-generated messages
 N_TOOLS   <- sum(tool_calls)     # 13451
 N_DAYS    <- length(days)        # 69
 N_ELAPSED <- 166                 # days from first message to last
@@ -118,11 +120,11 @@ move around cities.
 I am also a parent in Brighton & Hove, a city that spent 2024 arguing
 bitterly about which children should go to which secondary school.
 
-Over five months I built a model of the whole system: every child, every
-school, every journey. A public document, a technical guide, an interactive
-simulator.
+I built the first version of that model myself, by hand, during the 2024
+consultation. Two years later I rebuilt it with an AI collaborator — and it
+became something I could not have built alone.
 
-**I wrote almost none of the code.**
+**This talk is about which parts were which.**
 :::
 
 ::: {.column width="44%"}
@@ -155,6 +157,37 @@ term, calibrated per catchment, fitted against the council's published offer
 data. It reproduces the September 2026 allocations with an R² of 0.95.
 :::
 
+## This did not start in April {.smaller}
+
+::::: columns
+::: {.column width="54%"}
+**October 2024.** Brighton & Hove is consulting on redrawing its catchments.
+I write `BrighonSchoolsSIM.qmd` — **1,014 lines** of R and Quarto. A
+production-constrained spatial interaction model of the city's schools.
+
+I call the hypothetical baseline **Brightopia**: where every child would go
+if distance were the only thing that mattered.
+
+**December 2024.** I write `bus_routes.qmd` — **1,021 lines** — setting up
+`r5r`, a GTFS feed and an OSM extract to compute real public-transport
+journey times to every school.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+Two thousand lines of spatial interaction modelling and routing, written by
+hand, eighteen months before any of this.
+:::
+
+That is what the new model was built **on**, not instead of. Brightopia is
+still in the current document, as the $W_j = 1$ baseline the calibrated
+model is measured against.
+
+I have been building models like this for twenty years. That is why I knew
+what to ask for.
+:::
+:::::
+
 ## The record I am drawing on {.smaller}
 
 ::::: columns
@@ -171,14 +204,14 @@ So the numbers that follow are counted, not remembered. They are also
 
 ::: {.column width="48%"}
 ::: key-finding
-**1,320** instructions from me.
+**1,277** instructions from me.
 
 **13,451** tool calls from Claude.
 
 **69** working days, spread over 166.
 :::
 
-About **ten actions for every sentence I typed**.
+About **ten and a half actions for every sentence I typed**.
 :::
 :::::
 
@@ -237,30 +270,119 @@ reading the result** — the loop that turns a plausible script into a correct o
 ::: {.column width="50%"}
 **What I brought**
 
-- The question, and why it mattered
-- Knowledge of the school system: admissions law, catchments, the politics
+- **The working prototype** — Brightopia, and the `r5r` routing pipeline,
+  both written by hand in 2024
+- Twenty years of building spatial interaction models: knowing that
+  attractiveness, distance decay and competing destinations were the terms
+  that mattered
+- Knowledge of the school system, and of the city's politics
 - Judgement about what is defensible to publish
 - Knowing when an answer was wrong
-- The argument, and the voice it is written in
 - Every decision about what to do next
 :::
 
 ::: {.column width="50%"}
 **What Claude brought**
 
-- The model implementation, and its calibration
+- Scale: a hand-built prototype turned into a calibrated, audited system
 - Data wrangling across a dozen published sources
-- R, Shiny, Quarto, `ggplot2`, `sf`, routing with `r5r`
+- Shiny, deployment, rendering, version control
 - Debugging, and the patience for it
 - Documentation written as it went
-- Deployment, rendering, version control
+- The willingness to redo all of it when one assumption changed
 :::
 :::::
 
 ::: key-finding
-The vision and the domain knowledge were mine. The technical expertise and
-the implementation were its. Neither half would have produced this alone.
+I knew what to ask for and what to examine, because I had built a smaller
+version of it myself. **That is not a small part of why this worked.**
 :::
+
+## What the instructions actually look like {.smaller}
+
+::: {style="font-size:0.82em"}
+Verbatim, from the logs. The counts are the tool calls that followed.
+:::
+
+::::: columns
+::: {.column width="50%"}
+> **"fonts as well"**
+>
+> *13 characters → 58 actions*
+
+> **"yes, build it"**
+>
+> *13 characters → 46 actions*
+
+> **"yes, add Priory, Seahaven and Seaford Head as destinations"**
+>
+> *58 characters → 68 actions*
+:::
+
+::: {.column width="50%"}
+> **"Can you cite the sources and link to all of the data that is used in
+> each section please then commit and push as I'm going to bed"**
+>
+> *128 characters → 52 actions*
+
+::: key-finding
+Median instruction: **199 characters**. About thirty-six words.
+:::
+:::::
+
+## But the short ones only work if you know what to say {.smaller}
+
+::: {style="font-size:0.84em"}
+> **"You need to update Figure 28 with the new model outputs. Also, can I
+> have a table of the original Brightopia ($W_j = 1$) model with the observed
+> vs modelled expected numbers for each school"**
+
+> **"can I have a little section on how we arrived at the best $W_j$
+> attractiveness factor — we end up using Attainment 8"**
+
+> **"can you just check whether the shared variance issues make a difference
+> here? I don't think they do, but it might be worth checking using the
+> Shapley work"**
+:::
+
+::: key-finding
+These are instructions written in the language of the model. You cannot
+issue them unless you already know what $W_j$ is, why it might be wrong, and
+what would count as checking.
+:::
+
+## The routing, as it actually happened {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+I was running `r5r` myself. It broke:
+
+::: {style="font-size:0.72em"}
+> **"`Error in purrr::map(): Caused by error in checkmate::assert_class():
+> argument "r5r_network" is missing`"**
+:::
+
+Then, an hour later:
+
+::: {style="font-size:0.78em"}
+> **"restarted R and re-ran, it's routing now — we now have a brand new
+> travel matrix — can we now go back to the original analysis and re-run the
+> models with the new travel matrix? Both the public and private analyses"**
+>
+> *213 characters → 35 actions*
+:::
+:::
+
+::: {.column width="48%"}
+::: key-finding
+This is the collaboration in one exchange. I built and debugged the routing
+pipeline. It took the output and propagated it through every model, every
+document and every figure that depended on it.
+:::
+
+Neither of us could have done the other's half quickly.
+:::
+:::::
 
 ## Worked example: a school in the wrong place {.smaller}
 

@@ -985,7 +985,7 @@ margin-right: 0; }
   <div class="reveal">
     <div class="slides">
 
-<section id="title-slide" class="quarto-title-block center">
+<section id="title-slide" data-background-color="#361a54" class="quarto-title-block center">
   <h1 class="title">A Conversation That Built a Model</h1>
   <p class="subtitle">Five months, one city’s school system, and a record of who did what</p>
 
@@ -1008,8 +1008,8 @@ Adam Dennett FRGS FAcSS
 <div class="column" style="width:56%;">
 <p>I am a Professor of Urban Analytics at UCL’s Centre for Advanced Spatial Analysis. I build spatial models — of migration, of housing, of how people move around cities.</p>
 <p>I am also a parent in Brighton &amp; Hove, a city that spent 2024 arguing bitterly about which children should go to which secondary school.</p>
-<p>Over five months I built a model of the whole system: every child, every school, every journey. A public document, a technical guide, an interactive simulator.</p>
-<p><strong>I wrote almost none of the code.</strong></p>
+<p>I built the first version of that model myself, by hand, during the 2024 consultation. Two years later I rebuilt it with an AI collaborator — and it became something I could not have built alone.</p>
+<p><strong>This talk is about which parts were which.</strong></p>
 </div><div class="column" style="width:44%;">
 <div class="key-finding">
 <p>This talk is not “I used AI to write my code”. It is an attempt to describe honestly what a research collaboration with an AI system actually looked like — with the receipts.</p>
@@ -1065,6 +1065,21 @@ Adam Dennett FRGS FAcSS
 <p>A production-constrained spatial interaction model with a competing-destinations term, calibrated per catchment, fitted against the council’s published offer data. It reproduces the September 2026 allocations with an R² of 0.95.</p>
 </div>
 </section>
+<section id="this-did-not-start-in-april" class="slide level2 smaller">
+<h2>This did not start in April</h2>
+<div class="columns">
+<div class="column" style="width:54%;">
+<p><strong>October 2024.</strong> Brighton &amp; Hove is consulting on redrawing its catchments. I write <code>BrighonSchoolsSIM.qmd</code> — <strong>1,014 lines</strong> of R and Quarto. A production-constrained spatial interaction model of the city’s schools.</p>
+<p>I call the hypothetical baseline <strong>Brightopia</strong>: where every child would go if distance were the only thing that mattered.</p>
+<p><strong>December 2024.</strong> I write <code>bus_routes.qmd</code> — <strong>1,021 lines</strong> — setting up <code>r5r</code>, a GTFS feed and an OSM extract to compute real public-transport journey times to every school.</p>
+</div><div class="column" style="width:46%;">
+<div class="key-finding">
+<p>Two thousand lines of spatial interaction modelling and routing, written by hand, eighteen months before any of this.</p>
+</div>
+<p>That is what the new model was built <strong>on</strong>, not instead of. Brightopia is still in the current document, as the <span class="math inline">\(W_j = 1\)</span> baseline the calibrated model is measured against.</p>
+<p>I have been building models like this for twenty years. That is why I knew what to ask for.</p>
+</div></div>
+</section>
 <section id="the-record-i-am-drawing-on" class="slide level2 smaller">
 <h2>The record I am drawing on</h2>
 <div class="columns">
@@ -1074,11 +1089,11 @@ Adam Dennett FRGS FAcSS
 <p>So the numbers that follow are counted, not remembered. They are also <strong>a snapshot</strong> — the work is still going.</p>
 </div><div class="column" style="width:48%;">
 <div class="key-finding">
-<p><strong>1,320</strong> instructions from me.</p>
+<p><strong>1,277</strong> instructions from me.</p>
 <p><strong>13,451</strong> tool calls from Claude.</p>
 <p><strong>69</strong> working days, spread over 166.</p>
 </div>
-<p>About <strong>ten actions for every sentence I typed</strong>.</p>
+<p>About <strong>ten and a half actions for every sentence I typed</strong>.</p>
 </div></div>
 </section>
 <section id="five-months-in-one-chart" class="slide level2">
@@ -1105,29 +1120,95 @@ Figure 2
 <div class="column" style="width:50%;">
 <p><strong>What I brought</strong></p>
 <ul>
-<li>The question, and why it mattered</li>
-<li>Knowledge of the school system: admissions law, catchments, the politics</li>
+<li><strong>The working prototype</strong> — Brightopia, and the <code>r5r</code> routing pipeline, both written by hand in 2024</li>
+<li>Twenty years of building spatial interaction models: knowing that attractiveness, distance decay and competing destinations were the terms that mattered</li>
+<li>Knowledge of the school system, and of the city’s politics</li>
 <li>Judgement about what is defensible to publish</li>
 <li>Knowing when an answer was wrong</li>
-<li>The argument, and the voice it is written in</li>
 <li>Every decision about what to do next</li>
 </ul>
 </div><div class="column" style="width:50%;">
 <p><strong>What Claude brought</strong></p>
 <ul>
-<li>The model implementation, and its calibration</li>
+<li>Scale: a hand-built prototype turned into a calibrated, audited system</li>
 <li>Data wrangling across a dozen published sources</li>
-<li>R, Shiny, Quarto, <code>ggplot2</code>, <code>sf</code>, routing with <code>r5r</code></li>
+<li>Shiny, deployment, rendering, version control</li>
 <li>Debugging, and the patience for it</li>
 <li>Documentation written as it went</li>
-<li>Deployment, rendering, version control</li>
+<li>The willingness to redo all of it when one assumption changed</li>
 </ul>
 </div></div>
 <div class="key-finding">
-<p>The vision and the domain knowledge were mine. The technical expertise and the implementation were its. Neither half would have produced this alone.</p>
+<p>I knew what to ask for and what to examine, because I had built a smaller version of it myself. <strong>That is not a small part of why this worked.</strong></p>
 </div>
 </section>
-<section id="worked-example-a-school-in-the-wrong-place" class="slide level2 smaller">
+<section id="what-the-instructions-actually-look-like" class="slide level2 smaller">
+<h2>What the instructions actually look like</h2>
+<div style="font-size:0.82em">
+<p>Verbatim, from the logs. The counts are the tool calls that followed.</p>
+</div>
+<div class="columns">
+<div class="column" style="width:50%;">
+<blockquote>
+<p><strong>“fonts as well”</strong></p>
+<p><em>13 characters → 58 actions</em></p>
+</blockquote>
+<blockquote>
+<p><strong>“yes, build it”</strong></p>
+<p><em>13 characters → 46 actions</em></p>
+</blockquote>
+<blockquote>
+<p><strong>“yes, add Priory, Seahaven and Seaford Head as destinations”</strong></p>
+<p><em>58 characters → 68 actions</em></p>
+</blockquote>
+</div><div class="column" style="width:50%;">
+<blockquote>
+<p><strong>“Can you cite the sources and link to all of the data that is used in each section please then commit and push as I’m going to bed”</strong></p>
+<p><em>128 characters → 52 actions</em></p>
+</blockquote>
+<div class="key-finding">
+<p>Median instruction: <strong>199 characters</strong>. About thirty-six words.</p>
+</div>
+</div><section id="but-the-short-ones-only-work-if-you-know-what-to-say" class="slide level2 smaller">
+<h2>But the short ones only work if you know what to say</h2>
+<div style="font-size:0.84em">
+<blockquote>
+<p><strong>“You need to update Figure 28 with the new model outputs. Also, can I have a table of the original Brightopia (<span class="math inline">\(W_j = 1\)</span>) model with the observed vs modelled expected numbers for each school”</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>“can I have a little section on how we arrived at the best <span class="math inline">\(W_j\)</span> attractiveness factor — we end up using Attainment 8”</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>“can you just check whether the shared variance issues make a difference here? I don’t think they do, but it might be worth checking using the Shapley work”</strong></p>
+</blockquote>
+</div>
+<div class="key-finding">
+<p>These are instructions written in the language of the model. You cannot issue them unless you already know what <span class="math inline">\(W_j\)</span> is, why it might be wrong, and what would count as checking.</p>
+</div>
+</section><section id="the-routing-as-it-actually-happened" class="slide level2 smaller">
+<h2>The routing, as it actually happened</h2>
+<div class="columns">
+<div class="column" style="width:52%;">
+<p>I was running <code>r5r</code> myself. It broke:</p>
+<div style="font-size:0.72em">
+<blockquote>
+<p><strong>“<code>Error in purrr::map(): Caused by error in checkmate::assert_class(): argument &quot;r5r_network&quot; is missing</code>”</strong></p>
+</blockquote>
+</div>
+<p>Then, an hour later:</p>
+<div style="font-size:0.78em">
+<blockquote>
+<p><strong>“restarted R and re-ran, it’s routing now — we now have a brand new travel matrix — can we now go back to the original analysis and re-run the models with the new travel matrix? Both the public and private analyses”</strong></p>
+<p><em>213 characters → 35 actions</em></p>
+</blockquote>
+</div>
+</div><div class="column" style="width:48%;">
+<div class="key-finding">
+<p>This is the collaboration in one exchange. I built and debugged the routing pipeline. It took the output and propagated it through every model, every document and every figure that depended on it.</p>
+</div>
+<p>Neither of us could have done the other’s half quickly.</p>
+</div></div>
+</section><section id="worked-example-a-school-in-the-wrong-place" class="slide level2 smaller">
 <h2>Worked example: a school in the wrong place</h2>
 <div class="columns">
 <div class="column" style="width:55%;">
@@ -1143,8 +1224,7 @@ Figure 2
 <div style="font-size:0.75em">
 <p>It also became a genuine test: the model could now predict what happens when the school consolidates onto one site.</p>
 </div>
-</section>
-<section id="worked-example-a-question-only-a-human-asks" class="slide level2 smaller">
+</section><section id="worked-example-a-question-only-a-human-asks" class="slide level2 smaller">
 <h2>Worked example: a question only a human asks</h2>
 <p>Families choose schools on the published Attainment 8 score — which mostly measures the intake, not the teaching.</p>
 <p>I asked: <strong>what if they chose on value added instead?</strong></p>
@@ -1284,6 +1364,8 @@ Figure 3
 <p>Happy to be argued with — particularly about the open questions.</p>
 </div>
 
+</section>
+</div>
 </section>
 </div>
 </section>
