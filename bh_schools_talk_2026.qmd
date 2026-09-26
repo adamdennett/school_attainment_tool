@@ -571,6 +571,10 @@ minutes each way.
 :::
 :::::
 
+::: {style="font-size:0.58em; color:#555; margin-top:14px"}
+**One assumption holds this up.** It takes families reading a contextualised measure as closely as they now read the headline score — a claim about publicity and persuasion, not a fitted number. The model shows what that would be worth if it worked, not that it would. And value added for a single school is noisy: Patcham's fall rests on one four-year figure.
+:::
+
 # The city's schools {.divider-slide background-color="#3A1857"}
 
 ## A system built for more children than it has
