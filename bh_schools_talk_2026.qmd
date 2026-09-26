@@ -513,6 +513,64 @@ Objectively a great school - but parents choosing on raw attainment and it is lo
 Changing the guidance, and publishing a contextualised measure beside the headline, would cost nothing.
 :::
 
+## What if families read the other number?
+
+```{r va-choice}
+#| fig-width: 12.5
+#| fig-height: 5.4
+vac <- bh_data("value_added_choice.rds")
+va26 <- vac$schools |> dplyr::filter(year == 2026) |>
+  dplyr::mutate(short = forcats::fct_reorder(short, change))
+ve <- vac$even[vac$even$year == 2026, ]
+ggplot(va26, aes(change, short, fill = change > 0)) +
+  geom_col(width = 0.68) +
+  geom_vline(xintercept = 0, colour = "grey40") +
+  geom_text(aes(label = sprintf("%+.0f", change),
+                hjust = ifelse(change > 0, -0.25, 1.25)),
+            size = 5, colour = INK) +
+  scale_fill_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = "#b2182b"), guide = "none") +
+  scale_x_continuous(expand = expansion(mult = 0.16)) +
+  labs(x = "Change in Year 7 intake, 2026", y = NULL,
+       title = "If families read what a school adds, not the score it publishes",
+       subtitle = "Same children, same places, same catchments, same rules. Only the number families read changes.") +
+  theme_bhs(15)
+```
+
+::: {style="font-size:0.62em"}
+Brighton Aldridge goes from **`r sprintf("%.0f", va26$att8_intake[va26$short == "Brighton Aldridge"])` children to `r sprintf("%.0f", va26$va_intake[va26$short == "Brighton Aldridge"])`** on 180 places — half empty to nearly full — without a boundary moving or a place being cut.
+:::
+
+## The number that matters most {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+**Today, `r sprintf("%.0f%%", 100 * ve$top3_att8)` of the city's empty Year 7 places sit in just three schools.**
+
+If families read value added, that falls to
+**`r sprintf("%.0f%%", 100 * ve$top3_va)`**.
+
+A surplus spread across ten schools is a **budgeting** problem.
+
+A surplus piled into three is a **viability** problem — and that is the one Brighton & Hove actually has.
+:::
+
+::: {.column width="48%"}
+::: key-finding
+It creates no places and removes none. The city still has
+`r fmt_n(round(vac$city$empty[vac$city$year == 2026 & vac$city$basis == "Value added"]))`
+empty Year 7 places either way. **What changes is which schools are empty.**
+:::
+
+Journeys also shorten — and most for the children who travel furthest. The extra distance deprived children travel falls from
+`r sprintf("%.1f", vac$city$dep_gap[vac$city$year == 2026 & vac$city$basis == "Attainment 8"])`
+to
+`r sprintf("%.1f", vac$city$dep_gap[vac$city$year == 2026 & vac$city$basis == "Value added"])`
+minutes each way.
+
+**Cost: nothing. Consultation needed: none.** The council writes the admissions guide.
+:::
+:::::
+
 # The city's schools {.divider-slide background-color="#3A1857"}
 
 ## A system built for more children than it has
@@ -828,10 +886,10 @@ Absence needs taking apart, because very different situations sit inside one sta
 
 Each needs a **different response**, and longer journeys push absence the wrong way.
 
-## For admissions and places
+## For admissions and places {.smaller}
 
 ::: incremental
-1. **Change the admissions guidance** and publish a contextualised measure beside the headline score. It costs nothing.
+1. **Change the admissions guidance** and publish a contextualised measure beside the headline score. It costs nothing, needs no consultation, and on the model it moves intakes further than any boundary change — and takes the share of empty places concentrated in three schools from `r sprintf("%.0f%%", 100 * ve$top3_att8)` to `r sprintf("%.0f%%", 100 * ve$top3_va)`.
 2. **Treat the bus network as an admissions instrument.** It widens real choice without taking anything from anyone.
 3. **Plan places across the whole city.** The fall in pupils has to be shared, including by the academies and faith schools.
 4. **Decide about Longhill on the financial timetable**, and test a smaller school at the top of Elm Grove properly, with costs stated.
