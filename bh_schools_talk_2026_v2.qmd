@@ -741,7 +741,7 @@ Changing the guidance, and publishing a contextualised measure beside the headli
 
 ```{r first-prefs}
 #| fig-width: 11.5
-#| fig-height: 5.2
+#| fig-height: 5.0
 ap <- bh_data("adjudicator_preferences.rds")
 AM <- c(`CA-A` = "PACA", `CA-B` = "Hove_Blatch", `CA-C` = "Patcham",
         `CA-D` = "DS_Varndean", `CA-E` = "BACA", `CA-F` = "Longhill")
@@ -751,6 +751,10 @@ CS <- list(PACA = "Portslade Aldridge Community Academy",
            DS_Varndean = c("Dorothy Stringer School", "Varndean School"),
            BACA = "Brighton Aldridge Community Academy",
            Longhill = "Longhill High School")
+# Schools that sit inside a catchment but are not its catchment schools.
+# Established by a spatial join of school points to the catchment polygons:
+# Cardinal Newman and King's are the only two in the city, both in Hove.
+IN <- list(Hove_Blatch = c("Cardinal Newman Catholic School", "King's School"))
 LAB <- c(DS_Varndean = "Stringer / Varndean", Patcham = "Patcham",
          PACA = "Portslade Aldridge", Hove_Blatch = "Hove Park / Blatchington",
          BACA = "Brighton Aldridge", Longhill = "Longhill")
@@ -759,24 +763,40 @@ fp_own <- ap$prefs |>
   dplyr::mutate(home = unname(AM[area])) |>
   dplyr::group_by(home) |>
   dplyr::summarise(total = sum(pref1),
-                   own = sum(pref1[school %in% unlist(CS[home[1]])]),
+                   own    = sum(pref1[school %in% unlist(CS[home[1]])]),
+                   alsoin = sum(pref1[school %in% unlist(IN[home[1]])]),
                    .groups = "drop") |>
-  dplyr::mutate(share = own / total,
-                label = factor(unname(LAB[home])),
-                label = forcats::fct_reorder(label, share))
-ggplot(fp_own, aes(share, label)) +
-  geom_col(aes(fill = share > 0.5), width = 0.66) +
-  geom_text(aes(label = sprintf("%.0f%%", 100 * share)), hjust = -0.2,
-            size = 5.2, colour = INK) +
-  scale_fill_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = WARM), guide = "none") +
+  dplyr::mutate(label = factor(unname(LAB[home])),
+                label = forcats::fct_reorder(label, (own + alsoin) / total))
+fp_long <- fp_own |>
+  dplyr::transmute(label, total,
+                   `A catchment school` = own / total,
+                   `Another school in the catchment` = alsoin / total) |>
+  tidyr::pivot_longer(c(-label, -total), names_to = "kind", values_to = "share") |>
+  dplyr::mutate(kind = factor(kind, levels = c("A catchment school",
+                                               "Another school in the catchment")))
+tot <- fp_own |> dplyr::mutate(share = (own + alsoin) / total)
+ggplot(fp_long, aes(share, label, fill = kind)) +
+  geom_col(width = 0.66) +
+  geom_text(data = tot, aes(x = share, y = label, label = sprintf("%.0f%%", 100 * share)),
+            inherit.aes = FALSE, hjust = -0.2, size = 5.2, colour = INK) +
+  scale_fill_manual(values = c(`A catchment school` = "#2b7a4b",
+                               `Another school in the catchment` = "#86c39a"),
+                    name = NULL) +
   scale_x_continuous(labels = scales::label_percent(), limits = c(0, 1),
                      expand = expansion(mult = c(0, 0.12))) +
-  labs(x = "First preferences given to a school in the family's own catchment", y = NULL,
+  labs(x = "First preferences given to a school inside the family's own catchment", y = NULL,
        title = "Where each catchment's families put their first choice",
        subtitle = "Council's own preference records, three rounds pooled") +
-  theme_bhs(15)
+  theme_bhs(15) + theme(legend.position = "top")
 ```
 
+::: {style="font-size:0.68em"}
+Cardinal Newman and King's sit inside the Hove Park / Blatchington catchment
+without being its catchment schools. Counting only catchment schools would put
+that catchment at 44% — counting every school its families can walk to puts it
+at **95%, the highest in the city**.
+:::
 
 ## Two things are true at once {.smaller}
 
@@ -796,9 +816,9 @@ they can walk to.
 
 ::: {.column width="50%"}
 ::: key-finding
-**But that pull is not unconditional.** Four in five Stringer/Varndean
-families put a catchment school first. Two in five do in Longhill's
-catchment and Brighton Aldridge's.
+**But that pull is not unconditional.** In Hove, 95% of families name a
+school inside their own catchment. In Stringer/Varndean, 81%. In Longhill's
+catchment and Brighton Aldridge's, two in five.
 :::
 
 The difference is not how much those families value a local school. It
