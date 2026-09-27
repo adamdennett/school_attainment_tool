@@ -1004,6 +1004,94 @@ s4 <- mini(tibble::tibble(stage = c("Council\npriorities", "Equal chance\nfor al
 ```
 
 
+
+## The 2024 plan, run through the model {.smaller}
+
+```{r lever-case}
+#| fig-width: 12
+#| fig-height: 4.6
+PROP <- c(`Blatchington Mill School` = 300, `Dorothy Stringer School` = 300,
+          `Longhill High School` = 210)
+DET  <- c(`Blatchington Mill School` = 330, `Dorothy Stringer School` = 330,
+          `Longhill High School` = 210)
+lev_run <- function(p, p6) outcomes(inp, run_sim(inp, pans = p, year = 2026,
+  rules = list(rule = "priorities", p6_share = p6, fsm = TRUE)))
+lev_cases <- list(c("As determined", "330 places, 5% open"),
+                  c("Places cut only", "300 places, 5% open"),
+                  c("Open admissions only", "330 places, 20% open"),
+                  c("The 2024 plan", "300 places, 20% open"))
+lev <- purrr::map2_dfr(list(DET, PROP, DET, PROP), c(.05, .05, .20, .20),
+  function(p, s) { o <- lev_run(p, s)
+    tibble::tibble(displaced = o$catchment$displaced, gorard = o$gorard) }) |>
+  dplyr::mutate(case = factor(sapply(lev_cases, `[`, 1), levels = sapply(lev_cases, `[`, 1)),
+                sub  = sapply(lev_cases, `[`, 2),
+                hi   = case == "The 2024 plan")
+p_d <- ggplot(lev, aes(case, displaced, fill = hi)) +
+  geom_col(width = 0.62) +
+  geom_text(aes(label = sprintf("%.0f", displaced)), vjust = -0.5, size = 5, colour = INK) +
+  scale_fill_manual(values = c(`FALSE` = "#b9c2cc", `TRUE` = BAD), guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22))) +
+  labs(x = NULL, y = NULL, title = "Children displaced",
+       subtitle = "Refused a place at a school in their own catchment, 2026") +
+  theme_bhs(13) + theme(plot.title = element_text(size = 14.5),
+                        plot.subtitle = element_text(size = 11))
+p_g <- ggplot(lev, aes(case, gorard, fill = hi)) +
+  geom_col(width = 0.62) +
+  geom_text(aes(label = sprintf("%.3f", gorard)), vjust = -0.5, size = 5, colour = INK) +
+  scale_fill_manual(values = c(`FALSE` = "#b9c2cc", `TRUE` = BAD), guide = "none") +
+  coord_cartesian(ylim = c(0.10, 0.135)) +
+  labs(x = NULL, y = NULL, title = "Segregation of disadvantage",
+       subtitle = "Gorard index. Higher = more segregated. The council wanted this to fall.") +
+  theme_bhs(13) + theme(plot.title = element_text(size = 14.5),
+                        plot.subtitle = element_text(size = 11))
+(p_d | p_g) & theme(plot.background = element_rect(fill = "#FAFAFA", colour = NA))
+```
+
+::: {style="font-size:0.7em"}
+Cutting places displaces about six more children. Opening 20% of places
+displaces about twelve more. Doing both displaces **twenty-eight** more — the
+two levers multiply rather than add. And the segregation the whole exercise was
+meant to reduce goes **up**.
+:::
+
+## Why segregation goes up {.smaller}
+
+```{r lever-mech}
+#| fig-width: 11.5
+#| fig-height: 4.4
+mech <- dplyr::inner_join(
+  lev_run(DET, 0.05)$mix  |> dplyr::transmute(name, before = dep_share),
+  lev_run(PROP, 0.20)$mix |> dplyr::transmute(name, after  = dep_share),
+  by = "name")
+city_dep <- sum(lev_run(DET, 0.05)$mix$dep_n) / sum(lev_run(DET, 0.05)$mix$n)
+mech <- mech |>
+  dplyr::mutate(school = forcats::fct_reorder(short_sch(name), before),
+                apart  = abs(after - city_dep) > abs(before - city_dep))
+ggplot(mech, aes(y = school)) +
+  geom_vline(xintercept = city_dep, colour = "grey55", linetype = "31") +
+  geom_segment(aes(x = before, xend = after, yend = school, colour = apart),
+               linewidth = 1.2,
+               arrow = arrow(length = unit(0.16, "cm"), type = "closed")) +
+  geom_point(aes(x = before), size = 2.6, colour = "grey55") +
+  scale_colour_manual(values = c(`TRUE` = BAD, `FALSE` = "#2b7a4b"), guide = "none") +
+  scale_x_continuous(labels = scales::label_percent()) +
+  labs(x = "Share of the intake who are disadvantaged", y = NULL,
+       title = "The 2024 plan, school by school",
+       subtitle = "Grey dot: as determined. Arrow: the 2024 plan. Dashed line: the city average. Red = moves away from it.") +
+  theme_bhs(14) +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4))
+```
+
+::: key-finding
+Longhill — already the most disadvantaged school in the city — gets **more**
+disadvantaged. Dorothy Stringer, already below the city average, gets **less**.
+Both move away from the middle, which is exactly what the segregation index
+measures. The 60 places taken out of the two popular schools do not disappear:
+the children who would have filled them fall back on whatever has room, and
+what has room is Longhill.
+:::
+
 ## Who actually gets displaced {.smaller}
 
 ```{r displaced-split}
