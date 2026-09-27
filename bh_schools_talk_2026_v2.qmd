@@ -845,8 +845,13 @@ bh_data("adjudicator.rds")$pans |>
 
 ::: {style="font-size:0.7em"}
 The council proposed cutting Blatchington Mill and Dorothy Stringer to 300
-places. Both schools objected, and the Schools Adjudicator did not uphold
-the reductions. Longhill's cut from 270 to 210 went through unopposed.
+places. Six objections reached the Schools Adjudicator: Blatchington Mill's
+governing body, Queen's Park Primary's governing body, and four from parents
+— one submitted on behalf of 500. **Dorothy Stringer did not object. Its
+parents did.** The Adjudicator restored both schools to 330, finding the cuts
+would frustrate parental preference. Longhill's cut from 270 to 210 was
+unopposed and stood. Everything else was upheld: the new boundaries, the free
+school meal priority, the 5% open admissions.
 
 **That matters for what follows.** The places in the popular schools are
 still there — and the model says those places are most of what protects
