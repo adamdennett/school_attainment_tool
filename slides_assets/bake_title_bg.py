@@ -1,8 +1,9 @@
 from PIL import Image
 import math
+import os
 
-SRC = "E:/school_attainment_tool/slides_assets/title-bg.png"
-OUT = "E:/school_attainment_tool/slides_assets/title-bg-composite.png"
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "title-bg.png")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "title-bg-composite.png")
 
 img = Image.open(SRC).convert("RGB")
 W, H = img.size

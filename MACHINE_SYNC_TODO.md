@@ -71,11 +71,19 @@ Remember the repo is **public**.
 
 ### 3. Remove the last `E:` paths
 
+(`slides_assets/bake_title_bg.py` has already been fixed.)
+
 - `R/01_extract_data.R:38`: `E:/QM_Fork/sessions/L6_data/...`
 - `output/brighton_case_study.qmd:2805`: `E:/BH_Schools_Consultation/data/optionZ_Mar25.geojson`
 
 Point these at sibling repos in the same way (`dirname(here::here())`), or
 copy the data into this repo.
+
+### 3b. Other repos read from this one
+
+`BH_Pupil_Destinations` reads `data/panel_data.rds` and
+`data/optionZ_Mar25.geojson`, and `bh-school-system/R/01_assemble.R` reads
+from this repo too. Make sure both files end up on GitHub, or can be fetched.
 
 ### 4. Check it
 
