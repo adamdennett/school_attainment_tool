@@ -2,7 +2,7 @@
 # the "Ten schools, and where the children live" slide, without titles or
 # legend, under the same purple 110-degree fade as bake_title_bg.py.
 
-BHS <- "E:/bh_school_system"
+BHS <- file.path(dirname(here::here()), "bh-school-system")
 core <- readLines(file.path(BHS, "R", "00_core.R"), encoding = "UTF-8", warn = FALSE)
 eval(parse(text = sub("here::here()", "BHS", core, fixed = TRUE), encoding = "UTF-8"))
 
@@ -36,7 +36,7 @@ fade <- grid::rectGrob(gp = grid::gpar(col = NA, fill = grid::linearGradient(
   # 110 degrees: left to right, tilted slightly downwards
   x1 = 0.5 - 0.47, y1 = 0.5 + 0.17, x2 = 0.5 + 0.47, y2 = 0.5 - 0.17)))
 
-out <- "E:/school_attainment_tool/slides_assets/title-bg-talk.png"
+out <- here::here("slides_assets", "title-bg-talk.png")
 ragg::agg_png(out, width = 1920, height = 1080, res = 110, background = "#FAFAFA")
 print(map)
 grid::grid.draw(fade)
