@@ -101,7 +101,7 @@ N_ELAPSED <- 166                 # days from first message to last
 N_HOURS   <- 108                 # summing gaps under 10 minutes
 
 # Scenario outputs from the model itself, for the worked examples.
-BHS  <- file.path(dirname(here::here()), "bh-school-system", "data")
+BHS  <- file.path(Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1], "data")
 hpc  <- readRDS(file.path(BHS, "hove_park_campus.rds"))
 vac  <- readRDS(file.path(BHS, "value_added_choice.rds"))
 short_sch <- function(x) {

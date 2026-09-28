@@ -45,7 +45,7 @@ execute:
 #    the model guide and the simulator), read from its assembled data.
 
 # ---- The city system -------------------------------------------------
-BHS <- file.path(dirname(here::here()), "bh-school-system")
+BHS <- Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1]
 # 00_core.R takes its root from here::here(), which is this repository
 # when the deck renders, so it is evaluated with the root swapped in.
 core <- readLines(file.path(BHS, "R", "00_core.R"), encoding = "UTF-8", warn = FALSE)

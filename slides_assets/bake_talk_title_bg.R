@@ -2,7 +2,7 @@
 # the "Ten schools, and where the children live" slide, without titles or
 # legend, under the same purple 110-degree fade as bake_title_bg.py.
 
-BHS <- file.path(dirname(here::here()), "bh-school-system")
+BHS <- Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1]
 core <- readLines(file.path(BHS, "R", "00_core.R"), encoding = "UTF-8", warn = FALSE)
 eval(parse(text = sub("here::here()", "BHS", core, fixed = TRUE), encoding = "UTF-8"))
 
