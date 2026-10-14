@@ -1305,6 +1305,108 @@ issue them unless you already know what $W_j$ is, why it might be wrong,
 and what would count as checking.
 :::
 
+
+## 14–16 August: extending my own model {.smaller}
+
+:::::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.8em; color:#555;"}
+**14 August**
+:::
+
+> "All of the code we need to extend the road network is contained within
+> the original **`BrighonSchoolsSIM.qmd`** file... We use **R5R** to build
+> the network... the new thing we can do to extend the bus network down to
+> Peacehaven is use the **UK2GTFS** package."
+
+::: {style="font-size:0.78em; color:#555;"}
+My own file, my own method, and the specific package to go further with it.
+:::
+:::
+
+::: {.column width="50%"}
+::: {style="font-size:0.8em; color:#555;"}
+**16 August, 07:15**
+:::
+
+> "The Dorothy Stringer intake is modelled as low and interpreted as **bad
+> location**. However, this isn't quite right... Stringer is low **not
+> because it is inaccessible, but because it is central and close to other
+> schools** that the model fills up more favourably. So this is a problem
+> **inherent in this model**."
+
+::: {style="font-size:0.78em; color:#555;"}
+The right number, reached by the wrong mechanism.
+:::
+:::
+::::::
+
+## 16–18 August: what to measure, and why it holds {.smaller}
+
+:::::: columns
+::: {.column width="44%"}
+::: {style="font-size:0.8em; color:#555;"}
+**16 August, 21:49**
+:::
+
+> "**Ascribing IDACI values to modelled students** going into schools in the
+> spatial interaction model could give us a sense of the likely profile of
+> disadvantage at each school."
+
+::: {style="font-size:0.78em; color:#555;"}
+This became the entire disadvantage layer.
+:::
+:::
+
+::: {.column width="56%"}
+::: {style="font-size:0.8em; color:#555;"}
+**18 August**
+:::
+
+> "No matter what ideological political thinking might hope — **and this is
+> the problem with ideology, it rarely survives coming into contact with
+> reality** — across human systems the world over, **distance decay is a
+> universal truth**, whether it relates to schools, retail, migration,
+> commuting, health care accessibility or any other human process."
+
+::: {style="font-size:0.78em; color:#555;"}
+Not a fact to look up: knowing which seventy years of literature the city's
+argument was about to collide with.
+:::
+:::
+::::::
+
+## 10 September: specifying the model {.smaller}
+
+:::::: columns
+::: {.column width="50%"}
+::: {style="font-size:0.8em; color:#555;"}
+**11:17**
+:::
+
+> "Re-running the Brightopia model with **$W_j$ attractiveness set to
+> weighted preferences** and using the **new $c_{ij}$ matrix** which fixed
+> some of the travel times — where before we had some weird bus journeys
+> where walking would have been faster — and with **setting the beta value
+> to 1.7**."
+:::
+
+::: {.column width="50%"}
+::: {style="font-size:0.8em; color:#555;"}
+**13:26, two hours later**
+:::
+
+> "Can we add in a **competing destinations term** too, to see if that fixes
+> the Blatch / Hove Park under/over prediction... Also, we might need a
+> **catchment term** in there too."
+:::
+::::::
+
+::: key-finding
+Between those two messages, two of the five terms in the final equation get
+specified — each named with the symptom it was meant to cure. None of these
+six prompts is a correction. They are **design**.
+:::
 ## The routing, as it actually happened {.smaller}
 
 :::::::: columns
