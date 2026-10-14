@@ -1107,6 +1107,61 @@ pl <- function(x, xlab, r2, colr) {
 The council's [secondary admissions guide](`r GUIDE`) tells parents to look at each school's *"National Curriculum test results, public exam results"* and its Ofsted reports: figures that mostly describe who a school admits.
 :::
 
+
+## A test the model could fail {.smaller}
+
+```{r fsm-oos}
+#| fig-width: 11.5
+#| fig-height: 4.0
+o_fsm <- outcomes(inp, run_sim(inp, year = 2026,
+  rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE)))
+
+# FOI 26367489: the confirmed September 2026 position by priority. The
+# model was never fitted to these.
+foi_fsm <- tibble::tribble(
+  ~name,                      ~p4, ~p5,
+  "Blatchington Mill School",  46,  16,
+  "Dorothy Stringer School",   32,  32,
+  "Hove Park School",          17,  20,
+  "Longhill High School",      20,   8,
+  "Patcham High School",       18,  17,
+  "Varndean School",           59,   6)
+
+fsm_d <- o_fsm$tiers |>
+  dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
+  dplyr::inner_join(foi_fsm, by = "name") |>
+  dplyr::mutate(school = short_sch(name))
+
+r2 <- function(a, b) cor(a, b)^2
+fsm_long <- dplyr::bind_rows(
+  fsm_d |> dplyr::transmute(school, panel = sprintf(
+    "In catchment (priority 4)   R² = %.2f", r2(m4, p4)),
+    modelled = m4, actual = p4),
+  fsm_d |> dplyr::transmute(school, panel = sprintf(
+    "Out of catchment (priority 5)   R² = %.2f", r2(m5, p5)),
+    modelled = m5, actual = p5))
+
+ggplot(fsm_long, aes(actual, modelled)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") +
+  geom_point(size = 3.2, colour = PURPLE) +
+  ggrepel::geom_text_repel(aes(label = school), size = 3.4, seed = 4, colour = INK) +
+  facet_wrap(~ panel) +
+  labs(x = "Children actually admitted under the priority (FOI, September 2026)",
+       y = "Modelled",
+       title = "Free school meal priorities, against a target the model never saw") +
+  theme_bhs(13)
+```
+
+::: {style="font-size:0.74em"}
+The disadvantage layer is **fitted** to each school's published
+disadvantaged share, so reproducing that share proves nothing. The FOI
+arrived weeks later with something the model had never been shown: how many
+children each school actually admitted under the free school meal
+priorities. **In catchment it predicts well. Out of catchment it has no
+skill at all** — it says 34 free-school-meal children should travel in to
+Varndean; 6 did. Geography the model knows. Whether a family knows the
+priority exists, and is willing to travel on it, it does not.
+:::
 ## This did not start in April {.smaller}
 
 :::::: columns
@@ -1251,7 +1306,7 @@ smaller version of it myself. **That is not a small part of why this
 worked.**
 :::
 
-## What the instructions actually look like {.smaller}
+## What my instructions actually look like {.smaller}
 
 ::: {style="font-size:0.82em"}
 Verbatim, from the logs. The counts are the tool calls that followed.
@@ -1284,26 +1339,26 @@ Median instruction: **199 characters**. About thirty-six words.
 ::::
 ::::::
 
-## But the short ones only work if you know what to say {.smaller}
+<!-- ## But the short ones only work if you know what to say {.smaller} -->
 
-::: {style="font-size:0.84em"}
-> **"You need to update Figure 28 with the new model outputs. Also, can
-> I have a table of the original Brightopia (**$W_j = 1$) model with the
-> observed vs modelled expected numbers for each school"
+<!-- ::: {style="font-size:0.84em"} -->
+<!-- > **"You need to update Figure 28 with the new model outputs. Also, can -->
+<!-- > I have a table of the original Brightopia (**$W_j = 1$) model with the -->
+<!-- > observed vs modelled expected numbers for each school" -->
 
-> **"can I have a little section on how we arrived at the best** $W_j$
-> attractiveness factor — we end up using Attainment 8"
+<!-- > **"can I have a little section on how we arrived at the best** $W_j$ -->
+<!-- > attractiveness factor — we end up using Attainment 8" -->
 
-> **"can you just check whether the shared variance issues make a
-> difference here? I don't think they do, but it might be worth checking
-> using the Shapley work"**
-:::
+<!-- > **"can you just check whether the shared variance issues make a -->
+<!-- > difference here? I don't think they do, but it might be worth checking -->
+<!-- > using the Shapley work"** -->
+<!-- ::: -->
 
-::: key-finding
-These are instructions written in the language of the model. You cannot
-issue them unless you already know what $W_j$ is, why it might be wrong,
-and what would count as checking.
-:::
+<!-- ::: key-finding -->
+<!-- These are instructions written in the language of the model. You cannot -->
+<!-- issue them unless you already know what $W_j$ is, why it might be wrong, -->
+<!-- and what would count as checking. -->
+<!-- ::: -->
 
 
 ## 14–16 August: extending my own model {.smaller}
@@ -1336,7 +1391,7 @@ My own file, my own method, and the specific package to go further with it.
 > **inherent in this model**."
 
 ::: {style="font-size:0.78em; color:#555;"}
-The right number, reached by the wrong mechanism.
+The right number, reached by the wrong mechanism - correction on the interpretation.
 :::
 :::
 ::::::
@@ -1407,38 +1462,39 @@ Between those two messages, two of the five terms in the final equation get
 specified — each named with the symptom it was meant to cure. None of these
 six prompts is a correction. They are **design**.
 :::
-## The routing, as it actually happened {.smaller}
 
-:::::::: columns
-::::: {.column width="52%"}
-I was running `r5r` myself. It broke:
+<!-- ## The routing, as it actually happened {.smaller} -->
 
-::: {style="font-size:0.72em"}
-> **"`Error in purrr::map(): Caused by error in checkmate::assert_class(): argument "r5r_network" is missing`"**
-:::
+<!-- :::::::: columns -->
+<!-- ::::: {.column width="52%"} -->
+<!-- I was running `r5r` myself. It broke: -->
 
-Then, an hour later:
+<!-- ::: {style="font-size:0.72em"} -->
+<!-- > **"`Error in purrr::map(): Caused by error in checkmate::assert_class(): argument "r5r_network" is missing`"** -->
+<!-- ::: -->
 
-::: {style="font-size:0.78em"}
-> **"restarted R and re-ran, it's routing now — we now have a brand new
-> travel matrix — can we now go back to the original analysis and re-run
-> the models with the new travel matrix? Both the public and private
-> analyses"**
->
-> *213 characters → 35 actions*
-:::
-:::::
+<!-- Then, an hour later: -->
 
-:::: {.column width="48%"}
-::: key-finding
-This is the collaboration in one exchange. I built and debugged the
-routing pipeline. It took the output and propagated it through every
-model, every document and every figure that depended on it.
-:::
+<!-- ::: {style="font-size:0.78em"} -->
+<!-- > **"restarted R and re-ran, it's routing now — we now have a brand new -->
+<!-- > travel matrix — can we now go back to the original analysis and re-run -->
+<!-- > the models with the new travel matrix? Both the public and private -->
+<!-- > analyses"** -->
+<!-- > -->
+<!-- > *213 characters → 35 actions* -->
+<!-- ::: -->
+<!-- ::::: -->
 
-Neither of us could have done the other's half quickly.
-::::
-::::::::
+<!-- :::: {.column width="48%"} -->
+<!-- ::: key-finding -->
+<!-- This is the collaboration in one exchange. I built and debugged the -->
+<!-- routing pipeline. It took the output and propagated it through every -->
+<!-- model, every document and every figure that depended on it. -->
+<!-- ::: -->
+
+<!-- Neither of us could have done the other's half quickly. -->
+<!-- :::: -->
+<!-- :::::::: -->
 
 ## Worked example: a school in the wrong place {.smaller}
 
