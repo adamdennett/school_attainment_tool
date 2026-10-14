@@ -948,10 +948,10 @@ The point is not that AI did the analysis. It is that AI made *ideas scalable an
 | Commits across six repositories                  | 805                   |
 
 ::: {style="font-size:0.8em"}
-A production-constrained spatial interaction model with a
+-   A production-constrained spatial interaction model with a
 competing-destinations term, calibrated per catchment, fitted against
-the council's published offer data. It reproduces the September 2026
-allocations with an R² of 0.95.
+the council's published offer data. 
+-   It reproduces the September 2026 allocations with an ***R² of 0.95***.
 :::
 
 ## Questions I wanted to Answer
@@ -1002,33 +1002,36 @@ else, and the model says where.
 ## What the model had to learn {.smaller}
 
 ::::: columns
-::: {.column width="54%"}
+::: {.column width="52%"}
 Three things are fitted to the council's own published allocations, rather
 than assumed:
 
-**Distance decay, $\beta = 1.7$.** How sharply demand falls as a school gets
-further away. Higher means families are less willing to travel.
+**Distance decay, $\beta = 1.7$.** How sharply demand falls as a school
+gets further away.
 
 **The catchment pull, $\gamma_h$.** How much living inside a catchment
 raises the odds of choosing a school there — fitted **separately for each
 catchment**, because they do not behave alike.
 
-**Competition, $\delta = 0.3$.** Whether being surrounded by rivals helps a
-school or hurts it.
-:::
+**Competition, $\delta = 0.3$.** Whether being surrounded by rivals helps
+a school or hurts it.
 
-::: {.column width="46%"}
 ::: key-finding
-Living in the catchment multiplies the odds of choosing a school there by
-**2.7× in Brighton Aldridge's** and **13.5× in Stringer and Varndean's**.
-
-The same policy, written once for the whole city, is doing five times as
-much work in one place as another.
+Living in the catchment multiplies the odds by **2.7× in Brighton
+Aldridge's** and **13.5× in Stringer and Varndean's** — one policy doing
+five times as much work in one place as another.
 :::
 
-Fitted this way, the model reproduces the council's 2026 offers with an
-**R² of 0.95**. The allocation rules — the priority order, the admission
-number caps — then run on top of it.
+Fitted this way, the model reproduces the 2026 offers with an **R² of
+0.95**.
+:::
+
+::: {.column width="48%"}
+::: {style="text-align:center; line-height:0.8; margin-top:-0.4rem;"}
+![](slides_assets/fig-beta-curve.png){width="58%" style="display:block; margin:0 auto;"}
+![](slides_assets/fig-gamma-map.png){width="58%" style="display:block; margin:0 auto;"}
+![](slides_assets/fig-cj-map.png){width="58%" style="display:block; margin:0 auto;"}
+:::
 :::
 :::::
 ## This did not start in April {.smaller}
