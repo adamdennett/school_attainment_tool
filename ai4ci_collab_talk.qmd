@@ -1498,7 +1498,7 @@ This became the entire disadvantage layer.
 > process."
 
 ::: {style="font-size:0.78em; color:#555;"}
-Not a fact to look up (more of a rant at Claude! 😂 : knowing which
+Not a fact to look up (more of a rant at Claude! 😂): knowing which
 seventy years of literature the city's argument was about to collide
 with.
 :::
@@ -1745,36 +1745,55 @@ measuring.
 
 ## What moving it actually buys {.smaller}
 
+:::::: columns
+::: {.column width="57%"}
 ```{r lh-depgap}
-#| fig-width: 11.5
-#| fig-height: 3.9
+#| fig-width: 7.2
+#| fig-height: 4.6
 lh_plot <- lh_scen |>
   dplyr::mutate(s = factor(s, levels = rev(c("Today", "Value added", "Elm Grove",
                                              "Elm Grove + 150 places", "All three"))))
 ggplot(lh_plot, aes(dep_gap, s, fill = s == "All three")) +
   geom_col(width = 0.62) +
   geom_vline(xintercept = 0, colour = "grey45") +
-  geom_text(aes(label = sprintf("%+.1f min", dep_gap),
-                hjust = ifelse(dep_gap > 0.4, 1.2, -0.15)),
-            size = 4.4, colour = ifelse(lh_plot$dep_gap > 0.4, "white", INK)) +
+  geom_text(aes(label = sprintf("%+.1f", dep_gap),
+                hjust = ifelse(dep_gap > 0.4, 1.3, -0.2)),
+            size = 4.2, colour = ifelse(lh_plot$dep_gap > 0.4, "white", INK)) +
   scale_fill_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = "#b9c2cc"), guide = "none") +
   scale_x_continuous(expand = expansion(mult = c(0.02, 0.12))) +
-  labs(x = "Extra minutes a disadvantaged child travels, against everyone else", y = NULL,
+  labs(x = "Extra minutes travelled, disadvantaged children", y = NULL,
        title = "The journey gap, 2030",
-       subtitle = "Positive means disadvantaged children travel further than their classmates") +
-  theme_bhs(13)
+       subtitle = "Positive means they travel further than their classmates") +
+  theme_bhs(12)
 ```
-
-::: {style="font-size:0.76em"}
-Today a disadvantaged child in this city travels
-**`r sprintf("%.1f", lh_at("Today", "dep_gap"))` minutes further** than
-everyone else. Moving Longhill to Elm Grove cuts that to
-**`r sprintf("%.1f", lh_at("Elm Grove", "dep_gap"))`**. Do all three —
-move it, size it honestly, and change the number families read — and the
-gap is **`r sprintf("%.1f", lh_at("All three", "dep_gap"))` minutes**.
-The school that looked unsaveable on numbers turns out to be the one
-lever that makes the city's journeys fair.
 :::
+
+::: {.column width="43%"}
+A disadvantaged child travels
+**`r sprintf("%.1f", lh_at("Today", "dep_gap"))` minutes further** than
+their classmates. Elm Grove cuts that to
+**`r sprintf("%.1f", lh_at("Elm Grove", "dep_gap"))`**; all three
+together, **`r sprintf("%.1f", lh_at("All three", "dep_gap"))`**.
+
+**And segregation rises.** The Gorard index goes from
+`r sprintf("%.3f", lh_at("Today", "gorard"))` to
+`r sprintf("%.3f", lh_at("All three", "gorard"))`. That is the honest
+cost, and it should be said out loud.
+
+::: key-finding
+But *How to Pull the Right Lever* fits that model separately for
+disadvantaged and non-disadvantaged pupils, and the two **disagree about
+direction**: for disadvantaged pupils a higher disadvantaged share goes
+with slightly *higher* attainment, once absence and prior attainment are
+allowed for.
+:::
+
+So deconcentration bought with longer journeys is unlikely to help the
+children it is meant to. The trade here runs the other way: a small rise
+in an index, against **halving the journey penalty on the city's poorest
+children**.
+:::
+::::::
 <!-- ## Worked example: a question only a human asks {.smaller} -->
 
 <!-- Families choose schools on the published Attainment 8 score — which -->
