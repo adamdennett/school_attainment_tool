@@ -1,6 +1,6 @@
 ---
 title: "Putting the **AI** in **A**ppl**I**ed Urban Modelling"
-subtitle: "Five months, one city's school system, and a record of who did what"
+subtitle: "Five months, one city's school system, a collaborative model building process"
 author:
   - name: Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
@@ -30,6 +30,9 @@ execute:
   echo: false
   warning: false
   message: false
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup}
@@ -469,31 +472,44 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 
 ```
 
+## Who I am, and why this talk {.smaller}
 
+- I am a Professor of Urban Analytics at UCL's Centre for Advanced
+  Spatial Analysis. I build spatial models — of migration, of housing,
+  of how people move around cities.
+- I am also a parent in Brighton & Hove and became involved in a
+  two-year argument with the council, along with hundreds of families,
+  about changes to secondary school admissions.
+- A misalignment between:
+  - the stated aims of the council (improving disadvantaged student
+    attainment)
+  - stated challenges (declining pupil roll, viability issues for some
+    schools)
+  - policies implemented (admission priority changes, catchment boundary
+    alterations and PAN reductions)
+- with insufficient consideration given to complex system interactions
+  and negative externalities
 
 ## Who I am, and why this talk
 
--   I am a Professor of Urban Analytics at UCL's Centre for Advanced Spatial
-Analysis. I build spatial models — of migration, of housing, of how people
-move around cities.
--   I am also a parent in Brighton & Hove and became involved in a two-year
-argument with the council, along with hundreds of families, about changes to secondary
-school admissions.
--   A misalignment between the stated aims of the council (improving disadvantaged student
-attainment), stated challenges (declining pupil roll) and policies implemented (admission priority changes, catchment boundary alterations and PAN reductions), 
-with insufficient consideration given to negative externalities
+- I spent 2-years analysing data to understand the drivers of secondary
+  attainment
 
+  ![](slides_assets/lever.png){width="50%"}
 
-## Who I am, and why this talk
+  *https://adamdennett.github.io/school_attainment_tool/*
 
--   I spent 2-years analysing data to understand the drivers of secondary attainment - https://adamdennett.github.io/school_attainment_tool/ - conclusion: Council policies unlikely
-to improve attainment at cost to children in the city (increased travel, breakdown of community schooling etc.)
--   But the spatial dimension of the problem in Brighton and Hove kept bugging me... 
+- Conclusion: Council policies unlikely to improve attainment at cost to
+  children in the city (increased travel, breakdown of community
+  schooling etc.)
 
-## Map
+- But the spatial dimension of the problem in Brighton and Hove kept
+  bugging me...
+
+## The Brighton and Hove Secondary School System
 
 ```{r fig-catchments}
-#| fig-cap: "Where Brighton & Hove's children live, and the schools that serve them. Each circle is a postcode, sized by the number of households with dependent children and coloured by IDACI decile. Use the control to turn layers on and off; click a logo for the school's figures."
+#| fig-cap: "Schools and Pupils in Brighton and Hove"
 
 # ---- Load catchment boundaries ----
 optionZ <- st_read(
@@ -745,95 +761,207 @@ if (knitr::is_html_output()) {
 }
 ```
 
+## The cohort is already falling
+
+```{r cohort}
+#| fig-width: 11
+#| fig-height: 5.2
+y7 <- rc$secondary_city; recp <- rc$reception_city; proj <- rc$projection
+ggplot() +
+  geom_ribbon(data = proj, aes(entry_year, ymin = lo, ymax = hi), fill = BAD, alpha = 0.18) +
+  geom_line(data = recp, aes(year, rec_offers), colour = "#2c7fb8", linewidth = 1.1) +
+  geom_line(data = y7, aes(year, y7_offers), colour = INK, linewidth = 1.3) +
+  geom_line(data = proj, aes(entry_year, central), colour = BAD, linewidth = 1.2, linetype = "22") +
+  annotate("text", x = min(recp$year) + 0.3, y = max(recp$rec_offers) * 1.03,
+           label = "Reception offers", colour = "#2c7fb8", hjust = 0, size = 4.4) +
+  annotate("text", x = min(y7$year) + 0.3, y = min(y7$y7_offers) * 0.93,
+           label = "Year 7 offers", colour = INK, hjust = 0, size = 4.4, fontface = "bold") +
+  annotate("text", x = max(proj$entry_year) - 0.2, y = max(proj$hi) * 1.06,
+           label = "Projected from children\nalready in primary school", colour = BAD, hjust = 1, size = 4) +
+  scale_y_continuous(labels = scales::label_comma(), limits = c(0, NA)) +
+  labs(x = NULL, y = "Offers",
+       title = "Reception offers turned down first; Year 7 follows seven years later",
+       subtitle = sprintf("Year 7 demand projected to about %s by %s",
+                          fmt_n(proj$central[which.max(proj$entry_year)]), max(proj$entry_year))) +
+  theme_bhs(15)
+```
+
+
+## Nine of ten schools are spending their reserves
+
+```{r reserves}
+#| fig-width: 12
+#| fig-height: 5.6
+fex <- sfin$exposure |> dplyr::mutate(short = short_sch(name))
+ord <- fex |> dplyr::arrange(reserve_pct) |> dplyr::pull(name)
+rp <- sfin$panel |> dplyr::mutate(school = factor(short_sch(name), short_sch(ord)), neg = pmin(reserve_pct, 0))
+ggplot(rp, aes(year, reserve_pct)) +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = neg, ymax = 0), fill = "#d03b3b", alpha = 0.3) +
+  geom_line(linewidth = 0.9, colour = INK) + geom_point(size = 1.2, colour = INK) +
+  facet_wrap(~ school, ncol = 5) +
+  scale_x_continuous(breaks = sort(unique(rp$year)),
+                     labels = function(x) paste0(substr(x, 3, 4), "/", substr(x + 1, 3, 4))) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(x = NULL, y = "Reserve as a share of income",
+       title = "Revenue reserves, worst first; red shading is a school in deficit",
+       subtitle = "DfE school income and expenditure returns") +
+  theme_bhs(12) + theme(axis.text.x = element_text(size = 7))
+```
+
+
+
+## The city's intake grew. Longhill's collapsed {.smaller}
+
+```{r demand-drift}
+#| fig-width: 12
+#| fig-height: 5.4
+fs <- bh_data("factsheet_panel.rds")$factsheets |>
+  dplyr::filter(!is.na(off_total), name != "Total") |>
+  dplyr::mutate(school = short_sch(name),
+                lh = name == "Longhill High School")
+
+ends <- fs |>
+  dplyr::group_by(school, lh) |>
+  dplyr::filter(year == max(year)) |>
+  dplyr::ungroup()
+
+city <- fs |>
+  dplyr::group_by(year) |>
+  dplyr::summarise(total = sum(off_total), .groups = "drop")
+tot0 <- city$total[which.min(city$year)]
+tot1 <- city$total[which.max(city$year)]
+
+ggplot(fs, aes(year, off_total, group = school)) +
+  # Longhill's admission number, for scale: it is now funded for 210 places
+  # and filling well under half of them.
+  geom_hline(yintercept = 210, linetype = "31", colour = "grey60", linewidth = 0.4) +
+  annotate("text", x = max(fs$year) + 0.4, y = 210, hjust = 0, size = 3.4,
+           colour = "grey45", label = "210 places") +
+  geom_line(data = dplyr::filter(fs, !lh), colour = "grey78", linewidth = 0.8) +
+  geom_line(data = dplyr::filter(fs, lh), colour = BAD, linewidth = 1.5) +
+  geom_point(data = dplyr::filter(fs, lh), colour = BAD, size = 2) +
+  ggrepel::geom_text_repel(
+    data = dplyr::filter(ends, !lh), aes(label = school),
+    size = 3.2, colour = "grey45", direction = "y", hjust = 0,
+    nudge_x = 0.4, segment.colour = "grey80", segment.size = 0.3,
+    max.overlaps = 20, xlim = c(max(fs$year) + 0.3, NA)) +
+  ggrepel::geom_text_repel(
+    data = dplyr::filter(ends, lh), aes(label = school),
+    size = 4.2, fontface = "bold", colour = BAD, direction = "y", hjust = 0,
+    nudge_x = 0.4, segment.colour = BAD, segment.size = 0.3,
+    xlim = c(max(fs$year) + 0.3, NA)) +
+  scale_x_continuous(breaks = seq(2010, 2026, 4),
+                     limits = c(min(fs$year), max(fs$year) + 4.2)) +
+  labs(x = NULL, y = "Children allocated a place",
+       title = sprintf(
+         "The city placed %s more children in %d than in %d, not fewer",
+         format(tot1 - tot0, big.mark = ","), max(city$year), min(city$year)),
+       subtitle = "Places allocated at national offer day, by school. Source: BHCC allocation factsheets.") +
+  theme_bhs(13) +
+  theme(panel.grid.major.x = element_blank())
+```
+
+::: {style="font-size:0.78em"}
+This is allocations, not preferences — children through the door, which is
+what the funding follows. The city placed **1,900 children in 2010 and 2,250
+in 2026**. Over the same years **Longhill fell from 239 to 81**, and **Hove
+Park from 308 to 136**. King's grew by 57%, Portslade Aldridge by a third.
+A school losing two thirds of its intake in a growing system is not short of
+children in the city; it is short of children choosing it — and the money
+leaves with them.
+:::
 ## Who I am, and why this talk {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="56%"}
-
-
 <!-- I built the first version of that model myself, by hand, during the 2024 -->
+
 <!-- consultation. Two years later I rebuilt it with an AI collaborator — and it -->
+
 <!-- became something I could not have built alone. -->
 
 **This talk is about which parts were which.**
 :::
 
-::: {.column width="44%"}
+:::: {.column width="44%"}
 ::: key-finding
-This talk is not "I used AI to write my code". It is an attempt to describe
-honestly what a research collaboration with an AI system actually looked
-like — with the receipts.
+This talk is not "I used AI to write my code". It is an attempt to
+describe honestly what a research collaboration with an AI system
+actually looked like — with the receipts.
 :::
 
 Part of the **AI for Collective Intelligence** hub's interest in how AI
 can be used.
-:::
-:::::
+::::
+::::::
 
 ## What exists now {.smaller}
 
-| The thing | Scale |
-|:--|:--|
+| The thing                                        | Scale                 |
+|:-------------------------------------------------|:----------------------|
 | A strategic analysis of the city's school system | 9,712 lines of Quarto |
-| A technical guide auditing every model term | 4,736 lines |
-| The model itself, plus data assembly | ~7,400 lines of R |
-| An interactive policy simulator (Shiny) | ~3,000 lines |
-| A private analysis repository | ~8,200 lines |
-| Three slide decks | ~3,500 lines |
-| Commits across six repositories | 805 |
+| A technical guide auditing every model term      | 4,736 lines           |
+| The model itself, plus data assembly             | \~7,400 lines of R    |
+| An interactive policy simulator (Shiny)          | \~3,000 lines         |
+| A private analysis repository                    | \~8,200 lines         |
+| Three slide decks                                | \~3,500 lines         |
+| Commits across six repositories                  | 805                   |
 
 ::: {style="font-size:0.8em"}
-A production-constrained spatial interaction model with a competing-destinations
-term, calibrated per catchment, fitted against the council's published offer
-data. It reproduces the September 2026 allocations with an R² of 0.95.
+A production-constrained spatial interaction model with a
+competing-destinations term, calibrated per catchment, fitted against
+the council's published offer data. It reproduces the September 2026
+allocations with an R² of 0.95.
 :::
 
 ## This did not start in April {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="54%"}
-**October 2024.** Brighton & Hove is consulting on redrawing its catchments.
-I write `BrighonSchoolsSIM.qmd` — **1,014 lines** of R and Quarto. A
-production-constrained spatial interaction model of the city's schools.
+**October 2024.** Brighton & Hove is consulting on redrawing its
+catchments. I write `BrighonSchoolsSIM.qmd` — **1,014 lines** of R and
+Quarto. A production-constrained spatial interaction model of the city's
+schools.
 
-I call the hypothetical baseline **Brightopia**: where every child would go
-if distance were the only thing that mattered.
+I call the hypothetical baseline **Brightopia**: where every child would
+go if distance were the only thing that mattered.
 
-**December 2024.** I write `bus_routes.qmd` — **1,021 lines** — setting up
-`r5r`, a GTFS feed and an OSM extract to compute real public-transport
-journey times to every school.
+**December 2024.** I write `bus_routes.qmd` — **1,021 lines** — setting
+up `r5r`, a GTFS feed and an OSM extract to compute real
+public-transport journey times to every school.
 :::
 
-::: {.column width="46%"}
+:::: {.column width="46%"}
 ::: key-finding
-Two thousand lines of spatial interaction modelling and routing, written by
-hand, eighteen months before any of this.
+Two thousand lines of spatial interaction modelling and routing, written
+by hand, eighteen months before any of this.
 :::
 
-That is what the new model was built **on**, not instead of. Brightopia is
-still in the current document, as the $W_j = 1$ baseline the calibrated
-model is measured against.
+That is what the new model was built **on**, not instead of. Brightopia
+is still in the current document, as the $W_j = 1$ baseline the
+calibrated model is measured against.
 
-I have been building models like this for twenty years. That is why I knew
-what to ask for.
-:::
-:::::
+I have been building models like this for twenty years. That is why I
+knew what to ask for.
+::::
+::::::
 
 ## The record I am drawing on {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="52%"}
-Claude Code keeps a transcript of every session: every instruction I typed,
-every action it took, timestamped.
+Claude Code keeps a transcript of every session: every instruction I
+typed, every action it took, timestamped.
 
-For this talk I parsed **~250 MB of those logs** across ten sessions, plus
-the git history of six repositories.
+For this talk I parsed **\~250 MB of those logs** across ten sessions,
+plus the git history of six repositories.
 
 So the numbers that follow are counted, not remembered. They are also
 **a snapshot** — the work is still going.
 :::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 ::: key-finding
 **1,277** instructions from me.
 
@@ -843,8 +971,8 @@ So the numbers that follow are counted, not remembered. They are also
 :::
 
 About **ten and a half actions for every sentence I typed**.
-:::
-:::::
+::::
+::::::
 
 ## Five months, in one chart
 
@@ -867,9 +995,9 @@ ggplot(rec, aes(day)) +
 ```
 
 ::: {style="font-size:0.72em"}
-The April–July work is a different project — a national school attainment
-model. The Brighton system model starts on **8 September** and is finished
-eighteen days later.
+The April–July work is a different project — a national school
+attainment model. The Brighton system model starts on **8 September**
+and is finished eighteen days later.
 :::
 
 ## What the 13,451 actions actually were
@@ -891,8 +1019,9 @@ ggplot(fam, aes(n, what)) +
 ```
 
 ::: {style="font-size:0.75em"}
-The largest single category is not writing code. It is **running code and
-reading the result** — the loop that turns a plausible script into a correct one.
+The largest single category is not writing code. It is **running code
+and reading the result** — the loop that turns a plausible script into a
+correct one.
 :::
 
 ## The division of labour {.smaller}
@@ -901,11 +1030,11 @@ reading the result** — the loop that turns a plausible script into a correct o
 ::: {.column width="50%"}
 **What I brought**
 
-- **The working prototype** — Brightopia, and the `r5r` routing pipeline,
-  both written by hand in 2024
+- **The working prototype** — Brightopia, and the `r5r` routing
+  pipeline, both written by hand in 2024
 - Twenty years of building spatial interaction models: knowing that
-  attractiveness, distance decay and competing destinations were the terms
-  that mattered
+  attractiveness, distance decay and competing destinations were the
+  terms that mattered
 - Knowledge of the school system, and of the city's politics
 - Judgement about what is defensible to publish
 - Knowing when an answer was wrong
@@ -925,8 +1054,9 @@ reading the result** — the loop that turns a plausible script into a correct o
 :::::
 
 ::: key-finding
-I knew what to ask for and what to examine, because I had built a smaller
-version of it myself. **That is not a small part of why this worked.**
+I knew what to ask for and what to examine, because I had built a
+smaller version of it myself. **That is not a small part of why this
+worked.**
 :::
 
 ## What the instructions actually look like {.smaller}
@@ -935,7 +1065,7 @@ version of it myself. **That is not a small part of why this worked.**
 Verbatim, from the logs. The counts are the tool calls that followed.
 :::
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
 > **"fonts as well"**
 >
@@ -950,87 +1080,88 @@ Verbatim, from the logs. The counts are the tool calls that followed.
 > *58 characters → 68 actions*
 :::
 
-::: {.column width="50%"}
-> **"Can you cite the sources and link to all of the data that is used in
-> each section please then commit and push as I'm going to bed"**
+:::: {.column width="50%"}
+> **"Can you cite the sources and link to all of the data that is used
+> in each section please then commit and push as I'm going to bed"**
 >
 > *128 characters → 52 actions*
 
 ::: key-finding
 Median instruction: **199 characters**. About thirty-six words.
 :::
-:::
-:::::
+::::
+::::::
 
 ## But the short ones only work if you know what to say {.smaller}
 
 ::: {style="font-size:0.84em"}
-> **"You need to update Figure 28 with the new model outputs. Also, can I
-> have a table of the original Brightopia ($W_j = 1$) model with the observed
-> vs modelled expected numbers for each school"**
+> **"You need to update Figure 28 with the new model outputs. Also, can
+> I have a table of the original Brightopia (**$W_j = 1$) model with the
+> observed vs modelled expected numbers for each school"
 
-> **"can I have a little section on how we arrived at the best $W_j$
-> attractiveness factor — we end up using Attainment 8"**
+> **"can I have a little section on how we arrived at the best** $W_j$
+> attractiveness factor — we end up using Attainment 8"
 
-> **"can you just check whether the shared variance issues make a difference
-> here? I don't think they do, but it might be worth checking using the
-> Shapley work"**
+> **"can you just check whether the shared variance issues make a
+> difference here? I don't think they do, but it might be worth checking
+> using the Shapley work"**
 :::
 
 ::: key-finding
 These are instructions written in the language of the model. You cannot
-issue them unless you already know what $W_j$ is, why it might be wrong, and
-what would count as checking.
+issue them unless you already know what $W_j$ is, why it might be wrong,
+and what would count as checking.
 :::
 
 ## The routing, as it actually happened {.smaller}
 
-::::: columns
-::: {.column width="52%"}
+:::::::: columns
+::::: {.column width="52%"}
 I was running `r5r` myself. It broke:
 
 ::: {style="font-size:0.72em"}
-> **"`Error in purrr::map(): Caused by error in checkmate::assert_class():
-> argument "r5r_network" is missing`"**
+> **"`Error in purrr::map(): Caused by error in checkmate::assert_class(): argument "r5r_network" is missing`"**
 :::
 
 Then, an hour later:
 
 ::: {style="font-size:0.78em"}
 > **"restarted R and re-ran, it's routing now — we now have a brand new
-> travel matrix — can we now go back to the original analysis and re-run the
-> models with the new travel matrix? Both the public and private analyses"**
+> travel matrix — can we now go back to the original analysis and re-run
+> the models with the new travel matrix? Both the public and private
+> analyses"**
 >
 > *213 characters → 35 actions*
 :::
-:::
+:::::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 ::: key-finding
-This is the collaboration in one exchange. I built and debugged the routing
-pipeline. It took the output and propagated it through every model, every
-document and every figure that depended on it.
+This is the collaboration in one exchange. I built and debugged the
+routing pipeline. It took the output and propagated it through every
+model, every document and every figure that depended on it.
 :::
 
 Neither of us could have done the other's half quickly.
-:::
-:::::
+::::
+::::::::
 
 ## Worked example: a school in the wrong place {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="55%"}
-The model had Hove Park School at its Nevill Road site. Reasonable — that is
-the address in the published data.
+The model had Hove Park School at its Nevill Road site. Reasonable —
+that is the address in the published data.
 
-Five months in, I realised: the school has operated **two campuses**. Year 7
-and 8 were at the Valley Campus, a mile away, until a closure proposal in 2026.
+Five months in, I realised: the school has operated **two campuses**.
+Year 7 and 8 were at the Valley Campus, a mile away, until a closure
+proposal in 2026.
 
 The model had been calibrated on the wrong location for the children who
 actually generate the demand.
 :::
 
-::: {.column width="45%"}
+:::: {.column width="45%"}
 ::: key-finding
 No amount of code quality would have caught this. It needed someone who
 knew the city.
@@ -1038,8 +1169,8 @@ knew the city.
 
 Re-calibrating moved about **a quarter of Hove Park's modelled intake**
 between wards, and changed the disadvantage figures materially.
-:::
-:::::
+::::
+::::::
 
 ## What re-calibrating it showed {.smaller}
 
@@ -1063,10 +1194,10 @@ ggplot(mv, aes(factor(year), intake, fill = site)) +
 ```
 
 ::: key-finding
-Moving site is worth about **twelve extra children a year** — roughly a 7%
-lift, from geography alone. Real, but far smaller than the school's
-attractiveness. The question "is it the site or the reputation?" now has a
-number attached.
+Moving site is worth about **twelve extra children a year** — roughly a
+7% lift, from geography alone. Real, but far smaller than the school's
+attractiveness. The question "is it the site or the reputation?" now has
+a number attached.
 :::
 
 ## Worked example: the simulator {.smaller}
@@ -1074,34 +1205,34 @@ number attached.
 ![](slides_assets/simulator-front.png){fig-align="center" width="74%"}
 
 ::: {style="font-size:0.75em"}
-Every scenario in this talk is a control in here. Built in about two days,
-and the reason the "what if" questions became cheap enough to ask twenty
-times instead of twice.
+Every scenario in this talk is a control in here. Built in about two
+days, and the reason the "what if" questions became cheap enough to ask
+twenty times instead of twice.
 :::
 
 ## Worked example: a question only a human asks {.smaller}
 
-Families choose schools on the published Attainment 8 score — which mostly
-measures the intake, not the teaching.
+Families choose schools on the published Attainment 8 score — which
+mostly measures the intake, not the teaching.
 
 I asked: **what if they chose on value added instead?**
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
-That is not a coding task. It is a question about how a city might behave
-differently, and it took about a day to answer properly: a new attractiveness
-basis, a switch in the simulator, a measure of how evenly children would be
-spread.
+That is not a coding task. It is a question about how a city might
+behave differently, and it took about a day to answer properly: a new
+attractiveness basis, a switch in the simulator, a measure of how evenly
+children would be spread.
 :::
 
-::: {.column width="50%"}
+:::: {.column width="50%"}
 ::: key-finding
-The answer: one struggling school's intake nearly doubles, the surplus stops
-concentrating in three schools — and the total number of empty places does
-not move at all.
+The answer: one struggling school's intake nearly doubles, the surplus
+stops concentrating in three schools — and the total number of empty
+places does not move at all.
 :::
-:::
-:::::
+::::
+::::::
 
 ## What the city would look like {.smaller}
 
@@ -1135,10 +1266,10 @@ headline number, is bottom of the city on value added.
 
 ## Worked example: catching it being wrong {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="54%"}
-Claude reported a school's value-added score as being in the "top 100% in
-England". It had applied an Attainment 8 percentile function to a
+Claude reported a school's value-added score as being in the "top 100%
+in England". It had applied an Attainment 8 percentile function to a
 value-added figure. Silently wrong, confidently stated.
 
 Later, the attainment charts appeared to show huge jumps when the
@@ -1148,22 +1279,22 @@ variable than I thought.
 I caught both. It fixed both in minutes.
 :::
 
-::: {.column width="46%"}
+:::: {.column width="46%"}
 ::: key-finding
 The failure mode is not gibberish. It is **plausible, well-formatted,
 confidently-presented wrongness** — exactly what a domain expert catches
 and a non-expert does not.
 :::
 
-This is the strongest argument I have for why the human in this loop has to
-be someone who knows the subject.
-:::
-:::::
+This is the strongest argument I have for why the human in this loop has
+to be someone who knows the subject.
+::::
+::::::
 
 ## The other failure modes, honestly {.smaller}
 
 | What went wrong | What it cost |
-|:--|:--|
+|:-----------------------------------|:-----------------------------------|
 | A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating |
 | An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake |
 | A variable name collision inside the app | Silent wrong behaviour until tested |
@@ -1172,27 +1303,29 @@ be someone who knows the subject.
 
 ::: {style="font-size:0.78em"}
 None of these are exotic. They are the ordinary failure modes of a fast,
-capable, over-confident collaborator — and they are managed the same way you
-manage those in a person: tests, checks, and someone reading the output.
+capable, over-confident collaborator — and they are managed the same way
+you manage those in a person: tests, checks, and someone reading the
+output.
 :::
 
 ## The workflow {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="52%"}
-Everything is **Quarto**. The analysis document, the technical guide, the
-slide decks — all `.qmd`, all executing live R against the same data.
+Everything is **Quarto**. The analysis document, the technical guide,
+the slide decks — all `.qmd`, all executing live R against the same
+data.
 
 The loop, many times a day:
 
-1. I say what I want, usually in two or three sentences
-2. Claude edits the source and runs it
-3. It renders, screenshots, checks the numbers
-4. It commits and pushes
-5. I read the rendered output and react
+1.  I say what I want, usually in two or three sentences
+2.  Claude edits the source and runs it
+3.  It renders, screenshots, checks the numbers
+4.  It commits and pushes
+5.  I read the rendered output and react
 :::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 ::: key-finding
 The document **is** the analysis. There is no separate "writing up" —
 changing the model changes the paragraph that describes it, because the
@@ -1200,21 +1333,21 @@ paragraph is generated from the model.
 :::
 
 Git is the memory. 805 commits, each with a message explaining why.
-:::
-:::::
+::::
+::::::
 
 ## Why Quarto matters more than it sounds {.smaller}
 
 When I asked "does the Hove Park change affect section 5.5?", that was
 answerable — because section 5.5 is code, and the code re-runs.
 
-When I asked for the deck to be rebuilt with the new numbers, no one had to
-re-type any numbers.
+When I asked for the deck to be rebuilt with the new numbers, no one had
+to re-type any numbers.
 
 ::: key-finding
-Reproducibility stops being a virtue you aspire to and becomes the only way
-the thing can work at this speed. If the outputs were hand-copied into Word,
-none of this would survive its own rate of change.
+Reproducibility stops being a virtue you aspire to and becomes the only
+way the thing can work at this speed. If the outputs were hand-copied
+into Word, none of this would survive its own rate of change.
 :::
 
 ## The recursion {.smaller}
@@ -1222,17 +1355,17 @@ none of this would survive its own rate of change.
 The interesting part is not that it wrote code. It is the **loop**:
 
 ::: incremental
-1. A model produces a result.
-2. The result goes into a document, written to be read by councillors.
-3. Writing it clearly exposes a hole in the argument.
-4. The hole becomes a new question for the model.
-5. Answering it changes the model — and the document rewrites itself.
+1.  A model produces a result.
+2.  The result goes into a document, written to be read by councillors.
+3.  Writing it clearly exposes a hole in the argument.
+4.  The hole becomes a new question for the model.
+5.  Answering it changes the model — and the document rewrites itself.
 :::
 
 . . .
 
-That cycle ran perhaps two hundred times. Each turn took minutes, not weeks.
-**That compression is the whole story.**
+That cycle ran perhaps two hundred times. Each turn took minutes, not
+weeks. **That compression is the whole story.**
 
 ## Eighteen days {.smaller}
 
@@ -1255,19 +1388,20 @@ ggplot(sept, aes(day, tool_calls)) +
 
 ::::: columns
 ::: {.column width="50%"}
-**It does not replace knowing things.** Every moment that mattered in this
-project turned on domain knowledge I had and it did not.
+**It does not replace knowing things.** Every moment that mattered in
+this project turned on domain knowledge I had and it did not.
 
-**It does collapse the cost of trying.** The scenarios I tested would each
-have been a week of work. Testing twenty of them was previously impossible,
-so I would have tested two.
+**It does collapse the cost of trying.** The scenarios I tested would
+each have been a week of work. Testing twenty of them was previously
+impossible, so I would have tested two.
 :::
 
 ::: {.column width="50%"}
-**It writes better documentation than I do**, because it never gets bored
-of writing it.
+**It writes better documentation than I do**, because it never gets
+bored of writing it.
 
-**It needs supervision that looks like peer review**, not like proofreading.
+**It needs supervision that looks like peer review**, not like
+proofreading.
 
 **The bottleneck moved.** It is no longer implementation. It is knowing
 which question is worth asking.
@@ -1277,22 +1411,25 @@ which question is worth asking.
 ## Open questions {.smaller}
 
 ::: incremental
-- **Authorship.** What is the honest way to describe this on a paper? I directed
-  every step and verified every output — but I did not write the code.
+- **Authorship.** What is the honest way to describe this on a paper? I
+  directed every step and verified every output — but I did not write
+  the code.
 - **Verification at speed.** I can generate analysis faster than I can
   properly check it. That is a new kind of risk.
 - **Reproducibility of the process.** The code is reproducible. The
   *conversation* that produced it is not, in any meaningful sense.
-- **Who else can do this?** This worked because I could tell right from wrong.
-  What happens when the person in the loop cannot?
+- **Who else can do this?** This worked because I could tell right from
+  wrong. What happens when the person in the loop cannot?
 :::
 
 ## Links
 
 ::: {style="font-size:0.9em"}
 - The analysis — <https://adamdennett.github.io/bh-school-system/>
-- The simulator — <https://adamdennett-bh-school-system.share.connect.posit.cloud/>
-- The national report — <https://adamdennett.github.io/school_attainment_tool/>
+- The simulator —
+  <https://adamdennett-bh-school-system.share.connect.posit.cloud/>
+- The national report —
+  <https://adamdennett.github.io/school_attainment_tool/>
 - Everything is open source on GitHub
 :::
 
