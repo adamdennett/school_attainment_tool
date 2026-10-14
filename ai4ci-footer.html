@@ -17,24 +17,29 @@
     pointer-events: none;
   }
   .ai4ci-corner-logo img {
-    height: 34px;
+    height: 50px;
     width: auto;
     display: block;
+  }
+  /* The mark is blue, which muddies on the saturated purple title slide.
+     Render it white there, matching how the UCL logo is treated. */
+  .ai4ci-corner-logo.on-dark img {
+    filter: brightness(0) invert(1);
   }
 </style>
 
 <script>
 (function () {
-  // The title slide has a saturated purple background that the blue mark
-  // disappears into, so it is hidden there - the same treatment the UCL
-  // logo gets on divider slides in the other decks.
+  // Shown on every slide, including the title. Divider slides, if the deck
+  // grows any, hide it - the treatment the UCL logo gets in the other decks.
   function update() {
     if (typeof Reveal === 'undefined' || !Reveal.getCurrentSlide) return;
     var cur = Reveal.getCurrentSlide();
-    var hide = cur && (cur.id === 'title-slide' ||
-                       (cur.classList && cur.classList.contains('divider-slide')));
+    var hide = cur && cur.classList && cur.classList.contains('divider-slide');
     var el = document.querySelector('.ai4ci-corner-logo');
-    if (el) el.style.display = hide ? 'none' : '';
+    if (!el) return;
+    el.style.display = hide ? 'none' : '';
+    el.classList.toggle('on-dark', !!(cur && cur.id === 'title-slide'));
   }
   function attach() {
     if (typeof Reveal === 'undefined' || !Reveal.on) { setTimeout(attach, 50); return; }
