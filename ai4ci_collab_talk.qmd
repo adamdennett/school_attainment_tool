@@ -1,5 +1,5 @@
 ---
-title: "A Conversation That Built a Model"
+title: "Putting the **AI** in **A**ppl**I**ed Urban Modelling"
 subtitle: "Five months, one city's school system, and a record of who did what"
 author:
   - name: Adam Dennett FRGS FAcSS
@@ -7,7 +7,7 @@ author:
 date: "2026-10-01"
 date-format: "dddd D MMMM YYYY"
 title-slide-attributes:
-  data-background-color: "#361a54"
+  data-background-color: "#993bff"
 format:
   revealjs:
     theme: [default, ucl-slides-theme.scss]
@@ -126,12 +126,15 @@ I am a Professor of Urban Analytics at UCL's Centre for Advanced Spatial
 Analysis. I build spatial models — of migration, of housing, of how people
 move around cities.
 
-I am also a parent in Brighton & Hove, a city that spent 2024 arguing
-bitterly about which children should go to which secondary school.
+I am also a parent in Brighton & Hove, a city that spent two years arguing
+bitterly about secondary school admissions.
 
-I built the first version of that model myself, by hand, during the 2024
-consultation. Two years later I rebuilt it with an AI collaborator — and it
-became something I could not have built alone.
+I spent 2-years analysing data to understand the drivers of attainment. But the
+spatial dimension of the problem in Brighton and Hove kept bugging me. 
+
+<!-- I built the first version of that model myself, by hand, during the 2024 -->
+<!-- consultation. Two years later I rebuilt it with an AI collaborator — and it -->
+<!-- became something I could not have built alone. -->
 
 **This talk is about which parts were which.**
 :::
@@ -144,7 +147,7 @@ like — with the receipts.
 :::
 
 Part of the **AI for Collective Intelligence** hub's interest in how AI
-changes the practice of applied research.
+can be used.
 :::
 :::::
 
