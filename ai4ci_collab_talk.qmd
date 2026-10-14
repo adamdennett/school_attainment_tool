@@ -959,7 +959,7 @@ the council's published offer data.
 -  What is causing Longhill's acute numbers problem - is it geography, demography, attractiveness, some combination or something else?
    -   How do parents in the city choose which schools to send their children to - what makes a school attractive? What impact would changing how parents choose have?
 -  Would moving Longhill and/or shrinking it:
-   -   Help it survive by 2035?
+   -   Help it survive in the medium term - 2035?
    -   Improve accessibility or segregation in the city?
 -  How do current and previously proposed policies impact pupil displacement?
 -  Given how the system operates, what policy levers can be pulled to maintain a viable school system in the city, 10 years from now?
@@ -1032,6 +1032,103 @@ Fitted this way, the model reproduces the 2026 offers with an **R² of
 ![](slides_assets/fig-gamma-map.png){width="58%" style="display:block; margin:0 auto;"}
 ![](slides_assets/fig-cj-map.png){width="58%" style="display:block; margin:0 auto;"}
 :::
+:::
+:::::
+
+## What $c_{ij}$ actually means {.smaller}
+
+```{r fig-route-baca}
+#| fig-cap: "One neighbourhood in the Stringer/Varndean catchment to Brighton Aldridge. Walking legs orange and dashed, bus legs blue. Routed on the real timetable at 08:00."
+gr <- bh_data("guide_routes.rds")
+BACA <- "Brighton Aldridge Community Academy"
+
+rt   <- gr$summary |> dplyr::filter(school == BACA)
+legs <- gr$legs    |> dplyr::filter(school == BACA) |>
+  dplyr::mutate(mode = ifelse(leg_mode == "WALK", "Walk", "Bus"))
+bus  <- legs |> dplyr::filter(mode == "Bus")
+
+sch <- inp$schools |> dplyr::filter(city) |>
+  sf::st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+catch_g <- sf::st_read(here::here("data", "optionZ_Mar25.geojson"), quiet = TRUE) |>
+  sf::st_transform(4326)
+bb <- sf::st_bbox(legs)
+
+leaflet(width = "100%", height = 440) |>
+  add_basemap() |>
+  addPolygons(data = catch_g, fill = FALSE, color = "#555555",
+              weight = 1, opacity = 0.45) |>
+  addPolylines(data = dplyr::filter(legs, mode == "Walk"), color = "#e08214",
+               weight = 5, opacity = 0.9, dashArray = "6 6", label = ~"Walk") |>
+  addPolylines(data = dplyr::filter(legs, mode == "Bus"), color = "#2166ac",
+               weight = 5, opacity = 0.9, label = ~paste("Bus", route)) |>
+  addCircleMarkers(data = dplyr::filter(sch, name != BACA), radius = 3,
+                   color = "#777777", weight = 1, fillColor = "#cccccc",
+                   fillOpacity = 0.9, label = ~short) |>
+  addCircleMarkers(data = dplyr::filter(sch, name == BACA), radius = 8,
+                   color = "#111111", weight = 2, fillColor = "#ffffff",
+                   fillOpacity = 1, label = ~short) |>
+  addCircleMarkers(lng = gr$origin$lon, lat = gr$origin$lat, radius = 8,
+                   color = "#111111", weight = 2, fillColor = "#b2182b",
+                   fillOpacity = 1, label = "Home") |>
+  fitBounds(bb[["xmin"]] - 0.004, bb[["ymin"]] - 0.003,
+            bb[["xmax"]] + 0.004, bb[["ymax"]] + 0.003)
+```
+
+::: {style="font-size:0.74em"}
+**`r sprintf("%.1f", rt$km)` km as the crow flies. `r round(rt$route_minutes)` minutes,
+`r rt$legs` legs, two buses — the `r rt$services` — and `r rt$changes` change.** Every
+one of the `r format(195 * 15, big.mark = ",")` origin-school pairs in the model is
+routed like this, on the real timetable. That is what $c_{ij}$ is.
+:::
+
+## Families respond to the published number {.smaller}
+
+::::: columns
+::: {.column width="58%"}
+```{r fig-choice-att8}
+#| fig-width: 7.2
+#| fig-height: 5.0
+ch <- bh_data("factsheet_panel.rds")$factsheets |>
+  dplyr::filter(name != "Total", year >= max(year) - 4) |>
+  dplyr::group_by(name) |>
+  dplyr::summarise(wp = mean(3 * pref1 + 2 * dplyr::coalesce(pref2, 0) +
+                               dplyr::coalesce(pref3, 0), na.rm = TRUE),
+                   .groups = "drop") |>
+  dplyr::inner_join(dplyr::select(dplyr::filter(inp$schools, city),
+                                  name, short, pan, att8), by = "name") |>
+  dplyr::mutate(ppp = wp / pan)
+
+ch_fit <- lm(log(ppp) ~ att8, ch)
+ggplot(ch, aes(att8, ppp)) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8,
+              colour = "grey55", linetype = "31") +
+  geom_point(size = 3.2, colour = PURPLE) +
+  ggrepel::geom_text_repel(aes(label = short), size = 4, seed = 2,
+                           colour = INK, max.overlaps = 20) +
+  scale_y_log10() +
+  labs(x = "Attainment 8, five-year mean",
+       y = "Weighted preferences per place",
+       title = "The published score explains most of the demand",
+       subtitle = sprintf("Ten schools, five-year means. R² = %.2f",
+                          summary(ch_fit)$r.squared)) +
+  theme_bhs(13)
+```
+:::
+
+::: {.column width="42%"}
+Each point is a school. The vertical scale is logarithmic, so the dashed
+line is a constant **percentage** gain in demand per Attainment 8 point —
+roughly **7% more weighted preferences per place** for each extra point.
+
+::: key-finding
+Attainment 8 is mostly a measure of **who a school admits**, not what it
+adds. Yet it explains `r sprintf("%.0f%%", 100 * summary(ch_fit)$r.squared)`
+of the variation in how hard families compete for a place.
+:::
+
+This is the single most important thing the model has to represent, and
+the one lever in the whole system that costs nothing to pull: **change the
+number families read.**
 :::
 :::::
 ## This did not start in April {.smaller}
