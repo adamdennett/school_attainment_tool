@@ -442,14 +442,14 @@ bh_abs_rank <- la_abs %>% filter(grepl("Brighton", LANAME))
 bh_fsm_rank <- la_fsm %>% filter(grepl("Brighton", LANAME))
 abs_worst <- nrow(la_abs) - bh_abs_rank$rank + 1
 
-# theme_slide <- theme_minimal(base_size = 14) +
-#   theme(plot.title = element_text(face = "bold", size = 16, colour = PURPLE),
-#         plot.subtitle = element_text(colour = "grey40", size = 12),
-#         plot.title.position = "plot",
-#         strip.text = element_text(face = "bold"),
-#         legend.position = "bottom",
-#         panel.grid.minor = element_blank(),
-#         plot.background = element_rect(fill = "#FAFAFA", colour = NA))
+theme_slide <- theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold", size = 16, colour = PURPLE),
+        plot.subtitle = element_text(colour = "grey40", size = 12),
+        plot.title.position = "plot",
+        strip.text = element_text(face = "bold"),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        plot.background = element_rect(fill = "#FAFAFA", colour = NA))
 
 # ---- Choice: what families respond to --------------------------------
 DECAY_A <- acc$pref$decay
@@ -1081,56 +1081,32 @@ one of the `r format(195 * 15, big.mark = ",")` origin-school pairs in the model
 routed like this, on the real timetable. That is what $c_{ij}$ is.
 :::
 
-## Families respond to the published number {.smaller}
+## Attractiveness - $W_{j}$ = Exam Scores {.smaller}
 
-::::: columns
-::: {.column width="58%"}
-```{r fig-choice-att8}
-#| fig-width: 7.2
-#| fig-height: 5.0
-ch <- bh_data("factsheet_panel.rds")$factsheets |>
-  dplyr::filter(name != "Total", year >= max(year) - 4) |>
-  dplyr::group_by(name) |>
-  dplyr::summarise(wp = mean(3 * pref1 + 2 * dplyr::coalesce(pref2, 0) +
-                               dplyr::coalesce(pref3, 0), na.rm = TRUE),
-                   .groups = "drop") |>
-  dplyr::inner_join(dplyr::select(dplyr::filter(inp$schools, city),
-                                  name, short, pan, att8), by = "name") |>
-  dplyr::mutate(ppp = wp / pan)
-
-ch_fit <- lm(log(ppp) ~ att8, ch)
-ggplot(ch, aes(att8, ppp)) +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8,
-              colour = "grey55", linetype = "31") +
-  geom_point(size = 3.2, colour = PURPLE) +
-  ggrepel::geom_text_repel(aes(label = short), size = 4, seed = 2,
-                           colour = INK, max.overlaps = 20) +
-  scale_y_log10() +
-  labs(x = "Attainment 8, five-year mean",
-       y = "Weighted preferences per place",
-       title = "The published score explains most of the demand",
-       subtitle = sprintf("Ten schools, five-year means. R² = %.2f",
-                          summary(ch_fit)$r.squared)) +
-  theme_bhs(13)
+```{r choice}
+#| fig-height: 4.6
+pl <- function(x, xlab, r2, colr) {
+  ggplot(cd, aes(.data[[x]], wpp)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = colr,
+                linetype = "22", linewidth = 0.9) +
+    geom_point(size = 3.2, colour = colr) +
+    geom_text_repel(aes(label = short), size = 3.3, seed = 3, colour = INK) +
+    scale_y_log10() +
+    labs(x = xlab, y = if (x == "att8") "Preferences per place (log)" else NULL,
+         subtitle = sprintf("R² = %.2f", r2)) +
+    theme_slide
+}
+(pl("att8", "Headline Attainment 8", r2_att8, BAD) |
+ pl("va", "Value added (what the school contributes)", r2_va, "#2166ac")) +
+  plot_annotation(title = "Demand follows the headline score, not what a school adds",
+                  subtitle = sprintf("Ten city schools, five-year means. Each point of Attainment 8 goes with about %.0f%% more preferences per place.", att8_pct),
+                  theme = theme_slide)
 ```
+
+::: {style="font-size:0.55em; color:#555;"}
+The council's [secondary admissions guide](`r GUIDE`) tells parents to look at each school's *"National Curriculum test results, public exam results"* and its Ofsted reports: figures that mostly describe who a school admits.
 :::
 
-::: {.column width="42%"}
-Each point is a school. The vertical scale is logarithmic, so the dashed
-line is a constant **percentage** gain in demand per Attainment 8 point —
-roughly **7% more weighted preferences per place** for each extra point.
-
-::: key-finding
-Attainment 8 is mostly a measure of **who a school admits**, not what it
-adds. Yet it explains `r sprintf("%.0f%%", 100 * summary(ch_fit)$r.squared)`
-of the variation in how hard families compete for a place.
-:::
-
-This is the single most important thing the model has to represent, and
-the one lever in the whole system that costs nothing to pull: **change the
-number families read.**
-:::
-:::::
 ## This did not start in April {.smaller}
 
 :::::: columns
