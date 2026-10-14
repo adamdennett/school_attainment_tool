@@ -499,18 +499,24 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 
   *https://adamdennett.github.io/school_attainment_tool/*
 
-- Conclusion: Council policies unlikely to improve attainment at cost to children in the city (increased travel, breakdown of community schooling etc.)
-- Secondary policy impacts - unintended consequences - not fully understood
+- Conclusion: Council policies unlikely to improve attainment at cost to
+  children in the city (increased travel, breakdown of community
+  schooling etc.)
 
+- Secondary policy impacts - unintended consequences - not fully
+  understood
 
 ## Background - Problems in the Brighton and Hove School System
 
 - Some children have no secondary school near their home
 - Declining pupil numbers with some schools affected more than others
-- Policies promoting "choice" funnelling children away from peripheral schools already struggling for numbers 
-- Lots of engaged Parents, Schools, Councillors and Pressure Groups but a poor general understanding - *Collective Intelligence* - about how the whole system operates or how we might fix it to solve the interconnected challenges of attainment, absence, access and viability
+- Policies promoting "choice" funnelling children away from peripheral
+  schools already struggling for numbers
+- Lots of engaged Parents, Schools, Councillors and Pressure Groups but
+  a poor general understanding - *Collective Intelligence* - about how
+  the whole system operates or how we might fix it to solve the
+  interconnected challenges of attainment, absence, access and viability
 - "Solutions" *without asking the right questions*
-
 
 ## The Brighton and Hove Secondary School System
 
@@ -792,7 +798,6 @@ ggplot() +
   theme_bhs(15)
 ```
 
-
 ## Income is tied to numbers - and financial reserves are running out
 
 ```{r reserves}
@@ -814,8 +819,6 @@ ggplot(rp, aes(year, reserve_pct)) +
        subtitle = "DfE school income and expenditure returns") +
   theme_bhs(12) + theme(axis.text.x = element_text(size = 7))
 ```
-
-
 
 ## School Allocations and Viability {.smaller}
 
@@ -869,44 +872,50 @@ ggplot(fs, aes(year, off_total, group = school)) +
 ```
 
 ::: {style="font-size:0.78em"}
-The city placed **1,900 children in 2010 and 2,250
-in 2026**. Over the same years **Longhill fell from 239 to 81**, and **Hove Park from 308 to 136**. 
-Now the pupil roll is declining, serious problems ahead
-
+The city placed **1,900 children in 2010 and 2,250 in 2026**. Over the
+same years **Longhill fell from 239 to 81**, and **Hove Park from 308 to
+136**. Now the pupil roll is declining, serious problems ahead
 :::
 
 ## An AI4CI problem, if ever there was one {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="56%"}
-The **UKRI National AI Research Hub for Collective Intelligence** asks what
-AI can do for the thinking groups of people do together — not what it can do
-instead of them.
+The **UKRI National AI Research Hub for Collective Intelligence** -
+5-year, £12m EPSRC Project - asks what AI can do to enhance the thinking
+groups of people do together and the solutions then can arrive at.
 
-Brighton & Hove had no shortage of intelligence about its schools. It had
-engaged parents, heads, governors, councillors and campaign groups, and the
-council publishes a great deal of data. What it did not have was a **shared,
-inspectable account of how the system actually behaves**.
+Can AI help us develop a **shared, inspectable account of how the school
+system in Brighton and Hove actually behaves**?
 
-So each group argued from the fragment it could see. Catchments. Attainment
-tables. One school's budget. Nobody held the whole thing at once — which is
-precisely how a city ends up proposing solutions before it has settled on
-the question.
+So each group argued from the fragment it could see. Catchments.
+Attainment tables. One school's budget. Nobody held the whole thing at
+once — which is precisely how a city ends up proposing solutions before
+it has settled on the question.
+
+None of it was worked out alone. The questions came from eighteen months
+of conversations with the **Parent Support Group** — parents who had each
+already worked out a piece of it.
 :::
 
-::: {.column width="44%"}
+:::: {.column width="44%"}
+::: {style="text-align:center; margin-bottom:0.45rem;"}
+![](slides_assets/ai4ci-logo.svg){width="46%" style="vertical-align:middle; margin-right:12px;"}
+![](slides_assets/psg-logo.png){width="18%" style="vertical-align:middle;"}
+:::
+
 ::: key-finding
-A system where everyone is well informed about a *part* and nobody can see
-the *whole* is not an information problem. It is a collective intelligence
-problem.
+A system where everyone is well informed about a *part* and nobody can
+see the *whole* is not an information problem. It is a collective
+intelligence problem.
 :::
 
-The slide before this is a case in point. Longhill's collapse is visible in
-published data that anyone could have downloaded for sixteen years. Seeing
-it required joining allocations to admission numbers to budgets to
-geography — and nobody had.
-:::
-:::::
+The slide before this is a case in point. Longhill's collapse is visible
+in published data that anyone could have downloaded for sixteen years.
+Seeing it required joining allocations to admission numbers to budgets
+to geography — and nobody had.
+::::
+::::::
 
 ## Why AI made this tractable {.smaller}
 
@@ -927,16 +936,18 @@ geography — and nobody had.
 - Scenarios can be *tested* rather than asserted
 - The work is **auditable**: every figure traces to code and a source
 - A councillor can move a slider instead of taking my word for it
-- Being wrong becomes cheap, so questions get asked that were not worth a
-  week of someone's time
+- Being wrong becomes cheap, so questions get asked that were not worth
+  a week of someone's time
 :::
 :::::
 
 ::: key-finding
-The point is not that AI did the analysis. It is that AI made the analysis
-**sharable** — one person could build something the whole city can
-interrogate, argue with, and use. That is the collective intelligence bit.
+The point is not that AI did the analysis. It is that AI made the
+analysis **sharable** — one person could build something the whole city
+can interrogate, argue with, and use. That is the collective
+intelligence bit.
 :::
+
 ## Who I am, and why this talk {.smaller}
 
 :::::: columns
