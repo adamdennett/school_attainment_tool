@@ -1656,142 +1656,167 @@ twenty times instead of twice.
 
 ## Back to the first question {.smaller}
 
-```{r lh-setup}
+```{r lh-steps}
 #| include: false
-vac_lh <- bh_data("value_added_choice.rds")
-LH_RULES <- list(rule = "priorities", p6_share = 0.05, fsm = TRUE)
-LH_NAME  <- "Longhill High School"
-
-lh_run <- function(w = NULL, site = "now", pans = NULL, year = 2030) {
-  o <- outcomes(inp, run_sim(inp, w_mult = w, pans = pans, site = site,
-                             year = year, rules = LH_RULES))
-  tibble::tibble(longhill = o$by_school$intake[o$by_school$name == LH_NAME],
-                 mean_min = o$mean_min, dep_gap = o$dep_gap,
-                 empty = o$empty, gorard = o$gorard)
-}
-LH150 <- c(`Longhill High School` = 150)
-lh_scen <- dplyr::bind_rows(
-  dplyr::mutate(lh_run(),                                  s = "Today"),
-  dplyr::mutate(lh_run(w = vac_lh$mult),                   s = "Value added"),
-  dplyr::mutate(lh_run(site = "elm"),                      s = "Elm Grove"),
-  dplyr::mutate(lh_run(site = "elm", pans = LH150),        s = "Elm Grove + 150 places"),
-  dplyr::mutate(lh_run(w = vac_lh$mult, site = "elm", pans = LH150), s = "All three"))
-lh_at <- function(sc, col) lh_scen[[col]][lh_scen$s == sc]
+# Read off the simulator for 2026 entry, one control changed at a time.
+# Screenshots of each state are in slides_assets.
+steps <- tibble::tibble(
+  step  = factor(1:4),
+  label = c("Today", "Families read value added",
+            "+ Elm Grove, Whitehawk back", "+ value added doubled"),
+  intake = c(90, 106, 140, 197),
+  pct    = c(43, 50, 67, 94),
+  dep    = c(3.4, 2.5, -1.9, -2.2),
+  seg    = c(0.117, 0.127, 0.176, 0.188))
+st <- function(i, col) steps[[col]][i]
 ```
 
 :::::: columns
-::: {.column width="52%"}
+::: {.column width="54%"}
 > *"What is causing Longhill's acute numbers problem — is it geography,
 > demography, attractiveness, some combination or something else? Would
 > moving and/or shrinking it help it survive, or improve anything else?"*
 
-The model can separate those, because each is a different term. Hold two
-fixed, move the third, and read what comes out.
+The honest answer is **none of them on their own**. Longhill is not short
+of children for one reason, so no single lever fixes it.
 
-By 2030 Longhill is modelled at **`r sprintf("%.0f", lh_at("Today", "longhill"))`
-children** against 210 places.
+What the simulator lets you do is pull them **one at a time, and watch
+them compound**.
+:::
+
+::: {.column width="46%"}
+![](slides_assets/kpi2-starting.png)
+
+::: {style="font-size:0.78em; margin-top:0.4rem;"}
+**Today, 2026.** Longhill takes
+**`r st(1,"intake")` of 210 places (`r st(1,"pct")`%)**, 120 short. A
+disadvantaged child travels **`r sprintf("%+.1f", st(1,"dep"))` minutes
+further** than everyone else.
+:::
+:::
+::::::
+
+## One: change the number families read {.smaller}
+
+![](slides_assets/kpi2-va.png){fig-align="center" width="62%"}
+
+:::::: columns
+::: {.column width="54%"}
+Nothing about the schools changes. Families read the **four-year value
+added measure** — what a school adds once its intake is accounted for —
+as closely as they now read the headline score.
+
+Longhill goes from **`r st(1,"intake")`** to
+**`r st(2,"intake")` of 210 (`r st(2,"pct")`%)**.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+The deprived-children travel gap falls from
+**`r sprintf("%+.1f", st(1,"dep"))`** to
+**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean
+journey drops by 42 seconds — from one dropdown.
+:::
+:::
+::::::
+
+## Two: move it, and give it back its catchment {.smaller}
+
+![](slides_assets/kpi2-elmsame.png){fig-align="center" width="62%"}
+
+:::::: columns
+::: {.column width="54%"}
+Longhill relocates to **Elm Grove**, and Whitehawk returns to its
+catchment — the boundary the 2024 consultation moved out.
+
+Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**. The
+travel gap **reverses**: disadvantaged children now travel
+**`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
+classmates.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+Redrawing the catchments properly — flow regions around the new site —
+was also tested. It did **worse**: a travel gap of −1.0 against −1.9, and
+twice the displacement.
+
+Putting one neighbourhood back beat redrawing the map.
+:::
+:::
+::::::
+
+## Three: and if it taught like Brighton Aldridge {.smaller}
+
+![](slides_assets/kpi2-dbl.png){fig-align="center" width="62%"}
+
+:::::: columns
+::: {.column width="52%"}
+The last lever is not an admissions policy. It is **the school getting
+better** — value added doubled, to roughly where Brighton Aldridge
+already is with a comparably disadvantaged intake.
+
+Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
+13 places short, with **1% of children displaced** city-wide.
 :::
 
 ::: {.column width="48%"}
 ::: key-finding
-Changing **how families read the school** is worth more to Longhill than
-moving the building.
+A disadvantaged child now travels
+**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less* than everyone
+else** — a swing of
+`r sprintf("%.1f", st(1,"dep") - st(4,"dep"))` minutes from where the
+city stands today.
 
-Switch attractiveness from Attainment 8 to value added and its intake
-rises from `r sprintf("%.0f", lh_at("Today", "longhill"))` to
-**`r sprintf("%.0f", lh_at("Value added", "longhill"))`** — without
-moving anything, spending anything, or displacing anyone.
+Shorter journeys are not a nicety. Absence is this city's largest
+attainment problem, and distance is one of the few things policy can
+change about it.
 :::
-
-Longhill's value added is not the problem. Its headline score is.
-:::
-::::::
-
-## Move it, and shrink it {.smaller}
-
-:::::: columns
-::: {.column width="50%"}
-**Moving it to Elm Grove does not fill it.**
-
-Its 2030 intake goes from `r sprintf("%.0f", lh_at("Today", "longhill"))`
-to **`r sprintf("%.0f", lh_at("Elm Grove", "longhill"))`** — slightly
-*fewer*. The site is closer to where children live, but it is also closer
-to the schools they already prefer, so the competing-destinations term
-takes back what proximity gives.
-
-**Shrinking it to 150 places changes its intake not at all.**
-
-The school is nowhere near full, so the cap never binds. What it does
-change is the arithmetic: **`r sprintf("%.0f", lh_at("Elm Grove", "empty"))`
-empty places across the city become
-`r sprintf("%.0f", lh_at("Elm Grove + 150 places", "empty"))`.**
-:::
-
-::: {.column width="50%"}
-::: key-finding
-Shrinking a school does not make it viable. It makes the **surplus**
-smaller, which is a different problem — and the one the council's
-finances actually face.
-:::
-
-So on numbers alone the answer to "would moving or shrinking help it
-survive?" is: **shrinking changes the books, not the school; moving
-changes neither.**
-
-That would be the end of it, if numbers were the only thing worth
-measuring.
 :::
 ::::::
 
-## What moving it actually buys {.smaller}
+## Why this needs a simulator {.smaller}
 
 :::::: columns
-::: {.column width="57%"}
-```{r lh-depgap}
-#| fig-width: 7.2
-#| fig-height: 4.6
-lh_plot <- lh_scen |>
-  dplyr::mutate(s = factor(s, levels = rev(c("Today", "Value added", "Elm Grove",
-                                             "Elm Grove + 150 places", "All three"))))
-ggplot(lh_plot, aes(dep_gap, s, fill = s == "All three")) +
-  geom_col(width = 0.62) +
-  geom_vline(xintercept = 0, colour = "grey45") +
-  geom_text(aes(label = sprintf("%+.1f", dep_gap),
-                hjust = ifelse(dep_gap > 0.4, 1.3, -0.2)),
-            size = 4.2, colour = ifelse(lh_plot$dep_gap > 0.4, "white", INK)) +
-  scale_fill_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = "#b9c2cc"), guide = "none") +
-  scale_x_continuous(expand = expansion(mult = c(0.02, 0.12))) +
-  labs(x = "Extra minutes travelled, disadvantaged children", y = NULL,
-       title = "The journey gap, 2030",
-       subtitle = "Positive means they travel further than their classmates") +
-  theme_bhs(12)
+::: {.column width="56%"}
+```{r lh-compound}
+#| fig-width: 7.0
+#| fig-height: 4.4
+sl <- steps |>
+  dplyr::mutate(lab = stringr::str_wrap(label, 18),
+                lab = factor(lab, levels = stringr::str_wrap(label, 18)))
+ggplot(sl, aes(lab, pct, group = 1)) +
+  geom_hline(yintercept = 100, linetype = "31", colour = "grey60") +
+  geom_line(linewidth = 1.1, colour = BAD) +
+  geom_point(size = 3.6, colour = BAD) +
+  geom_text(aes(label = sprintf("%d%%", pct)), vjust = -1.1, size = 4.4, colour = INK) +
+  scale_y_continuous(limits = c(0, 112)) +
+  labs(x = NULL, y = "Longhill's places filled",
+       title = "No single lever fills Longhill. Four together nearly do.",
+       subtitle = "2026 entry. Each step keeps the one before it.") +
+  theme_bhs(12) +
+  theme(axis.text.x = element_text(size = 9))
 ```
 :::
 
-::: {.column width="43%"}
-A disadvantaged child travels
-**`r sprintf("%.1f", lh_at("Today", "dep_gap"))` minutes further** than
-their classmates. Elm Grove cuts that to
-**`r sprintf("%.1f", lh_at("Elm Grove", "dep_gap"))`**; all three
-together, **`r sprintf("%.1f", lh_at("All three", "dep_gap"))`**.
+::: {.column width="44%"}
+Each choice is modest on its own. **`r st(2,"pct")-st(1,"pct")` points,
+then `r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.**
+None would survive a committee on its own merits. Together they take a
+school from 43% full to 94%.
 
-**And segregation rises.** The Gorard index goes from
-`r sprintf("%.3f", lh_at("Today", "gorard"))` to
-`r sprintf("%.3f", lh_at("All three", "gorard"))`. That is the honest
-cost, and it should be said out loud.
+**Segregation rises**, `r sprintf("%.3f", st(1,"seg"))` to
+`r sprintf("%.3f", st(4,"seg"))`. That is the honest cost.
 
 ::: key-finding
-But *How to Pull the Right Lever* fits that model separately for
-disadvantaged and non-disadvantaged pupils, and the two **disagree about
-direction**: for disadvantaged pupils a higher disadvantaged share goes
-with slightly *higher* attainment, once absence and prior attainment are
-allowed for.
+But *How to Pull the Right Lever* finds the attainment model **disagrees
+about direction** between disadvantaged and other pupils — so
+deconcentration bought with longer journeys is unlikely to help the
+children it is meant to.
 :::
 
-So deconcentration bought with longer journeys is unlikely to help the
-children it is meant to. The trade here runs the other way: a small rise
-in an index, against **halving the journey penalty on the city's poorest
-children**.
+You cannot reason about this in a committee paper. Every lever moves
+every other one, and you have to **see each choice land**.
 :::
 ::::::
 <!-- ## Worked example: a question only a human asks {.smaller} -->
