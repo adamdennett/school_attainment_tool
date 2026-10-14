@@ -668,6 +668,7 @@ if (file.exists(comart_logo)) {
     addMarkers(
       lng = comart_lon, lat = comart_lat,
       icon = comart_icon,
+      group = "CoMArt (closed 2005)",
       popup = comart_popup
     )
 }
