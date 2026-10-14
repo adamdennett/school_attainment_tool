@@ -1358,6 +1358,49 @@ to be someone who knows the subject.
 ::::
 ::::::
 
+
+## What catching it looks like, in my own words {.smaller}
+
+::: {style="font-size:0.84em"}
+Verbatim from the prompts. Four different kinds of wrong.
+:::
+
+:::::: columns
+::: {.column width="50%"}
+**A statistic that cannot be true**
+
+> "I'm not sure the 'where that would rank' percentage in the attainment
+> tab table is correct for the value added drop down — **every school
+> appears to be in the 99th or 100th percentile.**"
+
+**The wrong input data entirely**
+
+> "The 'system as it stands' in the open report **is incorrect**. The
+> catchment areas in that map relate to the **pre-2024** consultation
+> catchment areas."
+:::
+
+::: {.column width="50%"}
+**Geometry that could not exist**
+
+> "The Stringer Varndean catchment **can't be that big and weird shaped**,
+> and the BACA catchment can't extend down over the alternative Longhill
+> site — this needs to be scrapped."
+
+**A claim the analysis did not support**
+
+> "I'm not sure this **holds from the analysis**, or is necessarily a
+> message we want to promote where the council already tried doing this to
+> great opposition."
+:::
+::::::
+
+::: key-finding
+Three of those four are things only someone who knows the city or the
+statistics would see. The last one is not an error at all — it is
+judgement about what the evidence will bear, and what it would be unwise
+to say out loud.
+:::
 ## The other failure modes, honestly {.smaller}
 
 | What went wrong | What it cost |
