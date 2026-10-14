@@ -2,7 +2,7 @@
 title: "Putting the **AI** in **A**ppl**I**ed Urban Modelling"
 subtitle: "Five months, one city's school system, a collaborative model building process"
 author:
-  - name: Adam Dennett FRGS FAcSS
+  - name: Prof Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
 date: "2026-10-01"
 date-format: "dddd D MMMM YYYY"
@@ -917,7 +917,7 @@ intelligence problem.
 - Building, calibrating and auditing a city-scale model
 - Re-running everything when one assumption changes
 - Writing it all down clearly enough for a non-specialist to check
-- Turning it into something a parent or councillor can actually use
+- Turning it into something a parent/school leader/councillor/council officer can actually use
 :::
 
 ::: {.column width="50%"}
@@ -925,43 +925,15 @@ intelligence problem.
 
 - Scenarios can be *tested* rather than asserted
 - The work is **auditable**: every figure traces to code and a source
-- A councillor can move a slider instead of taking my word for it
+- A stakeholder can move a slider, change a number, see a knock-on impact themselves instead of taking my word for it
 - Being wrong becomes cheap, so questions get asked that were not worth
-  a week of someone's time
+  a week of someone's time (*"if we move/shrink school A, what happens to demand at school B?"*)
 :::
 :::::
 
 ::: key-finding
-The point is not that AI did the analysis. It is that AI made the
-analysis **sharable** — one person could build something the whole city
-can interrogate, argue with, and use. That is the collective
-intelligence bit.
+The point is not that AI did the analysis. It is that AI made *ideas scalable and testable*, with a short timeline, *big urban models achievable* the analysis **sharable and replicable** — one person could build something the whole city can interrogate, argue with, and use. That is the collective intelligence bit.
 :::
-
-## Who I am, and why this talk {.smaller}
-
-:::::: columns
-::: {.column width="56%"}
-<!-- I built the first version of that model myself, by hand, during the 2024 -->
-
-<!-- consultation. Two years later I rebuilt it with an AI collaborator — and it -->
-
-<!-- became something I could not have built alone. -->
-
-**This talk is about which parts were which.**
-:::
-
-:::: {.column width="44%"}
-::: key-finding
-This talk is not "I used AI to write my code". It is an attempt to
-describe honestly what a research collaboration with an AI system
-actually looked like — with the receipts.
-:::
-
-Part of the **AI for Collective Intelligence** hub's interest in how AI
-can be used.
-::::
-::::::
 
 ## What exists now {.smaller}
 
@@ -982,6 +954,82 @@ the council's published offer data. It reproduces the September 2026
 allocations with an R² of 0.95.
 :::
 
+## Questions I wanted to Answer
+
+-  What is causing Longhill's acute numbers problem - is it geography, demography, attractiveness, some combination or something else?
+   -   How do parents in the city choose which schools to send their children to - what makes a school attractive? What impact would changing how parents choose have?
+-  Would moving Longhill and/or shrinking it:
+   -   Help it survive by 2035?
+   -   Improve accessibility or segregation in the city?
+-  How do current and previously proposed policies impact pupil displacement?
+-  Given how the system operates, what policy levers can be pulled to maintain a viable school system in the city, 10 years from now?
+
+
+
+## How I answered them - the model {.smaller}
+
+A **spatial interaction model**: the same family of model used for commuting,
+migration and retail catchments. It predicts how many children flow from each
+neighbourhood to each school, given where they live, how far each school is,
+and how much they want to go there.
+
+$$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta}$$
+
+::::: columns
+::: {.column width="52%"}
+| Term | What it is |
+|:--|:--|
+| $T_{ij}$ | children from neighbourhood $i$ to school $j$ |
+| $O_i$ | children living in $i$ — 195 neighbourhoods |
+| $W_j$ | how attractive school $j$ is |
+| $c_{ij}$ | bus-and-walk journey time, $i$ to $j$ |
+| $C_j$ | how much competition $j$ has nearby |
+| $A_i$ | the balancing term |
+:::
+
+::: {.column width="48%"}
+It is **production-constrained**: $A_i$ forces every child living somewhere to
+end up somewhere. The model never invents or loses children — it only decides
+where they go.
+
+That is what makes it useful for policy. Close a school, move one, cut its
+admission number, and the children do not vanish. They reappear somewhere
+else, and the model says where.
+:::
+:::::
+
+## What the model had to learn {.smaller}
+
+::::: columns
+::: {.column width="54%"}
+Three things are fitted to the council's own published allocations, rather
+than assumed:
+
+**Distance decay, $\beta = 1.7$.** How sharply demand falls as a school gets
+further away. Higher means families are less willing to travel.
+
+**The catchment pull, $\gamma_h$.** How much living inside a catchment
+raises the odds of choosing a school there — fitted **separately for each
+catchment**, because they do not behave alike.
+
+**Competition, $\delta = 0.3$.** Whether being surrounded by rivals helps a
+school or hurts it.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+Living in the catchment multiplies the odds of choosing a school there by
+**2.7× in Brighton Aldridge's** and **13.5× in Stringer and Varndean's**.
+
+The same policy, written once for the whole city, is doing five times as
+much work in one place as another.
+:::
+
+Fitted this way, the model reproduces the council's 2026 offers with an
+**R² of 0.95**. The allocation rules — the priority order, the admission
+number caps — then run on top of it.
+:::
+:::::
 ## This did not start in April {.smaller}
 
 :::::: columns
@@ -1467,8 +1515,8 @@ The interesting part is not that it wrote code. It is the **loop**:
 
 ::: incremental
 1.  A model produces a result.
-2.  The result goes into a document, written to be read by councillors.
-3.  Writing it clearly exposes a hole in the argument.
+2.  The result goes into a document, written to be read by me/stakeholders
+3.  Writing it clearly exposes an holes or errors.
 4.  The hole becomes a new question for the model.
 5.  Answering it changes the model — and the document rewrites itself.
 :::
