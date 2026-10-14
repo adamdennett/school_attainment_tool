@@ -1944,22 +1944,22 @@ statistics or the city. The last one needed knowledge of the city's own
 history, which is in no dataset anywhere.
 :::
 
-## The other failure modes, honestly {.smaller}
+<!-- ## The other failure modes, honestly {.smaller} -->
 
-| What went wrong | What it cost |
-|:-----------------------------------|:-----------------------------------|
-| A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating |
-| An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake |
-| A variable name collision inside the app | Silent wrong behaviour until tested |
-| Model outputs stale after re-calibration | Needed a discipline of re-running everything |
-| Confident summaries of work not yet verified | Needed me to ask "did you actually check?" |
+<!-- | What went wrong | What it cost | -->
+<!-- |:-----------------------------------|:-----------------------------------| -->
+<!-- | A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating | -->
+<!-- | An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake | -->
+<!-- | A variable name collision inside the app | Silent wrong behaviour until tested | -->
+<!-- | Model outputs stale after re-calibration | Needed a discipline of re-running everything | -->
+<!-- | Confident summaries of work not yet verified | Needed me to ask "did you actually check?" | -->
 
-::: {style="font-size:0.78em"}
-None of these are exotic. They are the ordinary failure modes of a fast,
-capable, over-confident collaborator — and they are managed the same way
-you manage those in a person: tests, checks, and someone reading the
-output.
-:::
+<!-- ::: {style="font-size:0.78em"} -->
+<!-- None of these are exotic. They are the ordinary failure modes of a fast, -->
+<!-- capable, over-confident collaborator — and they are managed the same way -->
+<!-- you manage those in a person: tests, checks, and someone reading the -->
+<!-- output. -->
+<!-- ::: -->
 
 ## The workflow {.smaller}
 
