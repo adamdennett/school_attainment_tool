@@ -611,7 +611,7 @@ if (!is.null(la_sf) && nrow(la_sf) > 0) {
   # ---- Bare leaflet map (tiles only — polygons created in JS) ----
   m <- leaflet(options = leafletOptions(minZoom = 5, maxZoom = 14)) %>%
     setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
-    addProviderTiles("CartoDB.Positron")
+    addProviderTiles("Esri.WorldGrayCanvas", options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20))
 
   # ---- Embed GeoJSON in a <script> data tag, then build everything in onRender ----
   geojson_tag <- htmltools::tags$script(
@@ -852,7 +852,7 @@ if (!is.null(la_sf) && nrow(la_sf) > 0) {
   # Bare leaflet map
   m_clust <- leaflet(options = leafletOptions(minZoom = 5, maxZoom = 14)) %>%
     setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
-    addProviderTiles("CartoDB.Positron")
+    addProviderTiles("Esri.WorldGrayCanvas", options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20))
 
   # Embed GeoJSON in a separate <script> tag (different ID from the variable map)
   geojson_tag_clust <- htmltools::tags$script(
