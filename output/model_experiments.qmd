@@ -4991,7 +4991,7 @@ The k-nearest construction is easiest to grasp visually. For each school we take
 
 ```{r f-neighbourhood-map}
 #| label: fig-neighbourhood-map
-#| fig-cap: "Dorothy Stringer School (pink diamond) and its 150 nearest Census Output Area population-weighted centroids (purple dots; shaded hull = their extent). This is the neighbourhood the k = 150 context variables average over — for a dense urban school, a compact ~1.5 km-radius patch. Basemap: CARTO / OpenStreetMap."
+#| fig-cap: "Dorothy Stringer School (pink diamond) and its 150 nearest Census Output Area population-weighted centroids (purple dots; shaded hull = their extent). This is the neighbourhood the k = 150 context variables average over — for a dense urban school, a compact ~1.5 km-radius patch. Basemap: Esri / OpenStreetMap."
 #| fig-height: 6.5
 #| fig-width: 8
 #| message: false

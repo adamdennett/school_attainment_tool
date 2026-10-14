@@ -116,21 +116,585 @@ fam <- tibble(
                                "Reading the codebase", "Driving a browser",
                                "Looking things up", "Other"))),
   n = c(7953, 2919, 1088, 878, 196, 417))
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(plotly)
+library(leaflet)
+
+library(sf)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(htmlwidgets)
+library(jsonlite)
+library(here)
+library(ggrepel)
+
+source(here::here("R", "helpers.R"))
+
+# ---- Load panel data ----
+panel <- readRDS(here::here("data", "panel_data.rds"))
+
+HIGHLIGHT_LA <- "Brighton and Hove"
+
+# ---- Load pre-fitted models (Analysis E: imputed full panel) ----
+# These are the same lmer models fitted in brighton_case_study.qmd / 05_fit_model.R
+# Loading pre-fitted saves ~5 minutes of render time
+models_imputed <- readRDS(here::here("data", "models_imputed.rds"))
+mod_e_all      <- models_imputed$all
+mod_e_disadv   <- models_imputed$disadvantaged
+mod_e_nondisadv <- models_imputed$non_disadvantaged
+
+# LA ranks for Brighton and Hove from the fitted models (1 = best), so the
+# ranks quoted in the text cannot drift from the models they come from.
+la_rank <- function(model) {
+  re <- lme4::ranef(model)[["LANAME:gor_name"]]
+  d  <- tibble(grp = rownames(re), eff = re[["(Intercept)"]]) %>%
+    dplyr::mutate(la = sub(":.*$", "", grp)) %>%
+    dplyr::arrange(dplyr::desc(eff)) %>%
+    dplyr::mutate(rank = dplyr::row_number())
+  bh <- d %>% dplyr::filter(grepl("Brighton", la))
+  list(rank = bh$rank, n = nrow(d))
+}
+rk_all <- la_rank(mod_e_all)
+rk_dis <- la_rank(mod_e_disadv)
+rk_non <- la_rank(mod_e_nondisadv)
+
+# Absence-control comparison: the LA effect with and without an absence term
+r27 <- readRDS(here::here("data", "r27_la_absence.rds"))
+r27_bh_dis <- r27$bh_dis
+
+rank_with    <- r27_bh_dis$rank[r27_bh_dis$spec == "A-raw"]
+rank_without <- r27_bh_dis$rank[r27_bh_dis$spec == "A-none"]
+
+# ---- Prepare model dataset (for any analyses needing it) ----
+imputed_full_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(
+    !is.na(ATT8SCR), ATT8SCR > 0,
+    PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+    !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME)
+  ) %>%
+  filter(
+    !is.na(remained_in_the_same_school),
+    !is.na(teachers_on_leadership_pay_range_percent),
+    average_number_of_days_taken > 0,
+    !is.na(gorard_segregation)
+  ) %>%
+  mutate(
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name   = factor(gor_name),
+    LANAME     = factor(LANAME),
+    year_label = factor(year_label)
+  ) %>%
+  droplevels()
+
+contrasts(imputed_full_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(imputed_full_data$OFSTEDRATING_1))
+
+# ---- Brighton & Hove data ----
+bh_panel <- panel %>%
+  filter(LANAME == HIGHLIGHT_LA,
+         MINORGROUP %in% c("Academy", "Maintained school"))
+
+# Add predictions from the imputed models
+bh_panel <- bh_panel %>%
+  mutate(
+    predicted_all = predict(mod_e_all, newdata = bh_panel, allow.new.levels = TRUE),
+    predicted_dis = predict(mod_e_disadv, newdata = bh_panel, allow.new.levels = TRUE),
+    predicted_non = predict(mod_e_nondisadv, newdata = bh_panel, allow.new.levels = TRUE)
+  )
+
+# ---- Brighton & Hove: latest year per school (with model predictions) ----
+bh_latest_model <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
+# ---- Brighton & Hove: latest year per school (all columns) ----
+bh_latest <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(URN) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
+# ---- National benchmarks (for FSM / absence plots) ----
+national_benchmarks <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"),
+         !is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1))
+
+latest_year <- max(bh_latest_model$year_label, na.rm = TRUE)
+national_latest <- national_benchmarks %>% filter(year_label == latest_year)
+
+national_mean_abs <- mean(national_latest$PERCTOT, na.rm = TRUE)
+bh_mean_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+national_mean_fsm <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+bh_mean_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+# ---- Reusable theme ----
+theme_pub <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(colour = "grey40", size = 10),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+# ---- Helper functions ----
+relabel_terms <- function(term) {
+  case_when(
+    term == "(Intercept)" ~ "(Intercept)",
+    term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
+    term == "log(PERCTOT)" ~ "log(% Absence)",
+    term == "log(PNUMEAL)" ~ "log(% EAL)",
+    term == "ks2_c" ~ "Mean KS2 Prior Attainment",
+    term == "gorard_segregation" ~ "Gorard Segregation",
+    term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+    term == "ADMPOL_PTSEL" ~ "Admissions: Selective (ref: non-sel. in highly sel. area)",
+    term == "remained_in_the_same_school" ~ "Teacher Retention",
+    term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
+    term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
+    TRUE ~ term
+  )
+}
+
+ordinal_suffix <- function(n) {
+  suffix <- case_when(
+    n %% 100 %in% c(11, 12, 13) ~ "th",
+    n %% 10 == 1 ~ "st",
+    n %% 10 == 2 ~ "nd",
+    n %% 10 == 3 ~ "rd",
+    TRUE ~ "th"
+  )
+  paste0(n, suffix)
+}
+
+# ---- Output format helper ----
+tbl_fmt <- if (knitr::is_html_output()) "html" else "latex"
+
+# ---- LA-level rankings (for accelerating returns section) ----
+la_means_abs <- national_benchmarks %>%
+  filter(year_label == latest_year) %>%
+  group_by(LANAME) %>%
+  summarise(la_mean_abs = mean(PERCTOT, na.rm = TRUE), .groups = "drop") %>%
+  arrange(la_mean_abs) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+
+la_means_fsm <- national_benchmarks %>%
+  filter(year_label == latest_year) %>%
+  group_by(LANAME) %>%
+  summarise(la_mean_fsm = mean(PTFSM6CLA1A, na.rm = TRUE), .groups = "drop") %>%
+  arrange(la_mean_fsm) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+
+n_las_bench <- nrow(la_means_abs)
+bh_abs_rank <- la_means_abs %>% filter(grepl("Brighton", LANAME))
+bh_fsm_rank <- la_means_fsm %>% filter(grepl("Brighton", LANAME))
+n_bh_schools <- nrow(bh_latest_model)
+n_above_nat_abs <- sum(bh_latest_model$PERCTOT > national_mean_abs, na.rm = TRUE)
+
+
+# Two sources, one deck.
+#  - The attainment evidence: this repository (How to Pull the Right Lever),
+#    read from its cached model fits.
+#  - The city system: the bh-school-system repository (the strategic view,
+#    the model guide and the simulator), read from its assembled data.
+
+# ---- The city system -------------------------------------------------
+BHS <- Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1]
+# 00_core.R takes its root from here::here(), which is this repository
+# when the deck renders, so it is evaluated with the root swapped in.
+core <- readLines(file.path(BHS, "R", "00_core.R"), encoding = "UTF-8", warn = FALSE)
+eval(parse(text = sub("here::here()", "BHS", core, fixed = TRUE), encoding = "UTF-8"))
+source(file.path(BHS, "app", "R", "model.R"))
+source(file.path(BHS, "app", "R", "outcomes.R"))
+
+suppressPackageStartupMessages({
+  library(lme4); library(knitr); library(kableExtra); library(scales)
+  library(ggrepel); library(patchwork)
+})
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 150, dev.args = list(bg = "#FAFAFA"))
+
+inp   <- readRDS(file.path(BHS, "app", "data", "sim_inputs.rds"))
+cop   <- bh_data("council_options.rds")
+whx   <- bh_data("whitehawk_explained.rds")
+acc   <- bh_data("accessibility.rds")
+oi    <- bh_data("open_inputs.rds")
+os    <- bh_data("open_scenarios.rds")
+fpan  <- bh_data("factsheet_panel.rds")
+rc    <- bh_data("reception_cohort.rds")
+sfin  <- bh_data("school_finance.rds")
+mt    <- bh_data("model_terms.rds")
+lsoa  <- bh_data("lsoa.geojson") |> sf::st_transform(4326)
+catch <- bh_data("catchments_current.geojson") |> sf::st_transform(4326)
+sch   <- schools_sf(oi$schools) |> dplyr::filter(name != "Peacehaven Community School")
+elm_pt <- sf::st_as_sf(data.frame(e = oi$elm_grove$easting, n = oi$elm_grove$northing),
+                       coords = c("e", "n"), crs = 27700) |> sf::st_transform(4326)
+CITY_X <- c(-0.25, -0.01); CITY_Y <- c(50.80, 50.885)
+
+co  <- function(id, col, y = 2030) cop$runs[[col]][cop$runs$id == id & cop$runs$year == y]
+whe <- function(id, col, y = 2026)
+  cop$whitehawk_elm[[col]][cop$whitehawk_elm$id == id & cop$whitehawk_elm$year == y]
+city   <- inp$schools[inp$schools$city & !(inp$schools$hypothetical %in% TRUE), ]
+places <- sum(city$pan)
+kids   <- function(y) inp$demand$cohort[inp$demand$year == y]
+no30   <- acc$lsoa[acc$lsoa$places_30 < 1, ]
+fmt_pct <- function(x, d = 0) paste0(formatC(x, format = "f", digits = d), "%")
+gbp_m   <- function(x) sprintf("%s£%.1fm", ifelse(x < 0, "−", ""), abs(x) / 1e6)
+ordinal <- function(n) paste0(n, ifelse(n %% 100 %in% 11:13, "th",
+                                c("th", "st", "nd", "rd", rep("th", 6))[n %% 10 + 1]))
+
+INK <- "#1f3b57"; MUTED <- "#6b7785"; ACCENT <- "#2a78d6"; WARM <- "#d95f02"; BAD <- "#b2182b"
+PURPLE <- "#3A1857"; PINK <- "#ED357D"
+theme_bhs <- function(base = 16)
+  ggplot2::theme_minimal(base) +
+  ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
+                 panel.grid.minor = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = "bold", colour = PURPLE),
+                 plot.subtitle = ggplot2::element_text(colour = MUTED),
+                 plot.title.position = "plot",
+                 axis.text = ggplot2::element_text(colour = INK),
+                 plot.background = ggplot2::element_rect(fill = "#FAFAFA", colour = NA))
+theme_map <- function(base = 14)
+  ggplot2::theme_void(base) +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = PURPLE),
+                 plot.subtitle = ggplot2::element_text(colour = MUTED),
+                 plot.title.position = "plot",
+                 legend.position = "right",
+                 strip.text = ggplot2::element_text(face = "bold", size = base),
+                 plot.background = ggplot2::element_rect(fill = "#FAFAFA", colour = NA))
+
+# ---- The attainment evidence -----------------------------------------
+panel <- readRDS(here::here("data", "panel_data.rds"))
+HIGHLIGHT_LA <- "Brighton and Hove"
+models_imputed <- readRDS(here::here("data", "models_imputed.rds"))
+mod_e_all       <- models_imputed$all
+mod_e_disadv    <- models_imputed$disadvantaged
+mod_e_nondisadv <- models_imputed$non_disadvantaged
+
+la_rank <- function(model) {
+  re <- lme4::ranef(model)[["LANAME:gor_name"]]
+  d  <- tibble(grp = rownames(re), eff = re[["(Intercept)"]]) %>%
+    mutate(la = sub(":.*$", "", grp)) %>%
+    arrange(desc(eff)) %>%
+    mutate(rank = row_number())
+  bh <- d %>% filter(grepl("Brighton", la))
+  list(rank = bh$rank, n = nrow(d))
+}
+rk_all <- la_rank(mod_e_all)
+rk_dis <- la_rank(mod_e_disadv)
+rk_non <- la_rank(mod_e_nondisadv)
+r27 <- readRDS(here::here("data", "r27_la_absence.rds"))
+rank_without <- r27$bh_dis$rank[r27$bh_dis$spec == "A-none"]
+
+# The national modelling dataset, as prepared in the Lever deck.
+imputed_full_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME)) %>%
+  filter(!is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0,
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+# The Lever deck calls this bh_data; here that name is taken by the
+# city system's loader, so the panel for the city's schools is bh_panel.
+bh_panel <- panel %>%
+  filter(LANAME == HIGHLIGHT_LA, MINORGROUP %in% c("Academy", "Maintained school"))
+bh_latest_model <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>% filter(year_label == max(year_label)) %>% ungroup()
+
+national_benchmarks <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"),
+         !is.na(ATT8SCR), ATT8SCR > 0, PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1))
+latest_year <- max(bh_latest_model$year_label, na.rm = TRUE)
+national_latest <- national_benchmarks %>% filter(year_label == latest_year)
+national_mean_abs <- mean(national_latest$PERCTOT, na.rm = TRUE)
+bh_mean_abs       <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+national_mean_fsm <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+bh_mean_fsm       <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+la_means <- function(var) national_latest %>%
+  group_by(LANAME) %>%
+  summarise(m = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+  arrange(m) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+la_abs <- la_means("PERCTOT"); la_fsm <- la_means("PTFSM6CLA1A")
+bh_abs_rank <- la_abs %>% filter(grepl("Brighton", LANAME))
+bh_fsm_rank <- la_fsm %>% filter(grepl("Brighton", LANAME))
+abs_worst <- nrow(la_abs) - bh_abs_rank$rank + 1
+
+# theme_slide <- theme_minimal(base_size = 14) +
+#   theme(plot.title = element_text(face = "bold", size = 16, colour = PURPLE),
+#         plot.subtitle = element_text(colour = "grey40", size = 12),
+#         plot.title.position = "plot",
+#         strip.text = element_text(face = "bold"),
+#         legend.position = "bottom",
+#         panel.grid.minor = element_blank(),
+#         plot.background = element_rect(fill = "#FAFAFA", colour = NA))
+
+# ---- Choice: what families respond to --------------------------------
+DECAY_A <- acc$pref$decay
+ch_prefs <- fpan$factsheets %>%
+  filter(name != "Total", year >= max(year) - 4) %>%
+  group_by(name) %>%
+  summarise(p1 = mean(pref1), p2 = mean(pref2), p3 = mean(pref3), .groups = "drop") %>%
+  inner_join(oi$attract %>% select(urn, name), by = "name")
+cd <- os$choice %>%
+  select(urn, school, pan, att8, va) %>%
+  inner_join(ch_prefs %>% select(-name), by = "urn") %>%
+  mutate(short = short_sch(school),
+         wpp = (p1 + DECAY_A * p2 + DECAY_A^2 * p3) / pan)
+fit_att8 <- lm(log(wpp) ~ att8, data = cd)
+fit_va   <- lm(log(wpp) ~ va, data = cd)
+r2_att8  <- summary(fit_att8)$r.squared
+r2_va    <- summary(fit_va)$r.squared
+att8_pct <- 100 * (exp(coef(fit_att8)[["att8"]]) - 1)
+cd_of <- function(s, col) cd[[col]][cd$short == s]
+GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-reports-strategies-and-other-documents/secondary-school-admissions-guide-2027-2028"
+
+```
+
+
+
+## Who I am, and why this talk
+
+-   I am a Professor of Urban Analytics at UCL's Centre for Advanced Spatial
+Analysis. I build spatial models — of migration, of housing, of how people
+move around cities.
+-   I am also a parent in Brighton & Hove and became involved in a two-year
+argument with the council, along with hundreds of families, about changes to secondary
+school admissions.
+-   A misalignment between the stated aims of the council (improving disadvantaged student
+attainment), stated challenges (declining pupil roll) and policies implemented (admission priority changes, catchment boundary alterations and PAN reductions), 
+with insufficient consideration given to negative externalities
+
+
+## Who I am, and why this talk
+
+-   I spent 2-years analysing data to understand the drivers of secondary attainment - https://adamdennett.github.io/school_attainment_tool/ - conclusion: Council policies unlikely
+to improve attainment at cost to children in the city (increased travel, breakdown of community schooling etc.)
+-   But the spatial dimension of the problem in Brighton and Hove kept bugging me... 
+
+## Map
+
+```{r fig-catchments}
+#| fig-cap: "Brighton & Hove secondary schools with 2025/26 catchment boundaries. Click a logo or marker to see the school name."
+
+# ---- Load catchment boundaries ----
+optionZ <- st_read(
+  here::here("data", "optionZ_Mar25.geojson"),
+  quiet = TRUE
+) %>%
+  st_transform(4326)
+
+# ---- Catchment colour palette ----
+catchment_colours <- c(
+  "BACA"              = "#e41a1c",
+  "HoveBlatchington"  = "#377eb8",
+  "Longhill"          = "#4daf4a",
+  "PACA"              = "#984ea3",
+  "Patcham"           = "#ff7f00",
+  "VarndeanStringer"  = "#a65628"
+)
+pal_catch <- colorFactor(
+  palette = unname(catchment_colours),
+  domain = names(catchment_colours)
+)
+
+# ---- Catchment labels ----
+catchment_labels <- c(
+  "BACA"              = "BACA (Brighton Aldridge)",
+  "HoveBlatchington"  = "Hove Park / Blatchington Mill",
+  "Longhill"          = "Longhill",
+  "PACA"              = "PACA (Portslade Aldridge)",
+  "Patcham"           = "Patcham",
+  "VarndeanStringer"  = "Varndean / Dorothy Stringer"
+)
+
+# ---- School locations ----
+bh_map_data <- bh_latest %>%
+  filter(!is.na(easting), !is.na(northing)) %>%
+  st_as_sf(coords = c("easting", "northing"), crs = 27700) %>%
+  st_transform(4326)
+
+map_coords <- st_coordinates(bh_map_data)
+bh_map_data$lon <- map_coords[, 1]
+bh_map_data$lat <- map_coords[, 2]
+
+# ---- School logo paths (relative to project root) ----
+logo_paths <- c(
+  "Blatchington Mill School"                = "output/school_logos/blatchington_mill.png",
+  "Brighton Aldridge Community Academy"      = "output/school_logos/brighton_aldridge.png",
+  "Cardinal Newman Catholic School"          = "output/school_logos/cardinal_newman.png",
+  "Dorothy Stringer School"                  = "output/school_logos/dorothy_stringer.png",
+  "Hove Park School and Sixth Form Centre"   = "output/school_logos/hove_park.png",
+  "King's School"                            = "output/school_logos/kings_school.png",
+  "Longhill High School"                     = "output/school_logos/longhill_high.png",
+  "Patcham High School"                      = "output/school_logos/patcham_high.png",
+  "Portslade Aldridge Community Academy"     = "output/school_logos/portslade_aldridge.png",
+  "Varndean School"                          = "output/school_logos/varndean.png"
+)
+
+# ---- Build the leaflet map ----
+m_orient <- leaflet(width = "100%", height = 550) %>%
+  add_basemap() %>%
+  addPolygons(
+    data = optionZ,
+    fillColor = ~pal_catch(catchment),
+    fillOpacity = 0.12,
+    color = ~pal_catch(catchment),
+    weight = 2.5,
+    opacity = 0.8,
+    label = ~catchment_labels[catchment],
+    highlightOptions = highlightOptions(
+      weight = 4, fillOpacity = 0.25, bringToFront = FALSE
+    )
+  )
+
+# Add each school as a dot + logo marker
+for (i in seq_len(nrow(bh_map_data))) {
+  sch_name <- bh_map_data$SCHNAME[i]
+  sch_lon  <- bh_map_data$lon[i]
+  sch_lat  <- bh_map_data$lat[i]
+
+  popup_html <- sprintf(
+    "<b>%s</b><br>ATT8: %.1f | FSM: %.1f%% | Absence: %.1f%%",
+    sch_name,
+    bh_map_data$ATT8SCR[i],
+    bh_map_data$PTFSM6CLA1A[i],
+    bh_map_data$PERCTOT[i]
+  )
+
+  m_orient <- m_orient %>%
+    addCircleMarkers(
+      lng = sch_lon, lat = sch_lat,
+      radius = 5, fillColor = "#333333", fillOpacity = 0.9,
+      color = "white", weight = 1.5,
+      popup = popup_html
+    )
+
+  logo_file <- logo_paths[sch_name]
+  if (!is.na(logo_file) && file.exists(logo_file)) {
+    logo_b64 <- knitr::image_uri(logo_file)
+    logo_icon <- makeIcon(
+      iconUrl = logo_b64,
+      iconWidth = 36, iconHeight = 36,
+      iconAnchorX = -4, iconAnchorY = 40
+    )
+    m_orient <- m_orient %>%
+      addMarkers(
+        lng = sch_lon, lat = sch_lat,
+        icon = logo_icon,
+        popup = popup_html
+      )
+  }
+}
+
+# ---- CoMArt (Closed 2005) ----
+comart_lon <- -0.099449
+comart_lat <- 50.823301
+comart_popup <- "<b>CoMArt (Closed 2005)</b>"
+
+m_orient <- m_orient %>%
+  addCircleMarkers(
+    lng = comart_lon, lat = comart_lat,
+    radius = 5, fillColor = "#e41a1c", fillOpacity = 0.9,
+    color = "white", weight = 1.5,
+    popup = comart_popup
+  )
+
+comart_logo <- "output/school_logos/comart.png"
+if (file.exists(comart_logo)) {
+  comart_b64 <- knitr::image_uri(comart_logo)
+  comart_icon <- makeIcon(
+    iconUrl = comart_b64,
+    iconWidth = 36, iconHeight = 36,
+    iconAnchorX = -4, iconAnchorY = 40
+  )
+  m_orient <- m_orient %>%
+    addMarkers(
+      lng = comart_lon, lat = comart_lat,
+      icon = comart_icon,
+      popup = comart_popup
+    )
+}
+
+# Legend — use HTML labels with inline coloured squares for clean alignment
+legend_html <- paste0(
+  '<div style="font-size: 12px; line-height: 1.6;">',
+  paste0(
+    '<div style="display: flex; align-items: center; gap: 6px;">',
+    '<span style="display: inline-block; width: 14px; height: 14px; ',
+    'background:', unname(catchment_colours), '; ',
+    'border-radius: 2px; flex-shrink: 0;"></span>',
+    '<span>', unname(catchment_labels), '</span></div>',
+    collapse = ''
+  ),
+  '</div>'
+)
+
+m_orient <- m_orient %>%
+  addControl(
+    html = paste0(
+      '<div style="background: white; padding: 8px 12px; ',
+      'border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.3); ',
+      'font-family: sans-serif;">',
+      '<div style="font-weight: bold; margin-bottom: 4px; font-size: 12px;">',
+      '2025/26 Catchment Boundaries</div>',
+      legend_html,
+      '</div>'
+    ),
+    position = "topright"
+  )
+
+if (knitr::is_html_output()) {
+  m_orient
+} else {
+  # Static map for PDF output
+  ggplot() +
+    geom_sf(data = optionZ, aes(fill = catchment), alpha = 0.15,
+            colour = NA, show.legend = FALSE) +
+    geom_sf(data = optionZ, aes(colour = catchment), fill = NA,
+            linewidth = 0.6, show.legend = TRUE) +
+    scale_fill_manual(values = catchment_colours, labels = catchment_labels,
+                      aesthetics = c("fill", "colour"), name = "Catchment") +
+    geom_point(data = as.data.frame(bh_map_data),
+               aes(x = lon, y = lat), size = 2, colour = "#333333") +
+    geom_text_repel(data = as.data.frame(bh_map_data),
+                    aes(x = lon, y = lat, label = SCHNAME),
+                    size = 2, max.overlaps = 15, force = 3,
+                    segment.colour = "grey50", segment.size = 0.3) +
+    # CoMArt
+    geom_point(aes(x = comart_lon, y = comart_lat),
+               size = 2, colour = "#e41a1c") +
+    annotate("text", x = comart_lon + 0.005, y = comart_lat,
+             label = "CoMArt (Closed 2005)", size = 2, colour = "#e41a1c", hjust = 0) +
+    theme_void(base_size = 10) +
+    theme(legend.position = "bottom",
+          legend.text = element_text(size = 7))
+}
 ```
 
 ## Who I am, and why this talk {.smaller}
 
 ::::: columns
 ::: {.column width="56%"}
-I am a Professor of Urban Analytics at UCL's Centre for Advanced Spatial
-Analysis. I build spatial models — of migration, of housing, of how people
-move around cities.
 
-I am also a parent in Brighton & Hove, a city that spent two years arguing
-bitterly about secondary school admissions.
-
-I spent 2-years analysing data to understand the drivers of attainment. But the
-spatial dimension of the problem in Brighton and Hove kept bugging me. 
 
 <!-- I built the first version of that model myself, by hand, during the 2024 -->
 <!-- consultation. Two years later I rebuilt it with an AI collaborator — and it -->
