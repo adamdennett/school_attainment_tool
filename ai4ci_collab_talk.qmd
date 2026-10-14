@@ -495,16 +495,16 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 - I spent 2-years analysing data to understand the drivers of secondary
   attainment
 
-  ![](slides_assets/lever.png){width="50%"}
+  ![](slides_assets/lever.png){width="40%"}
 
   *https://adamdennett.github.io/school_attainment_tool/*
 
-- Conclusion: Council policies unlikely to improve attainment at cost to
-  children in the city (increased travel, breakdown of community
-  schooling etc.)
+- Conclusion: Council policies unlikely to improve attainment, costs
+  including increased travel, breakdown of community schooling etc., not
+  weighed appropriately, biggest issue - absence - not acknowledged in
+  policy decisions
 
-- Secondary policy impacts - unintended consequences - not fully
-  understood
+- Secondary policy impacts - unintended consequences - poorly understood
 
 ## Background - Problems in the Brighton and Hove School System
 
