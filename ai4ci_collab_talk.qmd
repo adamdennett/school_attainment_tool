@@ -499,12 +499,18 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 
   *https://adamdennett.github.io/school_attainment_tool/*
 
-- Conclusion: Council policies unlikely to improve attainment at cost to
-  children in the city (increased travel, breakdown of community
-  schooling etc.)
+- Conclusion: Council policies unlikely to improve attainment at cost to children in the city (increased travel, breakdown of community schooling etc.)
+- Secondary policy impacts - unintended consequences - not fully understood
 
-- But the spatial dimension of the problem in Brighton and Hove kept
-  bugging me...
+
+## Background - Problems in the Brighton and Hove School System
+
+- Some children have no secondary school near their home
+- Declining pupil numbers with some schools affected more than others
+- Policies promoting "choice" funnelling children away from peripheral schools already struggling for numbers 
+- Lots of engaged Parents, Schools, Councillors and Pressure Groups but a poor general understanding - *Collective Intelligence* - about how the whole system operates or how we might fix it to solve the interconnected challenges of attainment, absence, access and viability
+- "Solutions" *without asking the right questions*
+
 
 ## The Brighton and Hove Secondary School System
 
@@ -781,13 +787,13 @@ ggplot() +
   scale_y_continuous(labels = scales::label_comma(), limits = c(0, NA)) +
   labs(x = NULL, y = "Offers",
        title = "Reception offers turned down first; Year 7 follows seven years later",
-       subtitle = sprintf("Year 7 demand projected to about %s by %s",
+       subtitle = sprintf("Year 7 demand projected to fall to about %s by %s (from 2509 peak in 2019 - more than the entire current intake\n of two of the large schools in the city)",
                           fmt_n(proj$central[which.max(proj$entry_year)]), max(proj$entry_year))) +
   theme_bhs(15)
 ```
 
 
-## Nine of ten schools are spending their reserves
+## Income is tied to numbers - and financial reserves are running out
 
 ```{r reserves}
 #| fig-width: 12
@@ -811,7 +817,7 @@ ggplot(rp, aes(year, reserve_pct)) +
 
 
 
-## The city's intake grew. Longhill's collapsed {.smaller}
+## School Allocations and Viability {.smaller}
 
 ```{r demand-drift}
 #| fig-width: 12
@@ -855,7 +861,7 @@ ggplot(fs, aes(year, off_total, group = school)) +
                      limits = c(min(fs$year), max(fs$year) + 4.2)) +
   labs(x = NULL, y = "Children allocated a place",
        title = sprintf(
-         "The city placed %s more children in %d than in %d, not fewer",
+         "Despite %s more children in %d than in %d, some schools have been in decline",
          format(tot1 - tot0, big.mark = ","), max(city$year), min(city$year)),
        subtitle = "Places allocated at national offer day, by school. Source: BHCC allocation factsheets.") +
   theme_bhs(13) +
@@ -863,13 +869,73 @@ ggplot(fs, aes(year, off_total, group = school)) +
 ```
 
 ::: {style="font-size:0.78em"}
-This is allocations, not preferences — children through the door, which is
-what the funding follows. The city placed **1,900 children in 2010 and 2,250
-in 2026**. Over the same years **Longhill fell from 239 to 81**, and **Hove
-Park from 308 to 136**. King's grew by 57%, Portslade Aldridge by a third.
-A school losing two thirds of its intake in a growing system is not short of
-children in the city; it is short of children choosing it — and the money
-leaves with them.
+The city placed **1,900 children in 2010 and 2,250
+in 2026**. Over the same years **Longhill fell from 239 to 81**, and **Hove Park from 308 to 136**. 
+Now the pupil roll is declining, serious problems ahead
+
+:::
+
+## An AI4CI problem, if ever there was one {.smaller}
+
+::::: columns
+::: {.column width="56%"}
+The **UKRI National AI Research Hub for Collective Intelligence** asks what
+AI can do for the thinking groups of people do together — not what it can do
+instead of them.
+
+Brighton & Hove had no shortage of intelligence about its schools. It had
+engaged parents, heads, governors, councillors and campaign groups, and the
+council publishes a great deal of data. What it did not have was a **shared,
+inspectable account of how the system actually behaves**.
+
+So each group argued from the fragment it could see. Catchments. Attainment
+tables. One school's budget. Nobody held the whole thing at once — which is
+precisely how a city ends up proposing solutions before it has settled on
+the question.
+:::
+
+::: {.column width="44%"}
+::: key-finding
+A system where everyone is well informed about a *part* and nobody can see
+the *whole* is not an information problem. It is a collective intelligence
+problem.
+:::
+
+The slide before this is a case in point. Longhill's collapse is visible in
+published data that anyone could have downloaded for sixteen years. Seeing
+it required joining allocations to admission numbers to budgets to
+geography — and nobody had.
+:::
+:::::
+
+## Why AI made this tractable {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**What was expensive before**
+
+- Harmonising a dozen published sources that do not share a key
+- Building, calibrating and auditing a city-scale model
+- Re-running everything when one assumption changes
+- Writing it all down clearly enough for a non-specialist to check
+- Turning it into something a parent or councillor can actually use
+:::
+
+::: {.column width="50%"}
+**What that cost collapsing buys**
+
+- Scenarios can be *tested* rather than asserted
+- The work is **auditable**: every figure traces to code and a source
+- A councillor can move a slider instead of taking my word for it
+- Being wrong becomes cheap, so questions get asked that were not worth a
+  week of someone's time
+:::
+:::::
+
+::: key-finding
+The point is not that AI did the analysis. It is that AI made the analysis
+**sharable** — one person could build something the whole city can
+interrogate, argue with, and use. That is the collective intelligence bit.
 :::
 ## Who I am, and why this talk {.smaller}
 
