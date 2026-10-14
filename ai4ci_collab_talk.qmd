@@ -493,7 +493,7 @@ to improve attainment at cost to children in the city (increased travel, breakdo
 ## Map
 
 ```{r fig-catchments}
-#| fig-cap: "Brighton & Hove secondary schools with 2025/26 catchment boundaries. Click a logo or marker to see the school name."
+#| fig-cap: "Where Brighton & Hove's children live, and the schools that serve them. Each circle is a postcode, sized by the number of households with dependent children and coloured by IDACI decile. Use the control to turn layers on and off; click a logo for the school's figures."
 
 # ---- Load catchment boundaries ----
 optionZ <- st_read(
@@ -551,10 +551,11 @@ logo_paths <- c(
 )
 
 # ---- Build the leaflet map ----
-m_orient <- leaflet(width = "100%", height = 550) %>%
+m_orient <- leaflet(width = "100%", height = 480) %>%
   add_basemap() %>%
   addPolygons(
     data = optionZ,
+    group = "Catchment boundaries",
     fillColor = ~pal_catch(catchment),
     fillOpacity = 0.12,
     color = ~pal_catch(catchment),
@@ -566,6 +567,40 @@ m_orient <- leaflet(width = "100%", height = 550) %>%
     )
   )
 
+
+# ---- Where the children actually live ----------------------------------
+# One circle per postcode, sized by the number of households with
+# dependent children and coloured by IDACI decile (1 = most deprived
+# tenth of England). Rebuilt from the 2021 Census postcode tables and
+# ONSPD centroids; the same layer as the Brighton consultation work.
+# Drawn before the schools so the logos stay readable over it.
+bh_pop <- readRDS(here::here("data", "bh_postcode_population.rds"))
+
+pal_idaci <- colorFactor(
+  palette = "RdYlBu",
+  domain = sort(unique(bh_pop$idaci_decile))
+)
+
+m_orient <- m_orient %>%
+  addCircleMarkers(
+    data = bh_pop,
+    group = "Where the children live",
+    radius = ~sqrt(hh_dep_ch) * 1.5,
+    fillColor = ~pal_idaci(idaci_decile),
+    fillOpacity = 0.55,
+    stroke = FALSE,
+    label = ~sprintf(
+      "%s - %.0f households with children, %.0f households in all, IDACI decile %.0f",
+      postcode, hh_dep_ch, total_hh, idaci_decile
+    )
+  ) %>%
+  addLegend(
+    pal = pal_idaci,
+    values = sort(unique(bh_pop$idaci_decile)),
+    title = "IDACI decile<br><span style='font-weight:normal'>1 = most deprived</span>",
+    opacity = 1,
+    position = "bottomright"
+  )
 # Add each school as a dot + logo marker
 for (i in seq_len(nrow(bh_map_data))) {
   sch_name <- bh_map_data$SCHNAME[i]
@@ -584,6 +619,7 @@ for (i in seq_len(nrow(bh_map_data))) {
     addCircleMarkers(
       lng = sch_lon, lat = sch_lat,
       radius = 5, fillColor = "#333333", fillOpacity = 0.9,
+      group = "Schools",
       color = "white", weight = 1.5,
       popup = popup_html
     )
@@ -600,6 +636,7 @@ for (i in seq_len(nrow(bh_map_data))) {
       addMarkers(
         lng = sch_lon, lat = sch_lat,
         icon = logo_icon,
+        group = "Schools",
         popup = popup_html
       )
   }
@@ -614,6 +651,7 @@ m_orient <- m_orient %>%
   addCircleMarkers(
     lng = comart_lon, lat = comart_lat,
     radius = 5, fillColor = "#e41a1c", fillOpacity = 0.9,
+    group = "CoMArt (closed 2005)",
     color = "white", weight = 1.5,
     popup = comart_popup
   )
@@ -660,6 +698,22 @@ m_orient <- m_orient %>%
       '</div>'
     ),
     position = "topright"
+  )
+
+# Frame on where the children are, not on the full reach of the catchments:
+# PACA's boundary runs west past Shoreham and would otherwise set the view.
+bb <- as.numeric(sf::st_bbox(bh_pop))
+m_orient <- m_orient %>%
+  fitBounds(bb[1], bb[2], bb[3], bb[4])
+
+# Let the room turn each layer off. Collapsed = FALSE so the options are
+# visible on the slide rather than hidden behind a hover target.
+m_orient <- m_orient %>%
+  addLayersControl(
+    overlayGroups = c("Where the children live", "Catchment boundaries",
+                      "Schools", "CoMArt (closed 2005)"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topleft"
   )
 
 if (knitr::is_html_output()) {
