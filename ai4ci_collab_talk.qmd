@@ -883,25 +883,23 @@ same years **Longhill fell from 239 to 81**, and **Hove Park from 308 to
 ::: {.column width="56%"}
 The **UKRI National AI Research Hub for Collective Intelligence** -
 5-year, £12m EPSRC Project - asks what AI can do to enhance the thinking
-groups of people do together and the solutions then can arrive at.
+groups of people do together and the solutions they can arrive at.
 
-Can AI help us develop a **shared, inspectable account of how the school
-system in Brighton and Hove actually behaves**?
+Can AI help us develop a **shared, inspectable account of how the school system in Brighton and Hove actually behaves**?
 
-So each group argued from the fragment it could see. Catchments.
-Attainment tables. One school's budget. Nobody held the whole thing at
-once — which is precisely how a city ends up proposing solutions before
-it has settled on the question.
-
-None of it was worked out alone. The questions came from eighteen months
-of conversations with the **Parent Support Group** — parents who had each
-already worked out a piece of it.
+The challenge: *If AI can help us get to an answer quicker - can I ask
+the right questions? Can I enhance our collective intelligence in the
+process?*
 :::
 
 :::: {.column width="44%"}
-::: {style="text-align:center; margin-bottom:0.45rem;"}
+::: {style="text-align:center; margin-bottom:0.2rem;"}
 ![](slides_assets/ai4ci-logo.svg){width="46%" style="vertical-align:middle; margin-right:12px;"}
 ![](slides_assets/psg-logo.png){width="18%" style="vertical-align:middle;"}
+:::
+
+::: {style="text-align:center; font-size:0.68em; color:#666688; margin-bottom:0.7rem;"}
+Eighteen months of conversations with the Parent Support Group
 :::
 
 ::: key-finding
