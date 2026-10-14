@@ -1387,19 +1387,20 @@ Verbatim from the prompts. Four different kinds of wrong.
 > and the BACA catchment can't extend down over the alternative Longhill
 > site — this needs to be scrapped."
 
-**A claim the analysis did not support**
+**History the data does not contain**
 
-> "I'm not sure this **holds from the analysis**, or is necessarily a
-> message we want to promote where the council already tried doing this to
-> great opposition."
+> "Up until last year, **Whitehawk was in the Longhill catchment**... so
+> for a long time Longhill did have a large number of students from
+> deprived areas in its catchment. **I'm not sure if this is properly
+> represented in the model?**"
 :::
 ::::::
 
 ::: key-finding
-Three of those four are things only someone who knows the city or the
-statistics would see. The last one is not an error at all — it is
-judgement about what the evidence will bear, and what it would be unwise
-to say out loud.
+None of these is gibberish. Each is plausible, well-formatted and
+confidently presented — and each needed someone who knew either the
+statistics or the city. The last one needed knowledge of the city's own
+history, which is in no dataset anywhere.
 :::
 ## The other failure modes, honestly {.smaller}
 
