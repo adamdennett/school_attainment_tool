@@ -983,6 +983,7 @@ $$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta
 | $O_i$ | children living in $i$ — 195 neighbourhoods |
 | $W_j$ | how attractive school $j$ is |
 | $c_{ij}$ | bus-and-walk journey time, $i$ to $j$ |
+| $e^{\gamma_h}$ | the catchment bonus, if $j$ is in $i$'s catchment |
 | $C_j$ | how much competition $j$ has nearby |
 | $A_i$ | the balancing term |
 :::
