@@ -462,7 +462,7 @@ mod_la_typology_server <- function(id) {
       popups  <- build_popups(layer$map_sf)
 
       leaflet() %>%
-        addProviderTiles(providers$CartoDB.Positron,
+        addProviderTiles(providers$Esri.WorldGrayCanvas,
                          options = tileOptions(minZoom = 5, maxZoom = 14)) %>%
         setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
         addPolygons(

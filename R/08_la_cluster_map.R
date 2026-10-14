@@ -329,7 +329,7 @@ if (!is.null(la_map_sf)) {
 
   map_obj <- leaflet(la_map_sf) %>%
     addProviderTiles(
-      providers$CartoDB.Positron,
+      providers$Esri.WorldGrayCanvas,
       options = tileOptions(minZoom = 5, maxZoom = 14)
     ) %>%
     setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
@@ -392,7 +392,7 @@ if (!is.null(la_map_sf)) {
     mutate(cluster_chr = as.character(cluster))
 
   map_obj <- leaflet() %>%
-    addProviderTiles(providers$CartoDB.Positron) %>%
+    addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
     setView(lng = -1.5, lat = 52.8, zoom = 6) %>%
     addControl(
       html = '<div style="background:white; padding:10px; border-radius:4px;">

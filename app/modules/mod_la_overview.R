@@ -110,7 +110,7 @@ mod_la_overview_server <- function(id, selected_outcome) {
     # ---- LA Map ----
     output$la_map <- renderLeaflet({
       leaflet() %>%
-        addProviderTiles(providers$CartoDB.Positron) %>%
+        addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
         setView(lng = -1.5, lat = 52.5, zoom = 6)
     })
 

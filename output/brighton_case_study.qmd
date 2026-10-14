@@ -596,7 +596,7 @@ if (all(c("easting", "northing") %in% names(bh_latest))) {
                                         from = att8_range)
 
   leaflet(bh_sf, width = "100%", height = 500) %>%
-    addProviderTiles(providers$CartoDB.Positron) %>%
+    addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
     addCircleMarkers(
       lng = ~lon, lat = ~lat,
       radius = ~att8_radius,
@@ -697,7 +697,7 @@ if (exists("bh_sf")) {
 
   # --- 3. Bare leaflet (JS will add markers) ---
   m <- leaflet(width = "100%", height = 500) %>%
-    addProviderTiles(providers$CartoDB.Positron) %>%
+    addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
     setView(lng = mean(bh_sf$lon, na.rm = TRUE),
             lat = mean(bh_sf$lat, na.rm = TRUE), zoom = 13)
 
@@ -2171,7 +2171,7 @@ if (exists("bh_sf") && exists("bh_long")) {
 
     # Create bare leaflet
     m_resid <- leaflet(width = "100%", height = 500) %>%
-      addProviderTiles(providers$CartoDB.Positron) %>%
+      addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
       setView(lng = mean(bh_resid_map$lon, na.rm = TRUE),
               lat = mean(bh_resid_map$lat, na.rm = TRUE), zoom = 13)
 
@@ -2860,7 +2860,7 @@ catchment_labels <- c(
 
 # ---- Build the leaflet map ----
 m_orient <- leaflet(width = "100%", height = 550) %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
+  addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
   # Catchment polygons
   addPolygons(
     data = optionZ,

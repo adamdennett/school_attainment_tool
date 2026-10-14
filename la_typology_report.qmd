@@ -855,7 +855,7 @@ if (!is.null(la_boundaries_sf) && nrow(la_boundaries_sf) > 0) {
   )
 
   leaflet(la_boundaries_sf) |>
-    addProviderTiles(providers$CartoDB.Positron,
+    addProviderTiles(providers$Esri.WorldGrayCanvas,
                      options = tileOptions(minZoom = 5, maxZoom = 12)) |>
     setView(lng = -1.5, lat = 52.8, zoom = 6) |>
     addPolygons(

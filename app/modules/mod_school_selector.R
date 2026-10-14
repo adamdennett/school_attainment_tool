@@ -152,7 +152,7 @@ mod_school_selector_server <- function(id, selected_outcome, selected_school_urn
     # ---- Leaflet map ----
     output$map <- renderLeaflet({
       leaflet() %>%
-        addProviderTiles(providers$CartoDB.Positron) %>%
+        addProviderTiles(providers$Esri.WorldGrayCanvas, options = providerTileOptions(maxNativeZoom = 16, maxZoom = 20)) %>%
         setView(lng = -1.5, lat = 52.5, zoom = 6)
     })
 
