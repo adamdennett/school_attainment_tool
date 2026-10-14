@@ -1,0 +1,47 @@
+<!-- AI4CI mark in the bottom-left corner of every slide.
+     The UCL logo sits bottom-right, placed there by revealjs' own `logo:`
+     option, so this deliberately mirrors it rather than using the shared
+     slides-footer.html, which is centred and also carries CASA and is used
+     by six other decks. -->
+<div class="ai4ci-corner-logo">
+  <img src="slides_assets/ai4ci-logo.svg" alt="AI for Collective Intelligence">
+</div>
+
+<style>
+  .ai4ci-corner-logo {
+    position: fixed;
+    bottom: 12px;
+    left: 18px;
+    z-index: 4;
+    opacity: 0.75;
+    pointer-events: none;
+  }
+  .ai4ci-corner-logo img {
+    height: 34px;
+    width: auto;
+    display: block;
+  }
+</style>
+
+<script>
+(function () {
+  // The title slide has a saturated purple background that the blue mark
+  // disappears into, so it is hidden there - the same treatment the UCL
+  // logo gets on divider slides in the other decks.
+  function update() {
+    if (typeof Reveal === 'undefined' || !Reveal.getCurrentSlide) return;
+    var cur = Reveal.getCurrentSlide();
+    var hide = cur && (cur.id === 'title-slide' ||
+                       (cur.classList && cur.classList.contains('divider-slide')));
+    var el = document.querySelector('.ai4ci-corner-logo');
+    if (el) el.style.display = hide ? 'none' : '';
+  }
+  function attach() {
+    if (typeof Reveal === 'undefined' || !Reveal.on) { setTimeout(attach, 50); return; }
+    Reveal.on('ready', update);
+    Reveal.on('slidechanged', update);
+    update();
+  }
+  attach();
+})();
+</script>

@@ -26,6 +26,7 @@ format:
     fig-dpi: 150
     embed-resources: true
     auto-stretch: true
+    include-after-body: ai4ci-footer.html
 execute:
   echo: false
   warning: false
@@ -475,7 +476,7 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 ## Who I am, and why this talk {.smaller}
 
 - I am a Professor of Urban Analytics at UCL's Centre for Advanced
-  Spatial Analysis. I build spatial models — of migration, of housing,
+  Spatial Analysis (CASA). I build spatial models — of migration, of housing,
   of how people move around cities.
 - I am also a parent in Brighton & Hove and became involved in a
   two-year argument with the council, along with hundreds of families,
@@ -877,30 +878,25 @@ same years **Longhill fell from 239 to 81**, and **Hove Park from 308 to
 136**. Now the pupil roll is declining, serious problems ahead
 :::
 
-## An AI4CI problem, if ever there was one {.smaller}
+## An AI4CI problem, if ever there was one 
 
 :::::: columns
-::: {.column width="56%"}
-The **UKRI National AI Research Hub for Collective Intelligence** -
+::: {.column width="70%"}
+-  The **UKRI National AI Research Hub for Collective Intelligence** -
 5-year, £12m EPSRC Project - asks what AI can do to enhance the thinking
 groups of people do together and the solutions they can arrive at.
 
-Can AI help us develop a **shared, inspectable account of how the school system in Brighton and Hove actually behaves**?
+-  Can AI help us develop a **shared, inspectable account of how the school system in Brighton and Hove actually behaves**?
 
-The challenge: *If AI can help us get to an answer quicker - can I ask
-the right questions? Can I enhance our collective intelligence in the
-process?*
+-  The challenge: *If AI can help us get to an answer quicker - can I ask
+the right questions? Can this collaborative effort enhance our Collective Intelligence?*
 :::
 
-:::: {.column width="44%"}
+:::: {.column width="30%"}
 ::: {style="text-align:center; margin-bottom:0.2rem;"}
 ![](slides_assets/ai4ci-logo.svg){width="46%" style="vertical-align:middle; margin-right:12px;"}
-![](slides_assets/psg-logo.png){width="18%" style="vertical-align:middle;"}
 :::
 
-::: {style="text-align:center; font-size:0.68em; color:#666688; margin-bottom:0.7rem;"}
-Eighteen months of conversations with the Parent Support Group
-:::
 
 ::: key-finding
 A system where everyone is well informed about a *part* and nobody can
@@ -908,10 +904,6 @@ see the *whole* is not an information problem. It is a collective
 intelligence problem.
 :::
 
-The slide before this is a case in point. Longhill's collapse is visible
-in published data that anyone could have downloaded for sixteen years.
-Seeing it required joining allocations to admission numbers to budgets
-to geography — and nobody had.
 ::::
 ::::::
 
