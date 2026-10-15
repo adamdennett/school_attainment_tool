@@ -351,9 +351,11 @@ ggplot(yoy |> select(a26) |> filter(!is.na(a26)), aes(a26)) +
                                  `Brighton Aldridge` = WARM)) +
   labs(x = "Attainment 8, 2025/26", y = "Schools", colour = NULL, linetype = NULL,
        title = "Longhill up, Brighton Aldridge down — they have crossed",
-       subtitle = sprintf("Longhill %.1f to %.1f (national percentile %.0f to %.0f); Brighton Aldridge %.1f to %.1f (%.0f to %.0f)",
-                          lh$a25, lh$a26, pctile(yoy$a25, lh$a25), pctile(yoy$a26, lh$a26),
-                          bc$a25, bc$a26, pctile(yoy$a25, bc$a25), pctile(yoy$a26, bc$a26))) +
+       subtitle = sprintf(paste(
+         "Longhill %.1f to %.1f, rising past %.0f%% to %.0f%% of schools in England;",
+         "Brighton Aldridge %.1f to %.1f, falling from above %.0f%% to above %.0f%%"),
+         lh$a25, lh$a26, pctile(yoy$a25, lh$a25), pctile(yoy$a26, lh$a26),
+         bc$a25, bc$a26, pctile(yoy$a25, bc$a25), pctile(yoy$a26, bc$a26))) +
   theme_note()
 ```
 
@@ -362,16 +364,103 @@ ggplot(yoy |> select(a26) |> filter(!is.na(a26)), aes(a26)) +
 disadvantaged pupils falling `r fmt(bc$chg_dis, 1)`. On the headline measure
 the two schools have swapped places.
 
+## Did Brighton Aldridge simply take a harder intake?
+
+That is the first thing to rule out, and the answer is no — the composition
+moved the other way.
+
+```{r composition}
+#| tbl-cap: "Cohort composition and scores, three years"
+comp <- bind_rows(
+  ees_ks4_year(202324L) |> mutate(Year = "2023/24"),
+  e25 |> mutate(Year = "2024/25"),
+  e26 |> mutate(Year = "2025/26")) |>
+  filter(SCHNAME %in% c("Longhill High School",
+                        "Brighton Aldridge Community Academy")) |>
+  transmute(School = ifelse(grepl("Aldridge", SCHNAME),
+                            "Brighton Aldridge", "Longhill"),
+            Year, Cohort = TPUP,
+            `Disadvantaged %` = PTFSM6CLA1A,
+            `A8 all` = ATT8SCR,
+            `A8 disadvantaged` = ATT8SCR_FSM6CLA1A,
+            `A8 not disadvantaged` = ATT8SCR_NFSM6CLA1A) |>
+  mutate(`Internal gap` = `A8 not disadvantaged` - `A8 disadvantaged`) |>
+  arrange(School, Year)
+comp
+```
+
+```{r baca-numbers}
+b25 <- comp |> filter(School == "Brighton Aldridge", Year == "2024/25")
+b26 <- comp |> filter(School == "Brighton Aldridge", Year == "2025/26")
+l25 <- comp |> filter(School == "Longhill", Year == "2024/25")
+l26 <- comp |> filter(School == "Longhill", Year == "2025/26")
+
+# How far outside the normal range is a move of that size, for a
+# disadvantaged cohort of that size?
+nat_dis <- inner_join(
+  e25 |> select(URN, SCHNAME, d25 = ATT8SCR_FSM6CLA1A),
+  e26 |> select(URN, d26 = ATT8SCR_FSM6CLA1A, t26 = TFSM6CLA1A),
+  by = "URN") |>
+  filter(!is.na(d25), !is.na(d26)) |>
+  mutate(chg = d26 - d25)
+bc_chg <- nat_dis$chg[nat_dis$SCHNAME == "Brighton Aldridge Community Academy"]
+peer <- nat_dis |> filter(!is.na(t26), t26 >= 60, t26 < 80)
+```
+
+Brighton Aldridge's cohort **grew**, from `r b25$Cohort` to `r b26$Cohort`,
+and its disadvantaged share **fell**, from
+`r sprintf("%.1f%%", b25[["Disadvantaged %"]])` to
+`r sprintf("%.1f%%", b26[["Disadvantaged %"]])`. A smaller disadvantaged share
+should push the headline score *up*. Its non-disadvantaged pupils also did
+better, `r sprintf("%.1f to %.1f", b25[["A8 not disadvantaged"]], b26[["A8 not disadvantaged"]])`.
+
+The headline fell anyway, because the disadvantaged half of the school fell
+`r sprintf("%.1f", abs(bc_chg))` points. **The gap between the two groups
+inside the school went from `r sprintf("%.1f", b25[["Internal gap"]])` points
+to `r sprintf("%.1f", b26[["Internal gap"]])`** in a single year.
+
+Longhill moved in the opposite direction on every line: disadvantaged share
+down from `r sprintf("%.1f%%", l25[["Disadvantaged %"]])` to
+`r sprintf("%.1f%%", l26[["Disadvantaged %"]])`, both groups up, and its
+internal gap narrowing from `r sprintf("%.1f", l25[["Internal gap"]])` to
+`r sprintf("%.1f", l26[["Internal gap"]])`.
+
+```{r peer-check}
+#| fig-cap: "Year-on-year change in disadvantaged Attainment 8, schools with 60-79 disadvantaged pupils"
+#| fig-height: 3.2
+ggplot(peer, aes(chg)) +
+  geom_histogram(bins = 45, fill = "grey85") +
+  geom_vline(xintercept = bc_chg, colour = WARM, linewidth = 1) +
+  annotate("text", x = bc_chg, y = Inf, label = "  Brighton Aldridge",
+           colour = WARM, hjust = 0, vjust = 1.6, size = 3.6) +
+  labs(x = "Change in disadvantaged Attainment 8, 2024/25 to 2025/26",
+       y = "Schools",
+       title = "Not the ordinary noise of a small cohort",
+       subtitle = sprintf("%s schools with a disadvantaged cohort the same size as Brighton Aldridge's; SD %.1f points, %.0f%% move more than 10",
+                          format(nrow(peer), big.mark = ","), sd(peer$chg),
+                          100 * mean(abs(peer$chg) > 10))) +
+  theme_note(12)
+```
+
+Small cohorts do swing. But for schools with a disadvantaged cohort the size
+of Brighton Aldridge's, the standard deviation of year-on-year change is
+`r sprintf("%.1f", sd(peer$chg))` points and only
+`r sprintf("%.0f%%", 100 * mean(abs(peer$chg) > 10))` move by more than ten.
+Brighton Aldridge's `r sprintf("%.1f", bc_chg)` sits at the
+`r sprintf("%.1f", 100 * mean(nat_dis$chg <= bc_chg))`th percentile of all
+`r format(nrow(nat_dis), big.mark = ",")` schools nationally. Whatever it is,
+it is not the usual noise.
+
 ::: callout-warning
 ## Do not over-read this yet
 
 Three reasons for caution, all of them real:
 
 1. **These are provisional figures.** February's revisions will move them.
-2. **One year, small cohorts.** An eleven-point move in a single school's
-   disadvantaged average is well within what cohort composition can do on
-   its own, particularly at a school where
-   `r sprintf("%.0f%%", bc$f26)` of the cohort is disadvantaged.
+2. **One year.** The composition check above rules out the easy explanation,
+   and the peer comparison rules out ordinary small-cohort noise — but a
+   single cohort can still be unusual for reasons no published table shows.
+   The thing to do is look again in February, and again in 2027.
 3. **Attainment 8 is not value added.** The simulator's third policy lever —
    "what if Longhill added value like Brighton Aldridge" — rests on a
    four-year value-added measure, not on one year of headline scores. A
