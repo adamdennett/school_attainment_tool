@@ -1135,7 +1135,7 @@ describe who a school admits.
 
 ```{r fsm-oos}
 #| fig-width: 11.5
-#| fig-height: 3.9
+#| fig-height: 3.5
 o_fsm <- outcomes(inp, run_sim(inp, year = 2026,
   rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE)))
 # FOI 26367489: the confirmed September 2026 position by priority. The
@@ -1152,15 +1152,21 @@ foi_fsm <- tibble::tribble(
 fsm_d <- o_fsm$tiers |>
   dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
   dplyr::inner_join(foi_fsm, by = "name") |>
+  dplyr::left_join(dplyr::select(dplyr::filter(inp$schools, city), name, pan),
+                   by = "name") |>
   dplyr::mutate(school = short_sch(name),
-                odd = school == "Varndean")
+                odd    = school == "Varndean",
+                m_tot  = m4 + m5, a_tot = p4 + p5,
+                m_pct  = 100 * m_tot / pan, a_pct = 100 * a_tot / pan)
 
 r2 <- function(a, b) cor(a, b)^2
-# Varndean on its own takes the out-of-catchment fit from 0.82 to 0.00,
-# so quoting the one number without the other would hide the finding
-# rather than report it.
+# Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so
+# quoting the one number without the other hides the finding.
 r2_out_all  <- r2(fsm_d$m5, fsm_d$p5)
 r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5))
+vd <- dplyr::filter(fsm_d, odd)
+st <- dplyr::filter(fsm_d, school == "Stringer")
+CAP <- 100 * inp$rules$fsm_cap_share
 
 fsm_long <- dplyr::bind_rows(
   fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
@@ -1173,35 +1179,56 @@ fsm_long <- dplyr::bind_rows(
 
 ggplot(fsm_long, aes(actual, modelled)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") +
-  geom_point(aes(colour = odd), size = 3.4) +
+  geom_point(aes(colour = odd), size = 3.2) +
   ggrepel::geom_text_repel(aes(label = school, colour = odd),
-                           size = 3.4, seed = 4, show.legend = FALSE) +
+                           size = 3.2, seed = 4, show.legend = FALSE) +
   scale_colour_manual(values = c(`FALSE` = PURPLE, `TRUE` = WARM),
                       guide = "none") +
   facet_wrap(~ panel) +
   labs(x = "Children actually admitted under the priority (FOI, September 2026)",
        y = "Modelled",
        title = "Free school meal priorities, against a target the model never saw") +
-  theme_bhs(13)
+  theme_bhs(12)
 ```
 
+:::::: columns
+::: {.column width="52%"}
 ::: {style="font-size:0.72em"}
 The disadvantage layer is **fitted** to each school's published
 disadvantaged share, so reproducing that share proves nothing. The FOI
-arrived weeks later with something the model had never been shown: how many
-children each school actually admitted under each free school meal priority.
+arrived weeks later with something the model had never seen: how many
+children each school actually admitted under each priority.
 
-**In catchment it predicts well** — R² = `r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`,
-average error `r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children.
-**Out of catchment it gets the total right and the destinations wrong**:
-`r sprintf("%.0f", sum(fsm_d$m5))` children modelled against
-`r sum(fsm_d$p5)` actual, but spread across the wrong schools. One school
-does nearly all of it — the model sends **34 to Varndean; 6 went**. Take
-Varndean out and the other five sit at R² = `r sprintf("%.2f", r2_out_less)`.
+**In catchment it predicts well** — R² =
+`r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`, average error
+`r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children. Out of
+catchment, one school does nearly all the damage: the model sends
+**`r sprintf("%.0f", vd$m5)` children into Varndean; `r vd$p5` went**.
+:::
+:::
 
-So it knows how many families will travel on the priority, and not which
-school they will pick. Geography the model has. Whether a family knows the
-priority exists, and where they would use it, it does not.
+:::: {.column width="48%"}
+::: key-finding
+**Why Varndean, and nowhere else.** The free school meal priority is
+capped at `r sprintf("%.0f", CAP)`% of a school's places. Varndean is
+the only school the model runs all the way to that ceiling
+(`r sprintf("%.0f", vd$m_tot)` of `r vd$pan`). Every other school it
+leaves around 15%.
+
+In reality Varndean's own catchment supplied the intake — **`r vd$p4`
+in-catchment children against Stringer's `r st$p4`** — and the school
+settled at `r sprintf("%.0f", vd$a_pct)`%, not
+`r sprintf("%.0f", CAP)`%. The model, finding room under the cap,
+filled it by importing children from outside.
+:::
+::::
+::::::
+
+::: {style="font-size:0.72em; margin-top:-0.2rem;"}
+So priority 5 is a **residual, not a forecast** — what is left of the
+quota once the catchment has had its turn. The cap is a ceiling in the
+rules; the model treated it as a target. That is a fixable modelling
+error, and it took an FOI and someone who knew the city to find it.
 :::
 
 # What the Model Says {background-color="#361a54"}
