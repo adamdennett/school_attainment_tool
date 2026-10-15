@@ -470,6 +470,328 @@ What this *does* justify is re-running the value-added measure with the new
 year in it, and seeing whether the gap that lever depends on is still there.
 :::
 
+# The value-added measure, re-run
+
+Attainment 8 describes an intake. The measure the Brighton work actually
+leans on is **value added** — what a school adds once its intake is accounted
+for, taken as the residual of the fitted model: observed Attainment 8 minus
+what the model expects, averaged over the panel years.
+
+The published version uses the *imputed full* specification, which needs
+workforce variables that do not exist for 2025/26. So this refits the **core**
+specification — the five predictors present in every year — and checks the two
+agree before extending anything.
+
+```{r va-fit}
+#| cache: true
+core_rhs <- paste("log(PTFSM6CLA1A) + log(%s) + log(PNUMEAL) +",
+                  "ADMPOL_PT + gorard_segregation +",
+                  "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)")
+
+fit_resid <- function(d, absvar) {
+  keep <- d |>
+    filter(!is.na(ATT8SCR), ATT8SCR > 0, !is.na(.data[[absvar]]), .data[[absvar]] > 0,
+           !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0, !is.na(PNUMEAL), PNUMEAL > 0,
+           !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+           !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME))
+  m <- lmer(as.formula(sprintf(paste("log(ATT8SCR) ~", core_rhs), absvar)),
+            data = keep, REML = TRUE,
+            control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+  # On the Attainment 8 scale, so it is comparable with the published measure
+  keep$pred_a8  <- exp(predict(m, keep, allow.new.levels = TRUE))
+  keep$resid_a8 <- keep$ATT8SCR - keep$pred_a8
+  keep
+}
+
+r4 <- fit_resid(filter(p5, academic_year != "2025-2026"), "PERCTOT")
+r5 <- fit_resid(p5, "PERCTOT_2term")
+
+va_of <- function(d) d |> group_by(URN) |>
+  summarise(va = mean(resid_a8, na.rm = TRUE), .groups = "drop")
+
+BHS <- file.path(dirname(here::here()), "bh_school_system", "data")
+pub <- readRDS(file.path(BHS, "open_scenarios.rds"))$choice |>
+  select(urn, school, pan, att8_pub = att8, va_pub = va) |>
+  mutate(URN = as.character(urn))
+
+vacmp <- pub |>
+  left_join(va_of(r4) |> rename(va4 = va), by = "URN") |>
+  left_join(va_of(r5) |> rename(va5 = va), by = "URN")
+r_pub4 <- cor(vacmp$va_pub, vacmp$va4, use = "complete.obs")
+```
+
+Across the ten city schools the refitted core measure and the published one
+agree at **r = `r sprintf("%.2f", r_pub4)`** on the same four years. Good, but
+not identical — the core specification drops the workforce terms, so its
+residuals sit on a slightly different level. Everything below therefore
+compares **core-on-four-years with core-on-five-years**, like with like.
+
+```{r va-table}
+#| tbl-cap: "Value added per school: published, refitted on four years, and extended to five"
+vacmp |>
+  transmute(School = sub(" School$| High School$| Community Academy$| and Sixth Form Centre$",
+                         "", school),
+            `Published (imputed, 4yr)` = round(va_pub, 2),
+            `Core, 4 years` = round(va4, 2),
+            `Core, 5 years` = round(va5, 2),
+            Shift = round(va5 - va4, 2)) |>
+  arrange(desc(`Core, 5 years`))
+```
+
+## What it does to the third policy lever
+
+The simulator's third lever asks what happens if Longhill's value added
+doubled, "to roughly where Brighton Aldridge already is with a comparably
+disadvantaged intake". That framing depends on a gap between the two schools.
+
+```{r lever3}
+lh <- vacmp |> filter(grepl("Longhill", school))
+bc <- vacmp |> filter(grepl("Aldridge", school), !grepl("Portslade", school))
+gap4 <- bc$va4 - lh$va4; gap5 <- bc$va5 - lh$va5
+```
+
+| | Longhill | Brighton Aldridge | Gap |
+|:--|--:|--:|--:|
+| Published (imputed, 4 years) | `r fmt(lh$va_pub)` | `r fmt(bc$va_pub)` | `r fmt(bc$va_pub - lh$va_pub)` |
+| Core, 4 years | `r fmt(lh$va4)` | `r fmt(bc$va4)` | `r fmt(gap4)` |
+| **Core, 5 years** | **`r fmt(lh$va5)`** | **`r fmt(bc$va5)`** | **`r fmt(gap5)`** |
+
+The gap **`r sprintf("%.0f%%", 100 * (1 - gap5 / gap4))` smaller** with the
+new year in, and Brighton Aldridge's own value added has gone **negative**.
+It is no longer a school beating what its intake predicts.
+
+```{r va-years}
+#| tbl-cap: "Year by year: what each school scored, what the model expected from its intake, and the difference"
+r5 |>
+  filter(URN %in% c(lh$URN, bc$URN)) |>
+  transmute(School = ifelse(URN == lh$URN, "Longhill", "Brighton Aldridge"),
+            Year = academic_year,
+            `Attainment 8` = ATT8SCR,
+            `Expected from intake` = round(pred_a8, 1),
+            `Value added` = round(resid_a8, 2)) |>
+  arrange(School, Year)
+```
+
+This table is the important one, and it says two things that the headline
+scores do not.
+
+**Brighton Aldridge's fall is entirely 2025/26.** For four years its value
+added sat within half a point of zero — the school performing almost exactly
+as its intake predicted. Then one year at
+`r sprintf("%.2f", r5$resid_a8[r5$URN == bc$URN & r5$academic_year == "2025-2026"])`.
+
+```{r lh-detail}
+lhy <- r5 |> filter(URN == lh$URN) |>
+  select(academic_year, ATT8SCR, pred_a8, resid_a8)
+g <- function(y, v) lhy[[v]][lhy$academic_year == y]
+```
+
+**Longhill's rise is mostly its intake, not its teaching.** Its Attainment 8
+went from `r sprintf("%.1f", g("2024-2025", "ATT8SCR"))` to
+`r sprintf("%.1f", g("2025-2026", "ATT8SCR"))`. But the model *expected* it to
+go from `r sprintf("%.1f", g("2024-2025", "pred_a8"))` to
+`r sprintf("%.1f", g("2025-2026", "pred_a8"))`, because its disadvantaged
+share fell from 40.1% to 33.5%. Measured against that, Longhill's value added
+barely moved: `r sprintf("%.2f to %.2f", g("2024-2025", "resid_a8"), g("2025-2026", "resid_a8"))`.
+
+So the two schools did not really move in opposite directions. **Longhill
+stood still and got an easier intake; Brighton Aldridge fell.**
+
+## And to the simulator's attractiveness term
+
+```{r mult}
+#| tbl-cap: "Attractiveness multipliers under the 'families read value added' scenario"
+acc  <- readRDS(file.path(BHS, "accessibility.rds"))
+fpan <- readRDS(file.path(BHS, "factsheet_panel.rds"))
+oi   <- readRDS(file.path(BHS, "open_inputs.rds"))
+
+w_cd <- fpan$factsheets |>
+  filter(name != "Total", year >= max(year) - 4) |>
+  group_by(name) |>
+  summarise(p1 = mean(pref1), p2 = mean(pref2), p3 = mean(pref3), .groups = "drop") |>
+  inner_join(oi$attract |> select(urn, name), by = "name") |>
+  inner_join(pub |> select(urn, pan, att8_pub, va_pub), by = "urn") |>
+  left_join(vacmp |> select(urn, va5), by = "urn") |>
+  mutate(wpp = (p1 + acc$pref$decay * p2 + acc$pref$decay^2 * p3) / pan)
+
+W_SLOPE <- coef(lm(log(wpp) ~ att8_pub, data = w_cd))[["att8_pub"]]
+mult_from <- function(d, v) {
+  eq  <- mean(d$att8_pub) + sd(d$att8_pub) * (d[[v]] - mean(d[[v]])) / sd(d[[v]])
+  raw <- exp(W_SLOPE * (eq - d$att8_pub))
+  raw / exp(mean(log(raw)))
+}
+w_cd$mult_pub <- mult_from(w_cd, "va_pub")
+w_cd$mult_5yr <- mult_from(w_cd, "va5")
+
+w_cd |>
+  transmute(School = name,
+            `As published` = round(mult_pub, 3),
+            `With 2025/26` = round(mult_5yr, 3),
+            Change = round(mult_5yr - mult_pub, 3)) |>
+  arrange(desc(`As published`))
+```
+
+Reproducing the published arithmetic exactly (the `As published` column
+matches the shipped multipliers to four decimal places), Brighton Aldridge's
+multiplier falls from
+**`r sprintf("%.2f", w_cd$mult_pub[grepl("Brighton Aldridge", w_cd$name)])`×
+to `r sprintf("%.2f", w_cd$mult_5yr[grepl("Brighton Aldridge", w_cd$name)])`×**.
+It was by a distance the biggest beneficiary of a switch to value added; it is
+now one of several. Varndean, Dorothy Stringer and Blatchington Mill all gain.
+
+::: callout-important
+## What this means for the simulator, and what it does not
+
+**The scenario still works.** "What if families read value added" remains a
+real lever, and it still redistributes demand. But the *shape* of that
+redistribution has changed, and the simulator's shipped multipliers are now
+one year out of date.
+
+**The third lever needs rewording, not retiring.** "Double Longhill's value
+added" is still a coherent thing to model. "To roughly where Brighton
+Aldridge already is" is no longer true on five years of data.
+
+**One provisional year is doing all the work.** Brighton Aldridge sat within
+half a point of zero for four years. Before rebuilding the simulator's
+attractiveness on this, wait for February's revisions — a single year this
+far out of line is exactly the case where a revision matters most.
+:::
+
+# Five years of Brighton and Hove, against England
+
+Everything above is about one year. This is the series the new year joins:
+the city's ten state-funded secondary schools from 2021/22 to 2025/26, on
+both measures, with England drawn behind them.
+
+```{r bh-series}
+#| fig-cap: "Attainment 8, Brighton and Hove schools against the national distribution"
+#| fig-height: 6.2
+bh_urns <- pub$URN
+
+eng_band <- r5 |>
+  group_by(academic_year) |>
+  summarise(med = median(ATT8SCR, na.rm = TRUE),
+            lo  = quantile(ATT8SCR, 0.25, na.rm = TRUE),
+            hi  = quantile(ATT8SCR, 0.75, na.rm = TRUE),
+            .groups = "drop")
+
+bh_series <- r5 |>
+  filter(URN %in% bh_urns) |>
+  left_join(pub |> select(URN, school), by = "URN") |>
+  mutate(short = sub(" School$| High School$| Community Academy$| and Sixth Form Centre$",
+                     "", school),
+         yr = as.integer(substr(academic_year, 1, 4)) + 1L)
+
+eng_band <- eng_band |> mutate(yr = as.integer(substr(academic_year, 1, 4)) + 1L)
+
+ggplot() +
+  geom_ribbon(data = eng_band, aes(yr, ymin = lo, ymax = hi),
+              fill = "grey88") +
+  geom_line(data = eng_band, aes(yr, med), colour = "grey45",
+            linetype = "31", linewidth = 0.6) +
+  geom_line(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE, linewidth = 0.9) +
+  geom_point(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE, size = 1.5) +
+  facet_wrap(~ short, ncol = 5) +
+  scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = "Attainment 8",
+       title = "Attainment 8, 2021/22 to 2025/26",
+       subtitle = "Grey band: the middle half of schools in England. Dashed line: the national median.") +
+  theme_note(11)
+```
+
+```{r bh-va-series}
+#| fig-cap: "Value added, Brighton and Hove schools. Zero is performing exactly as the intake predicts."
+#| fig-height: 6.2
+eng_va <- r5 |>
+  group_by(academic_year) |>
+  summarise(lo = quantile(resid_a8, 0.25, na.rm = TRUE),
+            hi = quantile(resid_a8, 0.75, na.rm = TRUE), .groups = "drop") |>
+  mutate(yr = as.integer(substr(academic_year, 1, 4)) + 1L)
+
+ggplot() +
+  geom_ribbon(data = eng_va, aes(yr, ymin = lo, ymax = hi), fill = "grey88") +
+  geom_hline(yintercept = 0, colour = "grey45", linetype = "31", linewidth = 0.6) +
+  geom_line(data = bh_series, aes(yr, resid_a8), colour = BRIGHT, linewidth = 0.9) +
+  geom_point(data = bh_series, aes(yr, resid_a8), colour = BRIGHT, size = 1.5) +
+  facet_wrap(~ short, ncol = 5) +
+  scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = "Attainment 8 points above or below expectation",
+       title = "Value added, 2021/22 to 2025/26",
+       subtitle = "Grey band: the middle half of schools in England. Above zero is beating what the intake predicts.") +
+  theme_note(11)
+```
+
+Read side by side, the two charts say different things about the same city.
+
+On **Attainment 8** the schools are spread across the national distribution,
+and the ordering barely changes from year to year — which is the point *How
+to Pull the Right Lever* makes about the headline measure: it mostly restates
+who walks through the door.
+
+On **value added** the city is tighter and the movement is larger. A school
+can sit in the bottom quarter of England on Attainment 8 and still be adding
+what its intake predicts.
+
+```{r bh-vs-eng}
+#| fig-cap: "The city against England, both measures, pupil-weighted"
+#| fig-height: 3.6
+wmean <- function(x, w) sum(x * w, na.rm = TRUE) / sum(w[!is.na(x)], na.rm = TRUE)
+
+agg <- bind_rows(
+  r5 |> mutate(grp = ifelse(URN %in% bh_urns, "Brighton and Hove", "Rest of England")),
+) |>
+  group_by(grp, academic_year) |>
+  summarise(att8 = wmean(ATT8SCR, TPUP), va = wmean(resid_a8, TPUP),
+            .groups = "drop") |>
+  mutate(yr = as.integer(substr(academic_year, 1, 4)) + 1L) |>
+  tidyr::pivot_longer(c(att8, va), names_to = "measure", values_to = "value") |>
+  mutate(measure = factor(measure, c("att8", "va"),
+                          c("Attainment 8", "Value added")))
+
+ggplot(agg, aes(yr, value, colour = grp)) +
+  geom_hline(data = tibble(measure = factor("Value added",
+                                            levels = levels(agg$measure))),
+             aes(yintercept = 0), colour = "grey70", linetype = "31") +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  facet_wrap(~ measure, scales = "free_y") +
+  scale_colour_manual(values = c(`Brighton and Hove` = BRIGHT,
+                                 `Rest of England` = "grey55")) +
+  scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = NULL, colour = NULL,
+       title = "Brighton and Hove against the rest of England",
+       subtitle = "Pupil-weighted means across state-funded mainstream schools") +
+  theme_note(12) + theme(legend.position = "bottom")
+```
+
+```{r bh-agg-numbers}
+a <- agg |> filter(grp == "Brighton and Hove")
+e <- agg |> filter(grp == "Rest of England")
+gv <- function(d, m, y) d$value[d$measure == m & d$yr == y]
+```
+
+Pupil-weighted, the city's Attainment 8 ran
+`r sprintf("%.1f", gv(a, "Attainment 8", 2022))` in 2021/22 and
+`r sprintf("%.1f", gv(a, "Attainment 8", 2026))` in 2025/26, against
+`r sprintf("%.1f", gv(e, "Attainment 8", 2022))` and
+`r sprintf("%.1f", gv(e, "Attainment 8", 2026))` for the rest of England. On
+value added the city sat at
+`r sprintf("%+.2f", gv(a, "Value added", 2022))` and
+`r sprintf("%+.2f", gv(a, "Value added", 2026))`.
+
+```{r bh-table}
+#| tbl-cap: "Brighton and Hove schools, five years, both measures"
+bh_series |>
+  select(short, academic_year, ATT8SCR, resid_a8) |>
+  tidyr::pivot_longer(c(ATT8SCR, resid_a8)) |>
+  mutate(name = ifelse(name == "ATT8SCR", "A8", "VA"),
+         col = paste0(substr(academic_year, 3, 4), "/",
+                      substr(academic_year, 8, 9), " ", name)) |>
+  select(School = short, col, value) |>
+  mutate(value = round(value, 1)) |>
+  tidyr::pivot_wider(names_from = col, values_from = value) |>
+  arrange(School)
+```
+
 # Where this leaves things
 
 **Settled.** The new year can be added, the new source agrees with the old
