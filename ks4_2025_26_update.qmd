@@ -91,7 +91,7 @@ schools' amendment requests have been applied. The **revised figures follow
 in February 2027**, and that is the point at which anything here can be
 confirmed.
 
-That matters more than usual for this particular year. The sharpest finding
+That matters more than usual for this particular year. The most noticeable finding
 below rests on a single school's single cohort moving a long way out of line
 — and a single year that far out of line is exactly the case where a revision
 bites hardest. **Nothing here should be treated as settled until February.**
@@ -727,7 +727,7 @@ sm <- function(school, group, y) {
 
 Three things the smoothing makes visible that the tables do not.
 
-**BACA's disadvantaged line is the sharpest reversal in the city.** Smoothed,
+**BACA's disadvantaged line turns over harder than any other in the city.** Smoothed,
 it runs `r fmt(sm("BACA", "Disadvantaged", 2024), 1)` in 2024 and
 `r fmt(sm("BACA", "Disadvantaged", 2026), 1)` by 2026 — and because the
 moving average is pulled down by a single year, even the smoothed line
@@ -859,7 +859,7 @@ went the other way, `r fmt(l("2024-25", "VA other"), 1)` to
 
 So on the measure the Brighton argument cares about most — what a school adds
 for disadvantaged children — **Longhill improved and BACA fell**. That is a
-sharper statement than the headline scores support on their own, and close to
+stronger statement than the headline scores support on their own, and close to
 the reverse of what the raw Attainment 8 comparison first suggested.
 
 ## The prior attainment the model wants, and cannot have

@@ -1024,7 +1024,7 @@ somewhere else, and the model says where.
 Three things are fitted to the council's own published allocations,
 rather than assumed:
 
-**Distance decay,** $\beta = 1.7$. How sharply demand falls as a school
+**Distance decay,** $\beta = 1.7$. How steeply demand falls as a school
 gets further away.
 
 **The catchment pull,** $\gamma_h$. How much living inside a catchment
