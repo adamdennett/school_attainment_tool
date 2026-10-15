@@ -472,6 +472,7 @@ cd_of <- function(s, col) cd[[col]][cd$short == s]
 GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-reports-strategies-and-other-documents/secondary-school-admissions-guide-2027-2028"
 
 ```
+# Background
 
 ## Who I am, and why this talk {.smaller}
 
@@ -944,6 +945,8 @@ build something the whole city can interrogate, argue with, and use.
 That is the collective intelligence bit.
 :::
 
+# The Model
+
 ## What exists now {.smaller}
 
 | The thing                                        | Scale                 |
@@ -963,7 +966,9 @@ That is the collective intelligence bit.
 - It reproduces the September 2026 allocations with an ***R² of 0.95***.
 :::
 
-## Questions I wanted to Answer
+## Questions I wanted to Answer {.smaller}
+
+>I won't answer these all today - but will show how they can now all be answered
 
 - What is causing Longhill School's acute numbers problem - is it
   geography, demography, attractiveness, some combination or something
@@ -1223,35 +1228,40 @@ describe who a school admits.
 
 <!-- ::: -->
 
-## This did not start in April {.smaller}
+# The Process
+
+## This started before April {.smaller}
 
 :::::: columns
-::: {.column width="54%"}
+::: {.column width="65%"}
+**2007-2026.** 20-years of wrapping my head around spatial interaction models in different contexts from migration to retail 
+
 **October 2024.** Brighton & Hove is consulting on redrawing its
 catchments. I write `BrighonSchoolsSIM.qmd` — **1,014 lines** of R and
-Quarto. A production-constrained spatial interaction model of the city's
-schools.
+Quarto. A production-constrained spatial interaction model of the city's schools.
 
-I call the hypothetical baseline **Brightopia**: where every child would
-go if distance were the only thing that mattered.
+I call the hypothetical baseline **Brightopia**: where every child would go if distance were the only thing that mattered.
 
 **December 2024.** I write `bus_routes.qmd` — **1,021 lines** — setting
 up `r5r`, a GTFS feed and an OSM extract to compute real
 public-transport journey times to every school.
+
+**2025-2026.** Months of work on drivers of attainment in England, feeding into attractiveness inputs
 :::
 
-:::: {.column width="46%"}
+:::: {.column width="35%"}
 ::: key-finding
 Two thousand lines of spatial interaction modelling and routing, written
 by hand, eighteen months before any of this.
 :::
 
-That is what the new model was built **on**, not instead of. Brightopia
+That is what the new model was built **on**, not instead of. 
+
+Brightopia
 is still in the current document, as the $W_j = 1$ baseline the
 calibrated model is measured against.
 
-I have been building models like this for twenty years. That is why I
-knew what to ask for.
+
 ::::
 ::::::
 
@@ -1683,16 +1693,168 @@ of these six prompts is a correction. They are **design**.
 
 <!-- ::: -->
 
+
+
+## Catching Errors - In Prompts {.smaller}
+
+::: {style="font-size:0.84em"}
+Verbatim from the prompts. Four different kinds of wrong.
+:::
+
+::::: columns
+::: {.column width="50%"}
+**A statistic that cannot be true**
+
+> "I'm not sure the 'where that would rank' percentage in the attainment
+> tab table is correct for the value added drop down — **every school
+> appears to be in the 99th or 100th percentile.**"
+
+**The wrong input data entirely**
+
+> "The 'system as it stands' in the open report **is incorrect**. The
+> catchment areas in that map relate to the **pre-2024** consultation
+> catchment areas."
+:::
+
+::: {.column width="50%"}
+**Geometry that could not exist**
+
+> "The Stringer Varndean catchment **can't be that big and weird
+> shaped**, and the BACA catchment can't extend down over the
+> alternative Longhill site — this needs to be scrapped."
+
+**History the data does not contain**
+
+> "Up until last year, **Whitehawk was in the Longhill catchment**... so
+> for a long time Longhill did have a large number of students from
+> deprived areas in its catchment. **I'm not sure if this is properly
+> represented in the model?**"
+:::
+:::::
+
+::: key-finding
+None of these is gibberish. Each is plausible, well-formatted and
+confidently presented — and each needed someone who knew either the
+statistics or the city. The last one needed knowledge of the city's own
+history, which is in no dataset anywhere.
+:::
+
+<!-- ## The other failure modes, honestly {.smaller} -->
+
+<!-- | What went wrong | What it cost | -->
+
+<!-- |:-----------------------------------|:-----------------------------------| -->
+
+<!-- | A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating | -->
+
+<!-- | An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake | -->
+
+<!-- | A variable name collision inside the app | Silent wrong behaviour until tested | -->
+
+<!-- | Model outputs stale after re-calibration | Needed a discipline of re-running everything | -->
+
+<!-- | Confident summaries of work not yet verified | Needed me to ask "did you actually check?" | -->
+
+<!-- ::: {style="font-size:0.78em"} -->
+
+<!-- None of these are exotic. They are the ordinary failure modes of a fast, -->
+
+<!-- capable, over-confident collaborator — and they are managed the same way -->
+
+<!-- you manage those in a person: tests, checks, and someone reading the -->
+
+<!-- output. -->
+
+<!-- ::: -->
+
+## The workflow {.smaller}
+
+:::::: columns
+::: {.column width="52%"}
+Everything is **Quarto**. The analysis document, the technical guide,
+the slide decks — all `.qmd`, all executing live R against the same
+data.
+
+The loop, many times a day:
+
+1.  I say what I want, usually in two or three sentences
+2.  Claude edits the source and runs it
+3.  It renders, screenshots, checks the numbers
+4.  It commits and pushes
+5.  I read the rendered output and react
+:::
+
+:::: {.column width="48%"}
+::: key-finding
+The document **is** the analysis. There is no separate "writing up" —
+changing the model changes the paragraph that describes it, because the
+paragraph is generated from the model.
+:::
+
+Git is the memory. 805 commits, each with a message explaining why.
+::::
+::::::
+
+## Why my Quarto workflow matters more than it sounds {.smaller}
+
+When I asked "does the Hove Park change affect section 5.5?", that was
+answerable — because section 5.5 is code, and the code re-runs.
+
+When I asked for the commentary to be rebuilt with the new numbers, no one had to re-type any numbers.
+
+::: key-finding
+Reproducibility stops being a virtue you aspire to and becomes the only
+way the thing can work at this speed. If the outputs were hand-copied
+into Word, none of this would survive its own rate of change.
+:::
+
+## The recursion {.smaller}
+
+The interesting part is not that AI wrote code. It is the workflow **loop**:
+
+::: incremental
+1.  A model produces a result.
+2.  The result goes into a document, written to be read by
+    me/stakeholders
+3.  Ask AI to write a lay-commentary as it goes - Writing it clearly exposes holes or errors.
+4.  The holes/error becomes a new question for the model.
+5.  Answering it changes the model — and the document rewrites itself.
+6.  Iterate around again
+:::
+
+. . .
+
+That cycle ran perhaps two hundred times. Each turn took minutes, not
+weeks. **That compression is the whole story.**
+
+The process not dissimilar to supervising PhD students or Research Assistants - iteration occurs in minutes rather than weeks. 
+
+## Eighteen days {.smaller}
+
+```{r fig-sept}
+#| fig-width: 11
+#| fig-height: 4.0
+sept <- rec |> filter(day >= as.Date("2026-09-07"))
+ggplot(sept, aes(day, tool_calls)) +
+  geom_col(fill = BRIGHT, width = 0.65) +
+  geom_text(aes(label = tool_calls), vjust = -0.5, size = 4.2, colour = INK) +
+  scale_x_date(date_breaks = "3 days", date_labels = "%d %b") +
+  scale_y_continuous(limits = c(0, 1300)) +
+  labs(x = NULL, y = "Tool calls",
+       title = "From nothing to a working city model",
+       subtitle = "8 September: first commit. 26 September: model, site, simulator, three decks.") +
+  theme_talk(14)
+```
+
 ## Worked example: the simulator {.smaller}
 
 ![](slides_assets/simulator-starting.png){.nostretch fig-align="center"
-width="54%"}
+width="64%"}
 
 ::: {style="font-size:0.75em"}
 - Simulator has both pre-built scenarios I imagined plus scope to change
   each element.
-- Built in about two days, and the reason the "what if" questions became
-  cheap enough to ask twenty times instead of twice.
+- Built in about two days. "what if" questions became cheap to ask multiple times
 :::
 
 ## Back to the first question {.smaller}
@@ -1724,13 +1886,13 @@ st <- function(i, col) steps[[col]][i]
 - Longhill is not short of children for one reason, so no single lever
   fixes it.
 - What the simulator lets you do is pull them **one at a time, and watch them compound**.
--  **Today, 2026.** Longhill takes **`r st(1,"intake")` of 210 places
-(`r st(1,"pct")`%)**, 120 short. A disadvantaged child travels
-**`r sprintf("%+.1f", st(1,"dep"))` minutes further** than everyone
-else.
+- KPIs at the top of the simulator - **Today, 2026.** 
+   -   Longhill takes **`r st(1,"intake")` of 210 places (modelled)
+(`r st(1,"pct")`%)**, 120 short. 
+   -   A disadvantaged child travels **`r sprintf("%+.1f", st(1,"dep"))` minutes further** than everyone else.
 
 
-## One: Families select on value-added not attainment {.smaller .simstep}
+## 1st Lever: Families select on value-added, not attainment {.smaller .simstep}
 
 ![](slides_assets/kpi2-va.png){fig-align="center" width="56%"}
 
@@ -1740,9 +1902,7 @@ else.
 :::
 
 :::: {.column width="42%"}
-One dropdown. Families read the **four-year value added measure** — what
-a school adds once its intake is accounted for — as closely as they now
-read the headline score. Nothing about the schools changes.
+One dropdown. Families read the **four-year value added measure** — what a school adds once its intake is accounted for — as closely as they now read the headline score. Nothing about the schools changes.
 
 Longhill goes from **`r st(1,"intake")`** to **`r st(2,"intake")` of 210
 (`r st(2,"pct")`%)**.
@@ -1750,12 +1910,12 @@ Longhill goes from **`r st(1,"intake")`** to **`r st(2,"intake")` of 210
 ::: key-finding
 The travel gap falls from **`r sprintf("%+.1f", st(1,"dep"))`** to
 **`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean
-journey drops by 42 seconds.
+journey drops by 42 seconds. Segregation increases slightly.
 :::
 ::::
 ::::::
 
-## Two: move it, and give it back its catchment {.smaller .simstep}
+## 2nd Lever: Move Longhill, revert its catchment {.smaller .simstep}
 
 ![](slides_assets/kpi2-elmsame.png){fig-align="center" width="56%"}
 
@@ -1766,13 +1926,12 @@ journey drops by 42 seconds.
 
 :::: {.column width="42%"}
 Two more controls: Longhill relocates to **Elm Grove**, and **Whitehawk
-returns to its catchment** — the boundary the 2024 consultation moved
-out.
+returns to Longhill catchment** pre-2024 consultation
 
 Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and
 the travel gap **reverses**: disadvantaged children now travel
 **`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
-classmates.
+classmates. More Segregation but both positive attainment influencers. No displacement from Central Catchments. 
 
 ::: key-finding
 Redrawing the catchments as flow regions around the new site was also
@@ -1782,7 +1941,7 @@ the displacement.
 ::::
 ::::::
 
-## Three: and if it taught like Brighton Aldridge {.smaller .simstep}
+## 3rd Lever: and if added value like BACA {.smaller .simstep}
 
 ![](slides_assets/kpi2-dbl.png){fig-align="center" width="56%"}
 
@@ -1793,7 +1952,7 @@ the displacement.
 
 :::: {.column width="42%"}
 The last lever is not an admissions policy. It is **the school getting
-better** — value added doubled, to roughly where Brighton Aldridge
+better** — value added doubled, to roughly where BACA
 already is with a comparably disadvantaged intake.
 
 Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
@@ -1988,154 +2147,7 @@ every other one, and you have to **see each choice land**.
 
 <!-- :::::: -->
 
-## What catching it looks like, in my own words {.smaller}
-
-::: {style="font-size:0.84em"}
-Verbatim from the prompts. Four different kinds of wrong.
-:::
-
-::::: columns
-::: {.column width="50%"}
-**A statistic that cannot be true**
-
-> "I'm not sure the 'where that would rank' percentage in the attainment
-> tab table is correct for the value added drop down — **every school
-> appears to be in the 99th or 100th percentile.**"
-
-**The wrong input data entirely**
-
-> "The 'system as it stands' in the open report **is incorrect**. The
-> catchment areas in that map relate to the **pre-2024** consultation
-> catchment areas."
-:::
-
-::: {.column width="50%"}
-**Geometry that could not exist**
-
-> "The Stringer Varndean catchment **can't be that big and weird
-> shaped**, and the BACA catchment can't extend down over the
-> alternative Longhill site — this needs to be scrapped."
-
-**History the data does not contain**
-
-> "Up until last year, **Whitehawk was in the Longhill catchment**... so
-> for a long time Longhill did have a large number of students from
-> deprived areas in its catchment. **I'm not sure if this is properly
-> represented in the model?**"
-:::
-:::::
-
-::: key-finding
-None of these is gibberish. Each is plausible, well-formatted and
-confidently presented — and each needed someone who knew either the
-statistics or the city. The last one needed knowledge of the city's own
-history, which is in no dataset anywhere.
-:::
-
-<!-- ## The other failure modes, honestly {.smaller} -->
-
-<!-- | What went wrong | What it cost | -->
-
-<!-- |:-----------------------------------|:-----------------------------------| -->
-
-<!-- | A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating | -->
-
-<!-- | An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake | -->
-
-<!-- | A variable name collision inside the app | Silent wrong behaviour until tested | -->
-
-<!-- | Model outputs stale after re-calibration | Needed a discipline of re-running everything | -->
-
-<!-- | Confident summaries of work not yet verified | Needed me to ask "did you actually check?" | -->
-
-<!-- ::: {style="font-size:0.78em"} -->
-
-<!-- None of these are exotic. They are the ordinary failure modes of a fast, -->
-
-<!-- capable, over-confident collaborator — and they are managed the same way -->
-
-<!-- you manage those in a person: tests, checks, and someone reading the -->
-
-<!-- output. -->
-
-<!-- ::: -->
-
-## The workflow {.smaller}
-
-:::::: columns
-::: {.column width="52%"}
-Everything is **Quarto**. The analysis document, the technical guide,
-the slide decks — all `.qmd`, all executing live R against the same
-data.
-
-The loop, many times a day:
-
-1.  I say what I want, usually in two or three sentences
-2.  Claude edits the source and runs it
-3.  It renders, screenshots, checks the numbers
-4.  It commits and pushes
-5.  I read the rendered output and react
-:::
-
-:::: {.column width="48%"}
-::: key-finding
-The document **is** the analysis. There is no separate "writing up" —
-changing the model changes the paragraph that describes it, because the
-paragraph is generated from the model.
-:::
-
-Git is the memory. 805 commits, each with a message explaining why.
-::::
-::::::
-
-## Why Quarto matters more than it sounds {.smaller}
-
-When I asked "does the Hove Park change affect section 5.5?", that was
-answerable — because section 5.5 is code, and the code re-runs.
-
-When I asked for the deck to be rebuilt with the new numbers, no one had
-to re-type any numbers.
-
-::: key-finding
-Reproducibility stops being a virtue you aspire to and becomes the only
-way the thing can work at this speed. If the outputs were hand-copied
-into Word, none of this would survive its own rate of change.
-:::
-
-## The recursion {.smaller}
-
-The interesting part is not that it wrote code. It is the **loop**:
-
-::: incremental
-1.  A model produces a result.
-2.  The result goes into a document, written to be read by
-    me/stakeholders
-3.  Writing it clearly exposes an holes or errors.
-4.  The hole becomes a new question for the model.
-5.  Answering it changes the model — and the document rewrites itself.
-:::
-
-. . .
-
-That cycle ran perhaps two hundred times. Each turn took minutes, not
-weeks. **That compression is the whole story.**
-
-## Eighteen days {.smaller}
-
-```{r fig-sept}
-#| fig-width: 11
-#| fig-height: 4.0
-sept <- rec |> filter(day >= as.Date("2026-09-07"))
-ggplot(sept, aes(day, tool_calls)) +
-  geom_col(fill = BRIGHT, width = 0.65) +
-  geom_text(aes(label = tool_calls), vjust = -0.5, size = 4.2, colour = INK) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%d %b") +
-  scale_y_continuous(limits = c(0, 1300)) +
-  labs(x = NULL, y = "Tool calls",
-       title = "From nothing to a working city model",
-       subtitle = "8 September: first commit. 26 September: model, site, simulator, three decks.") +
-  theme_talk(14)
-```
+# Concluding Thoughts
 
 ## What I would say to a colleague {.smaller}
 
@@ -2175,6 +2187,15 @@ which question is worth asking.
   wrong. What happens when the person in the loop cannot?
 :::
 
+## What About Collective Intelligence?
+
+-  AI and expert input has accelerated the development of a working simulation of the city's schools that anyone (politicians, policy makers, senior leadership in schools, council officers, parents) can experiment with
+-  Still a gap between knowledge of how a system operates -> understanding impacts of different policy levers -> arriving at a sustainable and equitable solution for the city
+-  Collective Intelligence potential, but barriers still to clear:
+   -   Awareness
+   -   Buy in from key players
+   -   Using the tool to surface enough different ideas to allow the good ones to emerge
+
 ## Links
 
 ::: {style="font-size:0.9em"}
@@ -2189,3 +2210,5 @@ which question is worth asking.
 ::: key-finding
 Happy to be argued with — particularly about the open questions.
 :::
+
+# Any Questions?
