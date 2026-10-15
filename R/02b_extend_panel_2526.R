@@ -82,13 +82,20 @@ add_two_term_absence <- function(panel) {
 }
 
 
-#' Recompute the Gorard segregation index over whatever years are present
+#' Compute the Gorard segregation index for the NEW year only
 #'
-#' Mirrors compute_gorard_index() in 04_compute_derived.R.
-recompute_gorard <- function(panel) {
+#' Mirrors compute_gorard_index() in 04_compute_derived.R. The index is a
+#' within-LA, within-year quantity, so the new year needs its own value and
+#' the published years need to keep theirs untouched. Recomputing all five
+#' years from the extended panel moves 815 of the published rows - the
+#' original index was computed at a different point in the pipeline, over a
+#' slightly different set of schools - and every one of those rows feeds a
+#' published model prediction. So this fills 2025/26 and nothing else.
+add_gorard_new_year <- function(panel, new_year = "2025-2026") {
 
   gor <- panel |>
-    dplyr::filter(!is.na(.data$TFSM6CLA1A), !is.na(.data$TPUP), .data$TPUP > 0) |>
+    dplyr::filter(.data$academic_year == new_year,
+                  !is.na(.data$TFSM6CLA1A), !is.na(.data$TPUP), .data$TPUP > 0) |>
     dplyr::group_by(.data$LANAME, .data$academic_year) |>
     dplyr::mutate(F_total = sum(.data$TFSM6CLA1A, na.rm = TRUE),
                   T_total = sum(.data$TPUP, na.rm = TRUE)) |>
@@ -98,31 +105,43 @@ recompute_gorard <- function(panel) {
                                  .data$TPUP / .data$T_total), na.rm = TRUE),
       .groups = "drop")
 
-  panel |>
+  out <- panel |>
     dplyr::left_join(gor, by = c("LANAME", "academic_year")) |>
-    dplyr::mutate(gorard_segregation = dplyr::coalesce(.data$gorard_new,
-                                                       .data$gorard_segregation)) |>
+    dplyr::mutate(gorard_segregation = dplyr::if_else(
+      .data$academic_year == new_year & !is.na(.data$gorard_new),
+      .data$gorard_new, .data$gorard_segregation)) |>
     dplyr::select(-"gorard_new")
+
+  message("  Gorard index for ", new_year, ": ",
+          dplyr::n_distinct(gor$LANAME), " local authorities")
+  out
 }
 
 
-#' Re-derive the harmonised Ofsted factor (as 02_build_panel.R does)
-derive_ofsted_1 <- function(panel) {
+#' Derive the harmonised Ofsted factor for rows that do not have one
+#'
+#' Published rows keep the factor 02_build_panel.R gave them; only the new
+#' year is derived here, for the same reason as the Gorard index.
+derive_ofsted_1 <- function(panel, new_year = "2025-2026") {
   ofsted_map <- c("Outstanding" = "1", "Good" = "2",
                   "Requires Improvement" = "3", "Requires improvement" = "3",
                   "Inadequate" = "4", "Serious Weaknesses" = "4",
                   "Special Measures" = "4")
+  lv <- c("Outstanding", "Good", "Requires Improvement", "Inadequate")
   panel |>
     dplyr::mutate(
       OFSTEDRATING = as.character(.data$OFSTEDRATING),
-      OFSTEDRATING_1 = dplyr::case_when(
+      .new = dplyr::case_when(
         .data$OFSTEDRATING %in% names(ofsted_map) ~ ofsted_map[.data$OFSTEDRATING],
         .data$OFSTEDRATING %in% c("1", "2", "3", "4") ~ .data$OFSTEDRATING,
         TRUE ~ NA_character_),
-      OFSTEDRATING_1 = factor(.data$OFSTEDRATING_1, levels = c("1", "2", "3", "4"),
-                              labels = c("Outstanding", "Good",
-                                         "Requires Improvement", "Inadequate"),
-                              ordered = TRUE))
+      .new = as.character(factor(.data$.new, levels = c("1", "2", "3", "4"),
+                                 labels = lv)),
+      OFSTEDRATING_1 = factor(
+        dplyr::if_else(.data$academic_year == new_year,
+                       .data$.new, as.character(.data$OFSTEDRATING_1)),
+        levels = lv, ordered = TRUE)) |>
+    dplyr::select(-".new")
 }
 
 
@@ -148,8 +167,8 @@ extend_panel_2526 <- function(panel = NULL, save = TRUE) {
   message("\nAttaching the autumn+spring absence series ...")
   p5 <- add_two_term_absence(p5)
 
-  message("Recomputing Gorard segregation and the Ofsted factor ...")
-  p5 <- recompute_gorard(p5)
+  message("Deriving Gorard segregation and the Ofsted factor for the new year ...")
+  p5 <- add_gorard_new_year(p5)
   p5 <- derive_ofsted_1(p5)
 
   cov <- p5 |>
