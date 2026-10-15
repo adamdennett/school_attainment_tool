@@ -480,37 +480,240 @@ year in it, and seeing whether the gap that lever depends on is still there.
 
 # The value-added measure, re-run
 
-Attainment 8 describes an intake. The measure the Brighton work actually
-leans on is **value added** — what a school adds once its intake is accounted
-for. In *How to Pull the Right Lever* it is the residual of the fitted model:
+Attainment 8 describes an intake. The measure the Brighton work leans on is
+**value added** — what a school adds once its intake is accounted for. In
+*How to Pull the Right Lever* it is the residual of the fitted model:
 observed Attainment 8 minus what the model expects, school by school and year
-by year. It is what the league tables in that report rank schools on, and
-what the simulator's value-added scenario is built from.
+by year, for **three pupil groups separately** — all pupils, disadvantaged,
+and non-disadvantaged. All three are carried into the new year here, because
+a comparison between them is most of the point.
 
 The model behind it is the **imputed full specification** — nine predictors
 including prior attainment and three workforce terms — not the reduced core
 one. So the right way to add a fifth year is to **predict from the published
-model**, not to refit anything. Refitting, even on the same specification,
-moves all four published years; predicting leaves them untouched and puts
-2025/26 on the same yardstick.
+models**, not to refit. Refitting moves all four published years; predicting
+leaves them untouched and puts 2025/26 on the same yardstick.
 
-Two details of the published prediction have to be reproduced exactly, and
-both are easy to miss. The model is fitted on `log(ATT8SCR)`, so the
-back-transformation carries a lognormal bias correction,
-$\exp(\hat{y}) \cdot \exp(\sigma^2/2)$; omitting it inflates every residual by
-about 0.2 points. And `OFSTEDRATING_1` is an ordered factor that the model
-was fitted with *treatment* contrasts on, so prediction has to set them back.
+::: callout-note
+## Two conventions in the codebase, differing by about 0.2 points
+
+The project computes this residual in two places and they do not agree.
+
+| Where | Back-transformation |
+|:--|:--|
+| `tbl-league-all` / `tbl-league-dis` in the published report | $Y - \exp(\hat{y})$ |
+| `safe_predict()` → `residual_ATT8SCR_imputed` → the simulator's `va` | $Y - \exp(\hat{y})\cdot\exp(\sigma^2/2)$ |
+
+The second applies the lognormal retransformation correction; the first does
+not. Statistically the corrected one is right — $E[Y] = \exp(\mu + \sigma^2/2)$,
+not $\exp(\mu)$ — but the league tables are what is published and quoted. The
+gap is close to constant, about **0.2 Attainment 8 points** on the all-pupil
+model, so rankings are unaffected and only the printed numbers differ.
+
+`R/05b_value_added_2526.R` takes `convention = "league"` or `"simulator"` and
+makes the choice explicit. The tables below use **league**, to line up with
+the published report. The simulator sections further down use **simulator**,
+to line up with what the app ships.
+:::
 
 ```{r va-fit}
 #| cache: true
+#| output: false
 source(here::here("R", "05b_value_added_2526.R"))
-va5 <- value_added_5yr(p5, verify = FALSE)
+va    <- value_added_5yr(p5, convention = "league",   verify = FALSE)
+vasim <- value_added_5yr(p5, convention = "simulator", verify = FALSE)
+```
 
-# The published four years must come back bit-for-bit, or the fifth year is
-# not comparable with them.
-vchk <- va5 |> filter(!is.na(residual_ATT8SCR_imputed), !is.na(va_ATT8SCR))
-va_repro <- max(abs(vchk$va_ATT8SCR - vchk$residual_ATT8SCR_imputed))
+```{r va-verify}
+#| tbl-cap: "The four published years, recomputed against what the report prints"
+# Scrape the published tables straight out of the rendered report, so this is
+# a check against the artefact rather than against an assumption about it.
+lever_html <- here::here("docs", "pulling_the_right_lever_v2.html")
+pub_tbl <- function(anchor) {
+  h <- paste(readLines(lever_html, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  i <- regexpr(paste0('id="', anchor, '"'), h, fixed = TRUE)[1]
+  if (i < 0) return(NULL)
+  s <- substr(h, i, i + 30000L)
+  s <- substr(s, 1, regexpr("</table>", s, fixed = TRUE)[1])
+  body <- substr(s, regexpr("<tbody>", s, fixed = TRUE)[1], nchar(s))
+  purrr::map_dfr(regmatches(body, gregexpr("<tr[^>]*>.*?</tr>", body))[[1]], function(r) {
+    td <- gsub("<[^>]+>", "", regmatches(r, gregexpr("<td[^>]*>.*?</td>", r))[[1]])
+    td <- trimws(gsub("&nbsp;|&minus;|&#8722;", " ", td))
+    if (length(td) < 7) return(NULL)
+    tibble(School = gsub("&#39;", "'", td[2]),
+           Year = c("2021-22", "2022-23", "2023-24", "2024-25"),
+           published = suppressWarnings(as.numeric(td[3:6])))
+  })
+}
 
+cmp_pub <- function(anchor, group) {
+  p <- pub_tbl(anchor)
+  if (is.null(p)) return(NULL)
+  col <- paste0("va_", VA_GROUPS[[group]])
+  m <- va |> filter(LANAME == "Brighton and Hove", !is.na(.data[[col]])) |>
+    transmute(School = SCHNAME, Year = year_label, mine = round(.data[[col]], 1))
+  d <- inner_join(p, m, by = c("School", "Year"))
+  tibble(Table = anchor, Group = group, `School-years compared` = nrow(d),
+         `Largest difference` = sprintf("%.2f", max(abs(d$published - d$mine))))
+}
+
+bind_rows(cmp_pub("tbl-league-all", "all"),
+          cmp_pub("tbl-league-dis", "disadvantaged"))
+```
+
+Both published tables come back **exactly**. The fifth year is on the same
+yardstick as the four already in print.
+
+## The league tables, extended
+
+```{r league-all}
+#| tbl-cap: "All pupils: value added by year, 2021/22 to 2025/26"
+show_league <- function(group) {
+  va_league_table(va, group) |>
+    transmute(School = shorten(gsub("&#39;", "'", SCHNAME)),
+              `2021-22`, `2022-23`, `2023-24`, `2024-25`, `2025-26`,
+              Mean = round(Mean, 1)) |>
+    mutate(across(where(is.numeric), ~ round(.x, 1)))
+}
+show_league("all")
+```
+
+```{r league-dis}
+#| tbl-cap: "Disadvantaged pupils: value added by year"
+show_league("disadvantaged")
+```
+
+```{r league-non}
+#| tbl-cap: "Non-disadvantaged pupils: value added by year"
+show_league("non_disadvantaged")
+```
+
+## BACA, by pupil group
+
+The disadvantaged table is where the year lands hardest, and it is worth
+setting the raw scores beside the value added rather than reading either
+alone.
+
+```{r baca-groups}
+#| tbl-cap: "BACA: Attainment 8 and value added, by pupil group"
+baca <- va |> filter(grepl("^Brighton Aldridge", SCHNAME)) |>
+  transmute(Year = year_label,
+            `A8 all` = ATT8SCR, `VA all` = round(va_ATT8SCR, 1),
+            `A8 disadvantaged` = ATT8SCR_FSM6CLA1A,
+            `VA disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
+            `A8 other` = ATT8SCR_NFSM6CLA1A,
+            `VA other` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
+  arrange(Year)
+baca
+```
+
+```{r baca-plot}
+#| fig-cap: "BACA: value added by pupil group, against the rest of the city"
+#| fig-height: 3.8
+bh_groups <- va |>
+  filter(LANAME == "Brighton and Hove") |>
+  select(SCHNAME, year_label,
+         Disadvantaged = va_ATT8SCR_FSM6CLA1A,
+         `Not disadvantaged` = va_ATT8SCR_NFSM6CLA1A) |>
+  tidyr::pivot_longer(c(Disadvantaged, `Not disadvantaged`),
+                      names_to = "Group", values_to = "va") |>
+  filter(!is.na(va)) |>
+  mutate(is_baca = grepl("^Brighton Aldridge", SCHNAME),
+         yr = as.integer(substr(year_label, 1, 4)) + 1L)
+
+ggplot(bh_groups, aes(yr, va, group = SCHNAME)) +
+  geom_hline(yintercept = 0, colour = "grey55", linetype = "31") +
+  geom_line(data = filter(bh_groups, !is_baca), colour = "grey80", linewidth = 0.7) +
+  geom_line(data = filter(bh_groups, is_baca), colour = WARM, linewidth = 1.2) +
+  geom_point(data = filter(bh_groups, is_baca), colour = WARM, size = 2) +
+  facet_wrap(~ Group) +
+  scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = "Attainment 8 points above or below expectation",
+       title = "BACA's 2025/26 is a disadvantaged-pupil story, not a whole-school one",
+       subtitle = "Each grey line is another Brighton and Hove school") +
+  theme_note(12)
+```
+
+```{r baca-nums}
+b <- function(y, col) baca[[col]][baca$Year == y]
+```
+
+Read across the groups, the year separates cleanly.
+
+**BACA's non-disadvantaged pupils had a good year.** Attainment 8
+`r sprintf("%.1f", b("2024-25", "A8 other"))` to
+`r sprintf("%.1f", b("2025-26", "A8 other"))`, value added
+`r fmt(b("2024-25", "VA other"), 1)` to `r fmt(b("2025-26", "VA other"), 1)` —
+back above expectation.
+
+**Its disadvantaged pupils did not.** Attainment 8
+`r sprintf("%.1f", b("2024-25", "A8 disadvantaged"))` to
+`r sprintf("%.1f", b("2025-26", "A8 disadvantaged"))`, and value added
+**`r fmt(b("2024-25", "VA disadvantaged"), 1)` to
+`r fmt(b("2025-26", "VA disadvantaged"), 1)`** — a swing of
+`r sprintf("%.1f", b("2024-25", "VA disadvantaged") - b("2025-26", "VA disadvantaged"))`
+points in one year.
+
+And the four years before it ran the other way. On the published
+disadvantaged table BACA was **the best school in the city**, mean +3.1, and
+improving: +4.6 then +5.7 in the two most recent years. Whatever happened in
+2025/26 reversed a school that was, on this measure, doing the thing the
+whole *Pulling the Right Lever* argument says matters most.
+
+::: callout-warning
+## This is one provisional year, and it is a small group
+
+BACA's disadvantaged cohort is
+`r sprintf("%.0f", b26[["Disadvantaged %"]])`% of
+`r b26$Cohort` pupils. The composition check earlier rules out an intake
+effect and the national peer comparison rules out ordinary noise, but a
+single cohort can still be unusual for reasons no published table carries —
+and February's revisions have not landed. Treat it as a flag to investigate,
+not a finding.
+:::
+
+## Longhill, for contrast
+
+```{r longhill-groups}
+#| tbl-cap: "Longhill: Attainment 8 and value added, by pupil group"
+lhg <- va |> filter(grepl("^Longhill", SCHNAME)) |>
+  transmute(Year = year_label,
+            `A8 all` = ATT8SCR, `VA all` = round(va_ATT8SCR, 1),
+            `A8 disadvantaged` = ATT8SCR_FSM6CLA1A,
+            `VA disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
+            `A8 other` = ATT8SCR_NFSM6CLA1A,
+            `VA other` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
+  arrange(Year)
+lhg
+```
+
+```{r lh-nums}
+l <- function(y, col) lhg[[col]][lhg$Year == y]
+```
+
+Splitting Longhill the same way corrects something the all-pupil figure hides.
+Its overall value added barely moved — `r fmt(l("2024-25", "VA all"), 1)` to
+`r fmt(l("2025-26", "VA all"), 1)` — but that average is covering two
+different stories. **Its disadvantaged pupils had their best year of the five**,
+value added `r fmt(l("2024-25", "VA disadvantaged"), 1)` to
+**`r fmt(l("2025-26", "VA disadvantaged"), 1)`**, the only positive figure
+Longhill records on that measure since 2023/24. Its non-disadvantaged pupils
+went the other way, `r fmt(l("2024-25", "VA other"), 1)` to
+`r fmt(l("2025-26", "VA other"), 1)`.
+
+So on the measure the Brighton argument cares about most — what a school adds
+for disadvantaged children — **Longhill improved and BACA fell**. That is a
+sharper statement than the headline scores support on their own, and close to
+the reverse of what the raw Attainment 8 comparison first suggested.
+
+## What it does to the third policy lever
+
+The simulator's third lever asks what happens if Longhill's value added
+doubled, "to roughly where BACA already is with a comparably disadvantaged
+intake". That framing depends on a gap between the two schools. These figures
+use the **simulator** convention, to match what the app ships.
+
+```{r lever3}
 BHS <- file.path(dirname(here::here()), "bh_school_system", "data")
 pub <- readRDS(file.path(BHS, "open_scenarios.rds"))$choice |>
   select(urn, school, pan, att8_pub = att8, va_pub = va) |>
@@ -520,92 +723,27 @@ mean_va <- function(d) d |> group_by(URN) |>
   summarise(va = mean(va_ATT8SCR, na.rm = TRUE), .groups = "drop")
 
 vacmp <- pub |>
-  left_join(mean_va(filter(va5, academic_year != "2025-2026")) |>
+  left_join(mean_va(filter(vasim, academic_year != "2025-2026")) |>
               rename(va4 = va), by = "URN") |>
-  left_join(mean_va(va5) |> rename(va5m = va), by = "URN")
+  left_join(mean_va(vasim) |> rename(va5m = va), by = "URN")
 va_check <- max(abs(vacmp$va4 - vacmp$va_pub), na.rm = TRUE)
-```
 
-Reproduced this way, the four published years come back to within
-`r sprintf("%.1e", va_repro)` of the residuals in `panel_data.rds` — exact, to
-floating-point noise — and the four-year school means match the figures the
-simulator ships to within `r sprintf("%.2f", va_check)`.
-
-```{r va-table}
-#| tbl-cap: "Value added per school: the published four-year mean, and the same measure extended to five"
-vacmp |>
-  transmute(School = shorten(school),
-            `Four years (as published)` = round(va4, 2),
-            `Five years` = round(va5m, 2),
-            Shift = round(va5m - va4, 2)) |>
-  arrange(desc(`Five years`))
-```
-
-## What it does to the third policy lever
-
-The simulator's third lever asks what happens if Longhill's value added
-doubled, "to roughly where BACA already is with a comparably disadvantaged
-intake". That framing depends on a gap between the two schools.
-
-```{r lever3}
 lh <- vacmp |> filter(grepl("Longhill", school))
 bc <- vacmp |> filter(grepl("Aldridge", school), !grepl("Portslade", school))
 gap4 <- bc$va4 - lh$va4; gap5 <- bc$va5m - lh$va5m
 ```
 
+The four-year school means reproduce what the simulator ships to within
+`r sprintf("%.2f", va_check)`.
+
 | | Longhill | BACA | Gap |
 |:--|--:|--:|--:|
-| Four years (as published) | `r fmt(lh$va4)` | `r fmt(bc$va4)` | `r fmt(gap4)` |
+| Four years (as shipped) | `r fmt(lh$va4)` | `r fmt(bc$va4)` | `r fmt(gap4)` |
 | **Five years** | **`r fmt(lh$va5m)`** | **`r fmt(bc$va5m)`** | **`r fmt(gap5)`** |
 
-The gap is **`r sprintf("%.0f%%", 100 * (1 - gap5 / gap4))` smaller** with the
-new year in, and BACA's value added falls from
-`r fmt(bc$va4)` to **`r fmt(bc$va5m)`** — from clearly beating what its intake
-predicts to sitting almost exactly on it.
-
-```{r va-years}
-#| tbl-cap: "Year by year: what each school scored, what the model expected from its intake, and the difference"
-va5 |>
-  filter(URN %in% c(lh$URN, bc$URN), !is.na(va_ATT8SCR)) |>
-  transmute(School = ifelse(URN == lh$URN, "Longhill", "BACA"),
-            Year = academic_year,
-            `Attainment 8` = ATT8SCR,
-            `Expected from intake` = round(predicted_ATT8SCR_va, 1),
-            `Value added` = round(va_ATT8SCR, 2)) |>
-  arrange(School, Year)
-```
-
-```{r va-detail}
-vy <- function(u, y, col) {
-  r <- va5 |> filter(URN == u, academic_year == y)
-  r[[col]][1]
-}
-```
-
-This table is the important one, and it says two things the headline scores
-do not.
-
-**BACA's fall is entirely 2025/26.** For four years its value added was
-positive and gently declining — `r fmt(vy(bc$URN, "2021-2022", "va_ATT8SCR"))`,
-`r fmt(vy(bc$URN, "2022-2023", "va_ATT8SCR"))`,
-`r fmt(vy(bc$URN, "2023-2024", "va_ATT8SCR"))`,
-`r fmt(vy(bc$URN, "2024-2025", "va_ATT8SCR"))` — a school beating what its
-intake predicted, every year. Then
-**`r fmt(vy(bc$URN, "2025-2026", "va_ATT8SCR"))`** in a single year.
-
-**Longhill's rise is mostly its intake, not its teaching.** Its Attainment 8
-went from `r sprintf("%.1f", vy(lh$URN, "2024-2025", "ATT8SCR"))` to
-`r sprintf("%.1f", vy(lh$URN, "2025-2026", "ATT8SCR"))`. But the model
-*expected* it to go from
-`r sprintf("%.1f", vy(lh$URN, "2024-2025", "predicted_ATT8SCR_va"))` to
-`r sprintf("%.1f", vy(lh$URN, "2025-2026", "predicted_ATT8SCR_va"))`, because
-its disadvantaged share fell from 40.1% to 33.5%. Measured against that,
-Longhill's value added barely moved:
-`r fmt(vy(lh$URN, "2024-2025", "va_ATT8SCR"))` to
-`r fmt(vy(lh$URN, "2025-2026", "va_ATT8SCR"))`.
-
-So the two schools did not really move in opposite directions. **Longhill
-stood still and got an easier intake; BACA fell.**
+The gap is **`r sprintf("%.0f%%", 100 * (1 - gap5 / gap4))` smaller**, and
+BACA's all-pupil value added falls from `r fmt(bc$va4)` to `r fmt(bc$va5m)` —
+from clearly beating what its intake predicts to sitting almost exactly on it.
 
 ## And to the simulator's attractiveness term
 
@@ -646,25 +784,23 @@ Reproducing the published arithmetic exactly — the `As published` column
 matches the shipped multipliers to four decimal places — BACA's multiplier
 falls from **`r sprintf("%.2f", w_cd$mult_pub[bacar])`× to
 `r sprintf("%.2f", w_cd$mult_5yr[bacar])`×**. It was by a distance the biggest
-beneficiary of a switch to value added; it is now one of several. Varndean,
-Dorothy Stringer and Blatchington Mill all gain.
+beneficiary of a switch to value added; it is now one of several.
 
 ::: callout-important
 ## What this means for the simulator, and what it does not
 
 **The scenario still works.** "What if families read value added" remains a
 real lever, and it still redistributes demand. But the *shape* of that
-redistribution has changed, and the simulator's shipped multipliers are now
-one year out of date.
+redistribution has changed, and the shipped multipliers are a year out of date.
 
 **The third lever needs rewording, not retiring.** "Double Longhill's value
-added" is still a coherent thing to model. "To roughly where BACA already is"
-is a much weaker claim on five years than on four.
+added" is still coherent. "To roughly where BACA already is" is a much weaker
+claim on five years than on four — and if the lever is meant to be about
+disadvantaged pupils specifically, the comparison it should make is now the
+other way round.
 
-**One provisional year is doing all the work.** BACA's value added was
-positive in every one of the four published years. Before rebuilding the
-simulator's attractiveness on this, wait for February's revisions — a single
-year this far out of line is exactly the case where a revision matters most.
+**One provisional year is doing all the work.** Before rebuilding
+attractiveness on this, wait for February.
 :::
 
 # Five years of Brighton and Hove, against England
@@ -678,14 +814,14 @@ both measures, with England drawn behind them.
 #| fig-height: 6.2
 bh_urns <- pub$URN
 
-eng_band <- va5 |>
+eng_band <- va |>
   group_by(academic_year) |>
   summarise(med = median(ATT8SCR, na.rm = TRUE),
             lo  = quantile(ATT8SCR, 0.25, na.rm = TRUE),
             hi  = quantile(ATT8SCR, 0.75, na.rm = TRUE),
             .groups = "drop")
 
-bh_series <- va5 |>
+bh_series <- va |>
   filter(URN %in% bh_urns) |>
   left_join(pub |> select(URN, school), by = "URN") |>
   mutate(short = shorten(school),
@@ -711,7 +847,7 @@ ggplot() +
 ```{r bh-va-series}
 #| fig-cap: "Value added, Brighton and Hove schools. Zero is performing exactly as the intake predicts."
 #| fig-height: 6.2
-eng_va <- va5 |>
+eng_va <- va |>
   group_by(academic_year) |>
   summarise(lo = quantile(va_ATT8SCR, 0.25, na.rm = TRUE),
             hi = quantile(va_ATT8SCR, 0.75, na.rm = TRUE), .groups = "drop") |>
@@ -747,7 +883,7 @@ what its intake predicts.
 wmean <- function(x, w) sum(x * w, na.rm = TRUE) / sum(w[!is.na(x)], na.rm = TRUE)
 
 agg <- bind_rows(
-  va5 |> mutate(grp = ifelse(URN %in% bh_urns, "Brighton and Hove", "Rest of England")),
+  va |> mutate(grp = ifelse(URN %in% bh_urns, "Brighton and Hove", "Rest of England")),
 ) |>
   group_by(grp, academic_year) |>
   summarise(att8 = wmean(ATT8SCR, TPUP), va = wmean(va_ATT8SCR, TPUP),

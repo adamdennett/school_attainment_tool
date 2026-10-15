@@ -46,6 +46,37 @@ VA_CARRY_VARS <- c("ks2_c", "remained_in_the_same_school",
                    "teachers_on_leadership_pay_range_percent",
                    "average_number_of_days_taken")
 
+# The three pupil groups, and the outcome each model is fitted on. These are
+# the same three tbl-league-all / tbl-league-dis in the published report rank
+# schools on, so all three have to be carried into the new year together or
+# the sets are not comparable.
+VA_GROUPS <- c(all               = "ATT8SCR",
+               disadvantaged     = "ATT8SCR_FSM6CLA1A",
+               non_disadvantaged = "ATT8SCR_NFSM6CLA1A")
+
+# ---------------------------------------------------------------------------
+# TWO CONVENTIONS, AND WHY BOTH ARE HERE
+#
+# The project computes this residual in two places, and they do not agree:
+#
+#   "league"    pulling_the_right_lever_v2.qmd, tbl-league-all / -dis:
+#                 Residual = Observed - exp(predicted)
+#   "simulator" safe_predict() in 05_fit_model.R, which writes
+#               residual_ATT8SCR_imputed into panel_data.rds and from there
+#               into open_scenarios.rds$choice$va:
+#                 Residual = Observed - exp(predicted) * exp(0.5 * sigma^2)
+#
+# The second applies the lognormal retransformation correction; the first
+# does not. The gap is close to constant - about 0.2 Attainment 8 points on
+# the all-pupil model - so rankings are unaffected, but the printed numbers
+# differ wherever the two are put side by side.
+#
+# Statistically the corrected one is right: E[Y] = exp(mu + sigma^2/2), not
+# exp(mu). But the league tables are what is published and what gets quoted,
+# so "league" is the default here and the choice is explicit either way.
+# ---------------------------------------------------------------------------
+VA_CONVENTIONS <- c("league", "simulator")
+
 
 #' Put autumn+spring absence onto the full-year scale
 #'
@@ -107,8 +138,13 @@ carry_forward_predictors <- function(panel, new_year = "2025-2026",
 #' positive values where the formula takes a log, treatment contrasts on
 #' OFSTEDRATING_1, and the lognormal bias correction on the way back.
 #'
+#' @param convention "league" (no bias correction, as the published tables)
+#'   or "simulator" (with it, as residual_ATT8SCR_imputed)
 #' @return A full-length vector of predictions on the Attainment 8 scale
-predict_like_published <- function(model, data, required_vars) {
+predict_like_published <- function(model, data, required_vars,
+                                   convention = "league") {
+
+  convention <- match.arg(convention, VA_CONVENTIONS)
 
   keep <- stats::complete.cases(data[, required_vars, drop = FALSE])
   for (v in required_vars) {
@@ -124,20 +160,30 @@ predict_like_published <- function(model, data, required_vars) {
 
   log_pred <- stats::predict(model, newdata = sub, re.form = NULL,
                              allow.new.levels = TRUE)
+  bias <- if (convention == "simulator") exp(0.5 * sigma(model)^2) else 1
 
   out <- rep(NA_real_, nrow(data))
-  out[keep] <- exp(log_pred) * exp(0.5 * sigma(model)^2)
+  out[keep] <- exp(log_pred) * bias
   out
 }
 
 
 #' Value added for all five years, on the published model
+#' Value added for all five years, all three pupil groups
+#'
+#' Adds, for each group g in VA_GROUPS, a predicted_<outcome>_va column and a
+#' va_<outcome> column. All three are produced together so the all-pupil,
+#' disadvantaged and non-disadvantaged sets are always comparable.
 #'
 #' @param panel The five-year panel (default: data/panel_data_5yr.rds)
-#' @param verify Check that the four published years reproduce exactly
-#' @return The panel with va_ATT8SCR and predicted_ATT8SCR_va columns
-value_added_5yr <- function(panel = NULL, verify = TRUE) {
+#' @param convention "league" to match the published league tables, or
+#'   "simulator" to match residual_ATT8SCR_imputed. See VA_CONVENTIONS.
+#' @param verify Check the four published years against what is on record
+#' @return The panel with the value-added columns added
+value_added_5yr <- function(panel = NULL, convention = "league",
+                            verify = TRUE) {
 
+  convention <- match.arg(convention, VA_CONVENTIONS)
   if (is.null(panel)) panel <- readRDS(here::here("data", "panel_data_5yr.rds"))
   mods <- readRDS(here::here("data", VA_MODEL_FILE))
 
@@ -153,39 +199,74 @@ value_added_5yr <- function(panel = NULL, verify = TRUE) {
   message("Carrying forward the predictors 2025/26 does not publish ...")
   panel <- carry_forward_predictors(panel)
 
-  req <- c("ATT8SCR", "PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "ks2_c",
+  # safe_predict() requires complete cases on EVERY model variable, including
+  # all three outcomes, so a school missing one group's score is dropped from
+  # all three. Keeping that rule is what makes the sets comparable.
+  req <- c(unname(VA_GROUPS), "PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "ks2_c",
            "ADMPOL_PT", "gorard_segregation", "remained_in_the_same_school",
            "teachers_on_leadership_pay_range_percent",
            "average_number_of_days_taken", "OFSTEDRATING_1", "gor_name",
            "LANAME", "year_label")
 
-  message("Predicting from the published model ...")
-  panel$predicted_ATT8SCR_va <- predict_like_published(mods$all, panel, req)
-  panel$va_ATT8SCR <- panel$ATT8SCR - panel$predicted_ATT8SCR_va
+  message("Predicting from the published models (", convention, " convention) ...")
+  for (g in names(VA_GROUPS)) {
+    out <- VA_GROUPS[[g]]
+    p <- predict_like_published(mods[[g]], panel, req, convention = convention)
+    panel[[paste0("predicted_", out, "_va")]] <- p
+    panel[[paste0("va_", out)]] <- panel[[out]] - p
+    message(sprintf("  %-18s %s schools with a figure", g,
+                    format(sum(!is.na(panel[[paste0("va_", out)]])), big.mark = ",")))
+  }
 
   message("")
   print(as.data.frame(panel |>
     dplyr::group_by(.data$academic_year) |>
-    dplyr::summarise(schools = dplyr::n(),
-                     value_added = sum(!is.na(.data$va_ATT8SCR)),
-                     .groups = "drop")))
+    dplyr::summarise(
+      schools    = dplyr::n(),
+      all        = sum(!is.na(.data$va_ATT8SCR)),
+      disadv     = sum(!is.na(.data$va_ATT8SCR_FSM6CLA1A)),
+      non_disadv = sum(!is.na(.data$va_ATT8SCR_NFSM6CLA1A)),
+      .groups = "drop")))
 
-  if (verify && "residual_ATT8SCR_imputed" %in% names(panel)) {
-    v <- panel |>
-      dplyr::filter(!is.na(.data$residual_ATT8SCR_imputed), !is.na(.data$va_ATT8SCR))
+  if (verify && convention == "simulator" &&
+      "residual_ATT8SCR_imputed" %in% names(panel)) {
+    v <- panel |> dplyr::filter(!is.na(.data$residual_ATT8SCR_imputed),
+                                !is.na(.data$va_ATT8SCR))
     worst <- max(abs(v$va_ATT8SCR - v$residual_ATT8SCR_imputed))
-    message(sprintf("\nAgainst the published residuals: %s rows, max difference %.3g",
+    message(sprintf("\nAgainst residual_ATT8SCR_imputed: %s rows, max difference %.3g",
                     format(nrow(v), big.mark = ","), worst))
     if (worst > 1e-6) {
-      warning("The published years do not reproduce exactly (max ", signif(worst, 3),
-              "). The fifth year is NOT on the same yardstick - fix before using.")
+      warning("The published years do not reproduce (max ", signif(worst, 3), ").")
     } else {
-      message("  Exact. The published years are unchanged and 2025/26 is ",
-              "measured on the same yardstick.")
+      message("  Exact.")
     }
   }
 
   invisible(panel)
+}
+
+
+#' A value-added league table, in the shape the published report prints
+#'
+#' @param va Output of value_added_5yr()
+#' @param group One of names(VA_GROUPS)
+#' @param la Local authority to restrict to
+#' @return One row per school, one column per year, plus the mean
+va_league_table <- function(va, group = "all", la = "Brighton and Hove") {
+
+  group <- match.arg(group, names(VA_GROUPS))
+  col   <- paste0("va_", VA_GROUPS[[group]])
+
+  va |>
+    dplyr::filter(.data$LANAME == la, !is.na(.data[[col]])) |>
+    dplyr::select("SCHNAME", "year_label", dplyr::all_of(col)) |>
+    dplyr::rename(value = dplyr::all_of(col)) |>
+    dplyr::group_by(.data$SCHNAME) |>
+    dplyr::mutate(Mean = mean(.data$value, na.rm = TRUE)) |>
+    dplyr::ungroup() |>
+    tidyr::pivot_wider(names_from = "year_label", values_from = "value") |>
+    dplyr::arrange(dplyr::desc(.data$Mean)) |>
+    dplyr::relocate("Mean", .after = dplyr::last_col())
 }
 
 
