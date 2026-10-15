@@ -1135,7 +1135,7 @@ describe who a school admits.
 
 ```{r fsm-oos}
 #| fig-width: 11.5
-#| fig-height: 4.0
+#| fig-height: 3.9
 o_fsm <- outcomes(inp, run_sim(inp, year = 2026,
   rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE)))
 # FOI 26367489: the confirmed September 2026 position by priority. The
@@ -1148,43 +1148,61 @@ foi_fsm <- tibble::tribble(
   "Longhill High School",      20,   8,
   "Patcham High School",       18,  17,
   "Varndean School",           59,   6)
+
 fsm_d <- o_fsm$tiers |>
   dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
   dplyr::inner_join(foi_fsm, by = "name") |>
-  dplyr::mutate(school = short_sch(name))
+  dplyr::mutate(school = short_sch(name),
+                odd = school == "Varndean")
+
 r2 <- function(a, b) cor(a, b)^2
+# Varndean on its own takes the out-of-catchment fit from 0.82 to 0.00,
+# so quoting the one number without the other would hide the finding
+# rather than report it.
+r2_out_all  <- r2(fsm_d$m5, fsm_d$p5)
+r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5))
+
 fsm_long <- dplyr::bind_rows(
-  fsm_d |> dplyr::transmute(school, panel = sprintf(
-    "In catchment (priority 4)   R² = %.2f", r2(m4, p4)),
+  fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
+    "In catchment (priority 4)      R² = %.2f", r2(m4, p4)),
     modelled = m4, actual = p4),
-  fsm_d |> dplyr::transmute(school, panel = sprintf(
-    "Out of catchment (priority 5)   R² = %.2f", r2(m5, p5)),
+  fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
+    "Out of catchment (priority 5)      R² = %.2f, or %.2f without Varndean",
+    r2_out_all, r2_out_less),
     modelled = m5, actual = p5))
+
 ggplot(fsm_long, aes(actual, modelled)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") +
-  geom_point(size = 3.2, colour = PURPLE) +
-  ggrepel::geom_text_repel(aes(label = school), size = 3.4, seed = 4, colour = INK) +
+  geom_point(aes(colour = odd), size = 3.4) +
+  ggrepel::geom_text_repel(aes(label = school, colour = odd),
+                           size = 3.4, seed = 4, show.legend = FALSE) +
+  scale_colour_manual(values = c(`FALSE` = PURPLE, `TRUE` = WARM),
+                      guide = "none") +
   facet_wrap(~ panel) +
   labs(x = "Children actually admitted under the priority (FOI, September 2026)",
        y = "Modelled",
        title = "Free school meal priorities, against a target the model never saw") +
   theme_bhs(13)
-
 ```
 
-::: {style="font-size:0.74em"}
-
+::: {style="font-size:0.72em"}
 The disadvantage layer is **fitted** to each school's published
 disadvantaged share, so reproducing that share proves nothing. The FOI
 arrived weeks later with something the model had never been shown: how many
-children each school actually admitted under the free school meal
-priorities. **In catchment it predicts well. Out of catchment it has no
-skill at all** — it says 34 free-school-meal children should travel in to
-Varndean; 6 did. Geography the model knows. Whether a family knows the
-priority exists, and is willing to travel on it, it does not.
+children each school actually admitted under each free school meal priority.
 
+**In catchment it predicts well** — R² = `r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`,
+average error `r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children.
+**Out of catchment it gets the total right and the destinations wrong**:
+`r sprintf("%.0f", sum(fsm_d$m5))` children modelled against
+`r sum(fsm_d$p5)` actual, but spread across the wrong schools. One school
+does nearly all of it — the model sends **34 to Varndean; 6 went**. Take
+Varndean out and the other five sit at R² = `r sprintf("%.2f", r2_out_less)`.
+
+So it knows how many families will travel on the priority, and not which
+school they will pick. Geography the model has. Whether a family knows the
+priority exists, and where they would use it, it does not.
 :::
-
 
 # What the Model Says {background-color="#361a54"}
 ## Worked example: the simulator {.smaller}
