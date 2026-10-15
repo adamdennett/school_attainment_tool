@@ -55,27 +55,29 @@ VA_GROUPS <- c(all               = "ATT8SCR",
                non_disadvantaged = "ATT8SCR_NFSM6CLA1A")
 
 # ---------------------------------------------------------------------------
-# TWO CONVENTIONS, AND WHY BOTH ARE HERE
+# BACK-TRANSFORMATION
 #
-# The project computes this residual in two places, and they do not agree:
+# The models are fitted on log(ATT8SCR), so exp(y_hat) is the conditional
+# MEDIAN. The expected score given a school's intake is
+# exp(y_hat) * exp(sigma^2 / 2).
 #
-#   "league"    pulling_the_right_lever_v2.qmd, tbl-league-all / -dis:
-#                 Residual = Observed - exp(predicted)
-#   "simulator" safe_predict() in 05_fit_model.R, which writes
-#               residual_ATT8SCR_imputed into panel_data.rds and from there
-#               into open_scenarios.rds$choice$va:
-#                 Residual = Observed - exp(predicted) * exp(0.5 * sigma^2)
+#   "corrected"    Observed - exp(y_hat) * exp(sigma^2 / 2)   <- use this
+#   "uncorrected"  Observed - exp(y_hat)
 #
-# The second applies the lognormal retransformation correction; the first
-# does not. The gap is close to constant - about 0.2 Attainment 8 points on
-# the all-pupil model - so rankings are unaffected, but the printed numbers
-# differ wherever the two are put side by side.
+# These used to disagree across the project. safe_predict() in
+# R/05_fit_model.R applied the correction, writing residual_ATT8SCR_imputed
+# into panel_data.rds and from there into the simulator's value-added
+# scenario; the league tables and the observed-vs-predicted figure in
+# pulling_the_right_lever_v2.qmd did not, and so printed residuals about 0.2
+# Attainment 8 points higher for the same school and year. That report was
+# moved onto the corrected form in October 2026 and both now agree.
 #
-# Statistically the corrected one is right: E[Y] = exp(mu + sigma^2/2), not
-# exp(mu). But the league tables are what is published and what gets quoted,
-# so "league" is the default here and the choice is explicit either way.
+# "uncorrected" is kept only to reproduce the older published tables. The
+# shift is multiplicative on the predicted value, so it is not constant -
+# 0.11 to 0.43 points across the national range - and it can reorder schools
+# that sit close together, though it barely does (Spearman 0.9999).
 # ---------------------------------------------------------------------------
-VA_CONVENTIONS <- c("league", "simulator")
+VA_CONVENTIONS <- c("corrected", "uncorrected")
 
 
 #' Put autumn+spring absence onto the full-year scale
@@ -138,11 +140,11 @@ carry_forward_predictors <- function(panel, new_year = "2025-2026",
 #' positive values where the formula takes a log, treatment contrasts on
 #' OFSTEDRATING_1, and the lognormal bias correction on the way back.
 #'
-#' @param convention "league" (no bias correction, as the published tables)
-#'   or "simulator" (with it, as residual_ATT8SCR_imputed)
+#' @param convention "corrected" (the expected score) or "uncorrected"
+#'   (the conditional median). See VA_CONVENTIONS.
 #' @return A full-length vector of predictions on the Attainment 8 scale
 predict_like_published <- function(model, data, required_vars,
-                                   convention = "league") {
+                                   convention = "corrected") {
 
   convention <- match.arg(convention, VA_CONVENTIONS)
 
@@ -160,7 +162,7 @@ predict_like_published <- function(model, data, required_vars,
 
   log_pred <- stats::predict(model, newdata = sub, re.form = NULL,
                              allow.new.levels = TRUE)
-  bias <- if (convention == "simulator") exp(0.5 * sigma(model)^2) else 1
+  bias <- if (convention == "corrected") exp(0.5 * sigma(model)^2) else 1
 
   out <- rep(NA_real_, nrow(data))
   out[keep] <- exp(log_pred) * bias
@@ -176,11 +178,11 @@ predict_like_published <- function(model, data, required_vars,
 #' disadvantaged and non-disadvantaged sets are always comparable.
 #'
 #' @param panel The five-year panel (default: data/panel_data_5yr.rds)
-#' @param convention "league" to match the published league tables, or
-#'   "simulator" to match residual_ATT8SCR_imputed. See VA_CONVENTIONS.
+#' @param convention "corrected" (the expected score, matching the report
+#'   and residual_ATT8SCR_imputed) or "uncorrected". See VA_CONVENTIONS.
 #' @param verify Check the four published years against what is on record
 #' @return The panel with the value-added columns added
-value_added_5yr <- function(panel = NULL, convention = "league",
+value_added_5yr <- function(panel = NULL, convention = "corrected",
                             verify = TRUE) {
 
   convention <- match.arg(convention, VA_CONVENTIONS)
@@ -228,7 +230,7 @@ value_added_5yr <- function(panel = NULL, convention = "league",
       non_disadv = sum(!is.na(.data$va_ATT8SCR_NFSM6CLA1A)),
       .groups = "drop")))
 
-  if (verify && convention == "simulator" &&
+  if (verify && convention == "corrected" &&
       "residual_ATT8SCR_imputed" %in% names(panel)) {
     v <- panel |> dplyr::filter(!is.na(.data$residual_ATT8SCR_imputed),
                                 !is.na(.data$va_ATT8SCR))

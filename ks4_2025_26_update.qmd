@@ -505,33 +505,37 @@ models**, not to refit. Refitting moves all four published years; predicting
 leaves them untouched and puts 2025/26 on the same yardstick.
 
 ::: callout-note
-## Two conventions in the codebase, differing by about 0.2 points
+## A back-transformation that used to be done two ways, now reconciled
 
-The project computes this residual in two places and they do not agree.
+Checking this against the published league tables turned up an
+inconsistency in the project itself, since fixed.
 
-| Where | Back-transformation |
-|:--|:--|
-| `tbl-league-all` / `tbl-league-dis` in the published report | $Y - \exp(\hat{y})$ |
-| `safe_predict()` → `residual_ATT8SCR_imputed` → the simulator's `va` | $Y - \exp(\hat{y})\cdot\exp(\sigma^2/2)$ |
+The models are fitted on $\log(\text{ATT8SCR})$, so $\exp(\hat{y})$ is the
+conditional **median**. The expected score given a school's intake is
+$\exp(\hat{y})\cdot\exp(\sigma^2/2)$. `safe_predict()` applied that
+correction, writing `residual_ATT8SCR_imputed` into the panel and from there
+into the simulator's value-added scenario. The league tables and the
+observed-versus-predicted figure in the main report did not, and so printed
+residuals about **0.2 Attainment 8 points higher** for the same school and
+year.
 
-The second applies the lognormal retransformation correction; the first does
-not. Statistically the corrected one is right — $E[Y] = \exp(\mu + \sigma^2/2)$,
-not $\exp(\mu)$ — but the league tables are what is published and quoted. The
-gap is close to constant, about **0.2 Attainment 8 points** on the all-pupil
-model, so rankings are unaffected and only the printed numbers differ.
+The report now uses the corrected form, through one shared helper, so the two
+cannot drift apart again. Both league tables match `residual_*_imputed`
+exactly. What moved: every residual falls by about 0.2 points — not uniformly,
+since the correction is multiplicative on the predicted value, so it ranges
+0.11 to 0.43 across the national range. Rankings are almost untouched
+(Spearman 0.9999); in the Brighton tables only King's and Hove Park swap, at
+ranks 6 and 7 of the disadvantaged table, where they were tied at 0.9.
 
-`R/05b_value_added_2526.R` takes `convention = "league"` or `"simulator"` and
-makes the choice explicit. The tables below use **league**, to line up with
-the published report. The simulator sections further down use **simulator**,
-to line up with what the app ships.
+Everything below uses the corrected form.
 :::
 
 ```{r va-fit}
 #| cache: true
 #| output: false
 source(here::here("R", "05b_value_added_2526.R"))
-va    <- value_added_5yr(p5, convention = "league",   verify = FALSE)
-vasim <- value_added_5yr(p5, convention = "simulator", verify = FALSE)
+va    <- value_added_5yr(p5, convention = "corrected", verify = FALSE)
+vasim <- va
 ```
 
 ```{r va-verify}
@@ -664,11 +668,13 @@ back above expectation.
 `r sprintf("%.1f", b("2024-25", "VA disadvantaged") - b("2025-26", "VA disadvantaged"))`
 points in one year.
 
-And the four years before it ran the other way. On the published
-disadvantaged table BACA was **the best school in the city**, mean +3.1, and
-improving: +4.6 then +5.7 in the two most recent years. Whatever happened in
-2025/26 reversed a school that was, on this measure, doing the thing the
-whole *Pulling the Right Lever* argument says matters most.
+And the four years before it ran the other way. On the four published years
+BACA was **the best school in the city** for disadvantaged value added —
+mean `r fmt(mean(baca[["VA disadvantaged"]][baca$Year != "2025-26"]), 1)`,
+and improving: `r fmt(b("2023-24", "VA disadvantaged"), 1)` then
+`r fmt(b("2024-25", "VA disadvantaged"), 1)` in the two most recent. Whatever
+happened in 2025/26 reversed a school that was, on this measure, doing the
+thing the whole *Pulling the Right Lever* argument says matters most.
 
 ::: callout-warning
 ## This is one provisional year, and it is a small group
@@ -716,12 +722,123 @@ for disadvantaged children — **Longhill improved and BACA fell**. That is a
 sharper statement than the headline scores support on their own, and close to
 the reverse of what the raw Attainment 8 comparison first suggested.
 
+## The prior attainment the model wants, and cannot have
+
+The model carries `ks2_c` — the mean Key Stage 2 scaled score of the school's
+Year 11 intake, centred at 100. It is the term that stops a school being
+penalised for admitting children who arrived behind. For the two most recent
+years it does not exist.
+
+```{r ks2-coverage}
+#| tbl-cap: "Schools with a Key Stage 2 intake score in the performance tables"
+ks2_cov <- tibble::tribble(
+  ~`KS4 year`, ~`Sat KS2 in`, ~`Schools with a score`,
+  "2021/22",   "2016/17",     "5,617",
+  "2022/23",   "2017/18",     "5,684",
+  "2023/24",   "2018/19",     "5,743",
+  "2024/25",   "2019/20",     "251",
+  "2025/26",   "2020/21",     "0")
+ks2_cov
+```
+
+The 2019/20 and 2020/21 Key Stage 2 assessments were cancelled. **The data
+does not exist and will not appear later** — this is not a sourcing problem
+that a better download would fix. It is the same cancellation that removed
+Progress 8 from these two years, and DfE have confirmed no replacement
+measure for either. The EES institution-level file carries a prior-attainment
+breakdown for 2023/24 only, for the same reason.
+
+So `ks2_c` for 2025/26 is **carried forward twice** — from 2023/24 to 2024/25
+by the existing pipeline, and from 2024/25 to 2025/26 here. That is a real
+assumption, and the question is how much weight it bears.
+
+```{r ks2-sens}
+#| fig-cap: "How BACA's 2025/26 value added moves if the carried-forward KS2 figure is wrong"
+#| fig-height: 3.4
+req_v <- c(unname(VA_GROUPS), "PTFSM6CLA1A", "PERCTOT", "PNUMEAL", "ks2_c",
+           "ADMPOL_PT", "gorard_segregation", "remained_in_the_same_school",
+           "teachers_on_leadership_pay_range_percent",
+           "average_number_of_days_taken", "OFSTEDRATING_1", "gor_name",
+           "LANAME", "year_label")
+mods_va <- readRDS(here::here("data", VA_MODEL_FILE))
+
+shift_va <- function(d, school_pat, group) {
+  pp <- va |> mutate(ks2_c = ifelse(academic_year == "2025-2026", ks2_c + d, ks2_c))
+  out <- VA_GROUPS[[group]]
+  pr <- predict_like_published(mods_va[[group]], pp, req_v, convention = "corrected")
+  (pp[[out]] - pr)[grepl(school_pat, pp$SCHNAME) & pp$academic_year == "2025-2026"]
+}
+
+sens <- purrr::map_dfr(seq(-1, 2, by = 0.5), function(d) {
+  tibble(shift = d,
+         BACA = shift_va(d, "^Brighton Aldridge", "disadvantaged"),
+         Longhill = shift_va(d, "^Longhill", "disadvantaged"))
+}) |>
+  tidyr::pivot_longer(c(BACA, Longhill), names_to = "School", values_to = "va")
+
+# How much does a school's real KS2 intake actually move year to year?
+real_ks2 <- p5 |>
+  filter(!is.na(ks2_c), !has_imputed_predictors, academic_year != "2025-2026") |>
+  group_by(URN) |> filter(n() >= 3) |>
+  summarise(sd = sd(ks2_c), .groups = "drop")
+typ <- median(real_ks2$sd)
+
+ggplot(sens, aes(shift, va, colour = School)) +
+  annotate("rect", xmin = -typ, xmax = typ, ymin = -Inf, ymax = Inf,
+           fill = "grey85", alpha = 0.6) +
+  geom_hline(yintercept = 0, colour = "grey55", linetype = "31") +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  scale_colour_manual(values = c(BACA = WARM, Longhill = BRIGHT)) +
+  labs(x = "Error in the carried-forward KS2 intake score (points)",
+       y = "Value added, disadvantaged pupils", colour = NULL,
+       title = "BACA's result does not depend on the KS2 assumption; Longhill's does",
+       subtitle = sprintf("Grey band: a typical year-to-year movement in a school's real KS2 intake (SD %.2f points)", typ)) +
+  theme_note(12) + theme(legend.position = "bottom")
+```
+
+```{r ks2-break}
+baca26 <- va |> filter(grepl("^Brighton Aldridge", SCHNAME),
+                       academic_year == "2025-2026")
+beta_d <- lme4::fixef(mods_va$disadvantaged)[["ks2_c"]]
+need_d <- log(baca26$ATT8SCR_FSM6CLA1A /
+                baca26$predicted_ATT8SCR_FSM6CLA1A_va) / beta_d
+```
+
+Two different answers, and the contrast is the useful part.
+
+**BACA's result does not rest on it.** For the carried-forward KS2 figure to
+explain away a residual of
+`r fmt(baca26$ATT8SCR_FSM6CLA1A - baca26$predicted_ATT8SCR_FSM6CLA1A_va, 1)`,
+the cohort's actual KS2 mean would have to have been
+**`r sprintf("%.1f", need_d)` points** below the carried-forward value — about
+`r sprintf("%.0f", abs(need_d) / typ)` times a typical year's movement in a
+school's intake, and far outside anything observed. A plausible error of
+±`r sprintf("%.2f", typ)` moves the figure by about
+`r sprintf("%.1f", abs(shift_va(typ, "^Brighton Aldridge", "disadvantaged") - baca26$ATT8SCR_FSM6CLA1A + baca26$predicted_ATT8SCR_FSM6CLA1A_va))`
+of a point.
+
+**Longhill's does.** Its
+`r fmt(va$va_ATT8SCR_FSM6CLA1A[grepl("^Longhill", va$SCHNAME) & va$academic_year == "2025-2026"], 1)`
+for disadvantaged pupils is the first positive
+figure it has recorded on that measure since 2023/24, but it sits close
+enough to zero that a KS2 error of two points would erase it. Treat the
+direction as suggestive and the number as soft.
+
+::: callout-note
+## What would actually fix this
+
+Nothing, for these two cohorts. The first KS4 year with a real Key Stage 2
+baseline again is **2026/27** — children who sat KS2 in 2021/22, the first
+normal sitting after the cancellations. Until then every value-added figure
+for 2024/25 and 2025/26 rests on a carried-forward intake score, in this
+analysis and in anyone else's.
+:::
+
 ## What it does to the third policy lever
 
 The simulator's third lever asks what happens if Longhill's value added
 doubled, "to roughly where BACA already is with a comparably disadvantaged
-intake". That framing depends on a gap between the two schools. These figures
-use the **simulator** convention, to match what the app ships.
+intake". That framing depends on a gap between the two schools.
 
 ```{r lever3}
 BHS <- file.path(dirname(here::here()), "bh_school_system", "data")
