@@ -1,0 +1,37 @@
+/* ai4ci-edit1.css - presentation fixes for ai4ci_collab_talk_edit1.qmd
+   Loaded from the deck's YAML so it does not sit in the body and turn
+   itself into a blank slide. */
+
+/* Title slide: the subtitle, author and date were dark purple on the
+   bright purple background, and close to unreadable on a projector. */
+#title-slide .subtitle,
+#title-slide .quarto-title-author-name,
+#title-slide .quarto-title-affiliation,
+#title-slide .quarto-title-author-email,
+#title-slide .date,
+#title-slide p {
+  color: #ffffff !important;
+}
+
+#title-slide .subtitle {
+  opacity: 0.95;
+}
+
+/* Section dividers carry a background colour, so their heading has to be
+   light. Centred, because a divider is a breath rather than a slide. */
+.reveal section[data-background-color] h1 {
+  color: #ffffff !important;
+  border-bottom: none;
+  text-align: center;
+  margin-top: 1.4em;
+}
+
+/* The nested bullets on the opening slide rendered at roughly 0.6em,
+   which is unreadable past the third row of a room. */
+.reveal .intro ul ul {
+  font-size: 0.86em;
+}
+
+.reveal .intro ul ul li {
+  margin-top: 0.15em;
+}
