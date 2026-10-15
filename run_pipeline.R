@@ -17,10 +17,38 @@
 # Set SKIP_MODELS = TRUE below to skip step 05 (slow, ~50MB per model).
 # Set START_FROM to skip steps you've already run (e.g. START_FROM = 7).
 # Step numbers use the script naming: 1, 2, 3, 3.5 (for 03a), 4, 5, 6, 7, 8.
+#
+# Each step runs in a FRESH R PROCESS, not via source(). Every pipeline
+# script guards its body with `if (sys.nframe() == 0)` so that sourcing it
+# only defines its functions - which means source()ing them from here
+# executed nothing at all, and every step reported success in 0 minutes
+# having done no work. Running them as scripts is also how they are
+# documented to be used, and it keeps one step's objects and attached
+# packages out of the next one's environment.
 # ============================================================
 
 SKIP_MODELS <- FALSE   # Set TRUE to skip 05_fit_model.R (saves ~10 min)
 START_FROM  <- 1       # Set to a later step number to resume partway
+
+RSCRIPT <- file.path(R.home("bin"), "Rscript")
+stopifnot(file.exists(RSCRIPT) || nzchar(Sys.which("Rscript")))
+if (!file.exists(RSCRIPT)) RSCRIPT <- unname(Sys.which("Rscript"))
+
+# htmlwidgets::saveWidget(selfcontained = TRUE) shells out to pandoc, which
+# RStudio supplies via RSTUDIO_PANDOC but a bare Rscript does not. Quarto
+# ships one, so point at that when nothing else is on the PATH - otherwise
+# step 8 dies at the last line having done all its work.
+if (!nzchar(Sys.getenv("RSTUDIO_PANDOC")) && !nzchar(Sys.which("pandoc"))) {
+  for (cand in c(file.path(Sys.getenv("ProgramFiles"), "Quarto", "bin", "tools"),
+                 "/usr/lib/rstudio/bin/quarto/bin/tools",
+                 "/Applications/quarto/bin/tools")) {
+    if (any(file.exists(file.path(cand, c("pandoc", "pandoc.exe"))))) {
+      Sys.setenv(RSTUDIO_PANDOC = cand)
+      cat("  pandoc: using", cand, "\n")
+      break
+    }
+  }
+}
 
 cat("\n========================================\n")
 cat("  School Attainment Tool — Full Pipeline\n")
@@ -57,15 +85,17 @@ for (i in seq_along(steps)) {
   cat(sprintf("    Script: %s\n", step$script))
   t1 <- Sys.time()
 
-  tryCatch({
-    source(step$script, local = FALSE)
-    elapsed <- round(difftime(Sys.time(), t1, units = "mins"), 1)
-    cat(sprintf("    Done in %s min\n", elapsed))
-  }, error = function(e) {
-    cat(sprintf("\n    ERROR in step %s: %s\n", step$num, conditionMessage(e)))
-    cat("    Pipeline halted. Fix the error and re-run with START_FROM =", step$num, "\n")
-    stop(e)
-  })
+  status <- system2(RSCRIPT, shQuote(step$script))
+  elapsed <- round(difftime(Sys.time(), t1, units = "mins"), 1)
+
+  if (!identical(status, 0L)) {
+    cat(sprintf("\n    ERROR in step %s: %s exited with status %s\n",
+                step$num, step$script, status))
+    cat("    Pipeline halted. Fix the error and re-run with START_FROM =",
+        step$num, "\n")
+    stop("Pipeline failed at step ", step$num)
+  }
+  cat(sprintf("    Done in %s min\n", elapsed))
 }
 
 total <- round(difftime(Sys.time(), t0, units = "mins"), 1)

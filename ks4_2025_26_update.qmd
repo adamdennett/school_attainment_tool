@@ -615,6 +615,133 @@ show_league("disadvantaged")
 show_league("non_disadvantaged")
 ```
 
+## The league tables as a picture
+
+The tables above are hard to read as trajectories. These are the same numbers
+plotted, one panel per school, with a **three-year moving average** through
+them — centred where there are years either side, and trailing at the ends —
+to take out some of the year-to-year cohort noise.
+
+A single year's figure for one group in one school rests on a small number of
+children. The smoothed line is the better guide to direction; the points are
+what actually happened.
+
+```{r league-plot-data}
+bh_long <- va |>
+  filter(LANAME == "Brighton and Hove") |>
+  select(SCHNAME, year_label,
+         `All pupils` = va_ATT8SCR,
+         Disadvantaged = va_ATT8SCR_FSM6CLA1A,
+         `Not disadvantaged` = va_ATT8SCR_NFSM6CLA1A) |>
+  tidyr::pivot_longer(-c(SCHNAME, year_label),
+                      names_to = "Group", values_to = "va") |>
+  filter(!is.na(va)) |>
+  mutate(School = shorten(gsub("&#39;", "'", SCHNAME)),
+         yr = as.integer(substr(year_label, 1, 4)) + 1L,
+         Group = factor(Group, c("All pupils", "Disadvantaged",
+                                 "Not disadvantaged")))
+
+# Centred three-year mean, trailing where a neighbour is missing, so the
+# first and last years still get a value rather than a gap.
+roll3 <- function(x) {
+  n <- length(x)
+  vapply(seq_len(n), function(i)
+    mean(x[max(1, i - 1):min(n, i + 1)], na.rm = TRUE), numeric(1))
+}
+
+bh_long <- bh_long |>
+  arrange(School, Group, yr) |>
+  group_by(School, Group) |>
+  mutate(smooth = roll3(va)) |>
+  ungroup()
+
+# Order the panels by five-year mean on all pupils, best first.
+# dplyr::pull explicitly - an earlier chunk defines its own pull() for
+# reading coefficients out of a model summary, which shadows it here.
+ord <- bh_long |> filter(Group == "All pupils") |>
+  group_by(School) |> summarise(m = mean(va), .groups = "drop") |>
+  arrange(desc(m)) |> dplyr::pull(School)
+bh_long <- bh_long |> mutate(School = factor(School, ord))
+```
+
+```{r fig-league-all}
+#| fig-cap: "Value added by year, all pupils. Points are the published figures; the line is a three-year moving average. Schools ordered by five-year mean."
+#| fig-height: 5.6
+plot_group <- function(g, colr) {
+  d <- bh_long |> filter(Group == g)
+  ggplot(d, aes(yr, va)) +
+    geom_hline(yintercept = 0, colour = "grey55", linetype = "31") +
+    geom_point(colour = colr, size = 1.7, alpha = 0.55) +
+    geom_line(aes(y = smooth), colour = colr, linewidth = 1.1) +
+    facet_wrap(~ School, ncol = 5) +
+    scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+    labs(x = NULL, y = "Attainment 8 points above or below expectation") +
+    theme_note(11)
+}
+plot_group("All pupils", PURPLE) +
+  labs(title = "All pupils",
+       subtitle = "Points: the year's figure. Line: three-year moving average.")
+```
+
+```{r fig-league-dis}
+#| fig-cap: "Value added by year, disadvantaged pupils. Small cohorts, so the smoothed line matters more here than anywhere else."
+#| fig-height: 5.6
+plot_group("Disadvantaged", WARM) +
+  labs(title = "Disadvantaged pupils",
+       subtitle = "Points: the year's figure. Line: three-year moving average.")
+```
+
+```{r fig-league-non}
+#| fig-cap: "Value added by year, pupils not known to be disadvantaged"
+#| fig-height: 5.6
+plot_group("Not disadvantaged", "#2166ac") +
+  labs(title = "Pupils not known to be disadvantaged",
+       subtitle = "Points: the year's figure. Line: three-year moving average.")
+```
+
+```{r fig-league-compare}
+#| fig-cap: "The two pupil groups on the same axes, smoothed. Where the lines diverge, a school is doing noticeably better for one group than the other."
+#| fig-height: 5.6
+ggplot(bh_long |> filter(Group != "All pupils"),
+       aes(yr, smooth, colour = Group)) +
+  geom_hline(yintercept = 0, colour = "grey55", linetype = "31") +
+  geom_line(linewidth = 1.1) +
+  geom_point(aes(y = va), size = 1.4, alpha = 0.4) +
+  facet_wrap(~ School, ncol = 5) +
+  scale_colour_manual(values = c(Disadvantaged = WARM,
+                                 `Not disadvantaged` = "#2166ac")) +
+  scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = "Attainment 8 points above or below expectation",
+       colour = NULL,
+       title = "Disadvantaged against everyone else",
+       subtitle = "Three-year moving averages, with the yearly figures behind them") +
+  theme_note(11) + theme(legend.position = "bottom")
+```
+
+```{r league-plot-notes}
+sm <- function(school, group, y) {
+  v <- bh_long |> filter(as.character(School) == school, Group == group, yr == y)
+  if (!nrow(v)) NA_real_ else v$smooth[1]
+}
+```
+
+Three things the smoothing makes visible that the tables do not.
+
+**BACA's disadvantaged line is the sharpest reversal in the city.** Smoothed,
+it runs `r fmt(sm("BACA", "Disadvantaged", 2024), 1)` in 2024 and
+`r fmt(sm("BACA", "Disadvantaged", 2026), 1)` by 2026 — and because the
+moving average is pulled down by a single year, even the smoothed line
+understates how abrupt the drop is in the raw points.
+
+**Longhill is the mirror image on the same measure**, climbing from
+`r fmt(sm("Longhill", "Disadvantaged", 2022), 1)` to
+`r fmt(sm("Longhill", "Disadvantaged", 2026), 1)` while its all-pupil line
+stays flat and negative. The all-pupil figure is hiding this.
+
+**Patcham is the school the smoothing helps most.** Its 2023/24 disadvantaged
+figure is an extreme single-year value; the moving average shows a school
+consistently below expectation rather than one that collapsed in one year.
+
 ## BACA, by pupil group
 
 The disadvantaged table is where the year lands hardest, and it is worth
