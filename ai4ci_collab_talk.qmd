@@ -1132,13 +1132,21 @@ public exam results"* and its Ofsted reports: figures that mostly
 describe who a school admits.
 :::
 
+<!-- NOTE: parked. The figures in the prose below are written in, as at
+     the October 2026 run, because knitr evaluates inline `r` code even
+     inside HTML comments and the chunk that computes them is commented
+     out too. If you reinstate this slide, swap them back for the live
+     expressions - see ai4ci_collab_talk_edit1.qmd, which has them. -->
+
 <!-- ## A test the model could fail {.smaller} -->
+
+
 
 <!-- ```{r fsm-oos} -->
 
 <!-- #| fig-width: 11.5 -->
 
-<!-- #| fig-height: 4.0 -->
+<!-- #| fig-height: 3.5 -->
 
 <!-- o_fsm <- outcomes(inp, run_sim(inp, year = 2026, -->
 
@@ -1164,37 +1172,63 @@ describe who a school admits.
 
 <!--   "Varndean School",           59,   6) -->
 
+
+
 <!-- fsm_d <- o_fsm$tiers |> -->
 
 <!--   dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |> -->
 
 <!--   dplyr::inner_join(foi_fsm, by = "name") |> -->
 
-<!--   dplyr::mutate(school = short_sch(name)) -->
+<!--   dplyr::mutate(school = short_sch(name), odd = school == "Varndean") -->
+
+
 
 <!-- r2 <- function(a, b) cor(a, b)^2 -->
 
+<!-- # Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so -->
+
+<!-- # quoting the one number without the other hides the finding. -->
+
+<!-- r2_out_all  <- r2(fsm_d$m5, fsm_d$p5) -->
+
+<!-- r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5)) -->
+
+<!-- vd <- dplyr::filter(fsm_d, odd) -->
+
+
+
 <!-- fsm_long <- dplyr::bind_rows( -->
 
-<!--   fsm_d |> dplyr::transmute(school, panel = sprintf( -->
+<!--   fsm_d |> dplyr::transmute(school, odd, panel = sprintf( -->
 
-<!--     "In catchment (priority 4)   R² = %.2f", r2(m4, p4)), -->
+<!--     "In catchment (priority 4)      R² = %.2f", r2(m4, p4)), -->
 
 <!--     modelled = m4, actual = p4), -->
 
-<!--   fsm_d |> dplyr::transmute(school, panel = sprintf( -->
+<!--   fsm_d |> dplyr::transmute(school, odd, panel = sprintf( -->
 
-<!--     "Out of catchment (priority 5)   R² = %.2f", r2(m5, p5)), -->
+<!--     "Out of catchment (priority 5)      R² = %.2f, or %.2f without Varndean", -->
+
+<!--     r2_out_all, r2_out_less), -->
 
 <!--     modelled = m5, actual = p5)) -->
+
+
 
 <!-- ggplot(fsm_long, aes(actual, modelled)) + -->
 
 <!--   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") + -->
 
-<!--   geom_point(size = 3.2, colour = PURPLE) + -->
+<!--   geom_point(aes(colour = odd), size = 3.2) + -->
 
-<!--   ggrepel::geom_text_repel(aes(label = school), size = 3.4, seed = 4, colour = INK) + -->
+<!--   ggrepel::geom_text_repel(aes(label = school, colour = odd), -->
+
+<!--                            size = 3.2, seed = 4, show.legend = FALSE) + -->
+
+<!--   scale_colour_manual(values = c(`FALSE` = PURPLE, `TRUE` = WARM), -->
+
+<!--                       guide = "none") + -->
 
 <!--   facet_wrap(~ panel) + -->
 
@@ -1204,27 +1238,93 @@ describe who a school admits.
 
 <!--        title = "Free school meal priorities, against a target the model never saw") + -->
 
-<!--   theme_bhs(13) -->
+<!--   theme_bhs(12) -->
 
 <!-- ``` -->
 
-<!-- ::: {style="font-size:0.74em"} -->
+
+
+<!-- :::::: columns -->
+
+<!-- ::: {.column width="52%"} -->
+
+<!-- ::: {style="font-size:0.72em"} -->
 
 <!-- The disadvantage layer is **fitted** to each school's published -->
 
 <!-- disadvantaged share, so reproducing that share proves nothing. The FOI -->
 
-<!-- arrived weeks later with something the model had never been shown: how many -->
+<!-- arrived weeks later with something the model had never seen: how many -->
 
-<!-- children each school actually admitted under the free school meal -->
+<!-- children each school actually admitted under each priority. -->
 
-<!-- priorities. **In catchment it predicts well. Out of catchment it has no -->
 
-<!-- skill at all** — it says 34 free-school-meal children should travel in to -->
 
-<!-- Varndean; 6 did. Geography the model knows. Whether a family knows the -->
+<!-- **In catchment it predicts well** — R² = -->
 
-<!-- priority exists, and is willing to travel on it, it does not. -->
+<!-- 0.94, average error -->
+
+<!-- 4.1 children. -->
+
+
+
+<!-- **Out of catchment the total is right and the destinations are not**: -->
+
+<!-- 95 children modelled against -->
+
+<!-- 99 actual, but at the wrong schools. One does nearly all -->
+
+<!-- of it — the model places **34 at Varndean; -->
+
+<!-- 6 went**. -->
+
+<!-- ::: -->
+
+<!-- ::: -->
+
+
+
+<!-- :::: {.column width="48%"} -->
+
+<!-- ::: key-finding -->
+
+<!-- **Where the model is thin.** Free-school-meal children are carried as a -->
+
+<!-- fixed share of each neighbourhood's flow, so they inherit everyone -->
+
+<!-- else's travel behaviour exactly — the same willingness to cross the -->
+
+<!-- city, the same shortlist. -->
+
+
+
+<!-- Real families on the priority travel less far, and do not spend a -->
+
+<!-- preference on a school they expect to miss. The model has no way to -->
+
+<!-- know that, so it sends them to the most attractive school in reach. -->
+
+<!-- ::: -->
+
+<!-- :::: -->
+
+<!-- :::::: -->
+
+
+
+<!-- ::: {style="font-size:0.72em; margin-top:-0.2rem;"} -->
+
+<!-- It is a **demand** error, not an allocation one: lifting the priority's -->
+
+<!-- 30% ceiling moves Varndean from 34 to 36, not towards 6. Fixing it -->
+
+<!-- properly means letting disadvantaged flows decay with distance on their -->
+
+<!-- own terms, and that is a recalibration, not a patch. Worth knowing -->
+
+<!-- before anyone leans on the free school meal scenarios — and it took an -->
+
+<!-- FOI, and someone who knew the city, to surface it. -->
 
 <!-- ::: -->
 
