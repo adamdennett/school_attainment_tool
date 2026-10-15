@@ -1092,7 +1092,11 @@ bh_series <- va |>
   filter(URN %in% bh_urns) |>
   left_join(pub |> select(URN, school), by = "URN") |>
   mutate(short = shorten(school),
-         yr = as.integer(substr(academic_year, 1, 4)) + 1L)
+         yr = as.integer(substr(academic_year, 1, 4)) + 1L) |>
+  arrange(short, yr) |>
+  group_by(short) |>
+  mutate(att8_sm = roll3(ATT8SCR), va_sm = roll3(va_ATT8SCR)) |>
+  ungroup()
 
 eng_band <- eng_band |> mutate(yr = as.integer(substr(academic_year, 1, 4)) + 1L)
 
@@ -1101,13 +1105,17 @@ ggplot() +
               fill = "grey88") +
   geom_line(data = eng_band, aes(yr, med), colour = "grey45",
             linetype = "31", linewidth = 0.6) +
-  geom_line(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE, linewidth = 0.9) +
-  geom_point(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE, size = 1.5) +
+  geom_line(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE,
+            linewidth = 0.4, alpha = 0.45) +
+  geom_point(data = bh_series, aes(yr, ATT8SCR), colour = PURPLE,
+             size = 1.3, alpha = 0.5) +
+  geom_line(data = bh_series, aes(yr, att8_sm), colour = PURPLE, linewidth = 1.1) +
   facet_wrap(~ short, ncol = 5) +
   scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
   labs(x = NULL, y = "Attainment 8",
        title = "Attainment 8, 2021/22 to 2025/26",
-       subtitle = "Grey band: the middle half of schools in England. Dashed line: the national median.") +
+       subtitle = paste("Faint line and points: each year as published. Solid line: three-year moving average.",
+                         "\nGrey band: the middle half of schools in England; dashed line, the national median.")) +
   theme_note(11)
 ```
 
@@ -1123,13 +1131,17 @@ eng_va <- va |>
 ggplot() +
   geom_ribbon(data = eng_va, aes(yr, ymin = lo, ymax = hi), fill = "grey88") +
   geom_hline(yintercept = 0, colour = "grey45", linetype = "31", linewidth = 0.6) +
-  geom_line(data = bh_series, aes(yr, va_ATT8SCR), colour = BRIGHT, linewidth = 0.9) +
-  geom_point(data = bh_series, aes(yr, va_ATT8SCR), colour = BRIGHT, size = 1.5) +
+  geom_line(data = bh_series, aes(yr, va_ATT8SCR), colour = BRIGHT,
+            linewidth = 0.4, alpha = 0.45) +
+  geom_point(data = bh_series, aes(yr, va_ATT8SCR), colour = BRIGHT,
+             size = 1.3, alpha = 0.5) +
+  geom_line(data = bh_series, aes(yr, va_sm), colour = BRIGHT, linewidth = 1.1) +
   facet_wrap(~ short, ncol = 5) +
   scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
   labs(x = NULL, y = "Attainment 8 points above or below expectation",
        title = "Value added, 2021/22 to 2025/26",
-       subtitle = "Grey band: the middle half of schools in England. Above zero is beating what the intake predicts.") +
+       subtitle = paste("Faint line and points: each year as published. Solid line: three-year moving average.",
+                         "\nGrey band: the middle half of schools in England; above zero beats what the intake predicts.")) +
   theme_note(11)
 ```
 
@@ -1158,20 +1170,27 @@ agg <- bind_rows(
   mutate(yr = as.integer(substr(academic_year, 1, 4)) + 1L) |>
   tidyr::pivot_longer(c(att8, va), names_to = "measure", values_to = "value") |>
   mutate(measure = factor(measure, c("att8", "va"),
-                          c("Attainment 8", "Value added")))
+                          c("Attainment 8", "Value added"))) |>
+  arrange(grp, measure, yr) |>
+  group_by(grp, measure) |>
+  mutate(smooth = roll3(value)) |>
+  ungroup()
 
 ggplot(agg, aes(yr, value, colour = grp)) +
   geom_hline(data = tibble(measure = factor("Value added",
                                             levels = levels(agg$measure))),
              aes(yintercept = 0), colour = "grey70", linetype = "31") +
-  geom_line(linewidth = 1) + geom_point(size = 2) +
+  geom_line(linewidth = 0.4, alpha = 0.5) +
+  geom_point(size = 1.8, alpha = 0.55) +
+  geom_line(aes(y = smooth), linewidth = 1.2) +
   facet_wrap(~ measure, scales = "free_y") +
   scale_colour_manual(values = c(`Brighton and Hove` = BRIGHT,
                                  `Rest of England` = "grey55")) +
   scale_x_continuous(breaks = 2022:2026, labels = function(x) substr(x, 3, 4)) +
   labs(x = NULL, y = NULL, colour = NULL,
        title = "Brighton and Hove against the rest of England",
-       subtitle = "Pupil-weighted means across state-funded mainstream schools") +
+       subtitle = paste("Pupil-weighted means across state-funded mainstream schools.",
+                         "Faint: each year. Solid: three-year moving average.")) +
   theme_note(12) + theme(legend.position = "bottom")
 ```
 
