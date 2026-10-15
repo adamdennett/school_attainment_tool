@@ -1206,25 +1206,27 @@ of it — the model places **`r sprintf("%.0f", vd$m5)` at Varndean;
 
 :::: {.column width="48%"}
 ::: key-finding
-**Where the model is thin.** Free-school-meal children are carried as a
-fixed share of each neighbourhood's flow, so they inherit everyone
-else's travel behaviour exactly — the same willingness to cross the
-city, the same shortlist.
+**Why Varndean, and why no parameter fixes it.** The council admits
+siblings under priority 3, above both free-school-meal tiers — 70
+children at Varndean. The model has no priority 3: looked-after
+children, SEN and siblings cannot be told apart in zone-level flows.
 
-Real families on the priority travel less far, and do not spend a
-preference on a school they expect to miss. The model has no way to
-know that, so it sends them to the most attractive school in reach.
+So a disadvantaged child with a sibling there lands in the model's
+tier 5 and in the council's priority 3. The two numbers are not
+counting the same children.
 :::
 ::::
 ::::::
 
 ::: {style="font-size:0.72em; margin-top:-0.2rem;"}
-It is a **demand** error, not an allocation one: lifting the priority's
-30% ceiling moves Varndean from 34 to 36, not towards 6. Fixing it
-properly means letting disadvantaged flows decay with distance on their
-own terms, and that is a recalibration, not a patch. Worth knowing
-before anyone leans on the free school meal scenarios — and it took an
-FOI, and someone who knew the city, to surface it.
+I tried the obvious fixes — letting these children decay with distance
+on their own terms, then flattening how much a school's reputation
+pulls them. Steeper decay makes the fit **worse on every measure**: the
+city-wide total was already right, so suppressing travel breaks a
+number that worked. Flattening attractiveness helps slightly and leaves
+Varndean at 31 against 5. **It is a definitional gap, not a behavioural
+one** — which is a more useful thing to know, and took an FOI, a sweep
+that failed, and the project's own model guide to establish.
 :::
 
 # What the Model Says {background-color="#361a54"}
