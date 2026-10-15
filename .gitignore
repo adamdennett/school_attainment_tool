@@ -138,3 +138,14 @@ osf_supplementary/*.pdf
 
 # Local scratch: embargoed / pre-release data and analyses
 local/
+
+# EES downloads (2025/26 onward) - large, and re-fetchable with
+# R/00b_download_ees_api.R
+data-raw/ees/
+
+# Five-year panel built by R/02b_extend_panel_2526.R
+data/panel_data_5yr.rds
+
+# Quarto freeze/cache for the KS4 update note
+ks4_2025_26_update_cache/
+ks4_2025_26_update_files/

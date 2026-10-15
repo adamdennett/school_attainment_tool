@@ -1,0 +1,420 @@
+---
+title: "Key Stage 4, 2025/26"
+subtitle: "What a fifth year of data does to *How to Pull the Right Lever*"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: ks4_2025_26_update
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    fig-dpi: 150
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+---
+
+```{r setup}
+#| include: false
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+
+source(here::here("R", "02b_extend_panel_2526.R"))
+
+INK    <- "#1a1a2e"
+PURPLE <- "#361a54"
+BRIGHT <- "#993bff"
+WARM   <- "#f56300"
+GREY   <- "#666688"
+
+theme_note <- function(base = 13) {
+  theme_minimal(base_size = base) +
+    theme(
+      plot.title       = element_text(face = "bold", colour = PURPLE),
+      plot.subtitle    = element_text(colour = GREY, size = rel(0.9)),
+      axis.title       = element_text(colour = GREY, size = rel(0.9)),
+      panel.grid.minor = element_blank()
+    )
+}
+
+p5_path <- here::here("data", "panel_data_5yr.rds")
+p5 <- if (file.exists(p5_path)) readRDS(p5_path) else extend_panel_2526()
+
+# The EES institution-level file carries 2023/24 to 2025/26, so year-on-year
+# comparisons are made inside it rather than against the panel, whose 2024/25
+# came from the provisional performance tables.
+e25 <- ees_ks4_year(202425L)
+e26 <- ees_ks4_year(202526L)
+
+yoy <- inner_join(
+  e25 |> select(URN, SCHNAME, LANAME, a25 = ATT8SCR, d25 = ATT8SCR_FSM6CLA1A,
+                n25 = ATT8SCR_NFSM6CLA1A),
+  e26 |> select(URN, a26 = ATT8SCR, d26 = ATT8SCR_FSM6CLA1A,
+                n26 = ATT8SCR_NFSM6CLA1A, f26 = PTFSM6CLA1A),
+  by = "URN") |>
+  mutate(chg = a26 - a25, chg_dis = d26 - d25, chg_ndis = n26 - n25)
+
+fmt <- function(x, d = 2) sprintf(paste0("%+.", d, "f"), x)
+```
+
+::: callout-note
+## Status
+
+The 2025/26 Key Stage 4 figures used here are **provisional**, published by
+the Department for Education on 15 October 2026. Revised figures follow in
+February 2027. Nothing below should be treated as settled until they arrive.
+:::
+
+# What arrived, and why the pipeline had to change
+
+The 2025/26 release brings a fifth year of Key Stage 4 results. It also
+brings the end of the route this project used to get them.
+
+> "Compare school and college performance (CSCP) will close soon. From autumn
+> 2026, you will be able to use a new service. Data on CSCP will not be
+> updated past the 2024/25 academic year."
+
+`R/00_download_cscp.R` can therefore fetch 2021/22 to 2024/25 and nothing
+after it. It is kept exactly as it is, because every published figure for
+those four years reproduces from the files it fetched. From 2025/26 the data
+comes instead from Explore Education Statistics, through
+`R/00b_download_ees_api.R`, and is shaped into a panel year by
+`R/01b_extract_ees_2526.R`.
+
+Three things are genuinely absent from the new year, and all three are carried
+as explicit gaps rather than quietly filled:
+
+| Missing | Why | Consequence |
+|:--|:--|:--|
+| **Progress 8** | The 2025/26 cohort has no Key Stage 2 baseline — the 2019/20 and 2020/21 primary assessments were cancelled, and DfE confirmed no replacement measure | Already true of 2024/25; the reduced "core" specification was built for exactly this |
+| **Prior attainment** | Same cause | `PTPRIORLO` / `PTPRIORHI` are `NA`, as in 2024/25 |
+| **Full-year absence** | 2025/26 full-year absence publishes around March 2027 | Handled below — and it is the one that mattered |
+
+# Is the new source the same as the old one?
+
+The EES institution-level file covers 2023/24 to 2025/26, so it overlaps the
+panel by two years. If the mapping from the EES long format onto the panel's
+column names is right, the overlap should agree.
+
+```{r validate}
+#| tbl-cap: "EES institution-level data against the CSCP performance tables, on the years both cover"
+panel4 <- readRDS(here::here("data", "panel_data.rds")) |>
+  mutate(URN = as.character(URN))
+
+cmp <- function(tp, ay) {
+  e <- ees_ks4_year(tp) |>
+    select(URN, e_att8 = ATT8SCR, e_dis = ATT8SCR_FSM6CLA1A,
+           e_ndis = ATT8SCR_NFSM6CLA1A, e_fsm = PTFSM6CLA1A)
+  p <- panel4 |> filter(academic_year == ay) |>
+    select(URN, p_att8 = ATT8SCR, p_dis = ATT8SCR_FSM6CLA1A,
+           p_ndis = ATT8SCR_NFSM6CLA1A, p_fsm = PTFSM6CLA1A)
+  d <- inner_join(e, p, by = "URN")
+  purrr::map_dfr(
+    c(att8 = "Attainment 8", dis = "Disadvantaged",
+      ndis = "Not disadvantaged", fsm = "Disadvantaged share"),
+    function(lab) {
+      v <- names(which(c(att8 = "Attainment 8", dis = "Disadvantaged",
+                         ndis = "Not disadvantaged",
+                         fsm = "Disadvantaged share") == lab))
+      a <- d[[paste0("e_", v)]]; b <- d[[paste0("p_", v)]]
+      ok <- !is.na(a) & !is.na(b)
+      tibble(Year = ay, Measure = lab, Schools = sum(ok),
+             r = round(cor(a[ok], b[ok]), 4),
+             `Mean difference` = round(mean(a[ok] - b[ok]), 3),
+             `Agree exactly` = sprintf("%.0f%%", 100 * mean(abs(a[ok] - b[ok]) < 0.05)))
+    })
+}
+
+bind_rows(cmp(202324L, "2023-2024"), cmp(202425L, "2024-2025"))
+```
+
+It does: correlations of 0.9998 to 1.0000 on every measure. The mapping is
+sound.
+
+The second row group is the more interesting one. For 2023/24 the two sources
+agree exactly for about nine schools in ten; for 2024/25 only about three in
+ten, with the EES figures running a shade higher. That is not an error — it is
+the **provisional-to-revised revision**. The panel's 2024/25 came from
+`england_ks4provisional.csv`; the EES file now carries the revised figures,
+which include late results and the amendments schools requested. The same
+thing will happen to the 2025/26 numbers in February 2027.
+
+# The absence problem, and what to do about it
+
+Absence is the strongest single predictor in the Lever model, and the centre
+of its argument. Full-year absence for 2025/26 does not exist yet.
+
+What does exist is a school-level file running **2016/17 to 2025/26** covering
+the **autumn and spring terms** — every year of the panel, on one consistent
+basis, reaching the new year. Summer term absence is excluded, so it is a
+different quantity from `PERCTOT` and is carried as a separate variable,
+`PERCTOT_2term`, never joined onto the old one.
+
+```{r absence-compare}
+#| fig-cap: "Full-year and autumn+spring absence, for the school-years where both are published"
+both <- p5 |> filter(!is.na(PERCTOT), !is.na(PERCTOT_2term))
+r_abs <- cor(both$PERCTOT, both$PERCTOT_2term)
+d_abs <- mean(both$PERCTOT_2term - both$PERCTOT)
+
+ggplot(both, aes(PERCTOT, PERCTOT_2term)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") +
+  geom_point(alpha = 0.12, colour = PURPLE, size = 0.7) +
+  labs(x = "Overall absence, full academic year (%)",
+       y = "Overall absence, autumn + spring (%)",
+       title = "The two absence bases measure nearly the same thing",
+       subtitle = sprintf("%s school-years, r = %.3f, autumn+spring running %.2f points lower on average",
+                          format(nrow(both), big.mark = ","), r_abs, d_abs)) +
+  theme_note()
+```
+
+They are close: `r sprintf("r = %.3f", r_abs)` across
+`r format(nrow(both), big.mark = ",")` school-years, with the two-term figure
+`r sprintf("%.2f", abs(d_abs))` percentage points lower on average — summer
+term absence is the higher part of the year, so dropping it pulls the number
+down slightly and almost uniformly.
+
+# Does the conclusion survive?
+
+The question worth asking is not "can a fifth year be added" but "does adding
+it change the answer". Three fits separate the two things that could move the
+result — the change of absence basis, and the extra year.
+
+```{r fits}
+#| cache: true
+fit_core <- function(d, absvar) {
+  d <- d |>
+    filter(!is.na(ATT8SCR), ATT8SCR > 0,
+           !is.na(.data[[absvar]]), .data[[absvar]] > 0,
+           !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0,
+           !is.na(PNUMEAL), PNUMEAL > 0,
+           !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+           !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME))
+  f <- as.formula(sprintf(paste(
+    "log(ATT8SCR) ~ log(PTFSM6CLA1A) + log(%s) + log(PNUMEAL) +",
+    "ADMPOL_PT + gorard_segregation +",
+    "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)"), absvar))
+  m <- lmer(f, data = d, REML = TRUE,
+            control = lmerControl(optimizer = "bobyqa",
+                                  optCtrl = list(maxfun = 2e5)))
+  list(m = m, n = nrow(d), co = summary(m)$coefficients)
+}
+
+four <- filter(p5, academic_year != "2025-2026")
+A <- fit_core(four, "PERCTOT")
+B <- fit_core(four, "PERCTOT_2term")
+C <- fit_core(p5,   "PERCTOT_2term")
+
+pull <- function(r, pat) {
+  rn <- grep(pat, rownames(r$co), value = TRUE)[1]
+  c(est = r$co[rn, "Estimate"], se = r$co[rn, "Std. Error"])
+}
+```
+
+```{r fits-table}
+#| tbl-cap: "The core specification, fitted three ways"
+tibble(
+  Fit = c("A. Published baseline", "B. Absence basis swapped", "C. Fifth year added"),
+  Years = c("2021/22–2024/25", "2021/22–2024/25", "2021/22–2025/26"),
+  Absence = c("Full year", "Autumn + spring", "Autumn + spring"),
+  `School-years` = format(c(A$n, B$n, C$n), big.mark = ","),
+  `Absence coefficient` = sprintf("%.4f", c(pull(A, "PERCTOT")["est"],
+                                            pull(B, "PERCTOT")["est"],
+                                            pull(C, "PERCTOT")["est"])),
+  `Disadvantage coefficient` = sprintf("%.4f", c(pull(A, "PTFSM6CLA1A")["est"],
+                                                 pull(B, "PTFSM6CLA1A")["est"],
+                                                 pull(C, "PTFSM6CLA1A")["est"]))
+)
+```
+
+```{r coef-plot}
+#| fig-cap: "Absence and disadvantage coefficients across the three fits, with 95% intervals"
+#| fig-height: 3.4
+fits  <- list(`A. Published\nbaseline` = A,
+              `B. Absence basis\nswapped` = B,
+              `C. Fifth year\nadded` = C)
+terms <- c(Absence = "PERCTOT", Disadvantage = "PTFSM6CLA1A")
+
+cf <- purrr::map_dfr(names(terms), function(tm) {
+  purrr::map_dfr(names(fits), function(fn) {
+    v <- pull(fits[[fn]], terms[[tm]])
+    tibble(fit = fn, term = tm, est = unname(v["est"]), se = unname(v["se"]))
+  })
+}) |>
+  mutate(fit = factor(fit, levels = names(fits)))
+
+ggplot(cf, aes(est, fit, colour = term)) +
+  geom_vline(xintercept = 0, colour = "grey70", linetype = "31") +
+  geom_errorbarh(aes(xmin = est - 1.96 * se, xmax = est + 1.96 * se),
+                 height = 0.16, linewidth = 0.8) +
+  geom_point(size = 3) +
+  scale_colour_manual(values = c(Absence = BRIGHT, Disadvantage = WARM),
+                      guide = "none") +
+  facet_wrap(~ term, scales = "free_x") +
+  labs(x = "Coefficient on log(x) in log(Attainment 8)", y = NULL,
+       title = "Neither change moves the result",
+       subtitle = "Elasticities: a 10% rise in absence costs about 2.6% of Attainment 8") +
+  theme_note(12)
+```
+
+The absence elasticity goes
+**`r sprintf("%.4f", pull(A,"PERCTOT")["est"])` → `r sprintf("%.4f", pull(B,"PERCTOT")["est"])` → `r sprintf("%.4f", pull(C,"PERCTOT")["est"])`**.
+The disadvantage elasticity goes
+**`r sprintf("%.4f", pull(A,"PTFSM6CLA1A")["est"])` → `r sprintf("%.4f", pull(B,"PTFSM6CLA1A")["est"])` → `r sprintf("%.4f", pull(C,"PTFSM6CLA1A")["est"])`**.
+
+Every one of those moves is far inside the standard errors. Swapping the
+absence basis is close to free, and a fifth year of data leaves the central
+finding exactly where it was: **absence carries roughly twice the weight of
+disadvantage**, and it is the variable policy has most purchase on.
+
+That is the most useful thing a new year of data can do. It was a chance for
+the conclusion to fail, and it did not.
+
+# What actually changed in 2025/26
+
+```{r england}
+# Paired means only: a school missing either year would otherwise shift the
+# two averages by different amounts and invent a change that is not there.
+nat_all <- yoy |> filter(!is.na(a25), !is.na(a26))
+nat_dis <- yoy |> filter(!is.na(d25), !is.na(d26), !is.na(n25), !is.na(n26))
+nat <- tibble(
+  n   = nrow(nat_all),
+  a25 = mean(nat_all$a25), a26 = mean(nat_all$a26),
+  d25 = mean(nat_dis$d25), d26 = mean(nat_dis$d26),
+  n25 = mean(nat_dis$n25), n26 = mean(nat_dis$n26))
+gap25 <- nat$n25 - nat$d25; gap26 <- nat$n26 - nat$d26
+```
+
+Across `r format(nat$n, big.mark = ",")` matched state-funded mainstream
+schools in England, headline Attainment 8 was **flat**: a change of
+`r fmt(nat$a26 - nat$a25)` points. Underneath it, something more interesting:
+
+- disadvantaged pupils **`r fmt(nat$d26 - nat$d25)`**, from `r sprintf("%.1f", nat$d25)` to `r sprintf("%.1f", nat$d26)`
+- everyone else **`r fmt(nat$n26 - nat$n25)`**, from `r sprintf("%.1f", nat$n25)` to `r sprintf("%.1f", nat$n26)`
+- the **disadvantage gap narrowed by `r sprintf("%.2f", gap25 - gap26)` points**, from `r sprintf("%.2f", gap25)` to `r sprintf("%.2f", gap26)`
+
+A flat headline hiding a narrowing gap is precisely the pattern a measure
+built on averages is bad at showing, and precisely the one that matters.
+
+## Brighton and Hove
+
+```{r brighton}
+#| tbl-cap: "Brighton and Hove state-funded secondary schools, 2024/25 to 2025/26 (provisional)"
+bh <- yoy |>
+  filter(LANAME == "Brighton and Hove", !is.na(f26)) |>
+  arrange(desc(chg)) |>
+  transmute(School = SCHNAME,
+            `A8 2024/25` = a25, `A8 2025/26` = a26, Change = chg,
+            `Disadvantaged 2024/25` = d25, `Disadvantaged 2025/26` = d26,
+            `Disadvantaged change` = chg_dis,
+            `Disadvantaged %` = f26)
+bh
+```
+
+The city moved **`r fmt(mean(bh$Change, na.rm = TRUE))` points** against a
+national change of `r fmt(nat$a26 - nat$a25)`. Two movements stand out, and
+they are in opposite directions.
+
+```{r lh-baca}
+#| fig-cap: "Longhill and Brighton Aldridge, against the national distribution of Attainment 8"
+pctile <- function(v, x) 100 * mean(v <= x, na.rm = TRUE)
+lh <- yoy |> filter(SCHNAME == "Longhill High School")
+bc <- yoy |> filter(SCHNAME == "Brighton Aldridge Community Academy")
+
+mk <- tibble(
+  school = rep(c("Longhill", "Brighton Aldridge"), each = 2),
+  year   = rep(c("2024/25", "2025/26"), 2),
+  a8     = c(lh$a25, lh$a26, bc$a25, bc$a26))
+
+ggplot(yoy |> select(a26) |> filter(!is.na(a26)), aes(a26)) +
+  geom_histogram(bins = 60, fill = "grey85") +
+  geom_vline(data = mk, aes(xintercept = a8, colour = school,
+                            linetype = year), linewidth = 0.9) +
+  scale_colour_manual(values = c(Longhill = BRIGHT,
+                                 `Brighton Aldridge` = WARM)) +
+  labs(x = "Attainment 8, 2025/26", y = "Schools", colour = NULL, linetype = NULL,
+       title = "Longhill up, Brighton Aldridge down — they have crossed",
+       subtitle = sprintf("Longhill %.1f to %.1f (national percentile %.0f to %.0f); Brighton Aldridge %.1f to %.1f (%.0f to %.0f)",
+                          lh$a25, lh$a26, pctile(yoy$a25, lh$a25), pctile(yoy$a26, lh$a26),
+                          bc$a25, bc$a26, pctile(yoy$a25, bc$a25), pctile(yoy$a26, bc$a26))) +
+  theme_note()
+```
+
+**Longhill rose `r fmt(lh$chg, 1)` points** and its disadvantaged pupils rose
+`r fmt(lh$chg_dis, 1)`. **Brighton Aldridge fell `r fmt(bc$chg, 1)`**, with its
+disadvantaged pupils falling `r fmt(bc$chg_dis, 1)`. On the headline measure
+the two schools have swapped places.
+
+::: callout-warning
+## Do not over-read this yet
+
+Three reasons for caution, all of them real:
+
+1. **These are provisional figures.** February's revisions will move them.
+2. **One year, small cohorts.** An eleven-point move in a single school's
+   disadvantaged average is well within what cohort composition can do on
+   its own, particularly at a school where
+   `r sprintf("%.0f%%", bc$f26)` of the cohort is disadvantaged.
+3. **Attainment 8 is not value added.** The simulator's third policy lever —
+   "what if Longhill added value like Brighton Aldridge" — rests on a
+   four-year value-added measure, not on one year of headline scores. A
+   single year's Attainment 8 cannot overturn it.
+
+What this *does* justify is re-running the value-added measure with the new
+year in it, and seeing whether the gap that lever depends on is still there.
+:::
+
+# Where this leaves things
+
+**Settled.** The new year can be added, the new source agrees with the old
+one, and the central Lever finding is unchanged by both the extra year and
+the change of absence basis.
+
+**Open, and worth doing next:**
+
+- Re-run the four-year value-added measure with 2025/26 in it. The Brighton
+  simulator's attractiveness term $W_j$ and the third policy lever both
+  depend on it, and Longhill and Brighton Aldridge have just moved in
+  opposite directions.
+- Decide whether to adopt the **revised** 2024/25 figures now available from
+  EES in place of the provisional ones the published analysis used. The mean
+  difference is about 0.12 Attainment 8 points.
+- Revisit in February 2027, when 2025/26 is revised and the full-year absence
+  series catches up.
+
+**Reproducibility.** `data/panel_data.rds` is untouched: the published
+four-year analysis still reproduces from exactly the files it was built on.
+The five-year panel is written separately to `data/panel_data_5yr.rds` and
+nothing adopts it until that is a deliberate decision.
+
+::: {.callout-note collapse="true"}
+## Sources
+
+All figures from Department for Education statistics, Open Government
+Licence v3.0.
+
+- *Key stage 4 performance, Academic year 2025/26* — Key stage 4 institution
+  level: Performance. Published 15 October 2026. Provisional.
+- *Pupil absence in schools in England, Autumn and spring term 2025/26* —
+  Absence, school level, autumn and spring terms combined. Published
+  15 October 2026.
+- *Schools, pupils and their characteristics, Academic year 2025/26* — School
+  level underlying data, January 2026 census.
+:::
