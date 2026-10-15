@@ -1,10 +1,10 @@
 ---
 title: "Putting the **AI** in **A**ppl**I**ed Urban Modelling"
-subtitle: "Five months, one city's school system, a collaborative model building process"
+subtitle: "A Complete Model of Brighton and Hove's Secondary School System in Five Months"
 author:
   - name: Prof Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
-date: "2026-10-01"
+date: today
 date-format: "dddd D MMMM YYYY"
 title-slide-attributes:
   data-background-color: "#993bff"
@@ -965,16 +965,17 @@ That is the collective intelligence bit.
 
 ## Questions I wanted to Answer
 
-- What is causing Longhill's acute numbers problem - is it geography,
-  demography, attractiveness, some combination or something else?
+- What is causing Longhill School's acute numbers problem - is it
+  geography, demography, attractiveness, some combination or something
+  else?
   - How do parents in the city choose which schools to send their
-    children to - what makes a school attractive? What impact would
-    changing how parents choose have?
+    children to - what makes a school attractive? What if parents chose
+    differently?
 - Would moving Longhill and/or shrinking it:
   - Help it survive in the medium term - 2035?
   - Improve accessibility or segregation in the city?
 - How do current and previously proposed policies impact pupil
-  displacement?
+  displacement (students unable to attend their local school)?
 - Given how the system operates, what policy levers can be pulled to
   maintain a viable school system in the city, 10 years from now?
 
@@ -1333,8 +1334,8 @@ correct one.
 
 ## The division of labour {.smaller}
 
-::::: columns
-::: {.column width="50%"}
+:::::: columns
+::: {.column width="49%"}
 **What I brought**
 
 - **The working prototype** — Brightopia, and the `r5r` routing
@@ -1348,7 +1349,10 @@ correct one.
 - Every decision about what to do next
 :::
 
-::: {.column width="50%"}
+::: {.column width="2%"}
+:::
+
+::: {.column width="49%"}
 **What Claude brought**
 
 - Scale: a hand-built prototype turned into a calibrated, audited system
@@ -1358,7 +1362,7 @@ correct one.
 - Documentation written as it went
 - The willingness to redo all of it when one assumption changed
 :::
-:::::
+::::::
 
 ::: key-finding
 I knew what to ask for and what to examine, because I had built a
@@ -1592,67 +1596,104 @@ of these six prompts is a correction. They are **design**.
 <!-- ## Worked example: a school in the wrong place {.smaller} -->
 
 <!-- :::::: columns -->
+
 <!-- ::: {.column width="55%"} -->
+
 <!-- The model had Hove Park School at its Nevill Road site. Reasonable — -->
+
 <!-- that is the address in the published data. -->
 
 <!-- Five months in, I realised: the school has operated **two campuses**. -->
+
 <!-- Year 7 and 8 were at the Valley Campus, a mile away, until a closure -->
+
 <!-- proposal in 2026. -->
 
 <!-- The model had been calibrated on the wrong location for the children who -->
+
 <!-- actually generate the demand. -->
+
 <!-- ::: -->
 
 <!-- :::: {.column width="45%"} -->
+
 <!-- ::: key-finding -->
+
 <!-- No amount of code quality would have caught this. It needed someone who -->
+
 <!-- knew the city. -->
+
 <!-- ::: -->
 
 <!-- Re-calibrating moved about **a quarter of Hove Park's modelled intake** -->
+
 <!-- between wards, and changed the disadvantage figures materially. -->
+
 <!-- :::: -->
+
 <!-- :::::: -->
 
 <!-- ## What re-calibrating it showed {.smaller} -->
 
 <!-- ```{r fig-hovepark} -->
+
 <!-- #| fig-width: 11 -->
+
 <!-- #| fig-height: 4.2 -->
+
 <!-- mv <- hpc$move |> -->
+
 <!--   select(year, Valley = valley, `Nevill Road` = nevill) |> -->
+
 <!--   tidyr::pivot_longer(-year, names_to = "site", values_to = "intake") -->
+
 <!-- ggplot(mv, aes(factor(year), intake, fill = site)) + -->
+
 <!--   geom_col(position = position_dodge(width = 0.72), width = 0.66) + -->
+
 <!--   geom_text(aes(label = round(intake)), -->
+
 <!--             position = position_dodge(width = 0.72), vjust = -0.5, -->
+
 <!--             size = 4.4, colour = INK) + -->
+
 <!--   scale_fill_manual(values = c(Valley = GREY, `Nevill Road` = BRIGHT)) + -->
+
 <!--   scale_y_continuous(limits = c(0, 205)) + -->
+
 <!--   labs(x = "Entry year", y = "Modelled Year 7 intake", -->
+
 <!--        title = "The same school, half a mile apart", -->
+
 <!--        subtitle = "Modelled intake with Hove Park at the Valley Campus, and consolidated at Nevill Road") + -->
+
 <!--   theme_talk(14) -->
+
 <!-- ``` -->
 
 <!-- ::: key-finding -->
+
 <!-- Moving site is worth about **twelve extra children a year** — roughly a -->
+
 <!-- 7% lift, from geography alone. Real, but far smaller than the school's -->
+
 <!-- attractiveness. The question "is it the site or the reputation?" now has -->
+
 <!-- a number attached. -->
+
 <!-- ::: -->
 
 ## Worked example: the simulator {.smaller}
 
-![](slides_assets/simulator-front.png){fig-align="center" width="74%"}
+![](slides_assets/simulator-starting.png){.nostretch fig-align="center"
+width="54%"}
 
 ::: {style="font-size:0.75em"}
-Every scenario in this talk is a control in here. Built in about two
-days, and the reason the "what if" questions became cheap enough to ask
-twenty times instead of twice.
+- Simulator has both pre-built scenarios I imagined plus scope to change
+  each element.
+- Built in about two days, and the reason the "what if" questions became
+  cheap enough to ask twenty times instead of twice.
 :::
-
 
 ## Back to the first question {.smaller}
 
@@ -1671,32 +1712,25 @@ steps <- tibble::tibble(
 st <- function(i, col) steps[[col]][i]
 ```
 
-:::::: columns
-::: {.column width="54%"}
+![](slides_assets/kpi2-starting.png){.nostretch fig-align="center" width="56%"}
+
 > *"What is causing Longhill's acute numbers problem — is it geography,
 > demography, attractiveness, some combination or something else? Would
-> moving and/or shrinking it help it survive, or improve anything else?"*
+> moving and/or shrinking it help it survive, or improve anything
+> else?"*
 
-The honest answer is **none of them on their own**. Longhill is not short
-of children for one reason, so no single lever fixes it.
 
-What the simulator lets you do is pull them **one at a time, and watch
-them compound**.
-:::
+- The honest answer is **none of them on their own**.
+- Longhill is not short of children for one reason, so no single lever
+  fixes it.
+- What the simulator lets you do is pull them **one at a time, and watch them compound**.
+-  **Today, 2026.** Longhill takes **`r st(1,"intake")` of 210 places
+(`r st(1,"pct")`%)**, 120 short. A disadvantaged child travels
+**`r sprintf("%+.1f", st(1,"dep"))` minutes further** than everyone
+else.
 
-::: {.column width="46%"}
-![](slides_assets/kpi2-starting.png)
 
-::: {style="font-size:0.78em; margin-top:0.4rem;"}
-**Today, 2026.** Longhill takes
-**`r st(1,"intake")` of 210 places (`r st(1,"pct")`%)**, 120 short. A
-disadvantaged child travels **`r sprintf("%+.1f", st(1,"dep"))` minutes
-further** than everyone else.
-:::
-:::
-::::::
-
-## One: change the number families read {.smaller .simstep}
+## One: Families select on value-added not attainment {.smaller .simstep}
 
 ![](slides_assets/kpi2-va.png){fig-align="center" width="56%"}
 
@@ -1705,20 +1739,20 @@ further** than everyone else.
 ![](slides_assets/sim-wide-va.png){.sim-wide fig-align="center"}
 :::
 
-::: {.column width="42%"}
-One dropdown. Families read the **four-year value added measure** — what a
-school adds once its intake is accounted for — as closely as they now read
-the headline score. Nothing about the schools changes.
+:::: {.column width="42%"}
+One dropdown. Families read the **four-year value added measure** — what
+a school adds once its intake is accounted for — as closely as they now
+read the headline score. Nothing about the schools changes.
 
-Longhill goes from **`r st(1,"intake")`** to
-**`r st(2,"intake")` of 210 (`r st(2,"pct")`%)**.
+Longhill goes from **`r st(1,"intake")`** to **`r st(2,"intake")` of 210
+(`r st(2,"pct")`%)**.
 
 ::: key-finding
 The travel gap falls from **`r sprintf("%+.1f", st(1,"dep"))`** to
-**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean journey
-drops by 42 seconds.
+**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean
+journey drops by 42 seconds.
 :::
-:::
+::::
 ::::::
 
 ## Two: move it, and give it back its catchment {.smaller .simstep}
@@ -1730,12 +1764,13 @@ drops by 42 seconds.
 ![](slides_assets/sim-wide-elmsame.png){.sim-wide fig-align="center"}
 :::
 
-::: {.column width="42%"}
+:::: {.column width="42%"}
 Two more controls: Longhill relocates to **Elm Grove**, and **Whitehawk
-returns to its catchment** — the boundary the 2024 consultation moved out.
+returns to its catchment** — the boundary the 2024 consultation moved
+out.
 
-Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and the
-travel gap **reverses**: disadvantaged children now travel
+Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and
+the travel gap **reverses**: disadvantaged children now travel
 **`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
 classmates.
 
@@ -1744,7 +1779,7 @@ Redrawing the catchments as flow regions around the new site was also
 tested. It did **worse** — a travel gap of −1.0 against −1.9, and twice
 the displacement.
 :::
-:::
+::::
 ::::::
 
 ## Three: and if it taught like Brighton Aldridge {.smaller .simstep}
@@ -1756,10 +1791,10 @@ the displacement.
 ![](slides_assets/sim-wide-dbl.png){.sim-wide fig-align="center"}
 :::
 
-::: {.column width="42%"}
+:::: {.column width="42%"}
 The last lever is not an admissions policy. It is **the school getting
-better** — value added doubled, to roughly where Brighton Aldridge already
-is with a comparably disadvantaged intake.
+better** — value added doubled, to roughly where Brighton Aldridge
+already is with a comparably disadvantaged intake.
 
 Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
 13 places short, **1% of children displaced** city-wide.
@@ -1767,13 +1802,13 @@ Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
 ::: key-finding
 A disadvantaged child now travels
 **`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less*** than everyone
-else — a swing of
-`r sprintf("%.1f", st(1,"dep") - st(4,"dep"))` minutes. Absence is this
-city's largest attainment problem, and distance is one of the few things
-policy can change about it.
+else — a swing of `r sprintf("%.1f", st(1,"dep") - st(4,"dep"))`
+minutes. Absence is this city's largest attainment problem, and distance
+is one of the few things policy can change about it.
 :::
-:::
+::::
 ::::::
+
 ## Why this needs a simulator {.smaller}
 
 :::::: columns
@@ -1798,7 +1833,7 @@ ggplot(sl, aes(lab, pct, group = 1)) +
 ```
 :::
 
-::: {.column width="44%"}
+:::: {.column width="44%"}
 Each choice is modest on its own. **`r st(2,"pct")-st(1,"pct")` points,
 then `r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.**
 None would survive a committee on its own merits. Together they take a
@@ -1816,87 +1851,141 @@ children it is meant to.
 
 You cannot reason about this in a committee paper. Every lever moves
 every other one, and you have to **see each choice land**.
-:::
+::::
 ::::::
+
 <!-- ## Worked example: a question only a human asks {.smaller} -->
 
 <!-- Families choose schools on the published Attainment 8 score — which -->
+
 <!-- mostly measures the intake, not the teaching. -->
 
 <!-- I asked: **what if they chose on value added instead?** -->
 
 <!-- :::::: columns -->
+
 <!-- ::: {.column width="50%"} -->
+
 <!-- That is not a coding task. It is a question about how a city might -->
+
 <!-- behave differently, and it took about a day to answer properly: a new -->
+
 <!-- attractiveness basis, a switch in the simulator, a measure of how evenly -->
+
 <!-- children would be spread. -->
+
 <!-- ::: -->
 
 <!-- :::: {.column width="50%"} -->
+
 <!-- ::: key-finding -->
+
 <!-- The answer: one struggling school's intake nearly doubles, the surplus -->
+
 <!-- stops concentrating in three schools — and the total number of empty -->
+
 <!-- places does not move at all. -->
+
 <!-- ::: -->
+
 <!-- :::: -->
+
 <!-- :::::: -->
 
 <!-- ## What the city would look like {.smaller} -->
 
 <!-- ```{r fig-va} -->
+
 <!-- #| fig-width: 11 -->
+
 <!-- #| fig-height: 4.4 -->
+
 <!-- va <- vac$detail |> -->
+
 <!--   mutate(school = forcats::fct_reorder(short_sch(name), mult), -->
+
 <!--          up = mult >= 1) -->
+
 <!-- ggplot(va, aes(mult, school)) + -->
+
 <!--   geom_vline(xintercept = 1, colour = GREY, linetype = "31") + -->
+
 <!--   geom_segment(aes(x = 1, xend = mult, yend = school, colour = up), linewidth = 1.1) + -->
+
 <!--   geom_point(aes(colour = up), size = 4) + -->
+
 <!--   geom_text(aes(label = sprintf("%.2f x", mult), hjust = ifelse(up, -0.3, 1.3)), -->
+
 <!--             size = 4.1, colour = INK) + -->
+
 <!--   scale_colour_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = WARM), guide = "none") + -->
+
 <!--   scale_x_continuous(limits = c(0, 3.2)) + -->
+
 <!--   labs(x = "Change in how attractive the school looks", y = NULL, -->
+
 <!--        title = "If families read value added instead of Attainment 8", -->
+
 <!--        subtitle = "Multiplier on each school's attractiveness. 1.0 = no change.") + -->
+
 <!--   theme_talk(14) + -->
+
 <!--   theme(panel.grid.major.y = element_blank(), -->
+
 <!--         panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4)) -->
+
 <!-- ``` -->
 
 <!-- ::: {style="font-size:0.72em"} -->
+
 <!-- Brighton Aldridge — the lowest Attainment 8 in the city — is adding more -->
+
 <!-- progress than almost anywhere. Patcham, comfortably mid-table on the -->
+
 <!-- headline number, is bottom of the city on value added. -->
+
 <!-- ::: -->
 
 <!-- ## Worked example: catching it being wrong {.smaller} -->
 
 <!-- :::::: columns -->
+
 <!-- ::: {.column width="54%"} -->
+
 <!-- Claude reported a school's value-added score as being in the "top 100% -->
+
 <!-- in England". It had applied an Attainment 8 percentile function to a -->
+
 <!-- value-added figure. Silently wrong, confidently stated. -->
 
 <!-- Later, the attainment charts appeared to show huge jumps when the -->
+
 <!-- value-added option was selected — because they were reading a different -->
+
 <!-- variable than I thought. -->
 
 <!-- I caught both. It fixed both in minutes. -->
+
 <!-- ::: -->
 
 <!-- :::: {.column width="46%"} -->
+
 <!-- ::: key-finding -->
+
 <!-- The failure mode is not gibberish. It is **plausible, well-formatted, -->
+
 <!-- confidently-presented wrongness** — exactly what a domain expert catches -->
+
 <!-- and a non-expert does not. -->
+
 <!-- ::: -->
 
 <!-- This is the strongest argument I have for why the human in this loop has -->
+
 <!-- to be someone who knows the subject. -->
+
 <!-- :::: -->
+
 <!-- :::::: -->
 
 ## What catching it looks like, in my own words {.smaller}
@@ -1946,18 +2035,29 @@ history, which is in no dataset anywhere.
 <!-- ## The other failure modes, honestly {.smaller} -->
 
 <!-- | What went wrong | What it cost | -->
+
 <!-- |:-----------------------------------|:-----------------------------------| -->
+
 <!-- | A shell quoting slip corrupted two files | 20 minutes, fixed by regenerating | -->
+
 <!-- | An optimiser fell into the wrong basin | Caught by a sanity check on one school's intake | -->
+
 <!-- | A variable name collision inside the app | Silent wrong behaviour until tested | -->
+
 <!-- | Model outputs stale after re-calibration | Needed a discipline of re-running everything | -->
+
 <!-- | Confident summaries of work not yet verified | Needed me to ask "did you actually check?" | -->
 
 <!-- ::: {style="font-size:0.78em"} -->
+
 <!-- None of these are exotic. They are the ordinary failure modes of a fast, -->
+
 <!-- capable, over-confident collaborator — and they are managed the same way -->
+
 <!-- you manage those in a person: tests, checks, and someone reading the -->
+
 <!-- output. -->
+
 <!-- ::: -->
 
 ## The workflow {.smaller}
