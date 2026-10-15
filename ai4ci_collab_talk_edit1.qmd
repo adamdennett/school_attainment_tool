@@ -1152,12 +1152,7 @@ foi_fsm <- tibble::tribble(
 fsm_d <- o_fsm$tiers |>
   dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
   dplyr::inner_join(foi_fsm, by = "name") |>
-  dplyr::left_join(dplyr::select(dplyr::filter(inp$schools, city), name, pan),
-                   by = "name") |>
-  dplyr::mutate(school = short_sch(name),
-                odd    = school == "Varndean",
-                m_tot  = m4 + m5, a_tot = p4 + p5,
-                m_pct  = 100 * m_tot / pan, a_pct = 100 * a_tot / pan)
+  dplyr::mutate(school = short_sch(name), odd = school == "Varndean")
 
 r2 <- function(a, b) cor(a, b)^2
 # Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so
@@ -1165,8 +1160,6 @@ r2 <- function(a, b) cor(a, b)^2
 r2_out_all  <- r2(fsm_d$m5, fsm_d$p5)
 r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5))
 vd <- dplyr::filter(fsm_d, odd)
-st <- dplyr::filter(fsm_d, school == "Stringer")
-CAP <- 100 * inp$rules$fsm_cap_share
 
 fsm_long <- dplyr::bind_rows(
   fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
@@ -1201,34 +1194,37 @@ children each school actually admitted under each priority.
 
 **In catchment it predicts well** — R² =
 `r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`, average error
-`r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children. Out of
-catchment, one school does nearly all the damage: the model sends
-**`r sprintf("%.0f", vd$m5)` children into Varndean; `r vd$p5` went**.
+`r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children.
+
+**Out of catchment the total is right and the destinations are not**:
+`r sprintf("%.0f", sum(fsm_d$m5))` children modelled against
+`r sum(fsm_d$p5)` actual, but at the wrong schools. One does nearly all
+of it — the model places **`r sprintf("%.0f", vd$m5)` at Varndean;
+`r vd$p5` went**.
 :::
 :::
 
 :::: {.column width="48%"}
 ::: key-finding
-**Why Varndean, and nowhere else.** The free school meal priority is
-capped at `r sprintf("%.0f", CAP)`% of a school's places. Varndean is
-the only school the model runs all the way to that ceiling
-(`r sprintf("%.0f", vd$m_tot)` of `r vd$pan`). Every other school it
-leaves around 15%.
+**Where the model is thin.** Free-school-meal children are carried as a
+fixed share of each neighbourhood's flow, so they inherit everyone
+else's travel behaviour exactly — the same willingness to cross the
+city, the same shortlist.
 
-In reality Varndean's own catchment supplied the intake — **`r vd$p4`
-in-catchment children against Stringer's `r st$p4`** — and the school
-settled at `r sprintf("%.0f", vd$a_pct)`%, not
-`r sprintf("%.0f", CAP)`%. The model, finding room under the cap,
-filled it by importing children from outside.
+Real families on the priority travel less far, and do not spend a
+preference on a school they expect to miss. The model has no way to
+know that, so it sends them to the most attractive school in reach.
 :::
 ::::
 ::::::
 
 ::: {style="font-size:0.72em; margin-top:-0.2rem;"}
-So priority 5 is a **residual, not a forecast** — what is left of the
-quota once the catchment has had its turn. The cap is a ceiling in the
-rules; the model treated it as a target. That is a fixable modelling
-error, and it took an FOI and someone who knew the city to find it.
+It is a **demand** error, not an allocation one: lifting the priority's
+30% ceiling moves Varndean from 34 to 36, not towards 6. Fixing it
+properly means letting disadvantaged flows decay with distance on their
+own terms, and that is a recalibration, not a patch. Worth knowing
+before anyone leans on the free school meal scenarios — and it took an
+FOI, and someone who knew the city, to surface it.
 :::
 
 # What the Model Says {background-color="#361a54"}
