@@ -1,6 +1,6 @@
 ---
 title: "Key Stage 4, 2025/26"
-subtitle: "What a fifth year of data does to *How to Pull the Right Lever*"
+subtitle: "An addendum to *How to Pull the Right Lever*: what a fifth year of data does to it"
 author:
   - name: Adam Dennett
     affiliations:
@@ -83,11 +83,21 @@ shorten <- function(x) {
 ```
 
 ::: callout-note
-## Status
+## Status: an addendum, not a revision
 
-The 2025/26 Key Stage 4 figures used here are **provisional**, published by
-the Department for Education on 15 October 2026. Revised figures follow in
-February 2027. Nothing below should be treated as settled until they arrive.
+This is a **standalone addendum** to
+[*How to Pull the Right Lever*](pulling_the_right_lever_v2.html). That report
+is unchanged and still stands on its own four years of data: nothing here has
+been folded back into it, and every figure it publishes still reproduces from
+`data/panel_data.rds` exactly as before. The five-year panel this note uses is
+written separately, to `data/panel_data_5yr.rds`.
+
+The 2025/26 Key Stage 4 figures are **provisional**, published by the
+Department for Education on 15 October 2026. Revised figures follow in
+**February 2027**, and a single year this far out of line is exactly the case
+where a revision matters most. Nothing below should be treated as settled
+until they arrive — which is the main reason it is an addendum rather than a
+new edition.
 :::
 
 # What arrived, and why the pipeline had to change
@@ -943,22 +953,37 @@ bh_series |>
 one, and the central Lever finding is unchanged by both the extra year and
 the change of absence basis.
 
-**Open, and worth doing next:**
+**Worth watching, not acting on.** On the measure the argument cares about
+most — what a school adds for disadvantaged children — Longhill improved and
+BACA fell, and BACA's fall reverses four years in which it was the best
+school in the city on that measure. Both sit on one provisional year.
 
-- Re-run the four-year value-added measure with 2025/26 in it. The Brighton
-  simulator's attractiveness term $W_j$ and the third policy lever both
-  depend on it, and Longhill and BACA have just moved in
-  opposite directions.
-- Decide whether to adopt the **revised** 2024/25 figures now available from
-  EES in place of the provisional ones the published analysis used. The mean
-  difference is about 0.12 Attainment 8 points.
-- Revisit in February 2027, when 2025/26 is revised and the full-year absence
-  series catches up.
+**Deliberately not done.** Three things this addendum stops short of, each
+for the same reason:
 
-**Reproducibility.** `data/panel_data.rds` is untouched: the published
-four-year analysis still reproduces from exactly the files it was built on.
-The five-year panel is written separately to `data/panel_data_5yr.rds` and
-nothing adopts it until that is a deliberate decision.
+- *The main report is not revised.* [*How to Pull the Right
+  Lever*](pulling_the_right_lever_v2.html) still stands on four years. Its
+  league tables, its coefficients and its conclusions are untouched.
+- *The simulator is not rebuilt.* The shipped attractiveness multipliers are
+  a year out of date, and the third policy lever's "roughly where BACA
+  already is" no longer holds as stated — but rebuilding on a provisional
+  year would be the wrong move.
+- *The published panel is not replaced.* `data/panel_data.rds` is untouched,
+  so every published figure still reproduces from exactly the files it was
+  built on. The five-year panel is written separately to
+  `data/panel_data_5yr.rds`.
+
+**What would change that.** February 2027, when 2025/26 is revised and the
+full-year absence series catches up. At that point three decisions become
+live: whether to fold this year into the main report, whether to rebuild the
+simulator's attractiveness on five years, and whether to adopt the **revised**
+2024/25 figures EES now carries in place of the provisional ones the
+published analysis used — a difference of about 0.12 Attainment 8 points.
+
+One loose end worth closing sooner: the **two conventions** for the residual
+described in §6. The report and the simulator currently print slightly
+different numbers for the same measure, and that is worth reconciling whoever
+wins.
 
 ::: {.callout-note collapse="true"}
 ## Sources

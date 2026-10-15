@@ -2342,7 +2342,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <h1 class="title">Key Stage 4, 2025/26</h1>
-<p class="subtitle lead">What a fifth year of data does to <em>How to Pull the Right Lever</em></p>
+<p class="subtitle lead">An addendum to <em>How to Pull the Right Lever</em>: what a fifth year of data does to it</p>
 </div>
 
 
@@ -2384,11 +2384,12 @@ window.Quarto = {
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Status
+<span class="screen-reader-only">Note</span>Status: an addendum, not a revision
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The 2025/26 Key Stage 4 figures used here are <strong>provisional</strong>, published by the Department for Education on 15 October 2026. Revised figures follow in February 2027. Nothing below should be treated as settled until they arrive.</p>
+<p>This is a <strong>standalone addendum</strong> to <a href="pulling_the_right_lever_v2.html"><em>How to Pull the Right Lever</em></a>. That report is unchanged and still stands on its own four years of data: nothing here has been folded back into it, and every figure it publishes still reproduces from <code>data/panel_data.rds</code> exactly as before. The five-year panel this note uses is written separately, to <code>data/panel_data_5yr.rds</code>.</p>
+<p>The 2025/26 Key Stage 4 figures are <strong>provisional</strong>, published by the Department for Education on 15 October 2026. Revised figures follow in <strong>February 2027</strong>, and a single year this far out of line is exactly the case where a revision matters most. Nothing below should be treated as settled until they arrive — which is the main reason it is an addendum rather than a new edition.</p>
 </div>
 </div>
 <section id="what-arrived-and-why-the-pipeline-had-to-change" class="level1" data-number="1">
@@ -3876,13 +3877,15 @@ window.Quarto = {
 <section id="where-this-leaves-things" class="level1" data-number="8">
 <h1 data-number="8"><span class="header-section-number">8</span> Where this leaves things</h1>
 <p><strong>Settled.</strong> The new year can be added, the new source agrees with the old one, and the central Lever finding is unchanged by both the extra year and the change of absence basis.</p>
-<p><strong>Open, and worth doing next:</strong></p>
+<p><strong>Worth watching, not acting on.</strong> On the measure the argument cares about most — what a school adds for disadvantaged children — Longhill improved and BACA fell, and BACA’s fall reverses four years in which it was the best school in the city on that measure. Both sit on one provisional year.</p>
+<p><strong>Deliberately not done.</strong> Three things this addendum stops short of, each for the same reason:</p>
 <ul>
-<li>Re-run the four-year value-added measure with 2025/26 in it. The Brighton simulator’s attractiveness term <span class="math inline">\(W_j\)</span> and the third policy lever both depend on it, and Longhill and BACA have just moved in opposite directions.</li>
-<li>Decide whether to adopt the <strong>revised</strong> 2024/25 figures now available from EES in place of the provisional ones the published analysis used. The mean difference is about 0.12 Attainment 8 points.</li>
-<li>Revisit in February 2027, when 2025/26 is revised and the full-year absence series catches up.</li>
+<li><em>The main report is not revised.</em> <a href="pulling_the_right_lever_v2.html"><em>How to Pull the Right Lever</em></a> still stands on four years. Its league tables, its coefficients and its conclusions are untouched.</li>
+<li><em>The simulator is not rebuilt.</em> The shipped attractiveness multipliers are a year out of date, and the third policy lever’s “roughly where BACA already is” no longer holds as stated — but rebuilding on a provisional year would be the wrong move.</li>
+<li><em>The published panel is not replaced.</em> <code>data/panel_data.rds</code> is untouched, so every published figure still reproduces from exactly the files it was built on. The five-year panel is written separately to <code>data/panel_data_5yr.rds</code>.</li>
 </ul>
-<p><strong>Reproducibility.</strong> <code>data/panel_data.rds</code> is untouched: the published four-year analysis still reproduces from exactly the files it was built on. The five-year panel is written separately to <code>data/panel_data_5yr.rds</code> and nothing adopts it until that is a deliberate decision.</p>
+<p><strong>What would change that.</strong> February 2027, when 2025/26 is revised and the full-year absence series catches up. At that point three decisions become live: whether to fold this year into the main report, whether to rebuild the simulator’s attractiveness on five years, and whether to adopt the <strong>revised</strong> 2024/25 figures EES now carries in place of the provisional ones the published analysis used — a difference of about 0.12 Attainment 8 points.</p>
+<p>One loose end worth closing sooner: the <strong>two conventions</strong> for the residual described in §6. The report and the simulator currently print slightly different numbers for the same measure, and that is worth reconciling whoever wins.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
