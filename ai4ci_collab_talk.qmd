@@ -1696,85 +1696,84 @@ further** than everyone else.
 :::
 ::::::
 
-## One: change the number families read {.smaller}
+## One: change the number families read {.smaller .simstep}
 
-![](slides_assets/kpi2-va.png){fig-align="center" width="62%"}
+![](slides_assets/kpi2-va.png){fig-align="center" width="56%"}
 
 :::::: columns
-::: {.column width="54%"}
-Nothing about the schools changes. Families read the **four-year value
-added measure** — what a school adds once its intake is accounted for —
-as closely as they now read the headline score.
+::: {.column width="58%"}
+![](slides_assets/sim-wide-va.png){.sim-wide fig-align="center"}
+:::
+
+::: {.column width="42%"}
+One dropdown. Families read the **four-year value added measure** — what a
+school adds once its intake is accounted for — as closely as they now read
+the headline score. Nothing about the schools changes.
 
 Longhill goes from **`r st(1,"intake")`** to
 **`r st(2,"intake")` of 210 (`r st(2,"pct")`%)**.
-:::
 
-::: {.column width="46%"}
 ::: key-finding
-The deprived-children travel gap falls from
-**`r sprintf("%+.1f", st(1,"dep"))`** to
-**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean
-journey drops by 42 seconds — from one dropdown.
+The travel gap falls from **`r sprintf("%+.1f", st(1,"dep"))`** to
+**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean journey
+drops by 42 seconds.
 :::
 :::
 ::::::
 
-## Two: move it, and give it back its catchment {.smaller}
+## Two: move it, and give it back its catchment {.smaller .simstep}
 
-![](slides_assets/kpi2-elmsame.png){fig-align="center" width="62%"}
+![](slides_assets/kpi2-elmsame.png){fig-align="center" width="56%"}
 
 :::::: columns
-::: {.column width="54%"}
-Longhill relocates to **Elm Grove**, and Whitehawk returns to its
-catchment — the boundary the 2024 consultation moved out.
+::: {.column width="58%"}
+![](slides_assets/sim-wide-elmsame.png){.sim-wide fig-align="center"}
+:::
 
-Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**. The
+::: {.column width="42%"}
+Two more controls: Longhill relocates to **Elm Grove**, and **Whitehawk
+returns to its catchment** — the boundary the 2024 consultation moved out.
+
+Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and the
 travel gap **reverses**: disadvantaged children now travel
 **`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
 classmates.
-:::
 
-::: {.column width="46%"}
 ::: key-finding
-Redrawing the catchments properly — flow regions around the new site —
-was also tested. It did **worse**: a travel gap of −1.0 against −1.9, and
-twice the displacement.
-
-Putting one neighbourhood back beat redrawing the map.
+Redrawing the catchments as flow regions around the new site was also
+tested. It did **worse** — a travel gap of −1.0 against −1.9, and twice
+the displacement.
 :::
 :::
 ::::::
 
-## Three: and if it taught like Brighton Aldridge {.smaller}
+## Three: and if it taught like Brighton Aldridge {.smaller .simstep}
 
-![](slides_assets/kpi2-dbl.png){fig-align="center" width="62%"}
+![](slides_assets/kpi2-dbl.png){fig-align="center" width="56%"}
 
 :::::: columns
-::: {.column width="52%"}
-The last lever is not an admissions policy. It is **the school getting
-better** — value added doubled, to roughly where Brighton Aldridge
-already is with a comparably disadvantaged intake.
-
-Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
-13 places short, with **1% of children displaced** city-wide.
+::: {.column width="58%"}
+![](slides_assets/sim-wide-dbl.png){.sim-wide fig-align="center"}
 :::
 
-::: {.column width="48%"}
+::: {.column width="42%"}
+The last lever is not an admissions policy. It is **the school getting
+better** — value added doubled, to roughly where Brighton Aldridge already
+is with a comparably disadvantaged intake.
+
+Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
+13 places short, **1% of children displaced** city-wide.
+
 ::: key-finding
 A disadvantaged child now travels
-**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less* than everyone
-else** — a swing of
-`r sprintf("%.1f", st(1,"dep") - st(4,"dep"))` minutes from where the
-city stands today.
-
-Shorter journeys are not a nicety. Absence is this city's largest
-attainment problem, and distance is one of the few things policy can
-change about it.
+**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less*** than everyone
+else — a swing of
+`r sprintf("%.1f", st(1,"dep") - st(4,"dep"))` minutes. Absence is this
+city's largest attainment problem, and distance is one of the few things
+policy can change about it.
 :::
 :::
 ::::::
-
 ## Why this needs a simulator {.smaller}
 
 :::::: columns

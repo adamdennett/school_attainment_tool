@@ -361,3 +361,29 @@ section.divider-slide {
 }
 
 // Footer visibility on title slide handled via JS in slides-footer.html
+
+// ---- Simulator step slides: KPI ribbon above a wide screenshot ----
+// The ribbon is the headline; the screenshot below shows the controls that
+// produced it, the map and the displacement chart. Both have to fit in 720px,
+// so the default paragraph gaps are pulled in and the screenshot is capped by
+// height rather than by column width.
+.reveal section.simstep {
+  .quarto-figure {
+    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .columns {
+    margin-top: 0.2rem !important;
+  }
+
+  .column > p:first-child {
+    margin-top: 0;
+  }
+
+  img.sim-wide {
+    max-height: 420px;
+    width: auto !important;
+    max-width: 100%;
+  }
+}
