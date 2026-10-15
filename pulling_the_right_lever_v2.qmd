@@ -161,6 +161,24 @@ imputed_full_data <- panel %>%
 contrasts(imputed_full_data$OFSTEDRATING_1) <-
   contr.treatment(levels(imputed_full_data$OFSTEDRATING_1))
 
+# ---- Back-transforming a log-scale prediction -------------------------
+# The models are fitted on log(ATT8SCR), so a fitted value exponentiates to
+# the conditional MEDIAN, not the mean. The expected score given a school's
+# intake is exp(y_hat) * exp(sigma^2 / 2).
+#
+# This matters because the project previously did it two ways. safe_predict()
+# in R/05_fit_model.R applies the correction, and writes the result into
+# residual_ATT8SCR_imputed in the panel - which is what the Brighton
+# simulator's value-added scenario is built from. The league tables and the
+# observed-vs-predicted figure in this document used plain exp() and so
+# reported residuals about 0.2 Attainment 8 points higher for the same
+# school and year.
+#
+# One definition now, used by both, matching the panel column.
+va_expected <- function(log_pred, model) {
+  exp(log_pred) * exp(0.5 * sigma(model)^2)
+}
+
 # ---- Brighton & Hove data ----
 bh_data <- panel %>%
   filter(LANAME == HIGHLIGHT_LA,
@@ -2329,9 +2347,12 @@ national_2425 <- imputed_full_data %>%
 
 # Build long format for three panels
 outcomes <- list(
-  list(obs = "ATT8SCR", pred = "pred_all", label = "All Pupils"),
-  list(obs = "ATT8SCR_FSM6CLA1A", pred = "pred_dis", label = "Disadvantaged"),
-  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "pred_non", label = "Non-Disadvantaged")
+  list(obs = "ATT8SCR", pred = "pred_all", model = mod_e_all,
+       label = "All Pupils"),
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "pred_dis", model = mod_e_disadv,
+       label = "Disadvantaged"),
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "pred_non", model = mod_e_nondisadv,
+       label = "Non-Disadvantaged")
 )
 
 nat_long <- map_dfr(outcomes, function(o) {
@@ -2342,7 +2363,7 @@ nat_long <- map_dfr(outcomes, function(o) {
       LANAME = LANAME,
       Group = o$label,
       Observed = .data[[o$obs]],
-      Predicted = exp(.data[[o$pred]]),
+      Predicted = va_expected(.data[[o$pred]], o$model),
       is_bh = is_bh
     )
 }) %>%
@@ -2416,11 +2437,11 @@ The residuals in @fig-obs-vs-pred are captured in as set of what we might term v
 
 # Build bh_long: panel model residuals for B&H across all years and pupil groups
 outcomes_bh <- list(
-  list(obs = "ATT8SCR", pred = "predicted_all",
+  list(obs = "ATT8SCR", pred = "predicted_all", model = mod_e_all,
        label = "All Pupils"),
-  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_dis",
+  list(obs = "ATT8SCR_FSM6CLA1A", pred = "predicted_dis", model = mod_e_disadv,
        label = "Disadvantaged"),
-  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_non",
+  list(obs = "ATT8SCR_NFSM6CLA1A", pred = "predicted_non", model = mod_e_nondisadv,
        label = "Non-Disadvantaged")
 )
 
@@ -2432,8 +2453,8 @@ bh_long <- map_dfr(outcomes_bh, function(o) {
       Year = year_label,
       Group = o$label,
       Observed = !!sym(o$obs),
-      Predicted = exp(!!sym(o$pred)),
-      Residual = Observed - exp(!!sym(o$pred)),
+      Predicted = va_expected(!!sym(o$pred), o$model),
+      Residual = Observed - va_expected(!!sym(o$pred), o$model),
       Imputed = ifelse(!is.na(has_imputed_predictors) & has_imputed_predictors,
                        "Yes", "No")
     )
