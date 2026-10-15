@@ -117,6 +117,26 @@ safe_log <- function(x) {
 }
 
 
+#' Which variables a fitted model takes the log of
+#'
+#' Read off the model's own formula, response included, so the answer cannot
+#' drift from the specification. Used to decide which variables a row has to
+#' be positive on before it can be predicted: applying that test to every
+#' numeric variable instead is wrong for anything centred or legitimately
+#' zero (ks2_c is KS2ASS - 100, so it is negative for a below-average
+#' intake), and silently drops those rows.
+#'
+#' @param model A fitted model, or a formula
+#' @return Character vector of variable names appearing inside log()
+model_log_vars <- function(model) {
+  f <- if (inherits(model, "formula")) model else stats::formula(model)
+  parts <- c(if (length(f) == 3L) deparse(f[[2]]) else character(0),
+             attr(stats::terms(f), "term.labels"))
+  hits <- unlist(regmatches(parts, gregexpr("log\\([^()]+\\)", parts)))
+  unique(trimws(gsub("^log\\(|\\)$", "", hits)))
+}
+
+
 # ===========================================================================
 # Variable labels - Human-readable descriptions from DfE meta files
 # ===========================================================================

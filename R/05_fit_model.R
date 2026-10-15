@@ -706,11 +706,16 @@ if (sys.nframe() == 0) {
     # Identify rows with complete data for all model variables
     complete_idx <- complete.cases(data[, required_vars, drop = FALSE])
 
-    # Also need positive values for log-transformed predictors
-    for (v in required_vars) {
-      if (is.numeric(data[[v]])) {
-        complete_idx <- complete_idx & (data[[v]] > 0 | is.na(data[[v]]))
-      }
+    # log() needs a positive argument, so rows that are non-positive on a
+    # LOGGED variable have to go. Only the logged ones: this used to test
+    # every numeric variable, which silently dropped any school with
+    # ks2_c <= 0 - that is a KS2 intake at or below the national average,
+    # since ks2_c is centred at 100 - and any school with no teachers on
+    # the leadership pay range. 397 school-years across 246 schools, and
+    # not a random 397: it removed schools with weaker intakes from the
+    # residual set entirely.
+    for (v in intersect(model_log_vars(model), required_vars)) {
+      complete_idx <- complete_idx & (data[[v]] > 0 | is.na(data[[v]]))
     }
 
     pred_subset <- data[complete_idx, , drop = FALSE] %>% droplevels()

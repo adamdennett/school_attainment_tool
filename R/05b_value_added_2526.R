@@ -149,8 +149,9 @@ predict_like_published <- function(model, data, required_vars,
   convention <- match.arg(convention, VA_CONVENTIONS)
 
   keep <- stats::complete.cases(data[, required_vars, drop = FALSE])
-  for (v in required_vars) {
-    if (is.numeric(data[[v]])) keep <- keep & (data[[v]] > 0 | is.na(data[[v]]))
+  # Positivity applies to the LOGGED variables only - see model_log_vars()
+  for (v in intersect(model_log_vars(model), required_vars)) {
+    keep <- keep & (data[[v]] > 0 | is.na(data[[v]]))
   }
   if (!any(keep)) return(rep(NA_real_, nrow(data)))
 

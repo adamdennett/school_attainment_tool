@@ -1,6 +1,6 @@
 ---
-title: "Key Stage 4, 2025/26"
-subtitle: "An addendum to *How to Pull the Right Lever*: what a fifth year of data does to it"
+title: "Key Stage 4, 2025/26: Provisional Results"
+subtitle: "An addendum to *How to Pull the Right Lever*. Every figure here is provisional — none of it can be confirmed until the revised data lands in February 2027."
 author:
   - name: Adam Dennett
     affiliations:
@@ -82,8 +82,28 @@ shorten <- function(x) {
 }
 ```
 
+::: callout-important
+## Provisional. Confirmable in February 2027.
+
+The 2025/26 Key Stage 4 figures are **provisional**, published by the
+Department for Education on 15 October 2026 and based on results before
+schools' amendment requests have been applied. The **revised figures follow
+in February 2027**, and that is the point at which anything here can be
+confirmed.
+
+That matters more than usual for this particular year. The sharpest finding
+below rests on a single school's single cohort moving a long way out of line
+— and a single year that far out of line is exactly the case where a revision
+bites hardest. **Nothing here should be treated as settled until February.**
+
+The second date worth holding on to is **2026/27**, the first Key Stage 4 year
+with a real Key Stage 2 baseline again. Until then every value-added figure
+for 2024/25 and 2025/26 — here and in anyone else's analysis — rests on a
+carried-forward intake score. See §6.4.
+:::
+
 ::: callout-note
-## Status: an addendum, not a revision
+## An addendum, not a revision
 
 This is a **standalone addendum** to
 [*How to Pull the Right Lever*](pulling_the_right_lever_v2.html). That report
@@ -91,13 +111,6 @@ is unchanged and still stands on its own four years of data: nothing here has
 been folded back into it, and every figure it publishes still reproduces from
 `data/panel_data.rds` exactly as before. The five-year panel this note uses is
 written separately, to `data/panel_data_5yr.rds`.
-
-The 2025/26 Key Stage 4 figures are **provisional**, published by the
-Department for Education on 15 October 2026. Revised figures follow in
-**February 2027**, and a single year this far out of line is exactly the case
-where a revision matters most. Nothing below should be treated as settled
-until they arrive — which is the main reason it is an addendum rather than a
-new edition.
 :::
 
 # What arrived, and why the pipeline had to change
