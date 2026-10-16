@@ -26,6 +26,7 @@ format:
     fig-dpi: 150
     embed-resources: true
     auto-stretch: true
+    css: ai4ci-slides.css
     include-after-body: ai4ci-footer.html
 execute:
   echo: false
@@ -472,43 +473,43 @@ cd_of <- function(s, col) cd[[col]][cd$short == s]
 GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-reports-strategies-and-other-documents/secondary-school-admissions-guide-2027-2028"
 
 ```
-# Background
 
-## Who I am, and why this talk {.smaller}
+# Background {background-color="#361a54"}
 
-- I am a Professor of Urban Analytics at UCL's Centre for Advanced
-  Spatial Analysis (CASA). I build spatial models — of migration, of
-  housing, of how people move around cities.
-- I am also a parent in Brighton & Hove and became involved in a
-  two-year argument with the council, along with hundreds of families,
-  about changes to secondary school admissions.
-- A misalignment between:
-  - the stated aims of the council (improving disadvantaged student
-    attainment)
-  - stated challenges (declining pupil roll, viability issues for some
-    schools)
-  - policies implemented (admission priority changes, catchment boundary
-    alterations and PAN reductions)
-- with insufficient consideration given to complex system interactions
-  and negative externalities
+## Who I am, and why this talk {.smaller .intro}
 
-## Who I am, and why this talk
+:::::: columns
+::: {.column width="56%"}
+- **Professor of Urban Analytics** at UCL's Centre for Advanced Spatial
+  Analysis. I build spatial models — of migration, of housing, of how
+  people move around cities.
+- Also **a parent in Brighton & Hove**, and one of hundreds of families
+  drawn into a two-year public debate about secondary school admissions.
+- I spent two years analysing the drivers of secondary attainment in
+  England, published as *How to Pull the Right Lever*.
 
-- I spent 2-years analysing data to understand the drivers of secondary
-  attainment
+::: key-finding
+What I found: the council's policies were unlikely to improve
+attainment; the costs — longer journeys, community schooling breaking
+up — were not weighed against them; and **absence, the single largest
+factor, was not part of the decision at all**.
+:::
+:::
 
-  ![](slides_assets/lever.png){width="40%"}
+:::: {.column width="44%"}
+[![](slides_assets/lever.png){width="94%"}](https://adamdennett.github.io/school_attainment_tool/)
 
-  *https://adamdennett.github.io/school_attainment_tool/*
-
-- Conclusion: Council policies unlikely to improve attainment, costs
-  including increased travel, breakdown of community schooling etc., not
-  weighed appropriately, biggest issue - absence - not acknowledged in
-  policy decisions
-
-- Secondary policy impacts - unintended consequences - poorly understood
-
-## Background - Problems in the Brighton and Hove School System
+::: {style="font-size:0.74em; color:#666688;"}
+A misalignment runs through the whole episode, between the council's
+**stated aims** (improving disadvantaged attainment), its **stated
+problems** (falling rolls, school viability) and the **policies actually
+chosen** (admission priorities, catchment boundaries, PAN cuts) — with
+little attention paid to how those interact, or to what they cost
+elsewhere in the system.
+:::
+::::
+::::::
+## Problems in the Brighton and Hove school system {.smaller}
 
 - Some children have no secondary school near their home
 - Declining pupil numbers with some schools affected more than others
@@ -945,18 +946,15 @@ build something the whole city can interrogate, argue with, and use.
 That is the collective intelligence bit.
 :::
 
-# The Model
+# The Model {background-color="#361a54"}
 
 ## What exists now {.smaller}
 
 | The thing                                        | Scale                 |
 |:-------------------------------------------------|:----------------------|
 | A strategic analysis of the city's school system | 9,712 lines of Quarto |
-| A technical guide auditing every model term      | 4,736 lines           |
 | The model itself, plus data assembly             | \~7,400 lines of R    |
 | An interactive policy simulator (Shiny)          | \~3,000 lines         |
-| A private analysis repository                    | \~8,200 lines         |
-| Three slide decks                                | \~3,500 lines         |
 | Commits across six repositories                  | 805                   |
 
 ::: {style="font-size:0.8em"}
@@ -964,9 +962,10 @@ That is the collective intelligence bit.
   competing-destinations term, calibrated per catchment, fitted against
   the council's published offer data.
 - It reproduces the September 2026 allocations with an ***R² of 0.95***.
+- Alongside it: a technical guide auditing every model term, a private
+  analysis repository, and three slide decks.
 :::
-
-## Questions I wanted to Answer {.smaller}
+## Questions I wanted to answer {.smaller}
 
 >I won't answer these all today - but will show how they can now all be answered
 
@@ -1126,183 +1125,310 @@ pl <- function(x, xlab, r2, colr) {
 ```
 
 ::: {style="font-size:0.55em; color:#555;"}
-The council's [secondary admissions guide](%60r%20GUIDE%60) tells
+The council's [secondary admissions guide](`r GUIDE`) tells
 parents to look at each school's *"National Curriculum test results,
 public exam results"* and its Ofsted reports: figures that mostly
 describe who a school admits.
 :::
 
-<!-- NOTE: parked. The figures in the prose below are written in, as at
-     the October 2026 run, because knitr evaluates inline `r` code even
-     inside HTML comments and the chunk that computes them is commented
-     out too. If you reinstate this slide, swap them back for the live
-     expressions - see ai4ci_collab_talk_edit1.qmd, which has them. -->
+## A test the model could fail {.smaller}
 
-<!-- ## A test the model could fail {.smaller} -->
+```{r fsm-oos}
+#| fig-width: 11.5
+#| fig-height: 3.5
+o_fsm <- outcomes(inp, run_sim(inp, year = 2026,
+  rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE)))
+# FOI 26367489: the confirmed September 2026 position by priority. The
+# model was never fitted to these.
+foi_fsm <- tibble::tribble(
+  ~name,                      ~p4, ~p5,
+  "Blatchington Mill School",  46,  16,
+  "Dorothy Stringer School",   32,  32,
+  "Hove Park School",          17,  20,
+  "Longhill High School",      20,   8,
+  "Patcham High School",       18,  17,
+  "Varndean School",           59,   6)
+
+fsm_d <- o_fsm$tiers |>
+  dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
+  dplyr::inner_join(foi_fsm, by = "name") |>
+  dplyr::mutate(school = short_sch(name), odd = school == "Varndean")
+
+r2 <- function(a, b) cor(a, b)^2
+# Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so
+# quoting the one number without the other hides the finding.
+r2_out_all  <- r2(fsm_d$m5, fsm_d$p5)
+r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5))
+vd <- dplyr::filter(fsm_d, odd)
+
+fsm_long <- dplyr::bind_rows(
+  fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
+    "In catchment (priority 4)      R² = %.2f", r2(m4, p4)),
+    modelled = m4, actual = p4),
+  fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
+    "Out of catchment (priority 5)      R² = %.2f, or %.2f without Varndean",
+    r2_out_all, r2_out_less),
+    modelled = m5, actual = p5))
+
+ggplot(fsm_long, aes(actual, modelled)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") +
+  geom_point(aes(colour = odd), size = 3.2) +
+  ggrepel::geom_text_repel(aes(label = school, colour = odd),
+                           size = 3.2, seed = 4, show.legend = FALSE) +
+  scale_colour_manual(values = c(`FALSE` = PURPLE, `TRUE` = WARM),
+                      guide = "none") +
+  facet_wrap(~ panel) +
+  labs(x = "Children actually admitted under the priority (FOI, September 2026)",
+       y = "Modelled",
+       title = "Free school meal priorities, against a target the model never saw") +
+  theme_bhs(12)
+```
+
+:::::: columns
+::: {.column width="52%"}
+::: {style="font-size:0.72em"}
+The disadvantage layer is **fitted** to each school's published
+disadvantaged share, so reproducing that share proves nothing. The FOI
+arrived weeks later with something the model had never seen: how many
+children each school actually admitted under each priority.
+
+**In catchment it predicts well** — R² =
+`r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`, average error
+`r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children.
+
+**Out of catchment the total is right and the destinations are not**:
+`r sprintf("%.0f", sum(fsm_d$m5))` children modelled against
+`r sum(fsm_d$p5)` actual, but at the wrong schools. One does nearly all
+of it — the model places **`r sprintf("%.0f", vd$m5)` at Varndean;
+`r vd$p5` went**.
+:::
+:::
+
+:::: {.column width="48%"}
+::: key-finding
+**Why Varndean, and why no parameter fixes it.** The council admits
+siblings under priority 3, above both free-school-meal tiers — 70
+children at Varndean. The model has no priority 3: looked-after
+children, SEN and siblings cannot be told apart in zone-level flows.
+
+So a disadvantaged child with a sibling there lands in the model's
+tier 5 and in the council's priority 3. The two numbers are not
+counting the same children.
+:::
+::::
+::::::
+
+::: {style="font-size:0.72em; margin-top:-0.2rem;"}
+I tried the obvious fixes — letting these children decay with distance
+on their own terms, then flattening how much a school's reputation
+pulls them. Steeper decay makes the fit **worse on every measure**: the
+city-wide total was already right, so suppressing travel breaks a
+number that worked. Flattening attractiveness helps slightly and leaves
+Varndean at 31 against 5. **It is a definitional gap, not a behavioural
+one** — which is a more useful thing to know, and took an FOI, a sweep
+that failed, and the project's own model guide to establish.
+:::
+
+# What the Model Says {background-color="#361a54"}
+## Worked example: the simulator {.smaller}
+
+![](slides_assets/simulator-starting.png){.nostretch fig-align="center"
+width="64%"}
+
+::: {style="font-size:0.75em"}
+- Simulator has both pre-built scenarios I imagined plus scope to change
+  each element.
+- Built in about two days. "what if" questions became cheap to ask multiple times
+:::
+
+## Back to the first question {.smaller}
+
+```{r lh-steps}
+#| include: false
+# Read off the simulator for 2026 entry, one control changed at a time.
+# Screenshots of each state are in slides_assets.
+steps <- tibble::tibble(
+  step  = factor(1:4),
+  label = c("Today", "Families read value added",
+            "+ Elm Grove, Whitehawk back", "+ value added doubled"),
+  intake = c(90, 106, 140, 197),
+  pct    = c(43, 50, 67, 94),
+  dep    = c(3.4, 2.5, -1.9, -2.2),
+  seg    = c(0.117, 0.127, 0.176, 0.188))
+st <- function(i, col) steps[[col]][i]
+```
+
+![](slides_assets/kpi2-starting.png){.nostretch fig-align="center" width="56%"}
+
+> *"What is causing Longhill's acute numbers problem — is it geography,
+> demography, attractiveness, some combination or something else? Would
+> moving and/or shrinking it help it survive, or improve anything
+> else?"*
 
 
-
-<!-- ```{r fsm-oos} -->
-
-<!-- #| fig-width: 11.5 -->
-
-<!-- #| fig-height: 3.5 -->
-
-<!-- o_fsm <- outcomes(inp, run_sim(inp, year = 2026, -->
-
-<!--   rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE))) -->
-
-<!-- # FOI 26367489: the confirmed September 2026 position by priority. The -->
-
-<!-- # model was never fitted to these. -->
-
-<!-- foi_fsm <- tibble::tribble( -->
-
-<!--   ~name,                      ~p4, ~p5, -->
-
-<!--   "Blatchington Mill School",  46,  16, -->
-
-<!--   "Dorothy Stringer School",   32,  32, -->
-
-<!--   "Hove Park School",          17,  20, -->
-
-<!--   "Longhill High School",      20,   8, -->
-
-<!--   "Patcham High School",       18,  17, -->
-
-<!--   "Varndean School",           59,   6) -->
+- The honest answer is **none of them on their own**.
+- Longhill is not short of children for one reason, so no single lever
+  fixes it.
+- What the simulator lets you do is pull them **one at a time, and watch them compound**.
+- **Today, 2026.**
+   -   Longhill takes **`r st(1,"intake")` of 210 places (modelled)
+(`r st(1,"pct")`%)**, 120 short. 
+   -   A disadvantaged child travels **`r sprintf("%+.1f", st(1,"dep"))` minutes further** than everyone else.
 
 
+## 1st Lever: families read value added {.smaller .simstep}
 
-<!-- fsm_d <- o_fsm$tiers |> -->
+![](slides_assets/kpi2-va.png){fig-align="center" width="56%"}
 
-<!--   dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |> -->
+:::::: columns
+::: {.column width="58%"}
+![](slides_assets/sim-wide-va.png){.sim-wide fig-align="center"}
+:::
 
-<!--   dplyr::inner_join(foi_fsm, by = "name") |> -->
+:::: {.column width="42%"}
+One dropdown. Families read the **four-year value added measure** — what a school adds once intake is accounted for — as closely as they now read the headline score. Nothing about the schools changes.
 
-<!--   dplyr::mutate(school = short_sch(name), odd = school == "Varndean") -->
+Longhill goes from **`r st(1,"intake")`** to **`r st(2,"intake")` of 210
+(`r st(2,"pct")`%)**.
 
+::: key-finding
+The travel gap falls from **`r sprintf("%+.1f", st(1,"dep"))`** to
+**`r sprintf("%+.1f", st(2,"dep"))` minutes**, the city's mean journey
+drops by 42 seconds, and segregation rises slightly.
+:::
+::::
+::::::
 
+## 2nd Lever: move it, restore its catchment {.smaller .simstep}
 
-<!-- r2 <- function(a, b) cor(a, b)^2 -->
+![](slides_assets/kpi2-elmsame.png){fig-align="center" width="56%"}
 
-<!-- # Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so -->
+:::::: columns
+::: {.column width="58%"}
+![](slides_assets/sim-wide-elmsame.png){.sim-wide fig-align="center"}
+:::
 
-<!-- # quoting the one number without the other hides the finding. -->
+:::: {.column width="42%"}
+Two more controls: Longhill relocates to **Elm Grove**, and **Whitehawk
+returns to the Longhill catchment** it sat in before 2024.
 
-<!-- r2_out_all  <- r2(fsm_d$m5, fsm_d$p5) -->
+Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and
+the travel gap **reverses**: disadvantaged children now travel
+**`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
+classmates. Segregation rises, but no child is displaced from a central catchment.
 
-<!-- r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5)) -->
+::: key-finding
+Redrawing the catchments as flow regions around the new site was also
+tested. It did **worse** — a travel gap of −1.0 against −1.9, and twice
+the displacement.
+:::
+::::
+::::::
 
-<!-- vd <- dplyr::filter(fsm_d, odd) -->
+## 3rd Lever: and if it taught like BACA {.smaller .simstep}
 
+![](slides_assets/kpi2-dbl.png){fig-align="center" width="56%"}
 
+:::::: columns
+::: {.column width="58%"}
+![](slides_assets/sim-wide-dbl.png){.sim-wide fig-align="center"}
+:::
 
-<!-- fsm_long <- dplyr::bind_rows( -->
+:::: {.column width="42%"}
+The last lever is not an admissions policy. It is **the school getting
+better** — value added doubled, to roughly where Brighton Aldridge
+(BACA) stood over the four years to 2024/25, on a comparably
+disadvantaged intake.
 
-<!--   fsm_d |> dplyr::transmute(school, odd, panel = sprintf( -->
+Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
+13 places short, **1% of children displaced** city-wide.
 
-<!--     "In catchment (priority 4)      R² = %.2f", r2(m4, p4)), -->
+::: key-finding
+A disadvantaged child now travels
+**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less*** than everyone
+else — a swing of `r sprintf("%.1f", st(1,"dep") - st(4,"dep"))`
+minutes. Absence is this city's largest attainment problem, and distance
+is one of the few things policy can change about it.
+:::
+::::
+::::::
 
-<!--     modelled = m4, actual = p4), -->
+## Why this needs a simulator {.smaller}
 
-<!--   fsm_d |> dplyr::transmute(school, odd, panel = sprintf( -->
+:::::: columns
+::: {.column width="56%"}
+```{r lh-compound}
+#| fig-width: 7.0
+#| fig-height: 4.4
+sl <- steps |>
+  dplyr::mutate(lab = stringr::str_wrap(label, 18),
+                lab = factor(lab, levels = stringr::str_wrap(label, 18)))
+ggplot(sl, aes(lab, pct, group = 1)) +
+  geom_hline(yintercept = 100, linetype = "31", colour = "grey60") +
+  geom_line(linewidth = 1.1, colour = BAD) +
+  geom_point(size = 3.6, colour = BAD) +
+  geom_text(aes(label = sprintf("%d%%", pct)), vjust = -1.1, size = 4.4, colour = INK) +
+  scale_y_continuous(limits = c(0, 112)) +
+  labs(x = NULL, y = "Longhill's places filled",
+       title = "No single lever fills Longhill. Four together nearly do.",
+       subtitle = "2026 entry. Each step keeps the one before it.") +
+  theme_bhs(12) +
+  theme(axis.text.x = element_text(size = 9))
+```
+:::
 
-<!--     "Out of catchment (priority 5)      R² = %.2f, or %.2f without Varndean", -->
+:::: {.column width="44%"}
+Each choice is modest on its own. **`r st(2,"pct")-st(1,"pct")` points,
+then `r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.**
+None would survive a committee on its own merits. Together they take a
+school from 43% full to 94%.
 
-<!--     r2_out_all, r2_out_less), -->
+**Segregation rises**, `r sprintf("%.3f", st(1,"seg"))` to
+`r sprintf("%.3f", st(4,"seg"))`. That is the honest cost.
 
-<!--     modelled = m5, actual = p5)) -->
+::: key-finding
+But *How to Pull the Right Lever* finds the attainment model **disagrees
+about direction** between disadvantaged and other pupils — so
+deconcentration bought with longer journeys is unlikely to help the
+children it is meant to.
+:::
 
+You cannot reason about this in a committee paper. Every lever moves
+every other one, and you have to **see each choice land**.
+::::
+::::::
 
+<!-- ## Worked example: a question only a human asks {.smaller} -->
 
-<!-- ggplot(fsm_long, aes(actual, modelled)) + -->
+<!-- Families choose schools on the published Attainment 8 score — which -->
 
-<!--   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "31") + -->
+<!-- mostly measures the intake, not the teaching. -->
 
-<!--   geom_point(aes(colour = odd), size = 3.2) + -->
-
-<!--   ggrepel::geom_text_repel(aes(label = school, colour = odd), -->
-
-<!--                            size = 3.2, seed = 4, show.legend = FALSE) + -->
-
-<!--   scale_colour_manual(values = c(`FALSE` = PURPLE, `TRUE` = WARM), -->
-
-<!--                       guide = "none") + -->
-
-<!--   facet_wrap(~ panel) + -->
-
-<!--   labs(x = "Children actually admitted under the priority (FOI, September 2026)", -->
-
-<!--        y = "Modelled", -->
-
-<!--        title = "Free school meal priorities, against a target the model never saw") + -->
-
-<!--   theme_bhs(12) -->
-
-<!-- ``` -->
-
-
+<!-- I asked: **what if they chose on value added instead?** -->
 
 <!-- :::::: columns -->
 
-<!-- ::: {.column width="52%"} -->
+<!-- ::: {.column width="50%"} -->
 
-<!-- ::: {style="font-size:0.72em"} -->
+<!-- That is not a coding task. It is a question about how a city might -->
 
-<!-- The disadvantage layer is **fitted** to each school's published -->
+<!-- behave differently, and it took about a day to answer properly: a new -->
 
-<!-- disadvantaged share, so reproducing that share proves nothing. The FOI -->
+<!-- attractiveness basis, a switch in the simulator, a measure of how evenly -->
 
-<!-- arrived weeks later with something the model had never seen: how many -->
-
-<!-- children each school actually admitted under each priority. -->
-
-
-
-<!-- **In catchment it predicts well** — R² = -->
-
-<!-- 0.94, average error -->
-
-<!-- 4.1 children. -->
-
-
-
-<!-- **Out of catchment the total is right and the destinations are not**: -->
-
-<!-- 95 children modelled against -->
-
-<!-- 99 actual, but at the wrong schools. One does nearly all -->
-
-<!-- of it — the model places **34 at Varndean; -->
-
-<!-- 6 went**. -->
+<!-- children would be spread. -->
 
 <!-- ::: -->
 
-<!-- ::: -->
-
-
-
-<!-- :::: {.column width="48%"} -->
+<!-- :::: {.column width="50%"} -->
 
 <!-- ::: key-finding -->
 
-<!-- **Where the model is thin.** Free-school-meal children are carried as a -->
+<!-- The answer: one struggling school's intake nearly doubles, the surplus -->
 
-<!-- fixed share of each neighbourhood's flow, so they inherit everyone -->
+<!-- stops concentrating in three schools — and the total number of empty -->
 
-<!-- else's travel behaviour exactly — the same willingness to cross the -->
-
-<!-- city, the same shortlist. -->
-
-
-
-<!-- Real families on the priority travel less far, and do not spend a -->
-
-<!-- preference on a school they expect to miss. The model has no way to -->
-
-<!-- know that, so it sends them to the most attractive school in reach. -->
+<!-- places does not move at all. -->
 
 <!-- ::: -->
 
@@ -1310,31 +1436,108 @@ describe who a school admits.
 
 <!-- :::::: -->
 
+<!-- ## What the city would look like {.smaller} -->
 
+<!-- ```{r fig-va} -->
 
-<!-- ::: {style="font-size:0.72em; margin-top:-0.2rem;"} -->
+<!-- #| fig-width: 11 -->
 
-<!-- It is a **demand** error, not an allocation one: lifting the priority's -->
+<!-- #| fig-height: 4.4 -->
 
-<!-- 30% ceiling moves Varndean from 34 to 36, not towards 6. Fixing it -->
+<!-- va <- vac$detail |> -->
 
-<!-- properly means letting disadvantaged flows decay with distance on their -->
+<!--   mutate(school = forcats::fct_reorder(short_sch(name), mult), -->
 
-<!-- own terms, and that is a recalibration, not a patch. Worth knowing -->
+<!--          up = mult >= 1) -->
 
-<!-- before anyone leans on the free school meal scenarios — and it took an -->
+<!-- ggplot(va, aes(mult, school)) + -->
 
-<!-- FOI, and someone who knew the city, to surface it. -->
+<!--   geom_vline(xintercept = 1, colour = GREY, linetype = "31") + -->
+
+<!--   geom_segment(aes(x = 1, xend = mult, yend = school, colour = up), linewidth = 1.1) + -->
+
+<!--   geom_point(aes(colour = up), size = 4) + -->
+
+<!--   geom_text(aes(label = sprintf("%.2f x", mult), hjust = ifelse(up, -0.3, 1.3)), -->
+
+<!--             size = 4.1, colour = INK) + -->
+
+<!--   scale_colour_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = WARM), guide = "none") + -->
+
+<!--   scale_x_continuous(limits = c(0, 3.2)) + -->
+
+<!--   labs(x = "Change in how attractive the school looks", y = NULL, -->
+
+<!--        title = "If families read value added instead of Attainment 8", -->
+
+<!--        subtitle = "Multiplier on each school's attractiveness. 1.0 = no change.") + -->
+
+<!--   theme_talk(14) + -->
+
+<!--   theme(panel.grid.major.y = element_blank(), -->
+
+<!--         panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4)) -->
+
+<!-- ``` -->
+
+<!-- ::: {style="font-size:0.72em"} -->
+
+<!-- Brighton Aldridge — the lowest Attainment 8 in the city — is adding more -->
+
+<!-- progress than almost anywhere. Patcham, comfortably mid-table on the -->
+
+<!-- headline number, is bottom of the city on value added. -->
 
 <!-- ::: -->
 
-# The Process
+<!-- ## Worked example: catching it being wrong {.smaller} -->
 
+<!-- :::::: columns -->
+
+<!-- ::: {.column width="54%"} -->
+
+<!-- Claude reported a school's value-added score as being in the "top 100% -->
+
+<!-- in England". It had applied an Attainment 8 percentile function to a -->
+
+<!-- value-added figure. Silently wrong, confidently stated. -->
+
+<!-- Later, the attainment charts appeared to show huge jumps when the -->
+
+<!-- value-added option was selected — because they were reading a different -->
+
+<!-- variable than I thought. -->
+
+<!-- I caught both. It fixed both in minutes. -->
+
+<!-- ::: -->
+
+<!-- :::: {.column width="46%"} -->
+
+<!-- ::: key-finding -->
+
+<!-- The failure mode is not gibberish. It is **plausible, well-formatted, -->
+
+<!-- confidently-presented wrongness** — exactly what a domain expert catches -->
+
+<!-- and a non-expert does not. -->
+
+<!-- ::: -->
+
+<!-- This is the strongest argument I have for why the human in this loop has -->
+
+<!-- to be someone who knows the subject. -->
+
+<!-- :::: -->
+
+<!-- :::::: -->
+
+# How It Was Built {background-color="#361a54"}
 ## This started before April {.smaller}
 
 :::::: columns
 ::: {.column width="65%"}
-**2007-2026.** 20-years of wrapping my head around spatial interaction models in different contexts from migration to retail 
+**2007-2026.** Twenty years of working with spatial interaction models, in contexts from migration to retail.
 
 **October 2024.** Brighton & Hove is consulting on redrawing its
 catchments. I write `BrighonSchoolsSIM.qmd` — **1,014 lines** of R and
@@ -1346,7 +1549,7 @@ I call the hypothetical baseline **Brightopia**: where every child would go if d
 up `r5r`, a GTFS feed and an OSM extract to compute real
 public-transport journey times to every school.
 
-**2025-2026.** Months of work on drivers of attainment in England, feeding into attractiveness inputs
+**2025-2026.** Months of work on the drivers of attainment in England, which fed straight into the attractiveness inputs.
 :::
 
 :::: {.column width="35%"}
@@ -1365,34 +1568,16 @@ calibrated model is measured against.
 ::::
 ::::::
 
-## The record I am drawing on {.smaller}
-
-:::::: columns
-::: {.column width="52%"}
-Claude Code keeps a transcript of every session: every instruction I
-typed, every action it took, timestamped.
-
-For this talk I parsed **\~250 MB of those logs** across ten sessions,
-plus the git history of six repositories.
-
-So the numbers that follow are counted, not remembered. They are also
-**a snapshot** — the work is still going.
-:::
-
-:::: {.column width="48%"}
-::: key-finding
-**1,277** instructions from me.
-
-**13,451** tool calls from Claude.
-
-**69** working days, spread over 166.
-:::
-
-About **ten and a half actions for every sentence I typed**.
-::::
-::::::
-
 ## Five months, in one chart
+
+::: {style="font-size:0.78em; color:#666688; margin-bottom:-0.3rem;"}
+Counted, not remembered: **~250 MB of Claude Code session logs** across
+ten sessions, plus the git history of six repositories. **1,277**
+instructions from me, **13,451** tool calls back, over **69 working
+days** spread across 166 — about ten and a half actions for every
+sentence I typed. A snapshot; the work is still going.
+:::
+
 
 ```{r fig-timeline}
 #| fig-width: 11.5
@@ -1416,30 +1601,6 @@ ggplot(rec, aes(day)) +
 The April–July work is a different project — a national school
 attainment model. The Brighton system model starts on **8 September**
 and is finished eighteen days later.
-:::
-
-## What the 13,451 actions actually were
-
-```{r fig-families}
-#| fig-width: 11
-#| fig-height: 4.4
-ggplot(fam, aes(n, what)) +
-  geom_col(fill = PURPLE, width = 0.62) +
-  geom_text(aes(label = format(n, big.mark = ",")), hjust = -0.15,
-            size = 4.8, colour = INK) +
-  scale_x_continuous(limits = c(0, 9200), expand = expansion(mult = c(0, 0.05))) +
-  labs(x = NULL, y = NULL,
-       title = "Mostly running things and checking what happened",
-       subtitle = "Every tool call across ten sessions, grouped by what it was for") +
-  theme_talk(14) +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4))
-```
-
-::: {style="font-size:0.75em"}
-The largest single category is not writing code. It is **running code
-and reading the result** — the loop that turns a plausible script into a
-correct one.
 :::
 
 ## The division of labour {.smaller}
@@ -1877,11 +2038,14 @@ data.
 
 The loop, many times a day:
 
-1.  I say what I want, usually in two or three sentences
+1.  I say what I want, in two or three sentences
 2.  Claude edits the source and runs it
 3.  It renders, screenshots, checks the numbers
 4.  It commits and pushes
-5.  I read the rendered output and react
+5.  I read the output and react
+
+When I asked *"does the Hove Park change affect section 5.5?"*, that was
+an answerable question — because section 5.5 is code, and code re-runs.
 :::
 
 :::: {.column width="48%"}
@@ -1891,22 +2055,13 @@ changing the model changes the paragraph that describes it, because the
 paragraph is generated from the model.
 :::
 
+Reproducibility stops being a virtue you aspire to and becomes the only
+way the thing can work at this speed. Hand-copied into Word, none of it
+would survive its own rate of change.
+
 Git is the memory. 805 commits, each with a message explaining why.
 ::::
 ::::::
-
-## Why my Quarto workflow matters more than it sounds {.smaller}
-
-When I asked "does the Hove Park change affect section 5.5?", that was
-answerable — because section 5.5 is code, and the code re-runs.
-
-When I asked for the commentary to be rebuilt with the new numbers, no one had to re-type any numbers.
-
-::: key-finding
-Reproducibility stops being a virtue you aspire to and becomes the only
-way the thing can work at this speed. If the outputs were hand-copied
-into Word, none of this would survive its own rate of change.
-:::
 
 ## The recursion {.smaller}
 
@@ -1916,10 +2071,11 @@ The interesting part is not that AI wrote code. It is the workflow **loop**:
 1.  A model produces a result.
 2.  The result goes into a document, written to be read by
     me/stakeholders
-3.  Ask AI to write a lay-commentary as it goes - Writing it clearly exposes holes or errors.
-4.  The holes/error becomes a new question for the model.
-5.  Answering it changes the model — and the document rewrites itself.
-6.  Iterate around again
+3.  Claude writes the commentary as it goes.
+4.  Writing it plainly is what exposes the holes.
+5.  A hole becomes the next question for the model.
+6.  Answering it changes the model — and the document rewrites itself.
+7.  Go round again.
 :::
 
 . . .
@@ -1927,328 +2083,9 @@ The interesting part is not that AI wrote code. It is the workflow **loop**:
 That cycle ran perhaps two hundred times. Each turn took minutes, not
 weeks. **That compression is the whole story.**
 
-The process not dissimilar to supervising PhD students or Research Assistants - iteration occurs in minutes rather than weeks. 
+The process is not unlike supervising a PhD student or a research assistant. The difference is that a turn of the loop takes minutes rather than weeks.
 
-## Eighteen days {.smaller}
-
-```{r fig-sept}
-#| fig-width: 11
-#| fig-height: 4.0
-sept <- rec |> filter(day >= as.Date("2026-09-07"))
-ggplot(sept, aes(day, tool_calls)) +
-  geom_col(fill = BRIGHT, width = 0.65) +
-  geom_text(aes(label = tool_calls), vjust = -0.5, size = 4.2, colour = INK) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%d %b") +
-  scale_y_continuous(limits = c(0, 1300)) +
-  labs(x = NULL, y = "Tool calls",
-       title = "From nothing to a working city model",
-       subtitle = "8 September: first commit. 26 September: model, site, simulator, three decks.") +
-  theme_talk(14)
-```
-
-## Worked example: the simulator {.smaller}
-
-![](slides_assets/simulator-starting.png){.nostretch fig-align="center"
-width="64%"}
-
-::: {style="font-size:0.75em"}
-- Simulator has both pre-built scenarios I imagined plus scope to change
-  each element.
-- Built in about two days. "what if" questions became cheap to ask multiple times
-:::
-
-## Back to the first question {.smaller}
-
-```{r lh-steps}
-#| include: false
-# Read off the simulator for 2026 entry, one control changed at a time.
-# Screenshots of each state are in slides_assets.
-steps <- tibble::tibble(
-  step  = factor(1:4),
-  label = c("Today", "Families read value added",
-            "+ Elm Grove, Whitehawk back", "+ value added doubled"),
-  intake = c(90, 106, 140, 197),
-  pct    = c(43, 50, 67, 94),
-  dep    = c(3.4, 2.5, -1.9, -2.2),
-  seg    = c(0.117, 0.127, 0.176, 0.188))
-st <- function(i, col) steps[[col]][i]
-```
-
-![](slides_assets/kpi2-starting.png){.nostretch fig-align="center" width="56%"}
-
-> *"What is causing Longhill's acute numbers problem — is it geography,
-> demography, attractiveness, some combination or something else? Would
-> moving and/or shrinking it help it survive, or improve anything
-> else?"*
-
-
-- The honest answer is **none of them on their own**.
-- Longhill is not short of children for one reason, so no single lever
-  fixes it.
-- What the simulator lets you do is pull them **one at a time, and watch them compound**.
-- KPIs at the top of the simulator - **Today, 2026.** 
-   -   Longhill takes **`r st(1,"intake")` of 210 places (modelled)
-(`r st(1,"pct")`%)**, 120 short. 
-   -   A disadvantaged child travels **`r sprintf("%+.1f", st(1,"dep"))` minutes further** than everyone else.
-
-
-## 1st Lever: Families select on value-added, not attainment {.smaller .simstep}
-
-![](slides_assets/kpi2-va.png){fig-align="center" width="56%"}
-
-:::::: columns
-::: {.column width="58%"}
-![](slides_assets/sim-wide-va.png){.sim-wide fig-align="center"}
-:::
-
-:::: {.column width="42%"}
-One dropdown. Families read the **four-year value added measure** — what a school adds once its intake is accounted for — as closely as they now read the headline score. Nothing about the schools changes.
-
-Longhill goes from **`r st(1,"intake")`** to **`r st(2,"intake")` of 210
-(`r st(2,"pct")`%)**.
-
-::: key-finding
-The travel gap falls from **`r sprintf("%+.1f", st(1,"dep"))`** to
-**`r sprintf("%+.1f", st(2,"dep"))` minutes**, and the city's mean
-journey drops by 42 seconds. Segregation increases slightly.
-:::
-::::
-::::::
-
-## 2nd Lever: Move Longhill, revert its catchment {.smaller .simstep}
-
-![](slides_assets/kpi2-elmsame.png){fig-align="center" width="56%"}
-
-:::::: columns
-::: {.column width="58%"}
-![](slides_assets/sim-wide-elmsame.png){.sim-wide fig-align="center"}
-:::
-
-:::: {.column width="42%"}
-Two more controls: Longhill relocates to **Elm Grove**, and **Whitehawk
-returns to Longhill catchment** pre-2024 consultation
-
-Longhill reaches **`r st(3,"intake")` of 210 (`r st(3,"pct")`%)**, and
-the travel gap **reverses**: disadvantaged children now travel
-**`r sprintf("%.1f", abs(st(3,"dep")))` minutes less** than their
-classmates. More Segregation but both positive attainment influencers. No displacement from Central Catchments. 
-
-::: key-finding
-Redrawing the catchments as flow regions around the new site was also
-tested. It did **worse** — a travel gap of −1.0 against −1.9, and twice
-the displacement.
-:::
-::::
-::::::
-
-## 3rd Lever: and if added value like BACA {.smaller .simstep}
-
-![](slides_assets/kpi2-dbl.png){fig-align="center" width="56%"}
-
-:::::: columns
-::: {.column width="58%"}
-![](slides_assets/sim-wide-dbl.png){.sim-wide fig-align="center"}
-:::
-
-:::: {.column width="42%"}
-The last lever is not an admissions policy. It is **the school getting
-better** — value added doubled, to roughly where BACA
-already is with a comparably disadvantaged intake.
-
-Longhill reaches **`r st(4,"intake")` of 210 — `r st(4,"pct")`% full**,
-13 places short, **1% of children displaced** city-wide.
-
-::: key-finding
-A disadvantaged child now travels
-**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less*** than everyone
-else — a swing of `r sprintf("%.1f", st(1,"dep") - st(4,"dep"))`
-minutes. Absence is this city's largest attainment problem, and distance
-is one of the few things policy can change about it.
-:::
-::::
-::::::
-
-## Why this needs a simulator {.smaller}
-
-:::::: columns
-::: {.column width="56%"}
-```{r lh-compound}
-#| fig-width: 7.0
-#| fig-height: 4.4
-sl <- steps |>
-  dplyr::mutate(lab = stringr::str_wrap(label, 18),
-                lab = factor(lab, levels = stringr::str_wrap(label, 18)))
-ggplot(sl, aes(lab, pct, group = 1)) +
-  geom_hline(yintercept = 100, linetype = "31", colour = "grey60") +
-  geom_line(linewidth = 1.1, colour = BAD) +
-  geom_point(size = 3.6, colour = BAD) +
-  geom_text(aes(label = sprintf("%d%%", pct)), vjust = -1.1, size = 4.4, colour = INK) +
-  scale_y_continuous(limits = c(0, 112)) +
-  labs(x = NULL, y = "Longhill's places filled",
-       title = "No single lever fills Longhill. Four together nearly do.",
-       subtitle = "2026 entry. Each step keeps the one before it.") +
-  theme_bhs(12) +
-  theme(axis.text.x = element_text(size = 9))
-```
-:::
-
-:::: {.column width="44%"}
-Each choice is modest on its own. **`r st(2,"pct")-st(1,"pct")` points,
-then `r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.**
-None would survive a committee on its own merits. Together they take a
-school from 43% full to 94%.
-
-**Segregation rises**, `r sprintf("%.3f", st(1,"seg"))` to
-`r sprintf("%.3f", st(4,"seg"))`. That is the honest cost.
-
-::: key-finding
-But *How to Pull the Right Lever* finds the attainment model **disagrees
-about direction** between disadvantaged and other pupils — so
-deconcentration bought with longer journeys is unlikely to help the
-children it is meant to.
-:::
-
-You cannot reason about this in a committee paper. Every lever moves
-every other one, and you have to **see each choice land**.
-::::
-::::::
-
-<!-- ## Worked example: a question only a human asks {.smaller} -->
-
-<!-- Families choose schools on the published Attainment 8 score — which -->
-
-<!-- mostly measures the intake, not the teaching. -->
-
-<!-- I asked: **what if they chose on value added instead?** -->
-
-<!-- :::::: columns -->
-
-<!-- ::: {.column width="50%"} -->
-
-<!-- That is not a coding task. It is a question about how a city might -->
-
-<!-- behave differently, and it took about a day to answer properly: a new -->
-
-<!-- attractiveness basis, a switch in the simulator, a measure of how evenly -->
-
-<!-- children would be spread. -->
-
-<!-- ::: -->
-
-<!-- :::: {.column width="50%"} -->
-
-<!-- ::: key-finding -->
-
-<!-- The answer: one struggling school's intake nearly doubles, the surplus -->
-
-<!-- stops concentrating in three schools — and the total number of empty -->
-
-<!-- places does not move at all. -->
-
-<!-- ::: -->
-
-<!-- :::: -->
-
-<!-- :::::: -->
-
-<!-- ## What the city would look like {.smaller} -->
-
-<!-- ```{r fig-va} -->
-
-<!-- #| fig-width: 11 -->
-
-<!-- #| fig-height: 4.4 -->
-
-<!-- va <- vac$detail |> -->
-
-<!--   mutate(school = forcats::fct_reorder(short_sch(name), mult), -->
-
-<!--          up = mult >= 1) -->
-
-<!-- ggplot(va, aes(mult, school)) + -->
-
-<!--   geom_vline(xintercept = 1, colour = GREY, linetype = "31") + -->
-
-<!--   geom_segment(aes(x = 1, xend = mult, yend = school, colour = up), linewidth = 1.1) + -->
-
-<!--   geom_point(aes(colour = up), size = 4) + -->
-
-<!--   geom_text(aes(label = sprintf("%.2f x", mult), hjust = ifelse(up, -0.3, 1.3)), -->
-
-<!--             size = 4.1, colour = INK) + -->
-
-<!--   scale_colour_manual(values = c(`TRUE` = "#2b7a4b", `FALSE` = WARM), guide = "none") + -->
-
-<!--   scale_x_continuous(limits = c(0, 3.2)) + -->
-
-<!--   labs(x = "Change in how attractive the school looks", y = NULL, -->
-
-<!--        title = "If families read value added instead of Attainment 8", -->
-
-<!--        subtitle = "Multiplier on each school's attractiveness. 1.0 = no change.") + -->
-
-<!--   theme_talk(14) + -->
-
-<!--   theme(panel.grid.major.y = element_blank(), -->
-
-<!--         panel.grid.major.x = element_line(colour = "#e8e4f0", linewidth = 0.4)) -->
-
-<!-- ``` -->
-
-<!-- ::: {style="font-size:0.72em"} -->
-
-<!-- Brighton Aldridge — the lowest Attainment 8 in the city — is adding more -->
-
-<!-- progress than almost anywhere. Patcham, comfortably mid-table on the -->
-
-<!-- headline number, is bottom of the city on value added. -->
-
-<!-- ::: -->
-
-<!-- ## Worked example: catching it being wrong {.smaller} -->
-
-<!-- :::::: columns -->
-
-<!-- ::: {.column width="54%"} -->
-
-<!-- Claude reported a school's value-added score as being in the "top 100% -->
-
-<!-- in England". It had applied an Attainment 8 percentile function to a -->
-
-<!-- value-added figure. Silently wrong, confidently stated. -->
-
-<!-- Later, the attainment charts appeared to show huge jumps when the -->
-
-<!-- value-added option was selected — because they were reading a different -->
-
-<!-- variable than I thought. -->
-
-<!-- I caught both. It fixed both in minutes. -->
-
-<!-- ::: -->
-
-<!-- :::: {.column width="46%"} -->
-
-<!-- ::: key-finding -->
-
-<!-- The failure mode is not gibberish. It is **plausible, well-formatted, -->
-
-<!-- confidently-presented wrongness** — exactly what a domain expert catches -->
-
-<!-- and a non-expert does not. -->
-
-<!-- ::: -->
-
-<!-- This is the strongest argument I have for why the human in this loop has -->
-
-<!-- to be someone who knows the subject. -->
-
-<!-- :::: -->
-
-<!-- :::::: -->
-
-# Concluding Thoughts
-
+# Where This Leaves Us {background-color="#361a54"}
 ## What I would say to a colleague {.smaller}
 
 ::::: columns
@@ -2273,29 +2110,47 @@ which question is worth asking.
 :::
 :::::
 
-## Open questions {.smaller}
+## What about collective intelligence? {.smaller}
 
-::: incremental
-- **Authorship.** What is the honest way to describe this on a paper? I
-  directed every step and verified every output — but I did not write
-  the code.
-- **Verification at speed.** I can generate analysis faster than I can
-  properly check it. That is a new kind of risk.
-- **Reproducibility of the process.** The code is reproducible. The
-  *conversation* that produced it is not, in any meaningful sense.
-- **Who else can do this?** This worked because I could tell right from
-  wrong. What happens when the person in the loop cannot?
+:::::: columns
+::: {.column width="54%"}
+AI and expert input together have produced something that did not exist
+before: **a working simulation of the city's school system that anyone
+can open and argue with** — councillors, officers, school leaders,
+parents.
+
+That is necessary, and it is not sufficient. There is still a gap
+between knowing how the system behaves, understanding what each policy
+lever does to it, and arriving at something the city can live with.
+
+**Three things still stand in the way:**
+
+- **Awareness.** Most people affected do not know the tool exists.
+- **Buy-in.** It only helps if the people who decide will use it.
+- **Enough ideas.** A simulator is only as good as the range of
+  scenarios people think to put through it.
 :::
 
-## What About Collective Intelligence?
+:::: {.column width="46%"}
+::: key-finding
+**What I am asking for.**
 
--  AI and expert input has accelerated the development of a working simulation of the city's schools that anyone (politicians, policy makers, senior leadership in schools, council officers, parents) can experiment with
--  Still a gap between knowledge of how a system operates -> understanding impacts of different policy levers -> arriving at a sustainable and equitable solution for the city
--  Collective Intelligence potential, but barriers still to clear:
-   -   Awareness
-   -   Buy in from key players
-   -   Using the tool to surface enough different ideas to allow the good ones to emerge
+**If you work in the council or a school:** put a scenario through it
+that you think will embarrass the model. That is the most useful thing
+anyone can do with it.
 
+**If you are a researcher:** the code, the data and the model are all
+open. Take it apart.
+
+**If you are a parent or a governor:** use it before the next
+consultation, not after.
+:::
+
+The simulator is the argument made inspectable. It does not tell the
+city what to do. It makes it much harder to claim a policy will do
+something the system cannot deliver.
+::::
+::::::
 ## Links
 
 ::: {style="font-size:0.9em"}
@@ -2311,4 +2166,19 @@ which question is worth asking.
 Happy to be argued with — particularly about the open questions.
 :::
 
-# Any Questions?
+# Any Questions? {background-color="#993bff"}
+# Backup {background-color="#361a54"}
+## Open questions {.smaller}
+
+::: incremental
+- **Authorship.** What is the honest way to describe this on a paper? I
+  directed every step and verified every output — but I did not write
+  the code.
+- **Verification at speed.** I can generate analysis faster than I can
+  properly check it. That is a new kind of risk.
+- **Reproducibility of the process.** The code is reproducible. The
+  *conversation* that produced it is not, in any meaningful sense.
+- **Who else can do this?** This worked because I could tell right from
+  wrong. What happens when the person in the loop cannot?
+:::
+

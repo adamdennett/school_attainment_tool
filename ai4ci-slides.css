@@ -2,19 +2,16 @@
    Loaded from the deck's YAML so it does not sit in the body and turn
    itself into a blank slide. */
 
-/* Title slide: the subtitle, author and date were dark purple on the
-   bright purple background, and close to unreadable on a projector. */
-#title-slide .subtitle,
-#title-slide .quarto-title-author-name,
-#title-slide .quarto-title-affiliation,
-#title-slide .quarto-title-author-email,
-#title-slide .date,
-#title-slide p {
-  color: #ffffff !important;
-}
-
-#title-slide .subtitle {
-  opacity: 0.95;
+/* Title slide date. The theme leaves it at a light purple on the bright
+   purple background - about 1.6:1, which disappears on a projector. The
+   subtitle is deliberately UCL cyan in ucl-slides-theme.scss and is left
+   alone; this only lifts the one line that is genuinely hard to read.
+   The theme's own rules are `#title-slide p.date`, so this has to carry
+   more weight than an id plus a class to land. */
+.reveal #title-slide p.date,
+.reveal #title-slide .quarto-title-affiliation {
+  color: #f0e6ff !important;
+  opacity: 1;
 }
 
 /* Section dividers carry a background colour, so their heading has to be
