@@ -21,8 +21,9 @@
     width: auto;
     display: block;
   }
-  /* The mark is blue, which muddies on the saturated purple title slide.
-     Render it white there, matching how the UCL logo is treated. */
+  /* The mark is blue, which muddies on the saturated purple title slide
+     and drops out of the dark section dividers. Render it white on any
+     slide with a background colour, matching the UCL logo. */
   .ai4ci-corner-logo.on-dark img {
     filter: brightness(0) invert(1);
   }
@@ -39,7 +40,10 @@
     var el = document.querySelector('.ai4ci-corner-logo');
     if (!el) return;
     el.style.display = hide ? 'none' : '';
-    el.classList.toggle('on-dark', !!(cur && cur.id === 'title-slide'));
+    // Any slide carrying a background colour: the title slide and, since
+    // the deck gained them, the section dividers.
+    el.classList.toggle('on-dark',
+      !!(cur && cur.hasAttribute && cur.hasAttribute('data-background-color')));
   }
   function attach() {
     if (typeof Reveal === 'undefined' || !Reveal.on) { setTimeout(attach, 50); return; }

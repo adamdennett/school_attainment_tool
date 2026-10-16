@@ -15,12 +15,26 @@
 }
 
 /* Section dividers carry a background colour, so their heading has to be
-   light. Centred, because a divider is a breath rather than a slide. */
-.reveal section[data-background-color] h1 {
+   light. Centred, because a divider is a breath rather than a slide.
+   The title slide is excluded: it also carries a background colour, and
+   without the exclusion this rule centres the main title, which belongs
+   left. */
+.reveal section[data-background-color]:not(#title-slide) h1 {
   color: #ffffff !important;
   border-bottom: none;
   text-align: center;
   margin-top: 1.4em;
+}
+
+/* Both corner logos are purple artwork, so on the purple title slide and
+   the dark dividers parts of them drop out of the background entirely.
+   Reveal puts `has-dark-background` on `.reveal` for exactly those
+   slides, so render the UCL mark solid white there and let it go back to
+   its own colours everywhere else. The AI4CI mark is handled in
+   ai4ci-footer.html, which has to use JS because it sits outside
+   `.reveal` and cannot be reached from the current slide in CSS. */
+.reveal.has-dark-background .slide-logo {
+  filter: brightness(0) invert(1);
 }
 
 /* The nested bullets on the opening slide rendered at roughly 0.6em,
