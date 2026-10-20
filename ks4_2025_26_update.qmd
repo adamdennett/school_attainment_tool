@@ -836,6 +836,44 @@ and February's revisions have not landed. Treat it as a flag to investigate,
 not a finding.
 :::
 
+
+```{r city-spread}
+# Anchors the comparison below in something a reader can check: the
+# published spread between the city's highest and lowest scoring schools.
+bh26_sp <- yoy |> filter(LANAME == "Brighton and Hove", !is.na(a26), !is.na(f26))
+city_spread <- max(bh26_sp$a26) - min(bh26_sp$a26)
+```
+
+::: callout-note
+## What the school's own figures show, in general terms
+
+BACA has shared its internal analysis of the 2026 results with me. The
+figures are not mine to publish and none of them are reproduced here. But
+two things in it bear directly on the published data above, and the account
+is incomplete without them.
+
+**A substantial part of the cohort did not sit exams at all.** The school's
+own recalculation, setting those pupils aside, puts its results materially
+above the published figure and much closer to the year before. That is the
+same effect §7 reaches from the published entry rate — and it confirms the
+published rate *understates* it, because a pupil can be entered and still
+not sit the paper.
+
+**The spread by attendance inside the school is wider than the spread
+between schools across the city.** Broken down by how much of the year a
+pupil attended, the distance in Attainment 8 between its best- and
+worst-attending pupils is greater than the
+`r sprintf("%.0f", city_spread)`-point distance between the highest- and
+lowest-scoring secondary schools in Brighton and Hove. One school, one year
+group, one summer — and attendance pulls the number further apart than
+choosing a different school does.
+
+Neither point is verifiable by a reader, and neither is offered as evidence.
+They are the reason the published analysis is framed the way it is: the
+headline number is doing a poor job of describing the thing parents think
+they are reading it for.
+:::
+
 ## Longhill, for contrast
 
 ```{r longhill-groups}
