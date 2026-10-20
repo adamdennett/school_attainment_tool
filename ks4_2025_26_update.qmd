@@ -756,15 +756,24 @@ The disadvantaged table is where the year lands hardest, and it is worth
 setting the raw scores beside the value added rather than reading either
 alone.
 
+The two tables below pair them for each group of pupils. **A8** is the
+published Attainment 8 score — what the group actually achieved. **VA** is
+value added: that score minus what the model expects from the intake, so
+**zero means a group performed exactly as its intake predicted**, positive
+means better, negative worse. The groups are the DfE's own: all pupils,
+pupils recorded as disadvantaged, and pupils *not known to be
+disadvantaged*, which is the rest of the year group.
+
 ```{r baca-groups}
-#| tbl-cap: "BACA: Attainment 8 and value added, by pupil group"
+#| tbl-cap: "BACA: Attainment 8 (A8) and value added (VA), by pupil group"
 baca <- va |> filter(grepl("^Brighton Aldridge", SCHNAME)) |>
   transmute(Year = year_label,
-            `A8 all` = ATT8SCR, `VA all` = round(va_ATT8SCR, 1),
-            `A8 disadvantaged` = ATT8SCR_FSM6CLA1A,
-            `VA disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
-            `A8 other` = ATT8SCR_NFSM6CLA1A,
-            `VA other` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
+            `A8: all pupils` = ATT8SCR,
+            `VA: all pupils` = round(va_ATT8SCR, 1),
+            `A8: disadvantaged` = ATT8SCR_FSM6CLA1A,
+            `VA: disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
+            `A8: not disadvantaged` = ATT8SCR_NFSM6CLA1A,
+            `VA: not disadvantaged` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
   arrange(Year)
 baca
 ```
@@ -803,24 +812,24 @@ b <- function(y, col) baca[[col]][baca$Year == y]
 Read across the groups, the year separates cleanly.
 
 **BACA's non-disadvantaged pupils had a good year.** Attainment 8
-`r sprintf("%.1f", b("2024-25", "A8 other"))` to
-`r sprintf("%.1f", b("2025-26", "A8 other"))`, value added
-`r fmt(b("2024-25", "VA other"), 1)` to `r fmt(b("2025-26", "VA other"), 1)` —
+`r sprintf("%.1f", b("2024-25", "A8: not disadvantaged"))` to
+`r sprintf("%.1f", b("2025-26", "A8: not disadvantaged"))`, value added
+`r fmt(b("2024-25", "VA: not disadvantaged"), 1)` to `r fmt(b("2025-26", "VA: not disadvantaged"), 1)` —
 back above expectation.
 
 **Its disadvantaged pupils did not.** Attainment 8
-`r sprintf("%.1f", b("2024-25", "A8 disadvantaged"))` to
-`r sprintf("%.1f", b("2025-26", "A8 disadvantaged"))`, and value added
-**`r fmt(b("2024-25", "VA disadvantaged"), 1)` to
-`r fmt(b("2025-26", "VA disadvantaged"), 1)`** — a swing of
-`r sprintf("%.1f", b("2024-25", "VA disadvantaged") - b("2025-26", "VA disadvantaged"))`
+`r sprintf("%.1f", b("2024-25", "A8: disadvantaged"))` to
+`r sprintf("%.1f", b("2025-26", "A8: disadvantaged"))`, and value added
+**`r fmt(b("2024-25", "VA: disadvantaged"), 1)` to
+`r fmt(b("2025-26", "VA: disadvantaged"), 1)`** — a swing of
+`r sprintf("%.1f", b("2024-25", "VA: disadvantaged") - b("2025-26", "VA: disadvantaged"))`
 points in one year.
 
 And the four years before it ran the other way. On the four published years
 BACA was **the best school in the city** for disadvantaged value added —
-mean `r fmt(mean(baca[["VA disadvantaged"]][baca$Year != "2025-26"]), 1)`,
-and improving: `r fmt(b("2023-24", "VA disadvantaged"), 1)` then
-`r fmt(b("2024-25", "VA disadvantaged"), 1)` in the two most recent. Whatever
+mean `r fmt(mean(baca[["VA: disadvantaged"]][baca$Year != "2025-26"]), 1)`,
+and improving: `r fmt(b("2023-24", "VA: disadvantaged"), 1)` then
+`r fmt(b("2024-25", "VA: disadvantaged"), 1)` in the two most recent. Whatever
 happened in 2025/26 reversed a school that was, on this measure, doing the
 thing the whole *Pulling the Right Lever* argument says matters most.
 
@@ -895,14 +904,15 @@ thing parents believe they are reading it for.
 ## Longhill, for contrast
 
 ```{r longhill-groups}
-#| tbl-cap: "Longhill: Attainment 8 and value added, by pupil group"
+#| tbl-cap: "Longhill: Attainment 8 (A8) and value added (VA), by pupil group"
 lhg <- va |> filter(grepl("^Longhill", SCHNAME)) |>
   transmute(Year = year_label,
-            `A8 all` = ATT8SCR, `VA all` = round(va_ATT8SCR, 1),
-            `A8 disadvantaged` = ATT8SCR_FSM6CLA1A,
-            `VA disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
-            `A8 other` = ATT8SCR_NFSM6CLA1A,
-            `VA other` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
+            `A8: all pupils` = ATT8SCR,
+            `VA: all pupils` = round(va_ATT8SCR, 1),
+            `A8: disadvantaged` = ATT8SCR_FSM6CLA1A,
+            `VA: disadvantaged` = round(va_ATT8SCR_FSM6CLA1A, 1),
+            `A8: not disadvantaged` = ATT8SCR_NFSM6CLA1A,
+            `VA: not disadvantaged` = round(va_ATT8SCR_NFSM6CLA1A, 1)) |>
   arrange(Year)
 lhg
 ```
@@ -912,14 +922,14 @@ l <- function(y, col) lhg[[col]][lhg$Year == y]
 ```
 
 Splitting Longhill the same way corrects something the all-pupil figure hides.
-Its overall value added barely moved — `r fmt(l("2024-25", "VA all"), 1)` to
-`r fmt(l("2025-26", "VA all"), 1)` — but that average is covering two
+Its overall value added barely moved — `r fmt(l("2024-25", "VA: all pupils"), 1)` to
+`r fmt(l("2025-26", "VA: all pupils"), 1)` — but that average is covering two
 different stories. **Its disadvantaged pupils had their best year of the five**,
-value added `r fmt(l("2024-25", "VA disadvantaged"), 1)` to
-**`r fmt(l("2025-26", "VA disadvantaged"), 1)`**, the only positive figure
+value added `r fmt(l("2024-25", "VA: disadvantaged"), 1)` to
+**`r fmt(l("2025-26", "VA: disadvantaged"), 1)`**, the only positive figure
 Longhill records on that measure since 2023/24. Its non-disadvantaged pupils
-went the other way, `r fmt(l("2024-25", "VA other"), 1)` to
-`r fmt(l("2025-26", "VA other"), 1)`.
+went the other way, `r fmt(l("2024-25", "VA: not disadvantaged"), 1)` to
+`r fmt(l("2025-26", "VA: not disadvantaged"), 1)`.
 
 So on the measure the Brighton argument cares about most — what a school adds
 for disadvantaged children — **Longhill improved and BACA fell**. That is a
