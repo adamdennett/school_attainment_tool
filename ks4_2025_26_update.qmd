@@ -838,40 +838,58 @@ not a finding.
 
 
 ```{r city-spread}
-# Anchors the comparison below in something a reader can check: the
-# published spread between the city's highest and lowest scoring schools.
+# Two figures below come from conversations with the school rather than
+# from anything published: the Attainment 8 of its regular attenders, and
+# the gap between attendance bands. Both are rounded. Everything they are
+# compared against is computed from the published file, so the comparison
+# itself is reproducible even where the inputs to it are not.
+REGULAR_ATTENDERS <- 49      # Attainment 8, pupils attending 95%+
+ATTENDANCE_GAP    <- 26      # points, 80-90% attenders against 95%+
+
 bh26_sp <- yoy |> filter(LANAME == "Brighton and Hove", !is.na(a26), !is.na(f26))
 city_spread <- max(bh26_sp$a26) - min(bh26_sp$a26)
+baca_pub    <- bh26_sp$a26[grepl("^Brighton Aldridge", bh26_sp$SCHNAME)]
+n_below     <- sum(bh26_sp$a26 < REGULAR_ATTENDERS &
+                   !grepl("^Brighton Aldridge", bh26_sp$SCHNAME))
+city_rank   <- sum(bh26_sp$a26 >= REGULAR_ATTENDERS) + 1
 ```
 
 ::: callout-note
-## What the school's own figures show, in general terms
+## Context from the school
 
-BACA has shared its internal analysis of the 2026 results with me. The
-figures are not mine to publish and none of them are reproduced here. But
-two things in it bear directly on the published data above, and the account
-is incomplete without them.
+Conversations with the school's leadership have provided important context
+for the size of the swing. The underlying figures are not mine to publish
+and are not reproduced here, but two of the headline differences bear
+directly on the published data above, and the account is incomplete without
+them.
 
-**A substantial part of the cohort did not sit exams at all.** The school's
-own recalculation, setting those pupils aside, puts its results materially
-above the published figure and much closer to the year before. That is the
-same effect §7 reaches from the published entry rate — and it confirms the
-published rate *understates* it, because a pupil can be entered and still
-not sit the paper.
+**A substantial part of the cohort did not sit exams at all** — more than
+one pupil in ten. Setting those pupils aside lifts the school's results
+materially above the published figure and much closer to the year before.
+That is the same effect §7 reaches from the published entry rate, and it
+confirms the published rate *understates* the problem: a pupil can be
+entered and still not sit the paper, and only the entry shows up in the
+data.
 
-**The spread by attendance inside the school is wider than the spread
-between schools across the city.** Broken down by how much of the year a
-pupil attended, the distance in Attainment 8 between its best- and
-worst-attending pupils is greater than the
-`r sprintf("%.0f", city_spread)`-point distance between the highest- and
-lowest-scoring secondary schools in Brighton and Hove. One school, one year
-group, one summer — and attendance pulls the number further apart than
-choosing a different school does.
+**Attainment splits by attendance far more sharply than it splits by
+school.** Pupils attending 95% or more of the year scored around
+`r REGULAR_ATTENDERS` in Attainment 8. Pupils attending between 80% and 90%
+scored roughly `r ATTENDANCE_GAP` points lower. For scale, the published
+distance between the highest- and lowest-scoring secondary schools in the
+whole of Brighton and Hove is
+`r sprintf("%.0f", city_spread)` points — **smaller than the gap between
+two groups of children in the same building**.
 
-Neither point is verifiable by a reader, and neither is offered as evidence.
-They are the reason the published analysis is framed the way it is: the
-headline number is doing a poor job of describing the thing parents think
-they are reading it for.
+And the comparison that follows from it: at around
+`r REGULAR_ATTENDERS` points, BACA's regular attenders would sit
+**`r city_rank`th of the ten schools** on the city's published table, ahead
+of `r n_below` of them — against a published school figure of
+`r sprintf("%.1f", baca_pub)` that places it last.
+
+Neither figure is verifiable by a reader and neither is offered as evidence.
+They are the reason the published analysis is framed the way it is: a school
+is not one number, and the headline is doing a poor job of describing the
+thing parents believe they are reading it for.
 :::
 
 ## Longhill, for contrast
