@@ -363,6 +363,14 @@ national change of `r fmt(nat$a26 - nat$a25)`. Two movements stand out, and
 they are in opposite directions: Longhill High School, and Brighton Aldridge
 Community Academy — **BACA** from here on.
 
+::: callout-note
+Both of those movements are smaller than they look here. Attainment 8 is a
+mean over every pupil on roll, entered or not, and the entry rates at these
+two schools moved sharply in opposite directions. §7 measures the same years
+on the pupils who were actually entered; read it before quoting either
+figure.
+:::
+
 ```{r lh-baca}
 #| fig-cap: "Longhill and BACA, against the national distribution of Attainment 8"
 pctile <- function(v, x) 100 * mean(v <= x, na.rm = TRUE)
@@ -862,6 +870,14 @@ for disadvantaged children — **Longhill improved and BACA fell**. That is a
 stronger statement than the headline scores support on their own, and close to
 the reverse of what the raw Attainment 8 comparison first suggested.
 
+One qualification, which §7 sets out. The value added here is built on
+Attainment 8 as published, a mean over every pupil on roll. Longhill's entry
+rate rose sharply across these two years and BACA's fell, so part of both
+movements is a change in who was counted rather than in what anyone scored.
+Measured on entered pupils only, Longhill is close to flat over three years
+and BACA's decline is steadier and smaller than the headline. The direction
+of both survives; the size does not.
+
 ## The prior attainment the model wants, and cannot have
 
 The model carries `ks2_c` — the mean Key Stage 2 scaled score of the school's
@@ -1070,6 +1086,225 @@ other way round.
 attractiveness on this, wait for February.
 :::
 
+# Who sat the exam, and who was in the room
+
+Everything above compares Attainment 8 school by school and year by year.
+That comparison has an assumption buried in it: that the schools are being
+measured on the same pupils. They are not, and the published data says so.
+
+Attainment 8 is a mean over **every pupil on roll at the end of Key Stage
+4**, whether or not they were entered for anything. A pupil entered for
+nothing scores zero and stays in the denominator. So a school's headline
+number moves when its entry rate moves, without a single child doing
+better or worse.
+
+```{r entry-load}
+#| cache: true
+#| output: false
+ks4_raw <- readr::read_csv(
+  here::here("data-raw", "ees", "ks4_institution_performance_2025-26.csv.gz"),
+  col_types = readr::cols(.default = readr::col_character()), progress = FALSE)
+
+enum <- function(x) suppressWarnings(as.numeric(
+  ifelse(x %in% c("", "NA", "z", "x", "c", "u", ":"), NA, x)))
+
+SPECIAL <- c("Independent schools", "Independent special schools",
+             "Non-maintained special schools", "Community special school",
+             "Foundation special school", "Converter academies - special school",
+             "Free schools - special school", "Sponsored academies - special school")
+
+ent <- ks4_raw |>
+  filter(breakdown_topic == "Total", !establishment_type_group %in% SPECIAL) |>
+  transmute(urn = school_urn, name = school_name, la = la_name, yr = time_period,
+            n = enum(pupil_count), a8_sum = enum(attainment8_sum),
+            a8 = enum(attainment8_average),
+            ent_n = enum(engmath_entering_total),
+            ent_pct = enum(engmath_entering_percent)) |>
+  filter(!is.na(a8), !is.na(ent_n), ent_n > 0, n >= 50) |>
+  # Same numerator; a denominator that counts only the pupils put in for
+  # the exams. Where entry is near universal the two barely differ.
+  mutate(a8_ent = a8_sum / ent_n, gap = a8_ent - a8)
+
+dis_sh <- ks4_raw |>
+  filter(breakdown_topic == "Disadvantage status", breakdown == "Disadvantaged") |>
+  transmute(urn = school_urn, yr = time_period, dis_pct = enum(pupil_percent))
+
+abs_sch <- ees_absence_2term() |>
+  transmute(urn = URN, yr = as.character(time_period),
+            pa = PPERSABS10_2term, absence = PERCTOT_2term)
+
+ent <- ent |> left_join(dis_sh, by = c("urn", "yr")) |>
+  left_join(abs_sch, by = c("urn", "yr"))
+
+e26 <- ent |> filter(yr == "202526")
+baca_e <- ent |> filter(grepl("^Brighton Aldridge", name)) |> arrange(yr)
+lh_e   <- ent |> filter(grepl("^Longhill", name)) |> arrange(yr)
+below  <- sum(e26$ent_pct < baca_e$ent_pct[baca_e$yr == "202526"], na.rm = TRUE)
+```
+
+## How unusual BACA's entry rate is
+
+```{r entry-baca}
+#| tbl-cap: "Brighton Aldridge: pupils on roll, pupils entered for English and maths, and Attainment 8 measured both ways"
+baca_e |>
+  transmute(Year = paste0(substr(yr, 3, 4), "/", substr(yr, 5, 6)),
+            `On roll` = n, Entered = ent_n,
+            `Entered %` = round(ent_pct, 1),
+            `A8 per pupil on roll` = round(a8, 1),
+            `A8 per pupil entered` = round(a8_ent, 1))
+```
+
+In 2025/26 BACA entered **`r sprintf("%.1f%%", baca_e$ent_pct[3])`** of its
+cohort for English and maths. **`r format(below, big.mark = ",")` of the
+`r format(nrow(e26), big.mark = ",")` state-funded mainstream schools in
+England entered a smaller share** — so it sits near the bottom of the
+country on this, not the top. The national median is
+`r sprintf("%.1f%%", median(e26$ent_pct, na.rm = TRUE))`.
+
+That is about `r sprintf("%.0f", baca_e$n[3] - baca_e$ent_n[3])` pupils of
+`r baca_e$n[3]` not entered, each scoring zero in a mean taken over all of
+them.
+
+::: callout-important
+## Entered is not the same as sat
+
+The published figure counts pupils **entered**. A school can enter a pupil
+who then does not sit the paper, and that pupil also scores zero. Nothing
+in the published data separates the two, so the entry rate is a **floor**
+on how many children contributed a zero, not a measure of it.
+
+That matters most in schools where attendance is weakest, which is where
+entry rates are lowest. BACA is at
+`r sprintf("%.0f%%", baca_e$pa[3])` persistent absence.
+:::
+
+## The same measure, like for like
+
+```{r entry-bh}
+#| tbl-cap: "Brighton and Hove, three years, Attainment 8 per pupil on roll and per pupil entered"
+ent |>
+  filter(la == "Brighton and Hove") |>
+  mutate(School = shorten(name),
+         Year = paste0(substr(yr, 3, 4), "/", substr(yr, 5, 6))) |>
+  select(School, Year, a8, a8_ent) |>
+  tidyr::pivot_longer(c(a8, a8_ent)) |>
+  mutate(col = paste(Year, ifelse(name == "a8", "roll", "entered"))) |>
+  select(School, col, value) |>
+  mutate(value = round(value, 1)) |>
+  tidyr::pivot_wider(names_from = col, values_from = value) |>
+  arrange(School)
+```
+
+```{r entry-fig}
+#| fig-cap: "Attainment 8 measured two ways, Brighton and Hove. The distance between the points is what entry rates are doing to the headline number."
+#| fig-height: 4.6
+bh_ent <- ent |> filter(la == "Brighton and Hove", yr == "202526") |>
+  mutate(School = forcats::fct_reorder(shorten(name), a8))
+
+ggplot(bh_ent) +
+  geom_segment(aes(y = School, x = a8, xend = a8_ent), colour = "grey70",
+               linewidth = 1.6) +
+  geom_point(aes(a8, School), colour = PURPLE, size = 3.4) +
+  geom_point(aes(a8_ent, School), colour = WARM, size = 3.4) +
+  geom_text(data = dplyr::filter(bh_ent, grepl("BACA|Patcham", School)),
+            aes(a8_ent, School, label = sprintf("+%.1f", gap)),
+            hjust = -0.45, size = 3.6, colour = WARM) +
+  labs(x = "Attainment 8", y = NULL,
+       title = "Per pupil on roll (purple) and per pupil entered (orange)",
+       subtitle = "2025/26. The gap is the cost of pupils entered for nothing, who score zero in the mean.") +
+  theme_note(12)
+```
+
+Two readings in this report change once the measure is held constant.
+
+```{r entry-corrections}
+bd <- function(y) baca_e$a8[baca_e$yr == y]; be <- function(y) baca_e$a8_ent[baca_e$yr == y]
+ld <- function(y) lh_e$a8[lh_e$yr == y];     le <- function(y) lh_e$a8_ent[lh_e$yr == y]
+```
+
+**BACA's fall is smaller than the headline, and real.** Per pupil on roll
+it fell `r fmt(bd("202526") - bd("202425"), 1)`; per pupil entered,
+`r fmt(be("202526") - be("202425"), 1)`. So entry accounts for about
+`r sprintf("%.0f%%", 100 * (1 - (be("202526") - be("202425")) / (bd("202526") - bd("202425"))))`
+of it and the rest is a genuine fall among the pupils who were entered.
+Its entered figure has declined in each of the three published years —
+`r sprintf("%.1f, %.1f, %.1f", be("202324"), be("202425"), be("202526"))` —
+so this is a trend, not one bad summer.
+
+**Longhill's rise is mostly its entry rate recovering.** Per pupil on roll
+it rose `r fmt(ld("202526") - ld("202425"), 1)`, which is the figure §5.1
+reports. But its entry rate went
+`r sprintf("%.1f%% to %.1f%%", lh_e$ent_pct[lh_e$yr == "202425"], lh_e$ent_pct[lh_e$yr == "202526"])`,
+and per pupil entered the rise is only
+`r fmt(le("202526") - le("202425"), 1)`. Across three years its entered
+figure runs
+`r sprintf("%.1f, %.1f, %.1f", le("202324"), le("202425"), le("202526"))` —
+close to flat.
+
+# What this says about reading a school by its headline
+
+The entry gap is a small correction for most schools and a large one for a
+few. What moves Attainment 8 far more than either is something no league
+table puts next to it.
+
+```{r absence-bands}
+#| tbl-cap: "Attainment 8 by how much of the school is persistently absent, England, 2025/26"
+ab <- e26 |> filter(!is.na(pa), !is.na(dis_pct)) |>
+  mutate(Band = cut(pa, c(-Inf, 10, 20, 30, 40, Inf),
+                    labels = c("under 10%", "10-20%", "20-30%", "30-40%", "40% and over")))
+ab |> group_by(`Persistently absent` = Band) |>
+  summarise(Schools = n(),
+            `Attainment 8` = round(mean(a8), 1),
+            `Per pupil entered` = round(mean(a8_ent), 1),
+            `Disadvantaged %` = round(mean(dis_pct), 1), .groups = "drop")
+```
+
+```{r absence-fig}
+#| fig-cap: "Every state-funded mainstream secondary in England, 2025/26. Brighton and Hove's ten are marked."
+#| fig-height: 5
+bh26 <- ab |> filter(la == "Brighton and Hove")
+r_pa <- cor(ab$a8, ab$pa)
+
+ggplot(ab, aes(pa, a8)) +
+  geom_point(colour = "grey80", size = 0.7, alpha = 0.5) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+              colour = "grey35", linetype = "31", linewidth = 0.8) +
+  geom_point(data = bh26, colour = BRIGHT, size = 2.6) +
+  ggrepel::geom_text_repel(data = bh26, aes(label = shorten(name)),
+                           size = 3.2, seed = 7, colour = INK, max.overlaps = 20) +
+  labs(x = "Pupils persistently absent (%), autumn and spring",
+       y = "Attainment 8",
+       title = "Attainment tracks attendance more closely than anything a prospectus mentions",
+       subtitle = sprintf("%s schools, correlation %.2f", format(nrow(ab), big.mark = ","), r_pa)) +
+  theme_note(12)
+```
+
+```{r absence-numbers}
+hi <- ab |> filter(Band == "under 10%"); lo <- ab |> filter(Band == "40% and over")
+```
+
+Across `r format(nrow(ab), big.mark = ",")` schools the correlation between
+Attainment 8 and the share of pupils persistently absent is
+**`r sprintf("%.2f", r_pa)`**. Schools where fewer than one pupil in ten is
+persistently absent average `r sprintf("%.1f", mean(hi$a8))`. Schools where
+more than two in five are average `r sprintf("%.1f", mean(lo$a8))`. That is
+a spread of **`r sprintf("%.0f Attainment 8 points", mean(hi$a8) - mean(lo$a8))`**
+— far larger than anything the value-added tables in §6 separate schools by.
+
+::: key-finding
+A family choosing on the headline score is, to a first approximation,
+choosing on how often other people's children come to school. The number
+is real, and it is mostly not about teaching.
+:::
+
+This is the argument *How to Pull the Right Lever* makes nationally, and it
+is why that report controls for absence before it ranks anything. The
+2025/26 data does not soften it. What the new year adds is that **entry
+rates belong in the same sentence**: two published numbers, both ignored in
+every league table a parent will ever see, between them explain more of the
+difference between Brighton's schools than any plausible difference in how
+well they teach.
+
 # Five years of Brighton and Hove, against England
 
 Everything above is about one year. This is the series the new year joins:
@@ -1232,7 +1467,21 @@ the change of absence basis.
 **Worth watching, not acting on.** On the measure the argument cares about
 most — what a school adds for disadvantaged children — Longhill improved and
 BACA fell, and BACA's fall reverses four years in which it was the best
-school in the city on that measure. Both sit on one provisional year.
+school in the city on that measure. Both sit on one provisional year, and §7
+shows that part of both movements is entry rates rather than attainment.
+
+**The finding worth taking further.** Attainment 8 is a mean over every pupil
+on roll, so a school's headline moves when its entry rate moves and when its
+attendance moves, without anyone teaching better or worse. Across England
+the correlation between Attainment 8 and the share of pupils persistently
+absent is −0.79, and the spread from the least absent schools to the most is
+34 points — larger than anything the value-added tables here separate schools
+by. Entry rates and attendance are both published, both ignored by every
+league table a family will see, and between them they explain more of the
+difference between Brighton's schools than any plausible difference in
+teaching. That belongs in the main report, not in an addendum, and it is the
+strongest argument in this document for the case *How to Pull the Right
+Lever* already makes.
 
 **Deliberately not done.** Three things this addendum stops short of, each
 for the same reason:
