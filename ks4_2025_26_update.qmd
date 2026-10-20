@@ -1241,6 +1241,218 @@ figure runs
 `r sprintf("%.1f, %.1f, %.1f", le("202324"), le("202425"), le("202526"))` —
 close to flat.
 
+## Three years, England and Brighton
+
+```{r ent-series}
+#| fig-cap: "Attainment 8 measured per pupil on roll and per pupil entered, 2023/24 to 2025/26. Grey band: the middle half of schools in England on the entered measure."
+#| fig-height: 5.6
+ent_bh <- ent |>
+  filter(la == "Brighton and Hove") |>
+  mutate(School = shorten(name),
+         y = as.integer(substr(yr, 1, 4)) + 1L)
+
+eng_band <- ent |>
+  group_by(yr) |>
+  summarise(lo = quantile(a8_ent, 0.25, na.rm = TRUE),
+            hi = quantile(a8_ent, 0.75, na.rm = TRUE),
+            med = median(a8_ent, na.rm = TRUE), .groups = "drop") |>
+  mutate(y = as.integer(substr(yr, 1, 4)) + 1L)
+
+ggplot() +
+  geom_ribbon(data = eng_band, aes(y, ymin = lo, ymax = hi), fill = "grey88") +
+  geom_line(data = eng_band, aes(y, med), colour = "grey45",
+            linetype = "31", linewidth = 0.6) +
+  geom_line(data = ent_bh, aes(y, a8), colour = PURPLE,
+            linewidth = 0.5, alpha = 0.5) +
+  geom_point(data = ent_bh, aes(y, a8), colour = PURPLE, size = 1.5, alpha = 0.6) +
+  geom_line(data = ent_bh, aes(y, a8_ent), colour = WARM, linewidth = 1.1) +
+  geom_point(data = ent_bh, aes(y, a8_ent), colour = WARM, size = 2) +
+  facet_wrap(~ School, ncol = 5) +
+  scale_x_continuous(breaks = 2024:2026, labels = function(x) substr(x, 3, 4)) +
+  labs(x = NULL, y = "Attainment 8",
+       title = "Per pupil on roll (faint purple) and per pupil entered (orange)",
+       subtitle = "Three years is all the published institution-level file carries. Where the two lines part, entry rates are moving.") +
+  theme_note(11)
+```
+
+Only three years exist at school level — the institution-level file starts
+in 2023/24 — so this cannot be run back across the five years §9 uses.
+
+## Value added on the pupils who sat
+
+The value added in §6 is built on Attainment 8 as published, which means a
+school is credited or penalised for pupils who were never entered. The
+measure can be rebuilt on the entered figure instead. Same specification,
+same three years, same schools: only the outcome changes.
+
+```{r va-ent-fit}
+#| cache: true
+#| output: false
+va_in <- p5 |>
+  mutate(URN = as.character(URN)) |>
+  inner_join(ent |> transmute(URN = urn,
+               academic_year = dplyr::recode(yr,
+                 "202324" = "2023-2024", "202425" = "2024-2025",
+                 "202526" = "2025-2026"),
+               a8_ent, ent_pct), by = c("URN", "academic_year")) |>
+  filter(!is.na(ATT8SCR), ATT8SCR > 0, !is.na(a8_ent), a8_ent > 0,
+         !is.na(PERCTOT_2term), PERCTOT_2term > 0,
+         !is.na(PTFSM6CLA1A), PTFSM6CLA1A > 0, !is.na(PNUMEAL), PNUMEAL > 0,
+         !is.na(ADMPOL_PT), !is.na(gorard_segregation),
+         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME))
+
+ent_rhs <- paste("log(PTFSM6CLA1A) + log(PERCTOT_2term) + log(PNUMEAL) +",
+                 "ADMPOL_PT + gorard_segregation +",
+                 "(1 | year_label) + (1 | OFSTEDRATING_1) + (1 | gor_name/LANAME)")
+f_roll <- lmer(as.formula(paste("log(ATT8SCR) ~", ent_rhs)), data = va_in,
+               REML = TRUE, control = lmerControl(optimizer = "bobyqa",
+               optCtrl = list(maxfun = 2e5)))
+f_ent  <- lmer(as.formula(paste("log(a8_ent) ~", ent_rhs)), data = va_in,
+               REML = TRUE, control = lmerControl(optimizer = "bobyqa",
+               optCtrl = list(maxfun = 2e5)))
+bt2 <- function(m, d) exp(predict(m, d, allow.new.levels = TRUE)) *
+  exp(0.5 * sigma(m)^2)
+va_in$va_roll <- va_in$ATT8SCR - bt2(f_roll, va_in)
+va_in$va_ent  <- va_in$a8_ent  - bt2(f_ent,  va_in)
+va26 <- va_in |> filter(academic_year == "2025-2026") |>
+  mutate(shift = va_ent - va_roll, not_ent = 100 - ent_pct)
+```
+
+The entered outcome is the **better behaved of the two**: residual standard
+deviation `r sprintf("%.4f", sigma(f_ent))` against
+`r sprintf("%.4f", sigma(f_roll))` on the log scale. Removing pupils who were
+never entered removes noise that has nothing to do with teaching.
+
+The two rankings are close — the residuals correlate at
+`r sprintf("%.2f", cor(va_in$va_roll, va_in$va_ent))` — but where they differ
+they differ for one reason. The shift between them correlates
+**`r sprintf("%+.2f", cor(va26$shift, va26$not_ent))`** with the share of
+pupils not entered.
+
+```{r va-ent-bh}
+#| tbl-cap: "Brighton and Hove: value added on pupils on roll and on pupils entered, same model, same years"
+va_in |>
+  filter(LANAME == "Brighton and Hove") |>
+  transmute(School = shorten(SCHNAME), Year = year_label,
+            `Entry %` = round(ent_pct, 1),
+            `VA, on roll` = round(va_roll, 2),
+            `VA, entered` = round(va_ent, 2)) |>
+  arrange(School, Year)
+```
+
+```{r va-ent-notes}
+g <- function(sch, yr, col) {
+  r <- va_in |> filter(grepl(sch, SCHNAME), year_label == yr)
+  if (!nrow(r)) NA_real_ else r[[col]][1]
+}
+```
+
+Two schools move enough to change what you would say about them.
+
+**BACA's 2025/26 survives the correction.** Value added
+`r fmt(g("^Brighton Aldridge", "2025-26", "va_roll"), 1)` on roll,
+`r fmt(g("^Brighton Aldridge", "2025-26", "va_ent"), 1)` on entered, against
+roughly `r fmt(g("^Brighton Aldridge", "2024-25", "va_ent"), 1)` the year
+before. Entry explains part of the headline fall and nothing like all of it.
+
+**Longhill reverses.** On roll its value added is flat across the three
+years — `r sprintf("%.1f, %.1f, %.1f", g("^Longhill", "2023-24", "va_roll"), g("^Longhill", "2024-25", "va_roll"), g("^Longhill", "2025-26", "va_roll"))`.
+On the pupils who sat it runs
+`r sprintf("%.1f, %.1f, %.1f", g("^Longhill", "2023-24", "va_ent"), g("^Longhill", "2024-25", "va_ent"), g("^Longhill", "2025-26", "va_ent"))`,
+making 2025/26 its **worst** of the three rather than a recovery. Its entry
+rate went 91.4% to 98.1% across those years, so the pupils it added back to
+the count were ones it had previously not entered.
+
+::: callout-warning
+This is a different model from §6 — three years rather than five, the core
+specification, fitted separately for each outcome. The levels are not
+comparable with the league tables there; only the comparison between the two
+columns is.
+:::
+
+## What a low entry rate is telling you
+
+A school entering fewer of its pupils is not usually making an administrative
+choice. The published data lets this be checked directly: entry rates from
+the Key Stage 4 file, special educational needs from the school-level SEN
+release, absence from the absence release.
+
+```{r entry-why}
+#| tbl-cap: "England 2025/26, schools grouped by the share of their cohort not entered for English and maths"
+sen_raw <- readr::read_csv(
+  unz(here::here("data-raw", "ees", "sen_school_level_2025-26.zip"),
+      "supporting-files/School level underlying data 2026.csv"),
+  col_types = readr::cols(.default = readr::col_character()), progress = FALSE)
+
+sen_sch <- sen_raw |>
+  transmute(urn = URN, sen_n = enum(SEN_support), ehcp_n = enum(EHC_plan),
+            tot = enum(total_pupils)) |>
+  filter(!is.na(urn), !is.na(tot), tot > 0) |>
+  transmute(urn, sen_pct = 100 * sen_n / tot, ehcp_pct = 100 * ehcp_n / tot)
+
+why <- e26 |>
+  inner_join(sen_sch, by = "urn") |>
+  filter(!is.na(dis_pct), !is.na(pa), !is.na(ehcp_pct)) |>
+  mutate(not_ent = 100 - ent_pct,
+         Band = cut(not_ent, c(-Inf, 1, 2, 5, 10, Inf),
+                    labels = c("under 1%", "1-2%", "2-5%", "5-10%", "10% and over")))
+
+why |> group_by(`Not entered` = Band) |>
+  summarise(Schools = n(),
+            `Disadvantaged %` = round(mean(dis_pct), 1),
+            `EHC plan %` = round(mean(ehcp_pct), 1),
+            `SEN support %` = round(mean(sen_pct), 1),
+            `Persistently absent %` = round(mean(pa), 1),
+            `Attainment 8` = round(mean(a8), 1), .groups = "drop")
+```
+
+Every column rises together. Schools that enter nearly everyone have a
+quarter of their pupils disadvantaged and one in thirty-three on an
+education, health and care plan. Schools leaving more than one pupil in ten
+unentered have `r sprintf("%.0f%%", mean(why$dis_pct[why$Band == "10% and over"], na.rm = TRUE))`
+disadvantaged, twice the rate of plans, and a third of the school
+persistently absent.
+
+```{r entry-model}
+#| tbl-cap: "What predicts the share of a cohort left unentered"
+mw <- lm(not_ent ~ dis_pct + pa + ehcp_pct + sen_pct, data = why)
+broom_like <- data.frame(
+  Term = c("Disadvantaged %", "Persistently absent %", "EHC plan %",
+           "SEN support %"),
+  Estimate = round(coef(mw)[-1], 4),
+  `Std. error` = round(summary(mw)$coefficients[-1, 2], 4),
+  p = format.pval(summary(mw)$coefficients[-1, 4], digits = 2, eps = 1e-4),
+  check.names = FALSE, row.names = NULL)
+broom_like
+```
+
+Put together, **absence and education, health and care plans are what carry
+it**; the disadvantage and SEN-support terms stop mattering once those two
+are in. The model explains `r sprintf("%.0f%%", 100 * summary(mw)$r.squared)`
+of the variation, so most of what decides a school's entry rate is still
+local to that school — but the part that is predictable is predictable from
+statutory need and from children not being in the building.
+
+```{r entry-extreme}
+extreme <- va26 |> arrange(desc(shift)) |> slice(1)
+```
+
+::: key-finding
+A pupil who is not entered is almost never a pupil who could have been
+entered and was not bothered with. They are disproportionately children with
+an education, health and care plan, and children who have not been in school
+enough to sit anything. **Attainment 8 counts them as a zero and says
+nothing about why.**
+:::
+
+The extreme case in England makes the point better than any argument. One
+school — `r extreme$SCHNAME`, in `r extreme$LANAME` — enters
+`r sprintf("%.1f%%", extreme$ent_pct)` of its cohort for English and maths
+and scores `r sprintf("%.1f", extreme$va_roll)` on value added as
+conventionally measured. On the pupils who actually sat, it scores
+`r fmt(extreme$va_ent, 1)`. Nothing about the teaching changed between those
+two numbers.
+
 # What this says about reading a school by its headline
 
 The entry gap is a small correction for most schools and a large one for a
