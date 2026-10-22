@@ -246,6 +246,127 @@ attainment_models <- function(j) {
 }
 
 
+#' Brighton & Hove's absence against England's, split by register code
+#'
+#' Measured in percentage points of possible sessions rather than as a
+#' share of absence. Shares are compositional: a city with more absence
+#' can have a smaller share of it coming from illness while still having
+#' far more illness absence. Percentage points of the same denominator
+#' subtract cleanly, so the gaps add up to the total gap and the
+#' decomposition is exact.
+reason_gap <- function(abs_sch, year) {
+  roll <- function(d) d |>
+    summarise(poss    = sum(poss, na.rm = TRUE),
+              overall = sum(overall, na.rm = TRUE),
+              across(all_of(names(REASONS)), ~sum(.x, na.rm = TRUE)),
+              .groups = "drop")
+  spread <- function(d) d |>
+    pivot_longer(all_of(names(REASONS)), names_to = "code", values_to = "sessions") |>
+    mutate(pp = 100 * sessions / poss, share = 100 * sessions / overall)
+
+  one <- abs_sch |> filter(time_period == year)
+  eng <- spread(roll(one))
+  bh  <- spread(roll(filter(one, grepl("Brighton and Hove", la_name))))
+
+  total_gap <- (100 * bh$overall[1] / bh$poss[1]) -
+               (100 * eng$overall[1] / eng$poss[1])
+
+  bh |>
+    select(code, pp_bh = pp, share_bh = share, sessions_bh = sessions) |>
+    left_join(eng |> select(code, pp_eng = pp, share_eng = share), by = "code") |>
+    mutate(reason        = unname(REASONS[code]),
+           gap_pp        = pp_bh - pp_eng,
+           pct_of_gap    = 100 * (pp_bh - pp_eng) / total_gap,
+           total_gap     = total_gap,
+           abs_bh        = 100 * bh$overall[1] / bh$poss[1],
+           abs_eng       = 100 * eng$overall[1] / eng$poss[1]) |>
+    arrange(desc(gap_pp))
+}
+
+
+#' Where Brighton & Hove ranks among LAs on each register code
+#'
+#' Local authorities with under a million possible sessions are dropped:
+#' at that size one small school swings a rate enough to make a rank
+#' meaningless. 1 = the worst rate in the country on that code.
+reason_ranks <- function(abs_sch, year) {
+  la <- abs_sch |>
+    filter(time_period == year) |>
+    group_by(la_name) |>
+    summarise(poss    = sum(poss, na.rm = TRUE),
+              overall = sum(overall, na.rm = TRUE),
+              across(all_of(names(REASONS)), ~sum(.x, na.rm = TRUE)),
+              .groups = "drop") |>
+    filter(poss > 1e6) |>
+    mutate(across(all_of(names(REASONS)), ~100 * .x / poss),
+           total = 100 * overall / poss)
+
+  i <- which(grepl("Brighton and Hove", la$la_name))
+  tibble(
+    code = c(names(REASONS), "total"),
+    rank_bh = vapply(c(names(REASONS), "total"),
+                     function(v) rank(-la[[v]])[i], numeric(1)),
+    rate_bh = vapply(c(names(REASONS), "total"),
+                     function(v) la[[v]][i], numeric(1))
+  ) |>
+    mutate(reason = ifelse(code == "total", "All absence", unname(REASONS[code])),
+           n_la = nrow(la)) |>
+    arrange(rank_bh)
+}
+
+
+#' Illness absence by LA, with disadvantage, so the question "is this
+#' just a poorer city?" can be answered rather than asserted.
+illness_context <- function(abs_sch, year) {
+  la <- abs_sch |>
+    filter(time_period == year) |>
+    group_by(la_name) |>
+    summarise(schools = n(),
+              poss    = sum(poss, na.rm = TRUE),
+              total   = 100 * sum(overall, na.rm = TRUE) / sum(poss, na.rm = TRUE),
+              illness = 100 * sum(sess_auth_illness, na.rm = TRUE) / sum(poss, na.rm = TRUE),
+              unauth_other = 100 * sum(sess_unauth_other, na.rm = TRUE) / sum(poss, na.rm = TRUE),
+              .groups = "drop") |>
+    filter(poss > 1e6)
+
+  panel <- readRDS(here::here("data", "panel_data.rds")) |>
+    filter(MINORGROUP %in% c("Academy", "Maintained school")) |>
+    filter(year_label == max(year_label)) |>
+    group_by(LANAME) |>
+    summarise(fsm = weighted.mean(PTFSM6CLA1A, TOTPUPS, na.rm = TRUE), .groups = "drop")
+
+  j <- la |> left_join(panel, by = c("la_name" = "LANAME")) |> filter(!is.na(fsm))
+  fit <- lm(illness ~ fsm, j)
+  j |>
+    mutate(expected = fitted(fit),
+           resid    = resid(fit),
+           rank_illness = rank(-illness),
+           rank_resid   = rank(-resid),
+           r2 = summary(fit)$r.squared,
+           n_la = nrow(j))
+}
+
+
+#' The same split, year by year, so a one-year artefact cannot pass as
+#' a standing feature of the city.
+reason_series <- function(abs_sch) {
+  pp <- function(num, den) 100 * sum(num, na.rm = TRUE) / sum(den, na.rm = TRUE)
+  roll <- function(d) d |>
+    summarise(total        = pp(overall, poss),
+              illness      = pp(sess_auth_illness, poss),
+              authorised   = pp(authorised, poss),
+              unauthorised = pp(unauthorised, poss),
+              auth_other   = pp(sess_auth_other, poss),
+              unauth_other = pp(sess_unauth_other, poss),
+              excluded     = pp(sess_auth_excluded, poss),
+              .groups      = "drop")
+  bh  <- abs_sch |> filter(grepl("Brighton and Hove", la_name)) |>
+    group_by(time_period) |> roll()
+  eng <- abs_sch |> group_by(time_period) |> roll()
+  left_join(bh, eng, by = "time_period", suffix = c("_bh", "_eng"))
+}
+
+
 #' Local authority picture for the latest exclusions year
 la_table <- function(j, year) {
   j |>
@@ -312,6 +433,12 @@ build_exclusions <- function() {
   out <- list(
     national   = national_series(abs_sch),
     reasons    = reason_split(abs_sch, latest_abs),
+    reason_gap     = reason_gap(abs_sch, latest_abs),
+    reason_ranks   = reason_ranks(abs_sch, latest_abs),
+    reason_series  = reason_series(abs_sch),
+    illness_ctx    = illness_context(abs_sch, latest_abs),
+    bh_by_school   = abs_sch |> filter(grepl("Brighton and Hove", la_name),
+                                       time_period == latest_abs),
     joined     = j,
     abs_models = absence_models(j),
     att_models = attainment_models(j),

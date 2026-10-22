@@ -1,6 +1,6 @@
 ---
 title: "Exclusions and Attendance"
-subtitle: "How much of the attendance problem is exclusion? A secondary analysis alongside *How to Pull the Right Lever*."
+subtitle: "How much of the attendance problem is exclusion — and if not that, then what? A secondary analysis alongside *How to Pull the Right Lever*."
 author:
   - name: Adam Dennett
     affiliations:
@@ -81,6 +81,13 @@ bh_la <- X$la |> filter(grepl("Brighton and Hove", la_name))
 bh    <- X$bh
 bh_now <- bh |> filter(time_period == lastx)
 
+# The reason decomposition, and short accessors for the two things the
+# prose reaches for repeatedly: a register code's LA rank, and the row
+# of the illness context table that is Brighton & Hove.
+rg    <- X$reason_gap
+rnk   <- function(code) X$reason_ranks$rank_bh[X$reason_ranks$code == code]
+ic_bh <- which(grepl("Brighton and Hove", X$illness_ctx$la_name))
+
 fmt <- function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
 ord <- function(n) {
   n <- round(n)
@@ -145,6 +152,30 @@ For Brighton & Hove specifically the case is weaker still. The city
 suspends **less** than most of England and has close to the **worst**
 attendance in the country. Whatever is driving absence here, it is not
 how often the schools suspend.
+:::
+
+::: callout-important
+## And there is a much better question in the same file
+
+The absence file splits every missed session by register code, so the
+city's excess absence can be decomposed exactly. Doing that
+([§7](#if-not-exclusions-then-what)) turns up something far more useful
+than anything in the exclusions data:
+
+- Brighton & Hove's secondary absence runs
+  **`r fmt(rg$total_gap[1])` percentage points** above England's.
+- **Illness accounts for
+  `r fmt(rg$pct_of_gap[rg$code == "sess_auth_illness"], 0)`% of that
+  gap.** The city is **`r ord(rnk("sess_auth_illness"))` worst of
+  `r X$reason_ranks$n_la[1]`** local authorities on illness-coded
+  absence, and **`r ord(rnk("sess_unauth_other"))`** — mid-table — on
+  unauthorised absence.
+- Suspension's contribution to the gap is **negative**.
+
+Every one of the city's ten secondaries is above the English illness
+rate, the gap predates the pandemic and has roughly tripled since, and
+it is far larger than the city's disadvantage predicts. **That is where
+the attendance problem is.**
 :::
 
 # What the data is
@@ -444,10 +475,12 @@ ggplot(la, aes(susp_rate, abs_rate)) +
 
 This is the finding that should settle the question locally.
 
-Brighton & Hove is the **`r ord(bh_la$rank_abs)` worst** of
-`r bh_la$n_la` local authorities for secondary absence, at
-`r fmt(bh_la$abs_rate)`% against an England figure of
-`r fmt(bh_now$abs_rate_eng)`%. On suspensions it ranks
+In `r yr(lastx)` — the last year for which both series exist — Brighton
+& Hove was the **`r ord(bh_la$rank_abs)` worst** of `r bh_la$n_la` local
+authorities for secondary absence, at `r fmt(bh_la$abs_rate)`% against an
+England figure of `r fmt(bh_now$abs_rate_eng)`%. (In `r yr(last)` it is
+`r ord(rnk("total"))` worst; the city moves about in the top handful from
+year to year.) On suspensions it ranks
 **`r ord(bh_la$rank_susp)`** — meaning `r bh_la$rank_susp - 1` local
 authorities suspend *more* than it does, and it sits comfortably in the
 lower half of the country at `r fmt(bh_la$susp_rate, 1)` suspensions per
@@ -545,6 +578,292 @@ absence rate of
 `r fmt(X$bh_schools$abs_rate[X$bh_schools$time_period == lastx & grepl("Patcham", X$bh_schools$school_name)], 1)`%
 is good for the city without being exceptional.
 
+
+# If not exclusions, then what?
+
+The same file that measures exclusion's contribution measures every
+other reason a pupil is absent. So the question "which bit of the
+attendance problem is Brighton & Hove's problem?" can be answered
+exactly, rather than guessed at.
+
+## The city's excess absence, decomposed
+
+Brighton & Hove's secondary absence rate in `r yr(last)` was
+**`r fmt(rg$abs_bh[1])`%** against England's **`r fmt(rg$abs_eng[1])`%** —
+an excess of **`r fmt(rg$total_gap[1])` percentage points**.
+
+Measured in percentage points of the same denominator, those gaps
+subtract cleanly, so the excess splits exactly by register code.
+
+```{r fig-gap}
+#| fig-height: 5.6
+#| fig-cap: !expr 'paste0("Brighton & Hove minus England, percentage points of possible sessions, ", yr(last), ". Bars to the right are reasons the city has more absence than England; bars to the left, less.")'
+g <- rg |>
+  filter(abs(gap_pp) > 0.0005) |>
+  arrange(gap_pp) |>
+  mutate(reason = factor(reason, levels = reason),
+         sign = ifelse(gap_pp > 0, "More than England", "Less than England"))
+
+ggplot(g, aes(reason, gap_pp, fill = sign)) +
+  geom_hline(yintercept = 0, colour = "grey40") +
+  geom_col(width = 0.72) +
+  geom_text(aes(label = sprintf("%+.2f", gap_pp),
+                hjust = ifelse(gap_pp > 0, -0.15, 1.15)),
+            size = 3.3, colour = INK) +
+  scale_fill_manual(values = c("More than England" = BAD,
+                               "Less than England" = "#2166ac"), guide = "none") +
+  scale_y_continuous(expand = expansion(mult = 0.16)) +
+  coord_flip() +
+  labs(x = NULL, y = "Difference from England (percentage points of possible sessions)",
+       title = "Almost the whole of Brighton & Hove's excess absence is illness",
+       subtitle = sprintf(
+         "Illness accounts for %.0f%% of a %.2f point gap. Suspension pulls the city's absence DOWN, because it suspends less than England.",
+         rg$pct_of_gap[rg$code == "sess_auth_illness"], rg$total_gap[1])) +
+  theme_note(12)
+```
+
+```{r tbl-gap}
+rg |>
+  filter(abs(gap_pp) > 0.0005) |>
+  transmute(Reason = reason,
+            `B&H (pp)` = sprintf("%.3f", pp_bh),
+            `England (pp)` = sprintf("%.3f", pp_eng),
+            `Gap (pp)` = sprintf("%+.3f", gap_pp),
+            `Share of the city's excess` = sprintf("%+.0f%%", pct_of_gap)) |>
+  knitr::kable(align = "lrrrr")
+```
+
+::: callout-important
+## The finding
+
+Of Brighton & Hove's `r fmt(rg$total_gap[1])` percentage points of
+excess absence, **illness accounts for
+`r fmt(rg$gap_pp[rg$code == "sess_auth_illness"])` points —
+`r fmt(rg$pct_of_gap[rg$code == "sess_auth_illness"], 0)`% of the whole
+gap.**
+
+Unauthorised absence with no given reason — truancy, in the everyday
+sense — accounts for
+`r fmt(rg$pct_of_gap[rg$code == "sess_unauth_other"], 0)`% of it. The
+city is **ordinary** on that measure.
+
+And suspension contributes
+**`r fmt(rg$gap_pp[rg$code == "sess_auth_excluded"])` points** —
+*negative*. Brighton & Hove suspends so much less than England that, on
+this one code, it has less absence than the country, not more. If its
+schools suspended at the national rate, the city's absence would be
+**higher**.
+:::
+
+## Where the city ranks, code by code
+
+```{r tbl-ranks}
+X$reason_ranks |>
+  filter(rate_bh > 0.005 | code == "total") |>
+  transmute(Reason = reason,
+            `B&H rate (pp)` = sprintf("%.3f", rate_bh),
+            `Rank of 150 LAs (1 = worst)` = sprintf("%.0f", rank_bh)) |>
+  knitr::kable(align = "lrr")
+```
+
+This is the table to put in front of anyone who wants to talk about
+exclusions.
+
+The city is **`r ord(rnk("sess_auth_illness"))` worst in England for
+illness-coded absence** and `r ord(rnk("sess_auth_other"))` worst on the
+catch-all authorised code. It is **`r ord(rnk("sess_unauth_other"))` of
+`r X$reason_ranks$n_la[1]`** on unauthorised absence — the middle of the
+country. And it is `r ord(rnk("sess_auth_excluded"))` on suspension —
+**`r rnk("sess_auth_excluded") - 1` local authorities lose more
+attendance to suspension than this one does.**
+
+An authority looking at that list and choosing exclusions to investigate
+has picked the code it is `r ord(rnk("sess_auth_excluded"))` on, and
+left alone the one it is `r ord(rnk("sess_auth_illness"))` on.
+
+## It is not one school, and it is not new
+
+```{r fig-illness-series}
+#| fig-height: 4.6
+#| fig-cap: "Illness-coded absence, Brighton & Hove against England, autumn and spring terms. 2019/20 is absent from the published series."
+rs <- X$reason_series |>
+  select(time_period, `Brighton & Hove` = illness_bh, England = illness_eng) |>
+  pivot_longer(-time_period, names_to = "who", values_to = "pp") |>
+  mutate(year = yr(time_period))
+
+ggplot(rs, aes(year, pp, colour = who, group = who)) +
+  geom_line(linewidth = 1.2) + geom_point(size = 2.4) +
+  scale_colour_manual(values = c("Brighton & Hove" = BAD, "England" = "#6b7785")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = NULL, y = "Percentage points of possible sessions", colour = NULL,
+       title = "Brighton & Hove has had more illness absence than England every year on record",
+       subtitle = "The gap was about half a point before the pandemic. It is now about one and three-quarters.") +
+  theme_note(12) + theme(legend.position = "top")
+```
+
+```{r tbl-bh-schools-reasons}
+X$bh_by_school |>
+  transmute(School = sub(" (School|Catholic School|High School|Community Academy|School and Sixth Form Centre)$", "", school_name),
+            `On roll` = format(round(enrolments), big.mark = ","),
+            `All absence (%)` = sprintf("%.2f", abs_rate),
+            `Illness (pp)` = sprintf("%.2f", 100 * sess_auth_illness / poss),
+            `Unauth., other (pp)` = sprintf("%.2f", 100 * sess_unauth_other / poss),
+            `Auth., other (pp)` = sprintf("%.2f", 100 * sess_auth_other / poss),
+            `Suspension (pp)` = sprintf("%.2f", excl_pp),
+            `Persistent absence (%)` = sprintf("%.1f", pa_rate)) |>
+  arrange(desc(as.numeric(`Illness (pp)`))) |>
+  knitr::kable(align = "lrrrrrrr")
+```
+
+**Every one of the city's ten secondary schools has more illness-coded
+absence than the English average.** The lowest of them,
+`r sub(" (School|Catholic School|High School|Community Academy|School and Sixth Form Centre)$", "", X$bh_by_school$school_name[which.min(X$bh_by_school$sess_auth_illness / X$bh_by_school$poss)])`,
+sits at
+`r fmt(100 * min(X$bh_by_school$sess_auth_illness / X$bh_by_school$poss))`
+points against England's `r fmt(ill_row$pp_of_possible)`. This is not a
+school problem that an inspection regime would find. It is a
+city-wide pattern.
+
+It is also not a post-COVID artefact. The gap existed in 2016/17 — about
+`r fmt(X$reason_series$illness_bh[X$reason_series$time_period == "201617"] - X$reason_series$illness_eng[X$reason_series$time_period == "201617"])`
+points — and has widened to
+`r fmt(X$reason_series$illness_bh[X$reason_series$time_period == last] - X$reason_series$illness_eng[X$reason_series$time_period == last])`.
+Something that was a modest standing feature of the city has become its
+defining attendance problem.
+
+## Is it just that the city is poorer?
+
+No — and the reason is more interesting than a simple no.
+
+Across local authorities, illness-coded absence runs **in the opposite
+direction to deprivation**. The more disadvantaged an authority, the
+*less* of its absence is recorded as illness and the *more* as
+unauthorised. Total absence barely moves.
+
+```{r tbl-gradient}
+ic <- X$illness_ctx |> mutate(bh = grepl("Brighton and Hove", la_name))
+ic |>
+  mutate(q = cut(fsm, quantile(fsm, 0:4 / 4), include.lowest = TRUE,
+                 labels = c("Least deprived quarter", "2nd quarter",
+                            "3rd quarter", "Most deprived quarter"))) |>
+  group_by(`Local authorities by disadvantage` = q) |>
+  summarise(`Illness (pp)` = sprintf("%.2f", mean(illness)),
+            `Unauthorised, other (pp)` = sprintf("%.2f", mean(unauth_other)),
+            `All absence (pp)` = sprintf("%.2f", mean(total)),
+            .groups = "drop") |>
+  knitr::kable(align = "lrrr")
+```
+
+That is a **social gradient in how the same behaviour gets recorded**,
+not a difference in how much school is missed. In affluent areas a
+parent phones in and the school accepts it; in poorer areas the same
+day off is more often marked unauthorised. Across the
+`r X$illness_ctx$n_la[1]` authorities, illness and unauthorised absence
+are *negatively* correlated
+(`r sprintf("r = %+.2f", cor(ic$illness, ic$unauth_other))`), while
+total absence is almost flat against disadvantage
+(`r fmt(100 * summary(lm(total ~ fsm, ic))$r.squared, 0)`% of the
+variation).
+
+So part of Brighton & Hove's illness ranking is simply that it is a
+middling-deprivation city, where absence tends to get authorised.
+**But that cannot explain the thing that matters.**
+
+- The city's **total** absence is `r fmt(rg$abs_bh[1])`% — `r ord(rnk("total"))`
+  worst of `r X$reason_ranks$n_la[1]` in `r yr(last)`. Total absence is
+  the one measure deprivation barely predicts, and the city is near the
+  top of it.
+- Its **unauthorised** absence is `r ord(rnk("sess_unauth_other"))` of
+  `r X$reason_ranks$n_la[1]` — mid-table. It is not simply recording
+  truancy as sickness.
+- And even against the gradient, it is a long way out.
+
+```{r fig-illness-fsm}
+#| fig-height: 5.2
+#| fig-cap: !expr 'paste0("Illness-coded absence against disadvantage, local authorities with more than a million possible secondary sessions, ", yr(last), ". The fitted line slopes DOWN: more disadvantaged authorities record less of their absence as illness.")'
+ggplot(ic, aes(fsm, illness)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+              colour = PURPLE, linewidth = 0.8, linetype = "22") +
+  geom_point(colour = "#b9a7ce", alpha = 0.7, size = 2) +
+  geom_point(data = filter(ic, bh), colour = BAD, size = 3.8) +
+  ggrepel::geom_text_repel(
+    data = ic |> arrange(desc(resid)) |> head(5),
+    aes(label = la_name), size = 3.4, colour = INK,
+    min.segment.length = 0, segment.colour = "grey60",
+    box.padding = 0.6, max.overlaps = 20) +
+  labs(x = "Disadvantaged pupils (%)", y = "Illness absence (pp of possible sessions)",
+       title = "Brighton & Hove has far more illness absence than its intake predicts",
+       subtitle = sprintf(
+         "%s of %d authorities on the raw rate, %s on the gap from what disadvantage predicts.",
+         ord(X$illness_ctx$rank_illness[ic$bh]), X$illness_ctx$n_la[1],
+         ord(X$illness_ctx$rank_resid[ic$bh]))) +
+  theme_note(12)
+```
+
+On a disadvantage rate of
+`r fmt(X$illness_ctx$fsm[ic_bh], 1)`%, the national relationship predicts
+illness absence of `r fmt(X$illness_ctx$expected[ic_bh])` points. The
+city posts `r fmt(X$illness_ctx$illness[ic_bh])` — **`r fmt(X$illness_ctx$resid[ic_bh])`
+points above expectation**, the `r ord(X$illness_ctx$rank_resid[ic_bh])`
+largest excess in the country.
+
+The company it keeps is striking: Isle of Wight, Torbay, South Tyneside,
+Bristol, Plymouth. Coastal and peripheral authorities, several of them
+with the same mix of visible affluence and concentrated deprivation.
+
+::: callout-note
+## Why this matters for reading any school's attendance
+
+The coding gradient is a finding in its own right, and it cuts the same
+way as the main report's argument about Attainment 8. A school in an
+affluent catchment and a school in a poor one can lose the same number
+of days and have those days recorded completely differently — one as
+illness, one as truancy. Any policy that targets *unauthorised* absence
+is therefore targeting poorer schools by construction, whether or not
+they are missing more school.
+
+For Brighton & Hove, with its unusually sharp split between affluent
+and deprived catchments, that is worth knowing before anyone compares
+one of its schools with another on an authorised/unauthorised basis.
+:::
+
+## What "illness" is, and what it is not
+
+This is where the data stops and the honest reading begins.
+
+**Code I on the register means the school accepted the explanation
+given.** It covers a child with a chronic condition, a child with a
+heavy cold, a child whose anxiety makes the school gate impossible, and
+a child whose parent said "not well today" and was believed. The
+published data cannot separate them, and anyone who tells you it can is
+guessing.
+
+**But the city is not simply authorising what other places refuse to.**
+That would be the obvious alternative explanation, and it does not hold:
+Brighton & Hove's **unauthorised** absence is
+`r fmt(X$reason_series$unauth_other_bh[X$reason_series$time_period == last])`
+points against England's
+`r fmt(X$reason_series$unauth_other_eng[X$reason_series$time_period == last])`
+— effectively identical, and `r ord(rnk("sess_unauth_other"))` of
+`r X$reason_ranks$n_la[1]` in the country. If schools here were
+re-labelling truancy as illness, the unauthorised figure would be
+*low*. It is average. The illness absence is **on top of** a normal
+amount of unauthorised absence, not instead of it.
+
+::: callout-tip
+## The hypothesis worth testing
+
+The shape of this — a modest pre-pandemic gap that roughly tripled after
+2020, concentrated in a code that covers anxiety as readily as influenza,
+in a city with well-documented adolescent mental health pressure — points
+at **emotionally based school avoidance** rather than at infectious
+disease.
+
+That is a hypothesis, not a finding. This data cannot confirm it. But it
+is testable from records the council already holds, and it would be a far
+better use of the city's analytical effort than counting suspensions.
+:::
+
 # What this does not show
 
 Four honest limits, because the finding is only useful if it survives
@@ -585,30 +904,38 @@ If the council's underlying concern is attendance — and on the evidence
 of *Pulling the Right Lever* it should be — then the published data
 points somewhere else entirely.
 
-`r fmt(ill_row$pct_of_absence, 1)`% of secondary absence is illness and
-`r fmt(un_row$pct_of_absence, 1)`% is unauthorised with no given reason.
-Between them they are
-`r fmt(ill_row$pct_of_absence + un_row$pct_of_absence, 0)`% of the
-problem. Persistent absence in Brighton & Hove sits at
-`r fmt(bh_now$pa_rate_bh, 1)`% of secondary pupils — more than one child
-in four missing at least a tenth of their schooling.
+The decomposition in [§7](#if-not-exclusions-then-what) has already
+named the target: **illness-coded absence**, which is
+`r fmt(rg$pct_of_gap[rg$code == "sess_auth_illness"], 0)`% of
+everything that separates this city's attendance from England's.
+Persistent absence here sits at `r fmt(bh_now$pa_rate_bh, 1)`% of
+secondary pupils — more than one child in four missing at least a tenth
+of their schooling.
 
-Three questions the same data could answer, and which nobody has asked:
+Four questions the council is far better placed to answer than I am,
+and which would each be worth more than a count of suspensions:
 
-1. **Which children?** Persistent absence is heavily concentrated. A
-   pupil-level view the council already holds would say whether the same
-   children are persistently absent year on year, and what else is true
-   of them.
-2. **How far do they travel?** The city's school system work shows
+1. **Is the illness absence concentrated or spread?** The published
+   data stops at the school. The council's own returns would say
+   whether this is a few hundred children missing a great deal or
+   every child missing a little, and those are completely different
+   problems with completely different responses.
+2. **How much of it is anxiety rather than infection?** Code I does not
+   distinguish them, but schools and GPs can. If a meaningful share of
+   it is emotionally based school avoidance, the lever is mental health
+   provision and reintegration support, and it sits with the council
+   and the ICB rather than with headteachers.
+3. **How far do they travel?** The city's school system work shows
    disadvantaged children in Brighton & Hove travel further than their
-   classmates, and longer journeys are associated with lower attendance.
-   That is a lever the council controls directly, through catchments
-   and admissions, and it has never been costed against attendance.
-3. **What happens to attendance after a suspension?** The data to answer
-   this is in the council's own attendance returns, not in any DfE
-   publication. If suspension really does start a spiral, that is where
-   it would show up — and it would be a far better argument than the
-   aggregate one.
+   classmates, and longer journeys are associated with lower
+   attendance. That is a lever the council controls directly, through
+   catchments and admissions, and it has never been costed against
+   attendance.
+4. **What happens to attendance after a suspension?** If suspension
+   really does start a spiral, this is where it would show up — in the
+   council's own attendance returns, not in any DfE publication. It
+   would also be a far better argument for the council's current
+   interest than the aggregate one, which does not support it.
 
 ::: callout-important
 ## The one-line answer
@@ -618,11 +945,13 @@ understanding on their own terms. As an explanation of Brighton &
 Hove's attendance problem, they are **about
 `r fmt(100 * bh_la$excl_pp / bh_la$abs_rate, 0)`% of it** — in a city
 that already suspends less than three-quarters of England while
-attending worse than all but `r bh_la$rank_abs - 1` local authorities in
-it.
+attending worse than all but a handful of local authorities in it.
 
 If the city wants attendance to improve, exclusions are not where the
-work is.
+work is. **Illness-coded absence is** — it is
+`r fmt(rg$pct_of_gap[rg$code == "sess_auth_illness"], 0)`% of what
+separates Brighton & Hove from the rest of the country, and the city is
+`r ord(rnk("sess_auth_illness"))` worst in England on it.
 :::
 
 ---
