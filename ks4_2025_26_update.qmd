@@ -58,6 +58,13 @@ theme_note <- function(base = 13) {
 p5_path <- here::here("data", "panel_data_5yr.rds")
 p5 <- if (file.exists(p5_path)) readRDS(p5_path) else extend_panel_2526()
 
+# Two figures quoted in the absence section come from the companion
+# exclusions note, so they are read from the object that note is built
+# from rather than typed in and left to drift away from it.
+XC <- readRDS(here::here("data", "exclusions_absence.rds"))
+excl_share    <- XC$reasons$pct_of_absence[XC$reasons$code == "sess_auth_excluded"]
+illness_share <- XC$reasons$pct_of_absence[XC$reasons$code == "sess_auth_illness"]
+
 # The EES institution-level file carries 2023/24 to 2025/26, so year-on-year
 # comparisons are made inside it rather than against the panel, whose 2024/25
 # came from the provisional performance tables.
@@ -220,6 +227,22 @@ They are close: `r sprintf("r = %.3f", r_abs)` across
 `r sprintf("%.2f", abs(d_abs))` percentage points lower on average — summer
 term absence is the higher part of the year, so dropping it pulls the number
 down slightly and almost uniformly.
+
+::: callout-tip
+## A note on exclusions
+
+The same file carries one more thing: `sess_auth_excluded`, the sessions
+missed because a pupil was suspended. That makes it possible to answer, from
+published data, a question Brighton & Hove's council has started asking —
+**how much of the attendance problem is exclusion?**
+
+The short answer is `r sprintf("%.1f%%", excl_share)` of it nationally,
+against `r sprintf("%.0f%%", illness_share)` for illness — and less than that
+in Brighton & Hove, which suspends below the English average while attending
+worse than all but two local authorities.
+
+[**Exclusions and Attendance →**](exclusions_and_absence.html)
+:::
 
 # Does the conclusion survive?
 
