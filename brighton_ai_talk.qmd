@@ -580,58 +580,265 @@ the whole.
 
 # A thorny local problem {background-color="#361a54"}
 
-## Brighton & Hove's secondary school system {.smaller}
+## The Brighton and Hove Secondary School System
 
-::::: columns
-::: {.column width="58%"}
-- **Ten secondary schools** for a city of 280,000, arranged around
-  catchments that have been argued about since 2004.
-- Two faith schools admit **city-wide**; the rest admit by catchment,
-  then sibling, then a small open quota.
-- The city is a **narrow strip between the sea and the Downs**, so
-  "the next school along" can be forty minutes on two buses.
-- The spread between the highest- and lowest-attaining schools is wide,
-  and so is the deprivation of their intakes — and the two track each
-  other closely.
+```{r catchments-map}
 
-::: key-finding
-It is a closed system with hard edges. Every child the council places
-has to go somewhere — so every policy that helps one school takes
-children from another. That is what makes it modellable, and it is also
-what makes it politically impossible.
-:::
-:::
+# ---- Load catchment boundaries ----
+optionZ <- st_read(
+  here::here("data", "optionZ_Mar25.geojson"),
+  quiet = TRUE
+) %>%
+  st_transform(4326)
 
-::: {.column width="42%"}
-![](slides_assets/simulator-front.png){.nostretch width="100%"}
-:::
-:::::
+# ---- Catchment colour palette ----
+catchment_colours <- c(
+  "BACA"              = "#e41a1c",
+  "HoveBlatchington"  = "#377eb8",
+  "Longhill"          = "#4daf4a",
+  "PACA"              = "#984ea3",
+  "Patcham"           = "#ff7f00",
+  "VarndeanStringer"  = "#a65628"
+)
+pal_catch <- colorFactor(
+  palette = unname(catchment_colours),
+  domain = names(catchment_colours)
+)
 
-## Where the schools and the children are
+# ---- Catchment labels ----
+catchment_labels <- c(
+  "BACA"              = "BACA (Brighton Aldridge)",
+  "HoveBlatchington"  = "Hove Park / Blatchington Mill",
+  "Longhill"          = "Longhill",
+  "PACA"              = "PACA (Portslade Aldridge)",
+  "Patcham"           = "Patcham",
+  "VarndeanStringer"  = "Varndean / Dorothy Stringer"
+)
 
-```{r city-map}
-#| fig-height: 5.2
-catch_pal <- grDevices::colorRampPalette(
-  c("#8ec9e8", "#b6a4d8", "#f3b6c9", "#f6d08a", "#a8d8b9"))(
-    length(unique(catch$catchment)))
+# ---- School locations ----
+bh_map_data <- bh_latest %>%
+  filter(!is.na(easting), !is.na(northing)) %>%
+  st_as_sf(coords = c("easting", "northing"), crs = 27700) %>%
+  st_transform(4326)
 
-leaflet(width = "100%", height = 470) |>
-  add_basemap() |>
-  addPolygons(data = catch, weight = 1, color = "#55556b", opacity = 0.6,
-              fillColor = catch_pal[as.factor(catch$catchment)],
-              fillOpacity = 0.22, label = ~catchment) |>
-  addCircleMarkers(data = sch, radius = 7, weight = 2, color = "#1a1a2e",
-                   fillColor = "#993bff", fillOpacity = 0.95,
-                   label = ~short,
-                   labelOptions = labelOptions(permanent = TRUE,
-                                               direction = "top",
-                                               textsize = "11px",
-                                               style = list("font-weight" = "600"))) |>
-  fitBounds(CITY_X[1], CITY_Y[1], CITY_X[2], CITY_Y[2])
+map_coords <- st_coordinates(bh_map_data)
+bh_map_data$lon <- map_coords[, 1]
+bh_map_data$lat <- map_coords[, 2]
+
+# ---- School logo paths (relative to project root) ----
+logo_paths <- c(
+  "Blatchington Mill School"                = "output/school_logos/blatchington_mill.png",
+  "Brighton Aldridge Community Academy"      = "output/school_logos/brighton_aldridge.png",
+  "Cardinal Newman Catholic School"          = "output/school_logos/cardinal_newman.png",
+  "Dorothy Stringer School"                  = "output/school_logos/dorothy_stringer.png",
+  "Hove Park School and Sixth Form Centre"   = "output/school_logos/hove_park.png",
+  "King's School"                            = "output/school_logos/kings_school.png",
+  "Longhill High School"                     = "output/school_logos/longhill_high.png",
+  "Patcham High School"                      = "output/school_logos/patcham_high.png",
+  "Portslade Aldridge Community Academy"     = "output/school_logos/portslade_aldridge.png",
+  "Varndean School"                          = "output/school_logos/varndean.png"
+)
+
+# ---- Build the leaflet map ----
+m_orient <- leaflet(width = "100%", height = 480) %>%
+  add_basemap() %>%
+  addPolygons(
+    data = optionZ,
+    group = "Catchment boundaries",
+    fillColor = ~pal_catch(catchment),
+    fillOpacity = 0.12,
+    color = ~pal_catch(catchment),
+    weight = 2.5,
+    opacity = 0.8,
+    label = ~catchment_labels[catchment],
+    highlightOptions = highlightOptions(
+      weight = 4, fillOpacity = 0.25, bringToFront = FALSE
+    )
+  )
+
+
+# ---- Where the children actually live ----------------------------------
+# One circle per postcode, sized by the number of households with
+# dependent children and coloured by IDACI decile (1 = most deprived
+# tenth of England). Rebuilt from the 2021 Census postcode tables and
+# ONSPD centroids; the same layer as the Brighton consultation work.
+# Drawn before the schools so the logos stay readable over it.
+bh_pop <- readRDS(here::here("data", "bh_postcode_population.rds"))
+
+pal_idaci <- colorFactor(
+  palette = "RdYlBu",
+  domain = sort(unique(bh_pop$idaci_decile))
+)
+
+m_orient <- m_orient %>%
+  addCircleMarkers(
+    data = bh_pop,
+    group = "Where the children live",
+    radius = ~sqrt(hh_dep_ch) * 1.5,
+    fillColor = ~pal_idaci(idaci_decile),
+    fillOpacity = 0.55,
+    stroke = FALSE,
+    label = ~sprintf(
+      "%s - %.0f households with children, %.0f households in all, IDACI decile %.0f",
+      postcode, hh_dep_ch, total_hh, idaci_decile
+    )
+  ) %>%
+  addLegend(
+    pal = pal_idaci,
+    values = sort(unique(bh_pop$idaci_decile)),
+    title = "IDACI decile<br><span style='font-weight:normal'>1 = most deprived</span>",
+    opacity = 1,
+    position = "bottomright"
+  )
+# Add each school as a dot + logo marker
+for (i in seq_len(nrow(bh_map_data))) {
+  sch_name <- bh_map_data$SCHNAME[i]
+  sch_lon  <- bh_map_data$lon[i]
+  sch_lat  <- bh_map_data$lat[i]
+
+  popup_html <- sprintf(
+    "<b>%s</b><br>ATT8: %.1f | FSM: %.1f%% | Absence: %.1f%%",
+    sch_name,
+    bh_map_data$ATT8SCR[i],
+    bh_map_data$PTFSM6CLA1A[i],
+    bh_map_data$PERCTOT[i]
+  )
+
+  m_orient <- m_orient %>%
+    addCircleMarkers(
+      lng = sch_lon, lat = sch_lat,
+      radius = 5, fillColor = "#333333", fillOpacity = 0.9,
+      group = "Schools",
+      color = "white", weight = 1.5,
+      popup = popup_html
+    )
+
+  logo_file <- logo_paths[sch_name]
+  if (!is.na(logo_file) && file.exists(logo_file)) {
+    logo_b64 <- knitr::image_uri(logo_file)
+    logo_icon <- makeIcon(
+      iconUrl = logo_b64,
+      iconWidth = 36, iconHeight = 36,
+      iconAnchorX = -4, iconAnchorY = 40
+    )
+    m_orient <- m_orient %>%
+      addMarkers(
+        lng = sch_lon, lat = sch_lat,
+        icon = logo_icon,
+        group = "Schools",
+        popup = popup_html
+      )
+  }
+}
+
+# ---- CoMArt (Closed 2005) ----
+comart_lon <- -0.099449
+comart_lat <- 50.823301
+comart_popup <- "<b>CoMArt (Closed 2005)</b>"
+
+m_orient <- m_orient %>%
+  addCircleMarkers(
+    lng = comart_lon, lat = comart_lat,
+    radius = 5, fillColor = "#e41a1c", fillOpacity = 0.9,
+    group = "CoMArt (closed 2005)",
+    color = "white", weight = 1.5,
+    popup = comart_popup
+  )
+
+comart_logo <- "output/school_logos/comart.png"
+if (file.exists(comart_logo)) {
+  comart_b64 <- knitr::image_uri(comart_logo)
+  comart_icon <- makeIcon(
+    iconUrl = comart_b64,
+    iconWidth = 36, iconHeight = 36,
+    iconAnchorX = -4, iconAnchorY = 40
+  )
+  m_orient <- m_orient %>%
+    addMarkers(
+      lng = comart_lon, lat = comart_lat,
+      icon = comart_icon,
+      group = "CoMArt (closed 2005)",
+      popup = comart_popup
+    )
+}
+
+# Legend — use HTML labels with inline coloured squares for clean alignment
+legend_html <- paste0(
+  '<div style="font-size: 12px; line-height: 1.6;">',
+  paste0(
+    '<div style="display: flex; align-items: center; gap: 6px;">',
+    '<span style="display: inline-block; width: 14px; height: 14px; ',
+    'background:', unname(catchment_colours), '; ',
+    'border-radius: 2px; flex-shrink: 0;"></span>',
+    '<span>', unname(catchment_labels), '</span></div>',
+    collapse = ''
+  ),
+  '</div>'
+)
+
+m_orient <- m_orient %>%
+  addControl(
+    html = paste0(
+      '<div style="background: white; padding: 8px 12px; ',
+      'border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.3); ',
+      'font-family: sans-serif;">',
+      '<div style="font-weight: bold; margin-bottom: 4px; font-size: 12px;">',
+      '2025/26 Catchment Boundaries</div>',
+      legend_html,
+      '</div>'
+    ),
+    position = "topright"
+  )
+
+# Frame on where the children are, not on the full reach of the catchments:
+# PACA's boundary runs west past Shoreham and would otherwise set the view.
+bb <- as.numeric(sf::st_bbox(bh_pop))
+m_orient <- m_orient %>%
+  fitBounds(bb[1], bb[2], bb[3], bb[4])
+
+# Let the room turn each layer off. Collapsed = FALSE so the options are
+# visible on the slide rather than hidden behind a hover target.
+m_orient <- m_orient %>%
+  addLayersControl(
+    overlayGroups = c("Where the children live", "Catchment boundaries",
+                      "Schools", "CoMArt (closed 2005)"),
+    options = layersControlOptions(collapsed = FALSE),
+    position = "topleft"
+  )
+
+if (knitr::is_html_output()) {
+  m_orient
+} else {
+  # Static map for PDF output
+  ggplot() +
+    geom_sf(data = optionZ, aes(fill = catchment), alpha = 0.15,
+            colour = NA, show.legend = FALSE) +
+    geom_sf(data = optionZ, aes(colour = catchment), fill = NA,
+            linewidth = 0.6, show.legend = TRUE) +
+    scale_fill_manual(values = catchment_colours, labels = catchment_labels,
+                      aesthetics = c("fill", "colour"), name = "Catchment") +
+    geom_point(data = as.data.frame(bh_map_data),
+               aes(x = lon, y = lat), size = 2, colour = "#333333") +
+    geom_text_repel(data = as.data.frame(bh_map_data),
+                    aes(x = lon, y = lat, label = SCHNAME),
+                    size = 2, max.overlaps = 15, force = 3,
+                    segment.colour = "grey50", segment.size = 0.3) +
+    # CoMArt
+    geom_point(aes(x = comart_lon, y = comart_lat),
+               size = 2, colour = "#e41a1c") +
+    annotate("text", x = comart_lon + 0.005, y = comart_lat,
+             label = "CoMArt (Closed 2005)", size = 2, colour = "#e41a1c", hjust = 0) +
+    theme_void(base_size = 10) +
+    theme(legend.position = "bottom",
+          legend.text = element_text(size = 7))
+}
 ```
 
-::: {style="font-size:0.74em; color:#666688; text-align:center;"}
-Six catchments, ten schools, and a city two miles deep. Source: BHCC catchment boundaries, March 2025.
+::: {style="font-size:0.74em; color:#666688; text-align:center; margin-top:-0.4rem;"}
+Ten schools, six catchments, and a city two miles deep between the sea
+and the Downs. **A closed system with hard edges:** every child the
+council places has to go somewhere, so every policy that helps one
+school takes children from another.
 :::
 
 ## Two years ago, the argument was about fairness {.smaller}
