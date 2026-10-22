@@ -1,0 +1,1399 @@
+---
+title: "Can we model our way out of this?"
+subtitle: "AI, collective intelligence, and the Brighton & Hove school system"
+author:
+  - name: Prof Adam Dennett FRGS FAcSS
+    affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
+date: 2026-11-04
+date-format: "dddd D MMMM YYYY"
+title-slide-attributes:
+  data-background-color: "#993bff"
+format:
+  revealjs:
+    theme: [default, ucl-slides-theme.scss]
+    logo: slides_assets/ucl-logo-purple.png
+    slide-number: true
+    progress: true
+    hash: true
+    navigation-mode: linear
+    controls: true
+    width: 1280
+    height: 720
+    margin: 0.08
+    fig-cap-location: bottom
+    fig-width: 10
+    fig-height: 5.5
+    fig-dpi: 150
+    embed-resources: true
+    auto-stretch: true
+    css: ai4ci-slides.css
+    include-after-body: ai4ci-footer.html
+execute:
+  echo: false
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup}
+#| include: false
+library(ggplot2)
+library(dplyr)
+
+INK    <- "#1a1a2e"
+PURPLE <- "#361a54"
+BRIGHT <- "#993bff"
+WARM   <- "#f56300"
+CYAN   <- "#30d6ff"
+PALE   <- "#eedeff"
+GREY   <- "#666688"
+
+theme_talk <- function(base = 15) {
+  theme_minimal(base_size = base) +
+    theme(
+      plot.title      = element_text(face = "bold", colour = PURPLE, size = rel(1.05)),
+      plot.subtitle   = element_text(colour = GREY, size = rel(0.85)),
+      axis.text       = element_text(colour = INK),
+      axis.title      = element_text(colour = GREY, size = rel(0.85)),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(colour = "#e8e4f0", linewidth = 0.4),
+      plot.background  = element_rect(fill = "#FAFAFA", colour = NA),
+      panel.background = element_rect(fill = "#FAFAFA", colour = NA),
+      legend.position = "top",
+      legend.title    = element_blank()
+    )
+}
+knitr::opts_chunk$set(dev.args = list(bg = "#FAFAFA"))
+
+# ---------------------------------------------------------------------------
+# The record. Counted from the Claude Code session transcripts held locally
+# (~250 MB of JSONL across 10 sessions) and from git history across the
+# project repositories. Snapshot taken 26 September 2026.
+# ---------------------------------------------------------------------------
+
+days <- as.Date(c(
+  "2026-04-13","2026-04-14","2026-04-21","2026-04-26","2026-04-29","2026-04-30",
+  "2026-05-01","2026-05-05","2026-05-06","2026-05-08","2026-05-11","2026-05-12",
+  "2026-05-13","2026-05-14","2026-05-15","2026-05-16","2026-05-17","2026-05-19",
+  "2026-05-20","2026-05-21","2026-05-22","2026-06-02","2026-06-09","2026-06-10",
+  "2026-06-11","2026-06-30","2026-07-01","2026-07-02","2026-07-03","2026-07-04",
+  "2026-07-08","2026-07-10","2026-07-15","2026-07-16","2026-07-21","2026-07-22",
+  "2026-07-23","2026-07-24","2026-07-27","2026-07-29","2026-08-08","2026-08-09",
+  "2026-08-14","2026-08-16","2026-08-17","2026-08-18","2026-08-19","2026-08-25",
+  "2026-08-26","2026-08-27","2026-08-28","2026-09-01","2026-09-02","2026-09-03",
+  "2026-09-04","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11",
+  "2026-09-13","2026-09-15","2026-09-16","2026-09-17","2026-09-21","2026-09-22",
+  "2026-09-24","2026-09-25","2026-09-26"))
+
+tool_calls <- c(121,105,43,74,57,66,39,82,118,83,525,13,57,70,112,12,3,316,15,28,
+                69,14,19,218,179,3,192,328,208,39,11,37,119,11,80,102,107,15,42,7,
+                58,383,481,380,678,308,274,283,251,91,48,22,176,18,138,75,224,462,
+                1140,558,624,597,686,96,408,321,441,170,321)
+
+instructions <- c(13,30,4,30,14,14,5,22,16,17,45,1,4,11,21,1,1,26,1,8,11,4,2,16,15,
+                  15,39,33,36,8,3,3,14,7,29,15,21,7,7,5,16,12,19,31,57,42,37,21,12,
+                  5,6,11,17,8,9,12,12,31,44,26,41,52,73,5,68,35,16,11,17)
+
+rec <- tibble(day = days, tool_calls = tool_calls, instructions = instructions)
+
+N_INSTR   <- 1277L  # real instructions, after removing system-generated messages
+N_TOOLS   <- sum(tool_calls)     # 13451
+N_DAYS    <- length(days)        # 69
+N_ELAPSED <- 166                 # days from first message to last
+N_HOURS   <- 108                 # summing gaps under 10 minutes
+
+# Scenario outputs from the model itself, for the worked examples.
+BHS  <- file.path(Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1], "data")
+hpc  <- readRDS(file.path(BHS, "hove_park_campus.rds"))
+vac  <- readRDS(file.path(BHS, "value_added_choice.rds"))
+short_sch <- function(x) {
+  x <- sub(" (School|Catholic School|High School|Community Academy)$", "", x)
+  sub("Portslade Aldridge", "Portslade", sub("Brighton Aldridge", "BACA", x))
+}
+
+fam <- tibble(
+  what = factor(c("Running shell & R", "Writing code and prose", "Reading the codebase",
+                  "Driving a browser", "Looking things up", "Other"),
+                levels = rev(c("Running shell & R", "Writing code and prose",
+                               "Reading the codebase", "Driving a browser",
+                               "Looking things up", "Other"))),
+  n = c(7953, 2919, 1088, 878, 196, 417))
+
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(plotly)
+library(leaflet)
+
+library(sf)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(htmlwidgets)
+library(jsonlite)
+library(here)
+library(ggrepel)
+
+source(here::here("R", "helpers.R"))
+
+# ---- Load panel data ----
+panel <- readRDS(here::here("data", "panel_data.rds"))
+
+HIGHLIGHT_LA <- "Brighton and Hove"
+
+# ---- Load pre-fitted models (Analysis E: imputed full panel) ----
+# These are the same lmer models fitted in brighton_case_study.qmd / 05_fit_model.R
+# Loading pre-fitted saves ~5 minutes of render time
+models_imputed <- readRDS(here::here("data", "models_imputed.rds"))
+mod_e_all      <- models_imputed$all
+mod_e_disadv   <- models_imputed$disadvantaged
+mod_e_nondisadv <- models_imputed$non_disadvantaged
+
+# LA ranks for Brighton and Hove from the fitted models (1 = best), so the
+# ranks quoted in the text cannot drift from the models they come from.
+la_rank <- function(model) {
+  re <- lme4::ranef(model)[["LANAME:gor_name"]]
+  d  <- tibble(grp = rownames(re), eff = re[["(Intercept)"]]) %>%
+    dplyr::mutate(la = sub(":.*$", "", grp)) %>%
+    dplyr::arrange(dplyr::desc(eff)) %>%
+    dplyr::mutate(rank = dplyr::row_number())
+  bh <- d %>% dplyr::filter(grepl("Brighton", la))
+  list(rank = bh$rank, n = nrow(d))
+}
+rk_all <- la_rank(mod_e_all)
+rk_dis <- la_rank(mod_e_disadv)
+rk_non <- la_rank(mod_e_nondisadv)
+
+# Absence-control comparison: the LA effect with and without an absence term
+r27 <- readRDS(here::here("data", "r27_la_absence.rds"))
+r27_bh_dis <- r27$bh_dis
+
+rank_with    <- r27_bh_dis$rank[r27_bh_dis$spec == "A-raw"]
+rank_without <- r27_bh_dis$rank[r27_bh_dis$spec == "A-none"]
+
+# ---- Prepare model dataset (for any analyses needing it) ----
+imputed_full_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(
+    !is.na(ATT8SCR), ATT8SCR > 0,
+    PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+    !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME)
+  ) %>%
+  filter(
+    !is.na(remained_in_the_same_school),
+    !is.na(teachers_on_leadership_pay_range_percent),
+    average_number_of_days_taken > 0,
+    !is.na(gorard_segregation)
+  ) %>%
+  mutate(
+    OFSTEDRATING_1 = factor(OFSTEDRATING_1,
+                            levels = c("Outstanding", "Good",
+                                       "Requires Improvement", "Inadequate"),
+                            ordered = TRUE),
+    gor_name   = factor(gor_name),
+    LANAME     = factor(LANAME),
+    year_label = factor(year_label)
+  ) %>%
+  droplevels()
+
+contrasts(imputed_full_data$OFSTEDRATING_1) <-
+  contr.treatment(levels(imputed_full_data$OFSTEDRATING_1))
+
+# ---- Brighton & Hove data ----
+bh_panel <- panel %>%
+  filter(LANAME == HIGHLIGHT_LA,
+         MINORGROUP %in% c("Academy", "Maintained school"))
+
+# Add predictions from the imputed models
+bh_panel <- bh_panel %>%
+  mutate(
+    predicted_all = predict(mod_e_all, newdata = bh_panel, allow.new.levels = TRUE),
+    predicted_dis = predict(mod_e_disadv, newdata = bh_panel, allow.new.levels = TRUE),
+    predicted_non = predict(mod_e_nondisadv, newdata = bh_panel, allow.new.levels = TRUE)
+  )
+
+# ---- Brighton & Hove: latest year per school (with model predictions) ----
+bh_latest_model <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
+# ---- Brighton & Hove: latest year per school (all columns) ----
+bh_latest <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(URN) %>%
+  filter(year_label == max(year_label)) %>%
+  ungroup()
+
+# ---- National benchmarks (for FSM / absence plots) ----
+national_benchmarks <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"),
+         !is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1))
+
+latest_year <- max(bh_latest_model$year_label, na.rm = TRUE)
+national_latest <- national_benchmarks %>% filter(year_label == latest_year)
+
+national_mean_abs <- mean(national_latest$PERCTOT, na.rm = TRUE)
+bh_mean_abs <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+national_mean_fsm <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+bh_mean_fsm <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+# ---- Reusable theme ----
+theme_pub <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(colour = "grey40", size = 10),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+
+# ---- Helper functions ----
+relabel_terms <- function(term) {
+  case_when(
+    term == "(Intercept)" ~ "(Intercept)",
+    term == "log(PTFSM6CLA1A)" ~ "log(% FSM)",
+    term == "log(PERCTOT)" ~ "log(% Absence)",
+    term == "log(PNUMEAL)" ~ "log(% EAL)",
+    term == "ks2_c" ~ "Mean KS2 Prior Attainment",
+    term == "gorard_segregation" ~ "Gorard Segregation",
+    term == "ADMPOL_PTOTHER NON SEL" ~ "Admissions: Other non-selective (ref: non-sel. in highly sel. area)",
+    term == "ADMPOL_PTSEL" ~ "Admissions: Selective (ref: non-sel. in highly sel. area)",
+    term == "remained_in_the_same_school" ~ "Teacher Retention",
+    term == "teachers_on_leadership_pay_range_percent" ~ "Leadership Pay %",
+    term == "log(average_number_of_days_taken)" ~ "log(Teacher Sickness)",
+    TRUE ~ term
+  )
+}
+
+ordinal_suffix <- function(n) {
+  suffix <- case_when(
+    n %% 100 %in% c(11, 12, 13) ~ "th",
+    n %% 10 == 1 ~ "st",
+    n %% 10 == 2 ~ "nd",
+    n %% 10 == 3 ~ "rd",
+    TRUE ~ "th"
+  )
+  paste0(n, suffix)
+}
+
+# ---- Output format helper ----
+tbl_fmt <- if (knitr::is_html_output()) "html" else "latex"
+
+# ---- LA-level rankings (for accelerating returns section) ----
+la_means_abs <- national_benchmarks %>%
+  filter(year_label == latest_year) %>%
+  group_by(LANAME) %>%
+  summarise(la_mean_abs = mean(PERCTOT, na.rm = TRUE), .groups = "drop") %>%
+  arrange(la_mean_abs) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+
+la_means_fsm <- national_benchmarks %>%
+  filter(year_label == latest_year) %>%
+  group_by(LANAME) %>%
+  summarise(la_mean_fsm = mean(PTFSM6CLA1A, na.rm = TRUE), .groups = "drop") %>%
+  arrange(la_mean_fsm) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+
+n_las_bench <- nrow(la_means_abs)
+bh_abs_rank <- la_means_abs %>% filter(grepl("Brighton", LANAME))
+bh_fsm_rank <- la_means_fsm %>% filter(grepl("Brighton", LANAME))
+n_bh_schools <- nrow(bh_latest_model)
+n_above_nat_abs <- sum(bh_latest_model$PERCTOT > national_mean_abs, na.rm = TRUE)
+
+
+# Two sources, one deck.
+#  - The attainment evidence: this repository (How to Pull the Right Lever),
+#    read from its cached model fits.
+#  - The city system: the bh-school-system repository (the strategic view,
+#    the model guide and the simulator), read from its assembled data.
+
+# ---- The city system -------------------------------------------------
+BHS <- Filter(dir.exists, file.path(dirname(here::here()), c("bh-school-system", "bh_school_system")))[1]
+# 00_core.R takes its root from here::here(), which is this repository
+# when the deck renders, so it is evaluated with the root swapped in.
+core <- readLines(file.path(BHS, "R", "00_core.R"), encoding = "UTF-8", warn = FALSE)
+eval(parse(text = sub("here::here()", "BHS", core, fixed = TRUE), encoding = "UTF-8"))
+source(file.path(BHS, "app", "R", "model.R"))
+source(file.path(BHS, "app", "R", "outcomes.R"))
+
+suppressPackageStartupMessages({
+  library(lme4); library(knitr); library(kableExtra); library(scales)
+  library(ggrepel); library(patchwork)
+})
+knitr::opts_chunk$set(dev = "ragg_png", dpi = 150, dev.args = list(bg = "#FAFAFA"))
+
+inp   <- readRDS(file.path(BHS, "app", "data", "sim_inputs.rds"))
+cop   <- bh_data("council_options.rds")
+whx   <- bh_data("whitehawk_explained.rds")
+acc   <- bh_data("accessibility.rds")
+oi    <- bh_data("open_inputs.rds")
+os    <- bh_data("open_scenarios.rds")
+fpan  <- bh_data("factsheet_panel.rds")
+rc    <- bh_data("reception_cohort.rds")
+sfin  <- bh_data("school_finance.rds")
+mt    <- bh_data("model_terms.rds")
+lsoa  <- bh_data("lsoa.geojson") |> sf::st_transform(4326)
+catch <- bh_data("catchments_current.geojson") |> sf::st_transform(4326)
+sch   <- schools_sf(oi$schools) |> dplyr::filter(name != "Peacehaven Community School")
+elm_pt <- sf::st_as_sf(data.frame(e = oi$elm_grove$easting, n = oi$elm_grove$northing),
+                       coords = c("e", "n"), crs = 27700) |> sf::st_transform(4326)
+CITY_X <- c(-0.25, -0.01); CITY_Y <- c(50.80, 50.885)
+
+co  <- function(id, col, y = 2030) cop$runs[[col]][cop$runs$id == id & cop$runs$year == y]
+whe <- function(id, col, y = 2026)
+  cop$whitehawk_elm[[col]][cop$whitehawk_elm$id == id & cop$whitehawk_elm$year == y]
+city   <- inp$schools[inp$schools$city & !(inp$schools$hypothetical %in% TRUE), ]
+places <- sum(city$pan)
+kids   <- function(y) inp$demand$cohort[inp$demand$year == y]
+no30   <- acc$lsoa[acc$lsoa$places_30 < 1, ]
+fmt_pct <- function(x, d = 0) paste0(formatC(x, format = "f", digits = d), "%")
+gbp_m   <- function(x) sprintf("%s£%.1fm", ifelse(x < 0, "−", ""), abs(x) / 1e6)
+ordinal <- function(n) paste0(n, ifelse(n %% 100 %in% 11:13, "th",
+                                c("th", "st", "nd", "rd", rep("th", 6))[n %% 10 + 1]))
+
+INK <- "#1f3b57"; MUTED <- "#6b7785"; ACCENT <- "#2a78d6"; WARM <- "#d95f02"; BAD <- "#b2182b"
+PURPLE <- "#3A1857"; PINK <- "#ED357D"
+theme_bhs <- function(base = 16)
+  ggplot2::theme_minimal(base) +
+  ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
+                 panel.grid.minor = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = "bold", colour = PURPLE),
+                 plot.subtitle = ggplot2::element_text(colour = MUTED),
+                 plot.title.position = "plot",
+                 axis.text = ggplot2::element_text(colour = INK),
+                 plot.background = ggplot2::element_rect(fill = "#FAFAFA", colour = NA))
+theme_map <- function(base = 14)
+  ggplot2::theme_void(base) +
+  ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", colour = PURPLE),
+                 plot.subtitle = ggplot2::element_text(colour = MUTED),
+                 plot.title.position = "plot",
+                 legend.position = "right",
+                 strip.text = ggplot2::element_text(face = "bold", size = base),
+                 plot.background = ggplot2::element_rect(fill = "#FAFAFA", colour = NA))
+
+# ---- The attainment evidence -----------------------------------------
+panel <- readRDS(here::here("data", "panel_data.rds"))
+HIGHLIGHT_LA <- "Brighton and Hove"
+models_imputed <- readRDS(here::here("data", "models_imputed.rds"))
+mod_e_all       <- models_imputed$all
+mod_e_disadv    <- models_imputed$disadvantaged
+mod_e_nondisadv <- models_imputed$non_disadvantaged
+
+la_rank <- function(model) {
+  re <- lme4::ranef(model)[["LANAME:gor_name"]]
+  d  <- tibble(grp = rownames(re), eff = re[["(Intercept)"]]) %>%
+    mutate(la = sub(":.*$", "", grp)) %>%
+    arrange(desc(eff)) %>%
+    mutate(rank = row_number())
+  bh <- d %>% filter(grepl("Brighton", la))
+  list(rank = bh$rank, n = nrow(d))
+}
+rk_all <- la_rank(mod_e_all)
+rk_dis <- la_rank(mod_e_disadv)
+rk_non <- la_rank(mod_e_nondisadv)
+r27 <- readRDS(here::here("data", "r27_la_absence.rds"))
+rank_without <- r27$bh_dis$rank[r27$bh_dis$spec == "A-none"]
+
+# The national modelling dataset, as prepared in the Lever deck.
+imputed_full_data <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school")) %>%
+  filter(!is.na(ATT8SCR), ATT8SCR > 0,
+         PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1), !is.na(gor_name), !is.na(LANAME)) %>%
+  filter(!is.na(remained_in_the_same_school),
+         !is.na(teachers_on_leadership_pay_range_percent),
+         average_number_of_days_taken > 0,
+         !is.na(gorard_segregation)) %>%
+  droplevels()
+
+# The Lever deck calls this bh_data; here that name is taken by the
+# city system's loader, so the panel for the city's schools is bh_panel.
+bh_panel <- panel %>%
+  filter(LANAME == HIGHLIGHT_LA, MINORGROUP %in% c("Academy", "Maintained school"))
+bh_latest_model <- bh_panel %>%
+  filter(!is.na(ATT8SCR)) %>%
+  group_by(SCHNAME) %>% filter(year_label == max(year_label)) %>% ungroup()
+
+national_benchmarks <- panel %>%
+  filter(MINORGROUP %in% c("Academy", "Maintained school"),
+         !is.na(ATT8SCR), ATT8SCR > 0, PTFSM6CLA1A > 0, PERCTOT > 0, PNUMEAL > 0,
+         !is.na(OFSTEDRATING_1))
+latest_year <- max(bh_latest_model$year_label, na.rm = TRUE)
+national_latest <- national_benchmarks %>% filter(year_label == latest_year)
+national_mean_abs <- mean(national_latest$PERCTOT, na.rm = TRUE)
+bh_mean_abs       <- mean(bh_latest_model$PERCTOT, na.rm = TRUE)
+national_mean_fsm <- mean(national_latest$PTFSM6CLA1A, na.rm = TRUE)
+bh_mean_fsm       <- mean(bh_latest_model$PTFSM6CLA1A, na.rm = TRUE)
+
+la_means <- function(var) national_latest %>%
+  group_by(LANAME) %>%
+  summarise(m = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+  arrange(m) %>%
+  mutate(rank = row_number(), pctile = rank / n() * 100)
+la_abs <- la_means("PERCTOT"); la_fsm <- la_means("PTFSM6CLA1A")
+bh_abs_rank <- la_abs %>% filter(grepl("Brighton", LANAME))
+bh_fsm_rank <- la_fsm %>% filter(grepl("Brighton", LANAME))
+abs_worst <- nrow(la_abs) - bh_abs_rank$rank + 1
+
+theme_slide <- theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold", size = 16, colour = PURPLE),
+        plot.subtitle = element_text(colour = "grey40", size = 12),
+        plot.title.position = "plot",
+        strip.text = element_text(face = "bold"),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        plot.background = element_rect(fill = "#FAFAFA", colour = NA))
+
+# ---- Choice: what families respond to --------------------------------
+DECAY_A <- acc$pref$decay
+ch_prefs <- fpan$factsheets %>%
+  filter(name != "Total", year >= max(year) - 4) %>%
+  group_by(name) %>%
+  summarise(p1 = mean(pref1), p2 = mean(pref2), p3 = mean(pref3), .groups = "drop") %>%
+  inner_join(oi$attract %>% select(urn, name), by = "name")
+cd <- os$choice %>%
+  select(urn, school, pan, att8, va) %>%
+  inner_join(ch_prefs %>% select(-name), by = "urn") %>%
+  mutate(short = short_sch(school),
+         wpp = (p1 + DECAY_A * p2 + DECAY_A^2 * p3) / pan)
+fit_att8 <- lm(log(wpp) ~ att8, data = cd)
+fit_va   <- lm(log(wpp) ~ va, data = cd)
+r2_att8  <- summary(fit_att8)$r.squared
+r2_va    <- summary(fit_va)$r.squared
+att8_pct <- 100 * (exp(coef(fit_att8)[["att8"]]) - 1)
+cd_of <- function(s, col) cd[[col]][cd$short == s]
+GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-reports-strategies-and-other-documents/secondary-school-admissions-guide-2027-2028"
+
+```
+
+
+```{r brighton-ai-extras}
+#| include: false
+# ---- The open-allocation question, read off the model ----------------
+# Priority 6 is the council's "open allocation" quota: a share of each
+# school's places held back from the catchment rule. 2024 settled on 5%
+# after 20% was consulted on. cop$runs holds a run of the full model for
+# each setting, so the slide quotes the model rather than an opinion.
+p6 <- function(id, col, y = 2026) co(id, col, y)
+p6_disp_mult <- p6("p6_20", "displaced") / p6("today", "displaced")
+
+# ---- The Longhill policy ladder, as demonstrated live ----------------
+# Read off the simulator for 2026 entry, one control changed at a time.
+steps <- tibble::tibble(
+  step  = factor(1:4),
+  label = c("Today", "Families read value added",
+            "+ Elm Grove, Whitehawk back", "+ value added doubled"),
+  intake = c(90, 106, 140, 197),
+  pct    = c(43, 50, 67, 94),
+  dep    = c(3.4, 2.5, -1.9, -2.2),
+  seg    = c(0.117, 0.127, 0.176, 0.188))
+st <- function(i, col) steps[[col]][i]
+
+# ---- The cohort decline, in one number -------------------------------
+y7_peak   <- max(rc$secondary_city$y7_offers)
+y7_peak_y <- rc$secondary_city$year[which.max(rc$secondary_city$y7_offers)]
+y7_now    <- rc$secondary_city$y7_offers[which.max(rc$secondary_city$year)]
+y7_end    <- rc$projection$central[which.max(rc$projection$entry_year)]
+y7_end_y  <- max(rc$projection$entry_year)
+y7_drop   <- round((y7_peak - y7_end) / 10) * 10
+```
+
+# Hello {background-color="#361a54"}
+
+## Who I am {.smaller .intro}
+
+:::::: columns
+::: {.column width="56%"}
+- **Professor of Urban Analytics** at UCL's Centre for Advanced Spatial
+  Analysis. I build models of cities — of migration, of housing, of
+  where people go to work, to shop, and to school.
+- I have been doing it for **twenty years**. The maths on the later
+  slides is not new; some of it is older than I am.
+- I also **live here**, and I have a daughter who has just applied for a
+  secondary school place.
+- That second fact is why this talk exists. I got dragged into a local
+  argument, and could not leave it alone.
+
+::: key-finding
+Two years ago Brighton & Hove consulted on changing secondary school
+admissions. I read the consultation as a parent, got annoyed as a
+modeller, and have been working on it ever since.
+:::
+:::
+
+:::: {.column width="44%"}
+[![](slides_assets/lever.png){width="94%"}](https://adamdennett.github.io/school_attainment_tool/)
+
+::: {style="font-size:0.74em; color:#666688;"}
+The first thing that came out of it: a national study of what actually
+drives GCSE attainment, and whether the council's policies could
+plausibly move it.
+:::
+::::
+::::::
+
+## Where this work sits {.smaller}
+
+::::::: columns
+:::: {.column width="64%"}
+The **UKRI National AI Research Hub for Collective Intelligence**
+(**AI4CI**) — a five-year, £12m EPSRC programme asking a question that
+is not the usual one about AI.
+
+Not *"can a machine do this instead of us?"* but:
+
+::: key-finding
+**Can AI make groups of people think better together?**
+
+Can it help a council, a set of schools, a few hundred parents and a
+handful of campaigners arrive at a better answer than any of them would
+have reached alone?
+:::
+
+The Hub works on epidemics, on infrastructure, on online communities, on
+human–AI teaming. I brought it a school system.
+
+<https://ai4ci.ac.uk/>
+::::
+
+::::: {.column width="36%"}
+::: {style="text-align:center; margin-top:0.6rem;"}
+![](slides_assets/ai4ci-logo.svg){width="72%"}
+:::
+
+::: {style="font-size:0.78em; color:#666688; margin-top:1rem;"}
+Collective intelligence is the thing a group has that none of its
+members do. It is also the thing a group *loses* when everybody is
+well-informed about a different part of the problem and nobody can see
+the whole.
+:::
+:::::
+:::::::
+
+# A thorny local problem {background-color="#361a54"}
+
+## Brighton & Hove's secondary school system {.smaller}
+
+::::: columns
+::: {.column width="58%"}
+- **Ten secondary schools** for a city of 280,000, arranged around
+  catchments that have been argued about since 2004.
+- Two faith schools admit **city-wide**; the rest admit by catchment,
+  then sibling, then a small open quota.
+- The city is a **narrow strip between the sea and the Downs**, so
+  "the next school along" can be forty minutes on two buses.
+- The spread between the highest- and lowest-attaining schools is wide,
+  and so is the deprivation of their intakes — and the two track each
+  other closely.
+
+::: key-finding
+It is a closed system with hard edges. Every child the council places
+has to go somewhere — so every policy that helps one school takes
+children from another. That is what makes it modellable, and it is also
+what makes it politically impossible.
+:::
+:::
+
+::: {.column width="42%"}
+![](slides_assets/simulator-front.png){.nostretch width="100%"}
+:::
+:::::
+
+## Where the schools and the children are
+
+```{r city-map}
+#| fig-height: 5.2
+catch_pal <- grDevices::colorRampPalette(
+  c("#8ec9e8", "#b6a4d8", "#f3b6c9", "#f6d08a", "#a8d8b9"))(
+    length(unique(catch$catchment)))
+
+leaflet(width = "100%", height = 470) |>
+  add_basemap() |>
+  addPolygons(data = catch, weight = 1, color = "#55556b", opacity = 0.6,
+              fillColor = catch_pal[as.factor(catch$catchment)],
+              fillOpacity = 0.22, label = ~catchment) |>
+  addCircleMarkers(data = sch, radius = 7, weight = 2, color = "#1a1a2e",
+                   fillColor = "#993bff", fillOpacity = 0.95,
+                   label = ~short,
+                   labelOptions = labelOptions(permanent = TRUE,
+                                               direction = "top",
+                                               textsize = "11px",
+                                               style = list("font-weight" = "600"))) |>
+  fitBounds(CITY_X[1], CITY_Y[1], CITY_X[2], CITY_Y[2])
+```
+
+::: {style="font-size:0.74em; color:#666688; text-align:center;"}
+Six catchments, ten schools, and a city two miles deep. Source: BHCC catchment boundaries, March 2025.
+:::
+
+## Two years ago, the argument was about fairness {.smaller}
+
+The 2024 reforms changed catchment boundaries, introduced a free school
+meals priority, and held back **5% of places at every school for "open
+allocation"** — children from anywhere in the city.
+
+::::: columns
+::: {.column width="50%"}
+**The council's stated aim**
+
+Reduce the concentration of disadvantaged pupils in a few schools, and
+so narrow the attainment gap.
+
+**What I went and checked**
+
+Every secondary school in England, five years of data, a model of what
+actually predicts a GCSE cohort's results.
+:::
+
+::: {.column width="50%"}
+::: key-finding
+**What the evidence says**
+
+- Only about **15%** of the variation in a child's GCSE results is down
+  to the school. The rest is the child, the family, and what happened
+  before they arrived.
+- **Absence is the single biggest lever** anyone in this city has — and
+  it was not in the consultation at all.
+- For disadvantaged pupils, concentration is **not** the harm it is
+  assumed to be. Nationally, once absence and prior attainment are
+  accounted for, they do slightly *better* in schools with more
+  disadvantaged pupils.
+:::
+:::
+:::::
+
+## And families are choosing on the wrong number {.smaller}
+
+```{r choice-plot}
+#| fig-height: 4.4
+pl <- function(x, xlab, r2, colr) {
+  ggplot(cd, aes(.data[[x]], wpp)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = colr,
+                linetype = "22", linewidth = 0.9) +
+    geom_point(size = 3.2, colour = colr) +
+    geom_text_repel(aes(label = short), size = 3.3, seed = 3, colour = INK) +
+    scale_y_log10() +
+    labs(x = xlab, y = if (x == "att8") "Preferences per place (log)" else NULL,
+         subtitle = sprintf("R² = %.2f", r2)) +
+    theme_slide
+}
+(pl("att8", "Headline Attainment 8\n(mostly describes who the school admits)", r2_att8, BAD) |
+ pl("va", "Value added\n(what the school actually contributes)", r2_va, "#2166ac")) +
+  plot_annotation(
+    title = "Demand follows the headline score, not what a school adds",
+    subtitle = sprintf("Ten city schools, five-year means. Each point of Attainment 8 goes with about %.0f%% more preferences per place.", att8_pct),
+    theme = theme_slide)
+```
+
+::: {style="font-size:0.62em; color:#555;"}
+And the council's own [admissions guide](`r GUIDE`) tells parents to
+look at exam results and Ofsted reports. A school with a more
+disadvantaged intake posts a lower headline score, so fewer families
+choose it, so its intake gets more disadvantaged, so the score falls
+again. **The advice works against the policy.**
+:::
+
+## But while we were arguing, the ground moved {.smaller}
+
+```{r cohort-plot}
+#| fig-width: 11
+#| fig-height: 4.8
+y7 <- rc$secondary_city; recp <- rc$reception_city; proj <- rc$projection
+ggplot() +
+  geom_ribbon(data = proj, aes(entry_year, ymin = lo, ymax = hi), fill = BAD, alpha = 0.18) +
+  geom_line(data = recp, aes(year, rec_offers), colour = "#2c7fb8", linewidth = 1.1) +
+  geom_line(data = y7, aes(year, y7_offers), colour = INK, linewidth = 1.3) +
+  geom_line(data = proj, aes(entry_year, central), colour = BAD, linewidth = 1.2, linetype = "22") +
+  annotate("text", x = min(recp$year) + 0.3, y = max(recp$rec_offers) * 1.03,
+           label = "Reception offers", colour = "#2c7fb8", hjust = 0, size = 4.4) +
+  annotate("text", x = min(y7$year) + 0.3, y = min(y7$y7_offers) * 0.93,
+           label = "Year 7 offers", colour = INK, hjust = 0, size = 4.4, fontface = "bold") +
+  annotate("text", x = max(proj$entry_year) - 0.2, y = max(proj$hi) * 1.06,
+           label = "Projected from children\nalready in primary school",
+           colour = BAD, hjust = 1, size = 4) +
+  scale_y_continuous(labels = scales::label_comma(), limits = c(0, NA)) +
+  labs(x = NULL, y = "Offers",
+       title = "Reception offers turned down first. Year 7 follows seven years later.",
+       subtitle = "These children are already born. Most are already in a classroom in this city.") +
+  theme_bhs(15)
+```
+
+::: {style="font-size:0.84em"}
+Year 7 entry peaked at **`r fmt_n(y7_peak)` in `r y7_peak_y`**. By
+**`r y7_end_y`** it is projected at about **`r fmt_n(y7_end)`** —
+roughly **`r fmt_n(y7_drop)` fewer children** entering secondary school
+each year. More than the entire intake of two of the city's large
+schools.
+:::
+
+## Schools are funded per pupil {.smaller}
+
+```{r reserves-plot}
+#| fig-width: 12
+#| fig-height: 5.0
+fex <- sfin$exposure |> dplyr::mutate(short = short_sch(name))
+ord <- fex |> dplyr::arrange(reserve_pct) |> dplyr::pull(name)
+rp <- sfin$panel |> dplyr::mutate(school = factor(short_sch(name), short_sch(ord)),
+                                  neg = pmin(reserve_pct, 0))
+ggplot(rp, aes(year, reserve_pct)) +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = neg, ymax = 0), fill = "#d03b3b", alpha = 0.3) +
+  geom_line(linewidth = 0.9, colour = INK) + geom_point(size = 1.2, colour = INK) +
+  facet_wrap(~ school, ncol = 5) +
+  scale_x_continuous(breaks = sort(unique(rp$year)),
+                     labels = function(x) paste0(substr(x, 3, 4), "/", substr(x + 1, 3, 4))) +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(x = NULL, y = "Reserve as a share of income",
+       title = "Revenue reserves, worst first. Red shading is a school in deficit.",
+       subtitle = "DfE school income and expenditure returns") +
+  theme_bhs(12) + theme(axis.text.x = element_text(size = 7))
+```
+
+::: {style="font-size:0.84em"}
+Fewer children means less money. Less money means fewer subjects, bigger
+classes, a worse offer — and so fewer children. **Decline is
+self-reinforcing, and it does not land evenly.**
+:::
+
+## It is landing on one school first {.smaller}
+
+```{r drift-plot}
+#| fig-width: 12
+#| fig-height: 4.9
+fs <- fpan$factsheets |>
+  dplyr::filter(!is.na(off_total), name != "Total") |>
+  dplyr::mutate(school = short_sch(name), lh = name == "Longhill High School")
+ends <- fs |> dplyr::group_by(school, lh) |> dplyr::filter(year == max(year)) |> dplyr::ungroup()
+
+ggplot(fs, aes(year, off_total, group = school)) +
+  geom_hline(yintercept = 210, linetype = "31", colour = "grey60", linewidth = 0.4) +
+  annotate("text", x = max(fs$year) + 0.4, y = 210, hjust = 0, size = 3.4,
+           colour = "grey45", label = "210 places") +
+  geom_line(data = dplyr::filter(fs, !lh), colour = "grey78", linewidth = 0.8) +
+  geom_line(data = dplyr::filter(fs, lh), colour = BAD, linewidth = 1.5) +
+  geom_point(data = dplyr::filter(fs, lh), colour = BAD, size = 2) +
+  ggrepel::geom_text_repel(
+    data = dplyr::filter(ends, !lh), aes(label = school),
+    size = 3.2, colour = "grey45", direction = "y", hjust = 0,
+    nudge_x = 0.4, segment.colour = "grey80", segment.size = 0.3,
+    max.overlaps = 20, xlim = c(max(fs$year) + 0.3, NA)) +
+  ggrepel::geom_text_repel(
+    data = dplyr::filter(ends, lh), aes(label = school),
+    size = 4.2, fontface = "bold", colour = BAD, direction = "y", hjust = 0,
+    nudge_x = 0.4, segment.colour = BAD, segment.size = 0.3,
+    xlim = c(max(fs$year) + 0.3, NA)) +
+  scale_x_continuous(breaks = seq(2010, 2026, 4),
+                     limits = c(min(fs$year), max(fs$year) + 4.2)) +
+  labs(x = NULL, y = "Children allocated a place",
+       title = "Longhill, against every other school in the city",
+       subtitle = "Places allocated at national offer day. Source: BHCC allocation factsheets.") +
+  theme_bhs(13) + theme(panel.grid.major.x = element_blank())
+```
+
+::: {style="font-size:0.8em"}
+The city placed **1,900 children in 2010 and 2,250 in 2026** — it grew.
+Over the same years **Longhill fell from 239 to 81**. Now the cohort
+turns down, and the school at the edge of the city gets the fall first.
+:::
+
+## So here is the actual problem {.smaller}
+
+::::: columns
+::: {.column width="54%"}
+In ten years this city has to run a school system for roughly
+**`r fmt_n(y7_drop)` fewer children a year** than it has now.
+
+That means, unavoidably, some combination of:
+
+- schools getting **smaller**,
+- schools **closing**,
+- **catchments** redrawn,
+- or a lot of **half-empty buildings** quietly going bankrupt.
+
+Every one of those makes somebody's journey longer, or takes a school
+out of somebody's community.
+:::
+
+::: {.column width="46%"}
+::: key-finding
+**And there is no long-term plan.**
+
+What exists is a sequence of individual consultations — each on a single
+option, each argued about on its own, each decided before the next one
+is proposed.
+
+Nobody has published an account of how the whole system behaves, so
+nobody can say what any one of these decisions does to the others.
+:::
+
+That is not a conspiracy. It is just **hard**, and nobody had the tools.
+:::
+:::::
+
+# We need to be able to try things {background-color="#361a54"}
+
+## One option at a time is the wrong unit {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**How it works now**
+
+A consultation proposes **one** change. People respond for or against.
+It is decided. Eighteen months later the next one arrives, and nobody
+checks what the last one did.
+
+The system, meanwhile, is **interacting**. Move a catchment and demand
+shifts at four schools. Cut an admission number and the children do not
+vanish — they turn up somewhere else.
+:::
+
+::: {.column width="50%"}
+**What we should be able to do**
+
+Ask *"what if?"* twenty times before lunch. Stack policies and watch
+them compound. Find the combinations that work, and the ones that
+quietly cost somebody something.
+
+::: key-finding
+Run the experiment **in silico**, where being wrong costs nothing —
+instead of running it on a cohort of eleven-year-olds, where being wrong
+costs them a school.
+:::
+:::
+:::::
+
+## A question I could not answer, and now can {.smaller}
+
+> *"Is open allocation — the council's marquee admissions reform — going
+> to accelerate the closure of a school at the edge of the city that the
+> evidence says will not be filled from the centre anyway?"*
+
+```{r p6-table}
+tibble::tibble(
+  Scenario = c("No open allocation at all",
+               "Today: 5% of places (the 2024 settlement)",
+               "20% of places (as originally consulted on)"),
+  `Longhill 2026` = sprintf("%.0f", c(p6("p6_off","lh_intake"), p6("today","lh_intake"), p6("p6_20","lh_intake"))),
+  `Longhill 2035` = sprintf("%.0f", c(p6("p6_off","lh_intake",2035), p6("today","lh_intake",2035), p6("p6_20","lh_intake",2035))),
+  `Children displaced` = sprintf("%.0f", c(p6("p6_off","displaced"), p6("today","displaced"), p6("p6_20","displaced"))),
+  `Segregation index` = sprintf("%.3f", c(p6("p6_off","gorard"), p6("today","gorard"), p6("p6_20","gorard")))) |>
+  knitr::kable(align = "lrrrr")
+```
+
+::::: columns
+::: {.column width="50%"}
+I built the tool half-expecting it to indict the policy. **It does not.**
+Switching open allocation off entirely gives Longhill about **one extra
+child**. At the 5% the council settled on, it is close to a rounding
+error.
+:::
+
+::: {.column width="50%"}
+::: key-finding
+But at the **20% originally consulted on**, it would have displaced
+**`r sprintf("%.1f times", p6_disp_mult)` as many children** and left
+the city *more* segregated, not less — the opposite of the stated aim.
+
+And Longhill still falls to about **60 by 2035** under all three.
+**The policy is a sideshow. The demography is the story.**
+:::
+:::
+:::::
+
+# The tool {background-color="#361a54"}
+
+## What it is {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+| The thing | Scale |
+|:---------------------------------|:---------------------|
+| Strategic analysis of the system | 9,712 lines of Quarto |
+| The model and data assembly | ~7,400 lines of R |
+| An interactive policy simulator | ~3,000 lines of Shiny |
+| Commits across six repositories | 805 |
+
+Everything is **open**: the code, the data sources, the model, the
+write-up. Every number on every slide traces back to a line of code and
+a published source.
+:::
+
+::: {.column width="48%"}
+![](slides_assets/simulator-starting.png){.nostretch width="100%"}
+
+::: {style="font-size:0.74em; color:#666688;"}
+Sliders for attractiveness, a dropdown for what families read, controls
+for catchments, admission numbers, school locations and open allocation.
+Hit go and the whole city re-allocates.
+:::
+:::
+:::::
+
+## Where the data comes from {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**Nothing here is private.** No pupil records, no data-sharing
+agreement, no permission required. All of it is published, and most of
+it is published badly.
+
+- DfE performance tables and the statistics API — attainment, absence,
+  intake, workforce, finance
+- Council **allocation factsheets**, 2010 onwards — preferences and
+  offers, school by school, year by year
+- The 2021 **Census** — where children actually live, postcode by
+  postcode
+- **OpenStreetMap** road network and the real **bus timetable**
+- Catchment boundaries, and one **Freedom of Information request**
+:::
+
+::: {.column width="50%"}
+::: key-finding
+The hard part was never getting the data. It was that a dozen sources
+do not share a key, do not share a year, do not share a school name, and
+change their format every two years.
+
+That is exactly the grinding, careful, enormously tedious work that has
+historically eaten the entire budget of a project like this.
+:::
+
+::: {style="font-size:0.8em; color:#666688; margin-top:0.8rem;"}
+If you want to replicate it for your city, you can. It is all in the
+repository, and the pipeline runs from a fresh clone.
+:::
+:::
+:::::
+
+## The model underneath {.smaller}
+
+A **spatial interaction model** — the same family used for commuting,
+migration and retail catchments since the 1960s. It predicts how many
+children flow from each neighbourhood to each school.
+
+$$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta}$$
+
+::::: columns
+::: {.column width="52%"}
+| Term | What it is |
+|:---------------|:----------------------------------------------|
+| $T_{ij}$ | children from neighbourhood $i$ to school $j$ |
+| $O_i$ | children living in $i$ — 195 neighbourhoods |
+| $W_j$ | how attractive school $j$ is |
+| $c_{ij}$ | bus-and-walk journey time, $i$ to $j$ |
+| $e^{\gamma_h}$ | the catchment bonus |
+| $C_j$ | how much competition $j$ has nearby |
+| $A_i$ | the balancing term |
+:::
+
+::: {.column width="48%"}
+It is **production-constrained**: $A_i$ forces every child living
+somewhere to end up somewhere. The model never invents or loses
+children; it only decides where they go.
+
+::: key-finding
+That is what makes it useful for policy. Close a school, move one, cut
+its admission number — and the children **reappear somewhere else**, and
+the model tells you where.
+:::
+:::
+:::::
+
+## Three things it had to learn {.smaller}
+
+::::::: columns
+:::: {.column width="54%"}
+Fitted to the council's own published allocations, not assumed:
+
+**Distance decay,** $\beta = 1.7$ — how steeply demand falls as a school
+gets further away. And $c_{ij}$ is not crow-flies: every one of the
+`r format(195 * 15, big.mark = ",")` origin–school pairs is routed on
+the **real bus timetable at 08:00**.
+
+**The catchment pull,** $\gamma_h$ — fitted **separately for every
+catchment**, because they do not behave alike.
+
+**Competition,** $\delta = 0.3$ — whether being surrounded by rivals
+helps a school or hurts it.
+
+::: key-finding
+Living in the catchment multiplies the odds by **2.7 times** at Brighton
+Aldridge and **13.5 times** at Stringer and Varndean. One policy doing
+five times as much work in one part of the city as another.
+:::
+::::
+
+:::: {.column width="46%"}
+::: {style="text-align:center; line-height:0.8; margin-top:-0.4rem;"}
+![](slides_assets/fig-beta-curve.png){width="56%" style="display:block; margin:0 auto;"}
+![](slides_assets/fig-gamma-map.png){width="56%" style="display:block; margin:0 auto;"}
+![](slides_assets/fig-cj-map.png){width="56%" style="display:block; margin:0 auto;"}
+:::
+::::
+:::::::
+
+## Does it work? {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+It reproduces the September 2026 allocations with an **R² of 0.95**.
+
+More importantly, it has been given tests it **could have failed**, on
+numbers that did not exist when it was built:
+
+- A Freedom of Information request produced the confirmed September
+  position by admission priority. The model had never seen it.
+- Longhill's modelled 2026 intake of **90** sits inside the FOI's actual
+  range of **91 to 99**.
+:::
+
+::: {.column width="50%"}
+::: key-finding
+And it gets things wrong in ways I can name. It **over-predicts the
+schools that are hard to get into** by about 16 children — because it
+reproduces the *allocation*, and the allocation overstates where
+children finally end up.
+
+A model you cannot criticise is not a model. It is a press release.
+:::
+
+::: {style="font-size:0.8em; margin-top:0.7rem;"}
+All of it is written up, failures included, in a technical guide that
+audits every term.
+:::
+:::
+:::::
+
+# How this got built {background-color="#361a54"}
+
+## Twenty years of models. Five months of building. {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+**None of the ideas in this talk are new to me.** I have been building
+spatial interaction models since my PhD. I had a hand-written prototype
+of this one on my laptop from 2024, and a routing pipeline to go with
+it.
+
+What I did not have was **a month of uninterrupted time** to turn it
+into something a city could use. I was never going to get one.
+
+::: key-finding
+So I did it with **Claude Code**, in bursts, in evenings, between
+everything else. Counted from the logs: **1,277 instructions** from me,
+**13,451 actions** back, over **69 working days** spread across five
+months.
+:::
+:::
+
+::: {.column width="48%"}
+```{r timeline-plot}
+#| fig-width: 6.6
+#| fig-height: 4.3
+ggplot(rec, aes(day)) +
+  geom_col(aes(y = tool_calls), fill = BRIGHT, width = 1.9, alpha = 0.9) +
+  geom_line(aes(y = instructions * 10), colour = WARM, linewidth = 0.9, linetype = "31") +
+  scale_y_continuous(name = "Actions by Claude per day",
+                     sec.axis = sec_axis(~ . / 10, name = "My instructions per day")) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(x = NULL, title = "Bursty, and accelerating",
+       subtitle = "Bars: Claude. Dashed line: me.") +
+  theme_talk(12) +
+  theme(axis.title.y.right = element_text(colour = WARM),
+        axis.title.y.left  = element_text(colour = BRIGHT))
+```
+
+::: {style="font-size:0.72em; color:#666688;"}
+The April to July work is a different project — a national attainment
+model. The city system model itself starts on **8 September** and is
+finished eighteen days later.
+:::
+:::
+:::::
+
+## The division of labour {.smaller}
+
+:::::: columns
+::: {.column width="49%"}
+**What I brought**
+
+- A working prototype, built by hand in 2024
+- Twenty years of knowing *which terms matter* — attractiveness,
+  distance decay, competing destinations
+- Knowledge of the school system, and of the city's politics
+- Judgement about what is defensible to publish
+- **Knowing when an answer was wrong**
+- Every decision about what to do next
+:::
+
+::: {.column width="2%"}
+:::
+
+::: {.column width="49%"}
+**What Claude brought**
+
+- Scale: a prototype turned into a calibrated, audited system
+- Data wrangling across a dozen awkward published sources
+- Shiny, deployment, rendering, version control
+- Debugging, and the patience for it
+- Documentation written as it went
+- The willingness to **redo all of it** when one assumption changed
+:::
+::::::
+
+::: key-finding
+I knew what to ask for and what to examine **because I had built a
+smaller version of it myself**. That is not a small part of why this
+worked — and it is the bit I would worry about if I were starting out
+today.
+:::
+
+## What actually changed {.smaller}
+
+::::: columns
+::: {.column width="50%"}
+**It does not replace knowing things.** Every moment that mattered in
+this project turned on domain knowledge I had and it did not. Several
+times it produced something plausible and wrong, and the only reason it
+got caught is that I have been doing this for twenty years.
+
+**It does collapse the cost of trying.** Each scenario I tested would
+have been a week of work. I would have tested two. I tested twenty.
+:::
+
+::: {.column width="50%"}
+::: key-finding
+**The bottleneck moved.** It is no longer implementation.
+
+It is **knowing which question is worth asking** — and that is a
+distinctly human, distinctly local, distinctly collective thing.
+
+Which is more or less the whole argument of this talk.
+:::
+:::
+:::::
+
+# Let me show you {background-color="#993bff"}
+
+## Live demo {.smaller}
+
+<https://adamdennett-bh-school-system.share.connect.posit.cloud/>
+
+::::: columns
+::: {.column width="52%"}
+**What I am going to do:** take the school in the most trouble, and pull
+one lever at a time.
+
+1. **Today.** Longhill is modelled at **`r st(1,"intake")` of 210
+   places** — and that matches reality.
+2. **What if families read value added** instead of the headline score?
+   One dropdown. Nothing about any school changes.
+3. **What if we moved it** to the top of Elm Grove, where a school was
+   proposed a few years ago — and put **Whitehawk back** into its
+   catchment, as it was before 2004?
+4. **What if it taught like BACA** — the school down the road with a
+   comparably disadvantaged intake and the best value added in the city?
+
+Then push the whole thing forward to **2035**, with the falling cohort,
+and see which schools are still viable.
+:::
+
+::: {.column width="48%"}
+::: key-finding
+The point is not any one of these. **No single policy does much on its
+own.** That is exactly why they keep dying at consultation — each one,
+judged alone, looks like it is not worth the trouble.
+
+Watch what happens when you **stack them**.
+:::
+
+::: {style="font-size:0.78em; color:#666688; margin-top:0.8rem;"}
+Nothing here harms a single child. That is the whole argument for doing
+it this way round.
+:::
+:::
+:::::
+
+## What the demo showed {visibility="uncounted"}
+
+:::::: columns
+::: {.column width="56%"}
+```{r ladder-plot}
+#| fig-width: 7.0
+#| fig-height: 4.6
+sl <- steps |>
+  dplyr::mutate(lab = stringr::str_wrap(label, 18),
+                lab = factor(lab, levels = stringr::str_wrap(label, 18)))
+ggplot(sl, aes(lab, pct, group = 1)) +
+  geom_hline(yintercept = 100, linetype = "31", colour = "grey60") +
+  geom_line(linewidth = 1.1, colour = BAD) +
+  geom_point(size = 3.6, colour = BAD) +
+  geom_text(aes(label = sprintf("%d%%", pct)), vjust = -1.1, size = 4.4, colour = INK) +
+  scale_y_continuous(limits = c(0, 112)) +
+  labs(x = NULL, y = "Longhill's places filled",
+       title = "No single lever fills Longhill. Four together nearly do.",
+       subtitle = "2026 entry. Each step keeps the one before it.") +
+  theme_bhs(12) + theme(axis.text.x = element_text(size = 9))
+```
+:::
+
+:::: {.column width="44%"}
+::: {style="font-size:0.86em"}
+Each step is modest: **`r st(2,"pct")-st(1,"pct")` points, then
+`r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.** None
+would survive a committee on its own merits. Together they take a school
+from **43% full to 94%**.
+
+And the honest cost: **segregation rises**,
+`r sprintf("%.3f", st(1,"seg"))` to `r sprintf("%.3f", st(4,"seg"))`.
+:::
+
+::: key-finding
+But a disadvantaged child ends up travelling
+**`r sprintf("%.1f", abs(st(4,"dep")))` minutes *less*** than everyone
+else, where today they travel **`r sprintf("%.1f", st(1,"dep"))` minutes
+more**.
+
+Absence is this city's biggest attainment problem, and **distance is one
+of the few things policy can actually change about it.**
+:::
+::::
+::::::
+
+# So what? {background-color="#361a54"}
+
+## One person with a model is not collective intelligence {.smaller}
+
+:::::: columns
+::: {.column width="54%"}
+What exists now is **a working simulation of the city's school system
+that anyone can open and argue with** — councillors, officers, heads,
+governors, parents.
+
+That is necessary. It is nowhere near sufficient.
+
+**Three things still stand in the way:**
+
+- **Awareness.** Almost nobody affected knows it exists.
+- **Buy-in.** It only helps if the people who decide will use it.
+- **Enough ideas.** A simulator is only as good as the range of
+  scenarios people think to put through it — and I can only think of my
+  own.
+:::
+
+:::: {.column width="46%"}
+::: key-finding
+**The ask.**
+
+**Council or school?** Put a scenario through it that you think will
+embarrass the model. That is genuinely the most useful thing anyone can
+do with it.
+
+**Researcher?** The code, data and model are open. Take it apart.
+
+**Parent or governor?** Use it *before* the next consultation, not
+after.
+:::
+
+The simulator does not tell the city what to do. It makes it **much
+harder to claim a policy will do something the system cannot deliver.**
+::::
+::::::
+
+## The actual point {.smaller}
+
+::::: columns
+::: {.column width="52%"}
+Schools are just the example I happened to fall into.
+
+The pattern is everywhere in this city:
+
+- a decision that affects thousands of people,
+- taken **one option at a time**,
+- argued about with **anecdote and assertion**,
+- where the data to do better **already exists and is published**,
+- and where nobody had the time or the tools to put it together.
+
+Red routes. Western Road. Parking. Housing allocation. Bus routes. GP
+catchments. The seafront.
+:::
+
+::: {.column width="48%"}
+::: key-finding
+The cost of building a model like this has fallen by something like **an
+order of magnitude in about eighteen months**.
+
+Which means the binding constraint is no longer money, or time, or
+expertise.
+
+**It is knowing which question to ask.**
+:::
+
+::: {style="font-size:0.84em; margin-top:0.9rem;"}
+That is a question a room full of people is far better at than one
+person. Which is why the next bit is not me talking.
+:::
+:::
+:::::
+
+# Over to you {background-color="#993bff"}
+
+## The question for your table {.smaller}
+
+::: {style="font-size:1.1em; text-align:center; margin:1.1em 0 1.3em 0;"}
+**What is a problem in this city you would want to solve with data —
+where right now we are just arguing about one option at a time?**
+:::
+
+::::: columns
+::: {.column width="50%"}
+Three prompts, if they help:
+
+1. **What decision** gets made badly here, and who does it land on?
+2. **What would you want to be able to test** — the "what if" that
+   nobody has ever actually run?
+3. **What data would it need**, and does it already exist somewhere,
+   published badly?
+:::
+
+::: {.column width="50%"}
+::: key-finding
+Do not worry about whether it is technically possible. I will tell you
+afterwards.
+
+The ideas that sound **obviously impossible** are often the most useful
+ones to hear — they tend to be the ones where the data already exists
+and nobody has joined it up.
+:::
+:::
+:::::
+
+## Links {.smaller}
+
+::: {style="font-size:0.95em"}
+- **The simulator** —
+  <https://adamdennett-bh-school-system.share.connect.posit.cloud/>
+- **The full analysis** —
+  <https://adamdennett.github.io/bh-school-system/>
+- **The national report** (*How to Pull the Right Lever*) —
+  <https://adamdennett.github.io/school_attainment_tool/>
+- **AI4CI** — <https://ai4ci.ac.uk/>
+- Everything is open source on GitHub, and every slide here renders from
+  source.
+:::
+
+::: key-finding
+Happy to be argued with — especially by anyone who thinks the model is
+wrong.
+
+**a.dennett@ucl.ac.uk**
+:::
+
+# Thank you {background-color="#993bff"}
