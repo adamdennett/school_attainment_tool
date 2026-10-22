@@ -87,6 +87,37 @@ EES_SOURCES <- list(
     note       = paste("Supplies first-language percentages (PNUMEAL),",
                        "free school meal shares and admissions policy for",
                        "the 2025/26 year.")
+  ),
+
+  exclusions_school = list(
+    kind       = "release_file",
+    release_id = "0e388e4d-3748-49a4-984c-08dece27c222",
+    file_id    = "32c873cf-30bd-4ec4-22ab-08decde94ad4",
+    file       = "exclusions_school_2024-25.zip",
+    publication = "Suspensions and permanent exclusions in England",
+    data_set   = "Suspensions and permanent exclusions - school level",
+    coverage   = "2006/07 to 2024/25, school level, 405,529 rows",
+    note       = paste("Headcount, permanent exclusions and suspensions with",
+                       "their rates, plus the count of pupils receiving one or",
+                       "more suspension. Runs one year behind the absence and",
+                       "KS4 series: 2025/26 exclusions are not published until",
+                       "summer 2027. Suppressed values appear as 'x'.")
+  ),
+
+  exclusions_la = list(
+    kind       = "release_file",
+    release_id = "0e388e4d-3748-49a4-984c-08dece27c222",
+    file_id    = "3a5fc88a-dc90-4e71-22b3-08decde94ad4",
+    file       = "exclusions_av_days_missed_2024-25.zip",
+    publication = "Suspensions and permanent exclusions in England",
+    data_set   = "Suspensions - average days missed",
+    coverage   = "National, regional and LA level by phase",
+    note       = paste("Carries sessions_susp and number_days_susp, which is",
+                       "what turns a count of suspensions into a count of",
+                       "missed sessions. The school-level absence file's",
+                       "sess_auth_excluded is the same quantity measured from",
+                       "the attendance register, and the two are compared in",
+                       "15_exclusions.R.")
   )
 )
 

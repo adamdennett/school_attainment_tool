@@ -1,0 +1,638 @@
+---
+title: "Exclusions and Attendance"
+subtitle: "How much of the attendance problem is exclusion? A secondary analysis alongside *How to Pull the Right Lever*."
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: exclusions_and_absence
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    fig-dpi: 150
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+---
+
+```{r setup}
+#| include: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+
+X <- readRDS(here::here("data", "exclusions_absence.rds"))
+
+INK    <- "#1a1a2e"
+PURPLE <- "#361a54"
+BRIGHT <- "#993bff"
+WARM   <- "#f56300"
+BAD    <- "#b2182b"
+GREY   <- "#666688"
+
+theme_note <- function(base = 13) {
+  theme_minimal(base_size = base) +
+    theme(
+      plot.title       = element_text(face = "bold", colour = PURPLE),
+      plot.subtitle    = element_text(colour = GREY, size = rel(0.9)),
+      plot.title.position = "plot",
+      axis.title       = element_text(colour = GREY, size = rel(0.9)),
+      panel.grid.minor = element_blank()
+    )
+}
+
+# "202526" -> "2025/26", which is how every DfE release labels the year.
+yr <- function(x) paste0(substr(x, 1, 4), "/", substr(x, 5, 6))
+
+nat  <- X$national
+last <- X$latest_absence
+lastx <- X$latest_exclusions
+n_now <- nat |> filter(time_period == last)
+n_17  <- nat |> filter(time_period == "201617")
+
+excl_row <- X$reasons |> filter(code == "sess_auth_excluded")
+ill_row  <- X$reasons |> filter(code == "sess_auth_illness")
+un_row   <- X$reasons |> filter(code == "sess_unauth_other")
+
+am <- X$att_models
+r2_abs_on_susp  <- am$r2[am$model == "Absence added on top of suspension"]
+r2_susp_on_abs  <- am$r2[am$model == "Suspension added on top of absence"]
+
+fe  <- X$abs_models |> filter(spec == "+ school fixed effects")
+raw <- X$abs_models |> filter(spec == "Raw")
+
+bh_la <- X$la |> filter(grepl("Brighton and Hove", la_name))
+bh    <- X$bh
+bh_now <- bh |> filter(time_period == lastx)
+
+fmt <- function(x, d = 2) formatC(x, format = "f", digits = d, big.mark = ",")
+ord <- function(n) {
+  n <- round(n)
+  paste0(n, ifelse(n %% 100 %in% 11:13, "th",
+                   c("th","st","nd","rd",rep("th",6))[n %% 10 + 1]))
+}
+```
+
+::: callout-important
+## The question
+
+Brighton & Hove's council has begun asking how exclusions from secondary
+schools work in the city. *How to Pull the Right Lever* found that
+attendance is the single largest school-level driver of GCSE attainment,
+so an interest in exclusions is a reasonable thing to follow from it:
+excluded pupils are not in school, and a pupil not in school does not
+learn.
+
+The question this note answers is narrower and more useful. **Of the
+attendance problem that exists, how much of it is exclusion?** If the
+answer is "most of it", exclusions policy is attendance policy and the
+council should act. If the answer is "a few per cent", then pressing
+schools on exclusions is a cheap substitute for the harder work, and
+risks moving the only lever a school fully controls in a direction that
+helps nobody.
+:::
+
+# The short answer
+
+In `r yr(last)`, across every state-funded secondary school in England:
+
+- Absence ran at **`r fmt(n_now$abs_rate)`%** of possible sessions.
+- Sessions missed because a pupil was suspended accounted for
+  **`r fmt(excl_row$pp_of_possible, 3)` percentage points** of that —
+  **`r fmt(excl_row$pct_of_absence, 1)`% of all absence**.
+- Illness accounted for **`r fmt(ill_row$pct_of_absence, 1)`%** and
+  unauthorised absence with no given reason for
+  **`r fmt(un_row$pct_of_absence, 1)`%**.
+
+If every suspension in England stopped tomorrow and none of those pupils
+missed a single further session, the secondary absence rate would fall
+from `r fmt(n_now$abs_rate)`% to `r fmt(n_now$abs_rate - excl_row$pp_of_possible)`%.
+That is the entire size of the prize, and it is an upper bound rather
+than an estimate, because it assumes a pupil who is no longer suspended
+attends perfectly instead.
+
+::: callout-note
+## Verdict
+
+**Exclusions are a real but small part of the attendance story, and
+they are a symptom of it rather than a cause of it.**
+
+They are not a red herring — the association between a school's
+suspension rate and its attendance is strong and worth understanding.
+But the association runs overwhelmingly through *the same pupils*,
+not through the suspensions themselves: schools that suspend more have
+more absence of **every** kind, including the kinds suspension cannot
+touch. Treating exclusions as the attendance lever would be acting on
+the symptom that is easiest to count and easiest to blame a school for.
+
+For Brighton & Hove specifically the case is weaker still. The city
+suspends **less** than most of England and has close to the **worst**
+attendance in the country. Whatever is driving absence here, it is not
+how often the schools suspend.
+:::
+
+# What the data is
+
+Three published sources, all Open Government Licence v3.0, assembled by
+[`R/15_exclusions.R`](https://github.com/adamdennett/school_attainment_tool/blob/main/R/15_exclusions.R).
+
+```{r tbl-sources}
+tibble::tribble(
+  ~Source, ~`What it gives`, ~Coverage,
+  "Pupil absence in schools in England (school level, autumn + spring)",
+  "Sessions missed, split by register code — including code E, *excluded, no alternative provision made*",
+  paste0("2016/17 to ", yr(last)),
+  "Suspensions and permanent exclusions in England (school level)",
+  "Headcount, suspensions, permanent exclusions, and pupils receiving one or more suspension",
+  paste0("2006/07 to ", yr(lastx)),
+  "This project's school characteristics panel",
+  "Attainment 8, disadvantage, EAL, SEN and full-year absence, as used throughout *Pulling the Right Lever*",
+  paste0(yr(min(X$panel_years)), " to ", yr(max(X$panel_years)))
+) |> knitr::kable()
+```
+
+Three things about this are worth saying plainly before any number is
+quoted.
+
+**Absence here is autumn and spring terms only.** That is the basis the
+DfE publishes early enough to reach `r yr(last)`, and it is the basis
+used in the `r yr(last)` addendum to the main report, so the two agree.
+Summer-term absence is excluded for every year equally.
+
+**The exclusions collection runs a year behind.** Suspensions for
+`r yr(last)` are not published until summer 2027. Everything joining
+exclusions to absence therefore stops at `r yr(lastx)`; the absence
+decomposition alone runs to `r yr(last)`.
+
+**Code E is measured from the attendance register, not inferred.** The
+central number in this note — how many sessions suspension actually
+costs — is not derived by multiplying suspensions by an assumed length.
+It is a column in the published absence file, counted by schools as they
+mark the register. `r fmt(X$national$schools[X$national$time_period == last], 0)`
+secondary schools report it.
+
+# How big is exclusion, as a share of absence?
+
+## Every reason, ranked
+
+```{r fig-reasons}
+#| fig-height: 5.6
+#| fig-cap: !expr 'paste0("Secondary absence in England by register code, ", yr(last), ", autumn and spring terms. Code E — suspension — is highlighted.")'
+d <- X$reasons |>
+  filter(sessions > 0) |>
+  mutate(reason = factor(reason, levels = rev(reason)),
+         is_e = code == "sess_auth_excluded")
+
+ggplot(d, aes(reason, pct_of_absence, fill = is_e)) +
+  geom_col(width = 0.72) +
+  geom_text(aes(label = sprintf("%.1f%%", pct_of_absence)),
+            hjust = -0.15, size = 3.4, colour = INK) +
+  scale_fill_manual(values = c("TRUE" = BAD, "FALSE" = "#c7bbd8"), guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.13)),
+                     labels = label_percent(scale = 1)) +
+  coord_flip() +
+  labs(x = NULL, y = "Share of all absent sessions",
+       title = "Suspension is the eighth-largest reason a secondary pupil is absent",
+       subtitle = paste0("England, state-funded secondary, ", yr(last),
+                         ". Illness alone is ",
+                         round(ill_row$pct_of_absence / excl_row$pct_of_absence),
+                         " times larger than suspension.")) +
+  theme_note(12)
+```
+
+Illness is the mountain. "Unauthorised, other" — the code that carries
+most persistent absence — is the second mountain. Suspension is the
+`r ord(which(X$reasons$code == "sess_auth_excluded"))` largest reason a
+secondary pupil in England is not in a lesson, behind being late and
+behind unauthorised family holidays.
+
+## And it has grown
+
+```{r fig-trend}
+#| fig-height: 4.8
+#| fig-cap: "Suspension's contribution to secondary absence, England, autumn and spring terms. Left: as a share of all absence. Right: in percentage points of possible sessions. 2019/20 is absent from the published series."
+p <- nat |> mutate(year = yr(time_period))
+
+g1 <- ggplot(p, aes(year, excl_share_of_abs, group = 1)) +
+  geom_line(colour = BAD, linewidth = 1.1) +
+  geom_point(colour = BAD, size = 2.2) +
+  scale_y_continuous(limits = c(0, NA), labels = label_percent(scale = 1)) +
+  labs(x = NULL, y = NULL, title = "Share of all absence") +
+  theme_note(11) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+g2 <- ggplot(p, aes(year, excl_pp, group = 1)) +
+  geom_line(colour = BAD, linewidth = 1.1) +
+  geom_point(colour = BAD, size = 2.2) +
+  scale_y_continuous(limits = c(0, NA)) +
+  labs(x = NULL, y = NULL, title = "Percentage points of possible sessions") +
+  theme_note(11) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+patchwork::wrap_plots(g1, g2) +
+  patchwork::plot_annotation(
+    title = "Exclusion absence has roughly doubled since 2016/17 — from a very low base",
+    theme = theme_note(12))
+```
+
+This is the honest part of the case for taking exclusions seriously.
+Suspension's contribution to absence has gone from
+`r fmt(n_17$excl_pp, 3)` percentage points in 2016/17 to
+`r fmt(n_now$excl_pp, 3)` in `r yr(last)`, and England's suspension rate
+has risen from `r fmt(bh$susp_rate_eng[bh$time_period == "201617"], 1)`
+per 100 pupils to `r fmt(bh$susp_rate_eng[bh$time_period == lastx], 1)`.
+Something real is happening in school behaviour policy.
+
+But the scale has not changed. Doubling a figure that was
+`r fmt(n_17$excl_share_of_abs, 1)`% of absence gets you to
+`r fmt(n_now$excl_share_of_abs, 1)`% of absence.
+
+## And nationally, it has risen while attendance improved
+
+```{r fig-divergence}
+#| fig-height: 4.6
+#| fig-cap: "Suspension rate against persistent absence, England secondary, indexed to 2021/22 = 100. The exclusions series stops a year earlier than absence."
+idx <- bh |>
+  select(time_period, susp = susp_rate_eng, pa = pa_rate_eng) |>
+  filter(time_period >= "202122") |>
+  mutate(across(c(susp, pa), ~100 * .x / .x[time_period == "202122"])) |>
+  pivot_longer(c(susp, pa), names_to = "series", values_to = "idx") |>
+  mutate(series = recode(series,
+                         susp = "Suspension rate",
+                         pa = "Persistent absence"),
+         year = yr(time_period))
+
+ggplot(idx, aes(year, idx, colour = series, group = series)) +
+  geom_hline(yintercept = 100, linetype = "31", colour = "grey60") +
+  geom_line(linewidth = 1.2) + geom_point(size = 2.6) +
+  scale_colour_manual(values = c("Suspension rate" = BAD,
+                                 "Persistent absence" = "#2166ac")) +
+  labs(x = NULL, y = "Index, 2021/22 = 100", colour = NULL,
+       title = "Since 2021/22, suspensions rose by half while persistent absence fell by a fifth",
+       subtitle = "If suspension were driving the attendance crisis, these two lines would move together.") +
+  theme_note(12) + theme(legend.position = "top")
+```
+
+Over the four years for which both series exist, England's secondary
+suspension rate rose by about half while persistent absence fell by
+about a fifth. That is not proof that suspensions do not matter — both
+series are moved by other things, and the post-COVID attendance recovery
+is doing most of the work on the blue line. But it is the opposite of
+what you would see if exclusions were the engine of the attendance
+problem, and anyone proposing that they are has to account for it.
+
+# Does a school that suspends more have worse attendance?
+
+Yes, strongly. This is the finding that makes the council's interest
+reasonable, and it deserves to be stated at full strength before it is
+taken apart.
+
+```{r fig-scatter}
+#| fig-height: 5.4
+#| fig-cap: !expr 'paste0("Every state-funded secondary school in England with at least 100 on roll, ", yr(lastx), ". Left: headline absence. Right: absence with every suspension session removed.")'
+s <- X$joined |>
+  filter(time_period == lastx, !is.na(susp_rate), susp_rate > 0) |>
+  mutate(bh = grepl("Brighton and Hove", la_name))
+
+sc <- function(yv, ylab, ttl) {
+  r <- cor(s$susp_rate, s[[yv]], use = "complete")
+  ggplot(s, aes(susp_rate, .data[[yv]])) +
+    geom_point(colour = "#b9a7ce", alpha = 0.35, size = 0.9) +
+    geom_point(data = filter(s, bh), colour = BAD, size = 2.1) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+                colour = PURPLE, linewidth = 0.9, linetype = "22") +
+    scale_x_continuous(trans = "log10",
+                       breaks = c(1, 3, 10, 30, 100, 300)) +
+    labs(x = "Suspensions per 100 pupils (log scale)", y = ylab,
+         title = ttl, subtitle = sprintf("r = %+.2f", r)) +
+    theme_note(11)
+}
+
+patchwork::wrap_plots(
+  sc("abs_rate", "Absence rate (%)", "All absence"),
+  sc("abs_ex_excl", "Absence rate (%)", "Absence excluding suspension sessions")) +
+  patchwork::plot_annotation(
+    title = "Schools that suspend more have more absence — of every kind, not just the kind suspension causes",
+    subtitle = "Brighton & Hove's ten secondary schools in red.",
+    theme = theme_note(12))
+```
+
+The right-hand panel is the whole argument. It removes every single
+session that a suspension caused, and the relationship barely moves:
+from r = `r sprintf("%+.2f", cor(s$susp_rate, s$abs_rate, use = "complete"))`
+to r = `r sprintf("%+.2f", cor(s$susp_rate, s$abs_ex_excl, use = "complete"))`.
+
+A school that suspends a lot is a school where a lot of pupils are
+absent for reasons that have nothing to do with being suspended. The
+suspension rate is **telling you about the pupils, not doing something
+to them**.
+
+## What survives a control for intake
+
+```{r tbl-models}
+X$abs_models |>
+  transmute(
+    Specification = spec,
+    `Extra absence per suspension per 100 pupils (pp)` = sprintf("%+.4f", beta),
+    `t` = sprintf("%.0f", t),
+    `R²` = sprintf("%.3f", r2),
+    `School-years` = format(n, big.mark = ",")) |>
+  knitr::kable(align = "lrrrr")
+```
+
+Each row adds a control. The outcome throughout is **absence with
+suspension sessions already removed**, so nothing here is mechanical.
+
+The last row is the one that matters. It carries a separate intercept
+for every school, so it no longer compares a school in Blackpool with a
+school in Surrey. It asks: when a school suspends more *than it usually
+does*, does it also have worse attendance *than it usually does*? That
+differences away everything fixed about the intake, the catchment, the
+building and the leadership.
+
+The answer is yes, and it is **`r fmt(fe$beta / raw$beta * 100, 0)`% the
+size of the raw association**. `r fmt(round(100 * (1 - fe$beta / raw$beta)), 0)`%
+of what the scatter plot shows is schools being different from each
+other, not suspension doing anything.
+
+::: callout-tip
+## What that coefficient means in practice
+
+A school that raises its suspension rate by 10 per 100 pupils — a large
+move, well beyond what most schools do in a year — is associated with
+**`r fmt(fe$beta * 10, 2)` percentage points** more non-suspension
+absence. Against a mean absence rate of around `r fmt(n_now$abs_rate, 1)`%.
+
+And even that is an association, not an effect. The plausible mechanism
+runs the other way: a pupil who has disengaged both stops attending and
+gets suspended, and a school whose cohort is unravelling does more of
+both in the same year.
+:::
+
+# Does any of this reach attainment?
+
+This is the step the council's theory needs. *Pulling the Right Lever*
+established that absence is the largest school-level predictor of GCSE
+attainment. If exclusions matter to attainment, they should add
+something to that model.
+
+```{r tbl-att}
+X$att_models |>
+  mutate(model = recode(model,
+    "Intake only" = "Intake only (disadvantage, EAL)",
+    "+ absence" = "Intake + absence",
+    "+ suspension rate" = "Intake + suspension rate",
+    "+ both" = "Intake + absence + suspension rate")) |>
+  transmute(Model = model, `R²` = sprintf("%.4f", r2),
+            `School-years` = format(n, big.mark = ",")) |>
+  knitr::kable(align = "lrr")
+```
+
+Read the last two rows as the test:
+
+- Starting from a model that already has the suspension rate in it,
+  **adding absence raises R² by `r fmt(r2_abs_on_susp, 3)`**.
+- Starting from a model that already has absence in it, **adding the
+  suspension rate raises R² by `r fmt(r2_susp_on_abs, 3)`**.
+
+Absence does about **`r fmt(r2_abs_on_susp / r2_susp_on_abs, 0)` times as
+much work** as suspension in explaining what a school's cohort gets at
+GCSE. Suspension is not worthless — the coefficient is negative and
+statistically significant on 12,000-odd school-years, as almost anything
+is at that sample size — but once you know a school's absence rate,
+knowing how often it suspends tells you very nearly nothing further.
+
+# Brighton & Hove
+
+## The city suspends below average and attends near the bottom
+
+```{r fig-la}
+#| fig-height: 5.4
+#| fig-cap: !expr 'paste0("Local authorities with more than 2,000 secondary pupils, ", yr(lastx), ". Brighton & Hove in red.")'
+la <- X$la |> mutate(bh = grepl("Brighton and Hove", la_name))
+
+ggplot(la, aes(susp_rate, abs_rate)) +
+  geom_point(colour = "#b9a7ce", alpha = 0.6, size = 1.8) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+              colour = PURPLE, linewidth = 0.8, linetype = "22") +
+  geom_point(data = filter(la, bh), colour = BAD, size = 3.6) +
+  ggrepel::geom_text_repel(data = filter(la, bh), aes(label = la_name),
+                           colour = BAD, fontface = "bold", size = 4,
+                           nudge_y = 0.5, nudge_x = 6) +
+  labs(x = "Suspensions per 100 secondary pupils",
+       y = "Absence rate (%)",
+       title = "Brighton & Hove: among the lowest suspenders, among the worst attenders",
+       subtitle = sprintf(
+         "%.0f of %d local authorities suspend more than Brighton & Hove. Only %.0f have worse attendance.",
+         bh_la$rank_susp - 1, bh_la$n_la, bh_la$rank_abs - 1)) +
+  theme_note(12)
+```
+
+This is the finding that should settle the question locally.
+
+Brighton & Hove is the **`r ord(bh_la$rank_abs)` worst** of
+`r bh_la$n_la` local authorities for secondary absence, at
+`r fmt(bh_la$abs_rate)`% against an England figure of
+`r fmt(bh_now$abs_rate_eng)`%. On suspensions it ranks
+**`r ord(bh_la$rank_susp)`** — meaning `r bh_la$rank_susp - 1` local
+authorities suspend *more* than it does, and it sits comfortably in the
+lower half of the country at `r fmt(bh_la$susp_rate, 1)` suspensions per
+100 pupils against England's `r fmt(bh_now$susp_rate_eng, 1)`.
+
+Exclusion sessions account for `r fmt(bh_la$excl_pp, 3)` percentage
+points of the city's `r fmt(bh_la$abs_rate)`% absence rate — about
+**`r fmt(100 * bh_la$excl_pp / bh_la$abs_rate, 1)`% of it**, lower than
+the national share of `r fmt(n_now$excl_share_of_abs, 1)`%.
+
+A city that suspends less than most of England and attends worse than
+almost all of it does not have an exclusions-driven attendance problem.
+It has an attendance problem.
+
+## Permanent exclusion is close to extinct here
+
+```{r tbl-bh}
+bh |>
+  transmute(Year = yr(time_period),
+            `Suspensions per 100` = sprintf("%.1f", susp_rate_bh),
+            `England` = sprintf("%.1f", susp_rate_eng),
+            `Permanent exclusions` = perm_bh,
+            `Absence (%)` = sprintf("%.2f", abs_rate_bh),
+            `England ` = sprintf("%.2f", abs_rate_eng),
+            `of which suspension (pp)` = sprintf("%.3f", excl_pp_bh),
+            `Persistent absence (%)` = sprintf("%.1f", pa_rate_bh)) |>
+  knitr::kable(align = "lrrrrrrr")
+```
+
+Across ten secondary schools and roughly
+`r format(round(bh_la$headcount, -2), big.mark = ",")` pupils, the city
+permanently excluded `r bh$perm_bh[bh$time_period == "201617"]` children
+in 2016/17, `r bh$perm_bh[bh$time_period == "202122"]` in 2021/22, none
+at all in 2023/24, and `r bh$perm_bh[bh$time_period == lastx]` in
+`r yr(lastx)`. Whatever problem the city has, it is not that its schools
+are permanently excluding children.
+
+Note also the direction of travel. Between 2021/22 and `r yr(lastx)` the
+city's suspension rate rose from `r fmt(bh$susp_rate_bh[bh$time_period == "202122"], 1)`
+to `r fmt(bh_now$susp_rate_bh, 1)` per 100 — and its persistent absence
+*fell*, from `r fmt(bh$pa_rate_bh[bh$time_period == "202122"], 1)`% to
+`r fmt(bh_now$pa_rate_bh, 1)`%. The two moved in opposite directions,
+here as nationally.
+
+## School by school
+
+```{r tbl-bh-schools}
+X$bh_schools |>
+  filter(time_period == lastx) |>
+  arrange(desc(susp_rate)) |>
+  transmute(School = sub(" (School|Catholic School|High School|Community Academy|School and Sixth Form Centre)$", "", school_name),
+            `On roll` = format(round(headcount), big.mark = ","),
+            `Susp. per 100` = sprintf("%.1f", susp_rate),
+            `Pupils suspended (%)` = sprintf("%.1f", one_plus_susp_rate),
+            `Perm. excl.` = perm_excl,
+            `Absence (%)` = sprintf("%.2f", abs_rate),
+            `of which susp. (pp)` = sprintf("%.2f", excl_pp),
+            `Persistent absence (%)` = sprintf("%.1f", pa_rate),
+            `Attainment 8` = sprintf("%.1f", att8)) |>
+  knitr::kable(align = "lrrrrrrrr")
+```
+
+Three things stand out, and all three argue the same way.
+
+**Longhill is the one school where the mechanical effect is visible at
+all.** It suspends far more than any other school in the city, and
+suspension costs it
+`r fmt(X$bh_schools$excl_pp[X$bh_schools$time_period == lastx & grepl("Longhill", X$bh_schools$school_name)], 2)`
+percentage points of attendance. Against an absence rate of
+`r fmt(X$bh_schools$abs_rate[X$bh_schools$time_period == lastx & grepl("Longhill", X$bh_schools$school_name)], 1)`%
+and persistent absence at
+`r fmt(X$bh_schools$pa_rate[X$bh_schools$time_period == lastx & grepl("Longhill", X$bh_schools$school_name)], 0)`%
+of its pupils. Even at the city's extreme, suspension is about
+`r fmt(100 * X$bh_schools$excl_pp[X$bh_schools$time_period == lastx & grepl("Longhill", X$bh_schools$school_name)] / X$bh_schools$abs_rate[X$bh_schools$time_period == lastx & grepl("Longhill", X$bh_schools$school_name)], 0)`%
+of the problem.
+
+**Brighton Aldridge suspends below the city average and has the city's
+second-worst attendance.** Its persistent absence is
+`r fmt(X$bh_schools$pa_rate[X$bh_schools$time_period == lastx & grepl("^Brighton Aldridge", X$bh_schools$school_name)], 0)`%
+of pupils on a suspension rate of
+`r fmt(X$bh_schools$susp_rate[X$bh_schools$time_period == lastx & grepl("^Brighton Aldridge", X$bh_schools$school_name)], 1)`
+per 100 — a seventh of Longhill's. The school with the best value added in
+the city, serving the most disadvantaged intake, is not solving its
+attendance problem by suspending, and is not causing it by suspending
+either.
+
+**Patcham reports zero suspensions, four years running.** On a roll of
+about
+`r format(round(X$bh_schools$headcount[X$bh_schools$time_period == lastx & grepl("Patcham", X$bh_schools$school_name)], -1), big.mark = ",")`,
+in a school that recorded 193 suspensions in 2006/07. Four consecutive
+exact zeros is unusual enough that it may reflect recording practice as
+much as policy, and it would be worth the council asking — but taken at
+face value it is the cleanest possible test of the theory, and Patcham's
+absence rate of
+`r fmt(X$bh_schools$abs_rate[X$bh_schools$time_period == lastx & grepl("Patcham", X$bh_schools$school_name)], 1)`%
+is good for the city without being exceptional.
+
+# What this does not show
+
+Four honest limits, because the finding is only useful if it survives
+them.
+
+**This is about suspension, not about the children suspended.** The
+claim here is about aggregates: suspension is a small share of total
+absence. For an individual child who is suspended repeatedly, the
+disruption is serious, the association with poor outcomes is severe, and
+nothing in this note argues otherwise. A policy aimed at the few hundred
+children in this city with repeat suspensions can be worth doing on its
+own merits while being irrelevant to the city's attendance rate.
+
+**Permanent exclusion does not appear in a school's absence at all.**
+A permanently excluded pupil comes off the roll, so their subsequent
+absence belongs to alternative provision or to the next school. The
+figures above therefore understate exclusion's total effect on
+attendance in the system — but permanent exclusion is running at
+`r bh$perm_bh[bh$time_period == lastx]` child a year across the whole of
+secondary Brighton & Hove, so the understatement is not large here.
+
+**Nor do off-rolling or managed moves.** A pupil moved off a roll
+informally leaves no trace in either dataset. If the council's real
+interest is in that, exclusions data is not where it will be found, and
+the school-level absence data will not find it either. This is a genuine
+gap and it is the one question in this area where the published data
+cannot answer the council.
+
+**None of the models here identify a causal effect.** They establish
+that the association between suspension and non-suspension absence
+survives controls and shrinks dramatically under school fixed effects.
+They cannot rule out that some of what remains is causal. What they do
+rule out is that it is *large*.
+
+# What would be more use
+
+If the council's underlying concern is attendance — and on the evidence
+of *Pulling the Right Lever* it should be — then the published data
+points somewhere else entirely.
+
+`r fmt(ill_row$pct_of_absence, 1)`% of secondary absence is illness and
+`r fmt(un_row$pct_of_absence, 1)`% is unauthorised with no given reason.
+Between them they are
+`r fmt(ill_row$pct_of_absence + un_row$pct_of_absence, 0)`% of the
+problem. Persistent absence in Brighton & Hove sits at
+`r fmt(bh_now$pa_rate_bh, 1)`% of secondary pupils — more than one child
+in four missing at least a tenth of their schooling.
+
+Three questions the same data could answer, and which nobody has asked:
+
+1. **Which children?** Persistent absence is heavily concentrated. A
+   pupil-level view the council already holds would say whether the same
+   children are persistently absent year on year, and what else is true
+   of them.
+2. **How far do they travel?** The city's school system work shows
+   disadvantaged children in Brighton & Hove travel further than their
+   classmates, and longer journeys are associated with lower attendance.
+   That is a lever the council controls directly, through catchments
+   and admissions, and it has never been costed against attendance.
+3. **What happens to attendance after a suspension?** The data to answer
+   this is in the council's own attendance returns, not in any DfE
+   publication. If suspension really does start a spiral, that is where
+   it would show up — and it would be a far better argument than the
+   aggregate one.
+
+::: callout-important
+## The one-line answer
+
+Exclusions matter to the children they happen to, and they are worth
+understanding on their own terms. As an explanation of Brighton &
+Hove's attendance problem, they are **about
+`r fmt(100 * bh_la$excl_pp / bh_la$abs_rate, 0)`% of it** — in a city
+that already suspends less than three-quarters of England while
+attending worse than all but `r bh_la$rank_abs - 1` local authorities in
+it.
+
+If the city wants attendance to improve, exclusions are not where the
+work is.
+:::
+
+---
+
+::: {style="font-size:0.85em; color:#666688;"}
+Built `r format(Sys.Date(), "%d %B %Y")` from
+`R/15_exclusions.R`. Sources: DfE *Pupil absence in schools in England*
+(school level, autumn and spring terms, `r yr(last)`); DfE *Suspensions
+and permanent exclusions in England* (school level, `r yr(lastx)`); and
+this project's school characteristics panel. All DfE data is Open
+Government Licence v3.0. No pupil-level data is used anywhere in this
+note.
+:::
