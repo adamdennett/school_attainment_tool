@@ -19,7 +19,11 @@ format:
     fig-cap-location: bottom
     fig-width: 9
     fig-height: 5.5
-    fig-dpi: 150
+    # 150 dpi put over two megabytes of base64 PNG into a self-contained
+    # page, and mobile Chrome went blank on the companion exclusions note
+    # for the same reason. 108 keeps these legible at full width at well
+    # under half the bytes. See R/16_mobile_safe_html.R for the CSS half.
+    fig-dpi: 108
     link-external-newwindow: true
     df-print: kable
     embed-resources: true

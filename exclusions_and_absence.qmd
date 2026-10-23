@@ -19,7 +19,12 @@ format:
     fig-cap-location: bottom
     fig-width: 9
     fig-height: 5.5
-    fig-dpi: 150
+    # 150 dpi put about a megabyte of base64 PNG into a self-contained page
+    # that already carries a megabyte of inlined CSS, and mobile Chrome went
+    # blank on it. 108 keeps these plots legible at full width on a desktop
+    # and on a phone, at under half the bytes. See R/16_mobile_safe_html.R,
+    # which deals with the CSS half of the same problem.
+    fig-dpi: 108
     link-external-newwindow: true
     df-print: kable
     embed-resources: true
