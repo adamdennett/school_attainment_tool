@@ -1,20 +1,22 @@
 /*-- scss:defaults --*/
 
 // UCL Brand Colours (from official 2024 PPTX template)
-$ucl-dark-purple:   #3A1857;
-$ucl-bright-purple: #993AFF;
-$ucl-mid-purple:    #B982FF;
-$ucl-light-purple:  #DDBDFF;
-$ucl-pale-purple:   #EEDEFF;
-$ucl-heritage-blue: #30D6FF;
-$ucl-off-white:     #FAFAFA;
-$ucl-light-grey:    #E8E8E8;
-$ucl-dark-red:      #781C1C;
-$ucl-pink:          #ED357D;
-$ucl-orange:        #F56300;
-$ucl-teal:          #00A19D;
-$ucl-dark-teal:     #005E5C;
-$ucl-deep-blue:     #002EA6;
+// !default so a deck can layer its own palette over this file without
+// forking it - see ucl-slides-blue.scss.
+$ucl-dark-purple:   #3A1857 !default;
+$ucl-bright-purple: #993AFF !default;
+$ucl-mid-purple:    #B982FF !default;
+$ucl-light-purple:  #DDBDFF !default;
+$ucl-pale-purple:   #EEDEFF !default;
+$ucl-heritage-blue: #30D6FF !default;
+$ucl-off-white:     #FAFAFA !default;
+$ucl-light-grey:    #E8E8E8 !default;
+$ucl-dark-red:      #781C1C !default;
+$ucl-pink:          #ED357D !default;
+$ucl-orange:        #F56300 !default;
+$ucl-teal:          #00A19D !default;
+$ucl-dark-teal:     #005E5C !default;
+$ucl-deep-blue:     #002EA6 !default;
 
 // Fonts — 42px is the revealjs default; good for readability
 $font-family-sans-serif: "UCL Sans", "Aptos", "Segoe UI", Helvetica, Arial, sans-serif;

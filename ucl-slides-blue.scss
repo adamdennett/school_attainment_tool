@@ -1,0 +1,94 @@
+/*-- scss:defaults --*/
+
+// Blue palette for the Brighton AI deck, so it matches the re-coloured
+// https://adamdennett.github.io/bh-school-system/ site rather than the
+// purple "How to Pull the Right Lever" one.
+//
+// Layered IN FRONT of ucl-slides-theme.scss, which declares the same
+// variables with !default:
+//
+//   theme: [default, ucl-slides-blue.scss, ucl-slides-theme.scss]
+//
+// Quarto combines scss:defaults blocks in reverse order, so the first file
+// listed wins. Nothing here touches the shared theme, and the four other
+// decks that load it are unaffected.
+//
+// The published UCL palette is dark purple, white and four more purples,
+// plus heritage blue - so leading with the blue is the only way to tell
+// two UCL properties apart inside it. The deep navy steps come from UCL's
+// own blue ramp (--c-p-blue-13/14/15 on ucl.ac.uk), which anchors heritage
+// blue; they are from the web design system rather than the seven named
+// brand colours.
+//
+// Heritage blue is a bright cyan: 1.9:1 on white, so it is never body
+// text here. It appears only on dark grounds and as rules and accents,
+// which is also what UCL's own guidance asks for.
+
+$ucl-navy-deep:  #17204D;   // blue-15
+$ucl-navy:       #1F2B66;   // blue-14
+$ucl-navy-mid:   #1F4599;   // blue-13
+$ucl-blue:       #1252B2;   // blue-12
+$ucl-blue-brt:   #0570E3;   // blue-11
+
+// The shared theme's rules are written against these names, so remapping
+// them recolours the whole deck without a line of its layout changing.
+// "dark purple" becomes the deep navy, "bright purple" the mid navy that
+// white text sits on safely, and the pale tints become blue washes.
+$ucl-dark-purple:   $ucl-navy-deep;
+$ucl-bright-purple: $ucl-navy-mid;
+$ucl-mid-purple:    $ucl-blue-brt;
+$ucl-light-purple:  #80B9FF;   // blue-07
+$ucl-pale-purple:   #E5F1FF;   // blue-03
+
+// Quarto puts the LAST theme file's defaults first, so by the time this
+// block runs the shared theme has already resolved its own derived
+// variables - $link-color and the rest were computed from the purples
+// before the remapping above reached them. Everything in its scss:rules
+// picks up the new values; these five do not, and drive the progress bar,
+// the navigation arrows, the selection highlight and any heading that
+// falls through to revealjs' own --r-heading-color. So they are set again
+// here, after the fact.
+$presentation-heading-color: $ucl-navy-deep;
+$link-color:                 $ucl-blue;
+$link-color-hover:           $ucl-blue-brt;
+$selection-bg:               #E5F1FF;
+$code-block-bg:              #eef3fa;
+
+/*-- scss:rules --*/
+
+// Section dividers and the title slide carry a background colour set in
+// the deck's own YAML, and the headings on them must stay white.
+.reveal section[data-background-color]:not(#title-slide) h1 {
+  color: #ffffff !important;
+  border-bottom: none;
+}
+
+// The theme underlines h2 in what was bright purple. Heritage blue is the
+// signature colour of the matching site, and a 3px rule is exactly the
+// "accent or occasional highlight" use UCL asks for.
+.reveal h2 {
+  border-bottom-color: $ucl-heritage-blue !important;
+}
+
+// Links sit on the off-white body, so they take the navy rather than the
+// heritage blue, which would fail contrast.
+.reveal a {
+  color: $ucl-blue;
+
+  &:hover { color: $ucl-blue-brt; }
+}
+
+// The key-finding panel: a blue wash with a heritage-blue edge.
+.reveal .key-finding {
+  background: $ucl-pale-purple;
+  border-left-color: $ucl-heritage-blue;
+}
+
+// Bold text takes the heading colour, which is fine on the off-white body
+// slides and invisible on the dark ones - the title slide's "Putting the
+// **AI** in **A**ppl**I**ed" read as navy on navy. On anything carrying a
+// background colour, bold goes white.
+.reveal section[data-background-color] strong,
+.reveal #title-slide strong {
+  color: #ffffff;
+}

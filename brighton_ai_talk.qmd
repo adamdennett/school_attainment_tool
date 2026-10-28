@@ -1,16 +1,16 @@
 ---
 title: "Can we model our way out of this?"
-subtitle: "AI, collective intelligence, and the Brighton & Hove school system"
+subtitle: "Putting the **AI** in **A**ppl**I**ed Urban Modelling. AI, collective intelligence, and the Brighton & Hove school system"
 author:
   - name: Prof Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
 date: 2026-11-04
 date-format: "dddd D MMMM YYYY"
 title-slide-attributes:
-  data-background-color: "#993bff"
+  data-background-color: "#1f4599"
 format:
   revealjs:
-    theme: [default, ucl-slides-theme.scss]
+    theme: [default, ucl-slides-blue.scss, ucl-slides-theme.scss]
     logo: slides_assets/ucl-logo-purple.png
     slide-number: true
     progress: true
@@ -43,11 +43,11 @@ library(ggplot2)
 library(dplyr)
 
 INK    <- "#1a1a2e"
-PURPLE <- "#361a54"
-BRIGHT <- "#993bff"
+PURPLE <- "#17204d"
+BRIGHT <- "#1f4599"
 WARM   <- "#f56300"
 CYAN   <- "#30d6ff"
-PALE   <- "#eedeff"
+PALE   <- "#e5f1ff"
 GREY   <- "#666688"
 
 theme_talk <- function(base = 15) {
@@ -360,7 +360,7 @@ ordinal <- function(n) paste0(n, ifelse(n %% 100 %in% 11:13, "th",
                                 c("th", "st", "nd", "rd", rep("th", 6))[n %% 10 + 1]))
 
 INK <- "#1f3b57"; MUTED <- "#6b7785"; ACCENT <- "#2a78d6"; WARM <- "#d95f02"; BAD <- "#b2182b"
-PURPLE <- "#3A1857"; PINK <- "#ED357D"
+PURPLE <- "#17204d"; PINK <- "#ED357D"
 theme_bhs <- function(base = 16)
   ggplot2::theme_minimal(base) +
   ggplot2::theme(panel.grid.major.y = ggplot2::element_blank(),
@@ -474,7 +474,6 @@ GUIDE <- "https://www.brighton-hove.gov.uk/schools-and-learning/school-policies-
 
 ```
 
-
 ```{r brighton-ai-extras}
 #| include: false
 # ---- The open-allocation question, read off the model ----------------
@@ -506,20 +505,20 @@ y7_end_y  <- max(rc$projection$entry_year)
 y7_drop   <- round((y7_peak - y7_end) / 10) * 10
 ```
 
-# Hello {background-color="#361a54"}
+# Hello {background-color="#17204d"}
 
 ## Who I am {.smaller .intro}
 
-:::::: columns
-::: {.column width="56%"}
+::::::: columns
+:::: {.column width="56%"}
 - **Professor of Urban Analytics** at UCL's Centre for Advanced Spatial
   Analysis. I build models of cities — of migration, of housing, of
   where people go to work, to shop, and to school.
-- I have been doing it for **twenty years**. The maths on the later
-  slides is not new; some of it is older than I am.
+- I have been doing it for **twenty years**. but maths on the later
+  slides is even older than me!
 - I also **live here**, and I have a daughter who has just applied for a
   secondary school place.
-- That second fact is why this talk exists. I got dragged into a local
+- That second fact is why I'm here today. I got dragged into a local
   argument, and could not leave it alone.
 
 ::: key-finding
@@ -527,7 +526,7 @@ Two years ago Brighton & Hove consulted on changing secondary school
 admissions. I read the consultation as a parent, got annoyed as a
 modeller, and have been working on it ever since.
 :::
-:::
+::::
 
 :::: {.column width="44%"}
 [![](slides_assets/lever.png){width="94%"}](https://adamdennett.github.io/school_attainment_tool/)
@@ -535,14 +534,17 @@ modeller, and have been working on it ever since.
 ::: {style="font-size:0.74em; color:#666688;"}
 The first thing that came out of it: a national study of what actually
 drives GCSE attainment, and whether the council's policies could
-plausibly move it.
+plausibly move it (they can't and will probably make things worse).
+
+Paper about to come out in ***Research Papers in Education*** (currently
+being typeset)
 :::
 ::::
-::::::
+:::::::
 
 ## Where this work sits {.smaller}
 
-::::::: columns
+:::::::: columns
 :::: {.column width="64%"}
 The **UKRI National AI Research Hub for Collective Intelligence**
 (**AI4CI**) — a five-year, £12m EPSRC programme asking a question that
@@ -570,15 +572,14 @@ human–AI teaming. I brought it a school system.
 :::
 
 ::: {style="font-size:0.78em; color:#666688; margin-top:1rem;"}
-Collective intelligence is the thing a group has that none of its
-members do. It is also the thing a group *loses* when everybody is
-well-informed about a different part of the problem and nobody can see
-the whole.
+Collective intelligence leans into the wisdom of the crowd - the idea
+that a diverse group can consistently outperform even the smartest
+single expert (or local Councillor!).
 :::
 :::::
-:::::::
+::::::::
 
-# A thorny local problem {background-color="#361a54"}
+# A thorny local problem {background-color="#17204d"}
 
 ## The Brighton and Hove Secondary School System
 
@@ -835,24 +836,25 @@ if (knitr::is_html_output()) {
 ```
 
 ::: {style="font-size:0.74em; color:#666688; text-align:center; margin-top:-0.4rem;"}
-Ten schools, six catchments, and a city two miles deep between the sea
-and the Downs. **A closed system with hard edges:** every child the
-council places has to go somewhere, so every policy that helps one
-school takes children from another.
+Ten schools, six catchments. **A (mostly) closed system with hard
+edges:** every child the council places has to go somewhere. Some
+pockets of deprivation in East of the city.
 :::
 
-## Two years ago, the argument was about fairness {.smaller}
+## Two years ago, the argument was about attainment and 'fairness' {.smaller}
 
 The 2024 reforms changed catchment boundaries, introduced a free school
-meals priority, and held back **5% of places at every school for "open
-allocation"** — children from anywhere in the city.
+meals priority, and held back **5% of places at central schools for
+"open allocation"** — children from anywhere in the city - potentially
+forcing some children to attend schools outside of their catchment where
+schools over-subscribed.
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
 **The council's stated aim**
 
 Reduce the concentration of disadvantaged pupils in a few schools, and
-so narrow the attainment gap.
+so *narrow the attainment gap*. Latterly - increase 'fairness'.
 
 **What I went and checked**
 
@@ -860,55 +862,30 @@ Every secondary school in England, five years of data, a model of what
 actually predicts a GCSE cohort's results.
 :::
 
-::: {.column width="50%"}
+:::: {.column width="50%"}
 ::: key-finding
 **What the evidence says**
 
 - Only about **15%** of the variation in a child's GCSE results is down
   to the school. The rest is the child, the family, and what happened
   before they arrived.
-- **Absence is the single biggest lever** anyone in this city has — and
-  it was not in the consultation at all.
+- **Absence is biggest issue in the city and most associated with
+  attainment** but was not in the consultation at all.
 - For disadvantaged pupils, concentration is **not** the harm it is
   assumed to be. Nationally, once absence and prior attainment are
   accounted for, they do slightly *better* in schools with more
   disadvantaged pupils.
 :::
-:::
-:::::
+::::
+::::::
 
-## And families are choosing on the wrong number {.smaller}
+***Is it fair to promise benefits not supported by the evidence, ignore
+the dis-benefits and knowingly makes the lives of a few unlucky children
+worse in the process?***
 
-```{r choice-plot}
-#| fig-height: 4.4
-pl <- function(x, xlab, r2, colr) {
-  ggplot(cd, aes(.data[[x]], wpp)) +
-    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = colr,
-                linetype = "22", linewidth = 0.9) +
-    geom_point(size = 3.2, colour = colr) +
-    geom_text_repel(aes(label = short), size = 3.3, seed = 3, colour = INK) +
-    scale_y_log10() +
-    labs(x = xlab, y = if (x == "att8") "Preferences per place (log)" else NULL,
-         subtitle = sprintf("R² = %.2f", r2)) +
-    theme_slide
-}
-(pl("att8", "Headline Attainment 8\n(mostly describes who the school admits)", r2_att8, BAD) |
- pl("va", "Value added\n(what the school actually contributes)", r2_va, "#2166ac")) +
-  plot_annotation(
-    title = "Demand follows the headline score, not what a school adds",
-    subtitle = sprintf("Ten city schools, five-year means. Each point of Attainment 8 goes with about %.0f%% more preferences per place.", att8_pct),
-    theme = theme_slide)
-```
 
-::: {style="font-size:0.62em; color:#555;"}
-And the council's own [admissions guide](`r GUIDE`) tells parents to
-look at exam results and Ofsted reports. A school with a more
-disadvantaged intake posts a lower headline score, so fewer families
-choose it, so its intake gets more disadvantaged, so the score falls
-again. **The advice works against the policy.**
-:::
 
-## But while we were arguing, the ground moved {.smaller}
+## But while we were arguing, the ground was moving {.smaller}
 
 ```{r cohort-plot}
 #| fig-width: 11
@@ -1013,7 +990,7 @@ turns down, and the school at the edge of the city gets the fall first.
 
 ## So here is the actual problem {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="54%"}
 In ten years this city has to run a school system for roughly
 **`r fmt_n(y7_drop)` fewer children a year** than it has now.
@@ -1029,7 +1006,7 @@ Every one of those makes somebody's journey longer, or takes a school
 out of somebody's community.
 :::
 
-::: {.column width="46%"}
+:::: {.column width="46%"}
 ::: key-finding
 **And there is no long-term plan.**
 
@@ -1041,99 +1018,132 @@ Nobody has published an account of how the whole system behaves, so
 nobody can say what any one of these decisions does to the others.
 :::
 
-That is not a conspiracy. It is just **hard**, and nobody had the tools.
-:::
-:::::
+Hopefully not a conspiracy. It is just **hard**, and nobody had the
+tools to think strategically.
+::::
+::::::
 
-# We need to be able to try things {background-color="#361a54"}
+# We need to be able to try things {background-color="#17204d"}
 
-## One option at a time is the wrong unit {.smaller}
+## Problems with Piecemeal Policy {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
 **How it works now**
 
-A consultation proposes **one** change. People respond for or against.
-It is decided. Eighteen months later the next one arrives, and nobody
-checks what the last one did.
+- A consultation proposes some changes and provides little supporting
+  evidence.
+- People respond for or against.
+- The council does what it wants anyway.
+- Twelve months later the next consultation arrives, and nobody has
+  checked what the last one did.
 
 The system, meanwhile, is **interacting**. Move a catchment and demand
 shifts at four schools. Cut an admission number and the children do not
 vanish — they turn up somewhere else.
 :::
 
-::: {.column width="50%"}
-**What we should be able to do**
+:::: {.column width="50%"}
+**How it could work**
 
-Ask *"what if?"* twenty times before lunch. Stack policies and watch
-them compound. Find the combinations that work, and the ones that
-quietly cost somebody something.
+- Ask *"what if?"* twenty times before lunch.
+- Stack simulated policies and watch them compound over time.
+- Find the combinations that work, and the ones that cost somebody
+  something.
+- Share this knowledge with everyone who is being asked to have an
+  opinion on a proposal in a consultation
 
 ::: key-finding
 Run the experiment **in silico**, where being wrong costs nothing —
 instead of running it on a cohort of eleven-year-olds, where being wrong
-costs them a school.
+costs them a place in a local school.
 :::
-:::
-:::::
+::::
+::::::
 
-## A question I could not answer, and now can {.smaller}
+<!-- ## A question I could not answer, and now can {.smaller} -->
 
-> *"Is open allocation — the council's marquee admissions reform — going
-> to accelerate the closure of a school at the edge of the city that the
-> evidence says will not be filled from the centre anyway?"*
+<!-- > *"Is open allocation — the council's marquee admissions reform — going -->
 
-```{r p6-table}
-tibble::tibble(
-  Scenario = c("No open allocation at all",
-               "Today: 5% of places (the 2024 settlement)",
-               "20% of places (as originally consulted on)"),
-  `Longhill 2026` = sprintf("%.0f", c(p6("p6_off","lh_intake"), p6("today","lh_intake"), p6("p6_20","lh_intake"))),
-  `Longhill 2035` = sprintf("%.0f", c(p6("p6_off","lh_intake",2035), p6("today","lh_intake",2035), p6("p6_20","lh_intake",2035))),
-  `Children displaced` = sprintf("%.0f", c(p6("p6_off","displaced"), p6("today","displaced"), p6("p6_20","displaced"))),
-  `Segregation index` = sprintf("%.3f", c(p6("p6_off","gorard"), p6("today","gorard"), p6("p6_20","gorard")))) |>
-  knitr::kable(align = "lrrrr")
-```
+<!-- > to accelerate the closure of a school at the edge of the city that the -->
 
-::::: columns
-::: {.column width="50%"}
-I built the tool half-expecting it to indict the policy. **It does not.**
-Switching open allocation off entirely gives Longhill about **one extra
-child**. At the 5% the council settled on, it is close to a rounding
-error.
-:::
+<!-- > evidence says will not be filled from the centre anyway?"* -->
 
-::: {.column width="50%"}
-::: key-finding
-But at the **20% originally consulted on**, it would have displaced
-**`r sprintf("%.1f times", p6_disp_mult)` as many children** and left
-the city *more* segregated, not less — the opposite of the stated aim.
+<!-- ```{r p6-table} -->
 
-And Longhill still falls to about **60 by 2035** under all three.
-**The policy is a sideshow. The demography is the story.**
-:::
-:::
-:::::
+<!-- tibble::tibble( -->
 
-# The tool {background-color="#361a54"}
+<!--   Scenario = c("No open allocation at all", -->
+
+<!--                "Today: 5% of places (the 2024 settlement)", -->
+
+<!--                "20% of places (as originally consulted on)"), -->
+
+<!--   `Longhill 2026` = sprintf("%.0f", c(p6("p6_off","lh_intake"), p6("today","lh_intake"), p6("p6_20","lh_intake"))), -->
+
+<!--   `Longhill 2035` = sprintf("%.0f", c(p6("p6_off","lh_intake",2035), p6("today","lh_intake",2035), p6("p6_20","lh_intake",2035))), -->
+
+<!--   `Children displaced` = sprintf("%.0f", c(p6("p6_off","displaced"), p6("today","displaced"), p6("p6_20","displaced"))), -->
+
+<!--   `Segregation index` = sprintf("%.3f", c(p6("p6_off","gorard"), p6("today","gorard"), p6("p6_20","gorard")))) |> -->
+
+<!--   knitr::kable(align = "lrrrr") -->
+
+<!-- ``` -->
+
+<!-- ::::: columns -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- I built the tool half-expecting it to indict the policy. **It does not.** -->
+
+<!-- Switching open allocation off entirely gives Longhill about **one extra -->
+
+<!-- child**. At the 5% the council settled on, it is close to a rounding -->
+
+<!-- error. -->
+
+<!-- ::: -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ::: key-finding -->
+
+<!-- But at the **20% originally consulted on**, it would have displaced -->
+
+<!-- **`r sprintf("%.1f times", p6_disp_mult)` as many children** and left -->
+
+<!-- the city *more* segregated, not less — the opposite of the stated aim. -->
+
+<!-- And Longhill still falls to about **60 by 2035** under all three. -->
+
+<!-- **The policy is a sideshow. The demography is the story.** -->
+
+<!-- ::: -->
+
+<!-- ::: -->
+
+<!-- ::::: -->
+
+# The tool {background-color="#17204d"}
 
 ## What it is {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="52%"}
-| The thing | Scale |
-|:---------------------------------|:---------------------|
-| Strategic analysis of the system | 9,712 lines of Quarto |
-| The model and data assembly | ~7,400 lines of R |
-| An interactive policy simulator | ~3,000 lines of Shiny |
-| Commits across six repositories | 805 |
+| The thing                        | Scale                  |
+|:---------------------------------|:-----------------------|
+| Strategic analysis of the system | 9,712 lines of Quarto  |
+| The model and data assembly      | \~7,400 lines of R     |
+| An interactive policy simulator  | \~3,000 lines of Shiny |
+| Commits across six repositories  | 805                    |
 
 Everything is **open**: the code, the data sources, the model, the
 write-up. Every number on every slide traces back to a line of code and
 a published source.
 :::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 ![](slides_assets/simulator-starting.png){.nostretch width="100%"}
 
 ::: {style="font-size:0.74em; color:#666688;"}
@@ -1141,66 +1151,65 @@ Sliders for attractiveness, a dropdown for what families read, controls
 for catchments, admission numbers, school locations and open allocation.
 Hit go and the whole city re-allocates.
 :::
-:::
-:::::
+::::
+::::::
 
 ## Where the data comes from {.smaller}
 
-::::: columns
-::: {.column width="50%"}
+::::::: columns
+::: {.column width="60%"}
 **Nothing here is private.** No pupil records, no data-sharing
-agreement, no permission required. All of it is published, and most of
-it is published badly.
+agreement, no permission required. All of it is published, and ***most
+of it is published badly.***
 
 - DfE performance tables and the statistics API — attainment, absence,
-  intake, workforce, finance
+  intake, workforce, finance 🤘
 - Council **allocation factsheets**, 2010 onwards — preferences and
-  offers, school by school, year by year
+  offers, school by school, year by year (dug out from buried URLs and
+  collated by me 😭)
 - The 2021 **Census** — where children actually live, postcode by
-  postcode
-- **OpenStreetMap** road network and the real **bus timetable**
-- Catchment boundaries, and one **Freedom of Information request**
+  postcode 🤘
+- **OpenStreetMap** road network and the real **bus timetable (GTFS)**
+- Catchment boundaries (traced by me 😭), and one **Freedom of
+  Information request** 💪
 :::
 
-::: {.column width="50%"}
+::::: {.column width="40%"}
 ::: key-finding
-The hard part was never getting the data. It was that a dozen sources
-do not share a key, do not share a year, do not share a school name, and
-change their format every two years.
+Data processing and curation from a dozen sources that do not share a key, do not share a year, do not share a school name, and change their format every two years, just the sort of thing Claude AI excels at.
 
-That is exactly the grinding, careful, enormously tedious work that has
+Exactly the grinding, careful, enormously tedious work that has
 historically eaten the entire budget of a project like this.
 :::
 
 ::: {style="font-size:0.8em; color:#666688; margin-top:0.8rem;"}
-If you want to replicate it for your city, you can. It is all in the
-repository, and the pipeline runs from a fresh clone.
-:::
+Everything open and downloadable from my github
 :::
 :::::
+:::::::
 
 ## The model underneath {.smaller}
 
 A **spatial interaction model** — the same family used for commuting,
-migration and retail catchments since the 1960s. It predicts how many
+migration and retail catchments since the 1970s. It predicts how many
 children flow from each neighbourhood to each school.
 
 $$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta}$$
 
-::::: columns
+:::::: columns
 ::: {.column width="52%"}
-| Term | What it is |
+| Term           | What it is                                    |
 |:---------------|:----------------------------------------------|
-| $T_{ij}$ | children from neighbourhood $i$ to school $j$ |
-| $O_i$ | children living in $i$ — 195 neighbourhoods |
-| $W_j$ | how attractive school $j$ is |
-| $c_{ij}$ | bus-and-walk journey time, $i$ to $j$ |
-| $e^{\gamma_h}$ | the catchment bonus |
-| $C_j$ | how much competition $j$ has nearby |
-| $A_i$ | the balancing term |
+| $T_{ij}$       | children from neighbourhood $i$ to school $j$ |
+| $O_i$          | children living in $i$ — 195 neighbourhoods   |
+| $W_j$          | how attractive school $j$ is                  |
+| $c_{ij}$       | bus-and-walk journey time, $i$ to $j$         |
+| $e^{\gamma_h}$ | the catchment bonus                           |
+| $C_j$          | how much competition $j$ has nearby           |
+| $A_i$          | the balancing term                            |
 :::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 It is **production-constrained**: $A_i$ forces every child living
 somewhere to end up somewhere. The model never invents or loses
 children; it only decides where they go.
@@ -1210,8 +1219,83 @@ That is what makes it useful for policy. Close a school, move one, cut
 its admission number — and the children **reappear somewhere else**, and
 the model tells you where.
 :::
+::::
+::::::
+
+## $W_j$ - What makes a school attractive? {.smaller}
+
+```{r choice}
+#| fig-height: 4.6
+pl <- function(x, xlab, r2, colr) {
+  ggplot(cd, aes(.data[[x]], wpp)) +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE, colour = colr,
+                linetype = "22", linewidth = 0.9) +
+    geom_point(size = 3.2, colour = colr) +
+    geom_text_repel(aes(label = short), size = 3.3, seed = 3, colour = INK) +
+    scale_y_log10() +
+    labs(x = xlab, y = if (x == "att8") "Preferences per place (log)" else NULL,
+         subtitle = sprintf("R² = %.2f", r2)) +
+    theme_slide
+}
+(pl("att8", "Headline Attainment 8", r2_att8, BAD) |
+ pl("va", "Value added (what the school contributes)", r2_va, "#2166ac")) +
+  plot_annotation(title = "Demand follows the headline score, not what a school adds",
+                  subtitle = sprintf("Ten city schools, five-year means. Each point of Attainment 8 goes with about %.0f%% more preferences per place.", att8_pct),
+                  theme = theme_slide)
+```
+
+::: {style="font-size:0.62em; color:#555;"}
+
+And the council's own [admissions guide](`r GUIDE`) tells parents to look at exam results and Ofsted reports. A school with a more disadvantaged intake posts a lower headline score, so fewer families 
+choose it, so its intake gets more disadvantaged, so the score falls again. **The advice works against the policy.**
+
 :::
-:::::
+
+## What cost - $c_{ij}$ - actually means {.smaller}
+
+```{r fig-route-baca}
+#| fig-cap: "One neighbourhood in the Stringer/Varndean catchment to BACA. Walking legs orange and dashed, bus legs blue. Routed on the real timetable at 08:00."
+gr <- bh_data("guide_routes.rds")
+BACA <- "Brighton Aldridge Community Academy"
+
+rt   <- gr$summary |> dplyr::filter(school == BACA)
+legs <- gr$legs    |> dplyr::filter(school == BACA) |>
+  dplyr::mutate(mode = ifelse(leg_mode == "WALK", "Walk", "Bus"))
+bus  <- legs |> dplyr::filter(mode == "Bus")
+
+sch <- inp$schools |> dplyr::filter(city) |>
+  sf::st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+catch_g <- sf::st_read(here::here("data", "optionZ_Mar25.geojson"), quiet = TRUE) |>
+  sf::st_transform(4326)
+bb <- sf::st_bbox(legs)
+
+leaflet(width = "100%", height = 440) |>
+  add_basemap() |>
+  addPolygons(data = catch_g, fill = FALSE, color = "#555555",
+              weight = 1, opacity = 0.45) |>
+  addPolylines(data = dplyr::filter(legs, mode == "Walk"), color = "#e08214",
+               weight = 5, opacity = 0.9, dashArray = "6 6", label = ~"Walk") |>
+  addPolylines(data = dplyr::filter(legs, mode == "Bus"), color = "#2166ac",
+               weight = 5, opacity = 0.9, label = ~paste("Bus", route)) |>
+  addCircleMarkers(data = dplyr::filter(sch, name != BACA), radius = 3,
+                   color = "#777777", weight = 1, fillColor = "#cccccc",
+                   fillOpacity = 0.9, label = ~short) |>
+  addCircleMarkers(data = dplyr::filter(sch, name == BACA), radius = 8,
+                   color = "#111111", weight = 2, fillColor = "#ffffff",
+                   fillOpacity = 1, label = ~short) |>
+  addCircleMarkers(lng = gr$origin$lon, lat = gr$origin$lat, radius = 8,
+                   color = "#111111", weight = 2, fillColor = "#b2182b",
+                   fillOpacity = 1, label = "Home") |>
+  fitBounds(bb[["xmin"]] - 0.004, bb[["ymin"]] - 0.003,
+            bb[["xmax"]] + 0.004, bb[["ymax"]] + 0.003)
+```
+
+::: {style="font-size:0.74em"}
+**`r sprintf("%.1f", rt$km)` km as the crow flies.
+`r round(rt$route_minutes)` minutes, `r rt$legs` legs, two buses — the
+`r rt$services` — and `r rt$changes` change.** Every one of the
+`r format(195 * 15, big.mark = ",")` origin-school pairs in the model is routed like this, on the real timetable. That is what $c_{ij}$ is.
+:::
 
 ## Three things it had to learn {.smaller}
 
@@ -1239,16 +1323,19 @@ five times as much work in one part of the city as another.
 
 :::: {.column width="46%"}
 ::: {style="text-align:center; line-height:0.8; margin-top:-0.4rem;"}
-![](slides_assets/fig-beta-curve.png){width="56%" style="display:block; margin:0 auto;"}
-![](slides_assets/fig-gamma-map.png){width="56%" style="display:block; margin:0 auto;"}
-![](slides_assets/fig-cj-map.png){width="56%" style="display:block; margin:0 auto;"}
+![](slides_assets/fig-beta-curve.png){width="56%"
+style="display:block; margin:0 auto;"}
+![](slides_assets/fig-gamma-map.png){width="56%"
+style="display:block; margin:0 auto;"}
+![](slides_assets/fig-cj-map.png){width="56%"
+style="display:block; margin:0 auto;"}
 :::
 ::::
 :::::::
 
-## Does it work? {.smaller}
+## Does it work? - Hell Yeah! {.smaller}
 
-::::: columns
+::::::: columns
 ::: {.column width="50%"}
 It reproduces the September 2026 allocations with an **R² of 0.95**.
 
@@ -1261,7 +1348,7 @@ numbers that did not exist when it was built:
   range of **91 to 99**.
 :::
 
-::: {.column width="50%"}
+::::: {.column width="50%"}
 ::: key-finding
 And it gets things wrong in ways I can name. It **over-predicts the
 schools that are hard to get into** by about 16 children — because it
@@ -1275,21 +1362,19 @@ A model you cannot criticise is not a model. It is a press release.
 All of it is written up, failures included, in a technical guide that
 audits every term.
 :::
-:::
 :::::
+:::::::
 
-# How this got built {background-color="#361a54"}
+# How this got built {background-color="#17204d"}
 
-## Twenty years of models. Five months of building. {.smaller}
+## Fifty years of models. Five months of building. {.smaller}
 
-::::: columns
-::: {.column width="52%"}
-**None of the ideas in this talk are new to me.** I have been building
-spatial interaction models since my PhD. I had a hand-written prototype
-of this one on my laptop from 2024, and a routing pipeline to go with
-it.
-
-What I did not have was **a month of uninterrupted time** to turn it
+::::::: columns
+:::: {.column width="52%"}
+- The model underpinning the simulator is a development of Newton's Gravity equation.
+- The Spatial Interaction Model was first popularised by Sir Alan Wilson in 1970 and used successfully to solve spatial problems in cities for decades
+- I've been building these models for 20-years. I had a hand-written prototype of this one on my computer from 2024, and a routing pipeline to go with it.
+-  What I did not have was **a month of uninterrupted time** to turn it
 into something a city could use. I was never going to get one.
 
 ::: key-finding
@@ -1298,9 +1383,9 @@ everything else. Counted from the logs: **1,277 instructions** from me,
 **13,451 actions** back, over **69 working days** spread across five
 months.
 :::
-:::
+::::
 
-::: {.column width="48%"}
+:::: {.column width="48%"}
 ```{r timeline-plot}
 #| fig-width: 6.6
 #| fig-height: 4.3
@@ -1322,20 +1407,20 @@ The April to July work is a different project — a national attainment
 model. The city system model itself starts on **8 September** and is
 finished eighteen days later.
 :::
-:::
-:::::
+::::
+:::::::
 
 ## The division of labour {.smaller}
 
 :::::: columns
 ::: {.column width="49%"}
-**What I brought**
+**What I brought to the party**
 
-- A working prototype, built by hand in 2024
+- A working prototype ("Brightopia"), built by hand in 2024
 - Twenty years of knowing *which terms matter* — attractiveness,
   distance decay, competing destinations
 - Knowledge of the school system, and of the city's politics
-- Judgement about what is defensible to publish
+- A critical eye to review the outputs
 - **Knowing when an answer was wrong**
 - Every decision about what to do next
 :::
@@ -1352,30 +1437,27 @@ finished eighteen days later.
 - Debugging, and the patience for it
 - Documentation written as it went
 - The willingness to **redo all of it** when one assumption changed
+- Speed, coding abilities, technical prowess
 :::
 ::::::
 
 ::: key-finding
-I knew what to ask for and what to examine **because I had built a
-smaller version of it myself**. That is not a small part of why this
-worked — and it is the bit I would worry about if I were starting out
-today.
+I knew what to ask for and what to examine **because I had built a smaller version of it myself**. The ***Human in the loop*** was vital in this process - asking the right questions, giving the right instructions, reviewing the outputs and forcing iteration
 :::
 
-## What actually changed {.smaller}
+## What AI has changed for me {.smaller}
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
-**It does not replace knowing things.** Every moment that mattered in
-this project turned on domain knowledge I had and it did not. Several
-times it produced something plausible and wrong, and the only reason it
-got caught is that I have been doing this for twenty years.
+- **It does not replace knowing things.** 
+- Every moment that mattered in this project turned on domain knowledge I had and it did not. 
+- Several times it produced something plausible but not quite right, and the only reason it got caught was my experience.
 
-**It does collapse the cost of trying.** Each scenario I tested would
-have been a week of work. I would have tested two. I tested twenty.
+- **It does collapse the cost of trying.** 
+- Each scenario I tested would have been a week of work. I would have tested a couple, but I tested twenty-odd.
 :::
 
-::: {.column width="50%"}
+:::: {.column width="50%"}
 ::: key-finding
 **The bottleneck moved.** It is no longer implementation.
 
@@ -1384,35 +1466,36 @@ distinctly human, distinctly local, distinctly collective thing.
 
 Which is more or less the whole argument of this talk.
 :::
-:::
-:::::
+::::
+::::::
 
-# Let me show you {background-color="#993bff"}
+# Let me show you {background-color="#1f4599"}
 
 ## Live demo {.smaller}
 
 <https://adamdennett-bh-school-system.share.connect.posit.cloud/>
 
-::::: columns
-::: {.column width="52%"}
+::::::: columns
+::: {.column width="65%"}
 **What I am going to do:** take the school in the most trouble, and pull
 one lever at a time.
 
-1. **Today.** Longhill is modelled at **`r st(1,"intake")` of 210
-   places** — and that matches reality.
-2. **What if families read value added** instead of the headline score?
-   One dropdown. Nothing about any school changes.
-3. **What if we moved it** to the top of Elm Grove, where a school was
-   proposed a few years ago — and put **Whitehawk back** into its
-   catchment, as it was before 2004?
-4. **What if it taught like BACA** — the school down the road with a
-   comparably disadvantaged intake and the best value added in the city?
+1.  **Today.** Longhill is modelled at **`r st(1,"intake")` of 210
+    places** — and that matches reality.
+2.  **What if families read value added** instead of the headline score?
+    One dropdown. Nothing about any school changes.
+3.  **What if we moved it** to the top of Elm Grove, where a school was
+    proposed a few years ago — and put **Whitehawk back** into its
+    catchment, as it was before 2004?
+4.  **What if it taught like BACA** — the school down the road with a
+    comparably disadvantaged intake and the best value added in the
+    city?
 
 Then push the whole thing forward to **2035**, with the falling cohort,
 and see which schools are still viable.
 :::
 
-::: {.column width="48%"}
+::::: {.column width="35%"}
 ::: key-finding
 The point is not any one of these. **No single policy does much on its
 own.** That is exactly why they keep dying at consultation — each one,
@@ -1425,12 +1508,12 @@ Watch what happens when you **stack them**.
 Nothing here harms a single child. That is the whole argument for doing
 it this way round.
 :::
-:::
 :::::
+:::::::
 
 ## What the demo showed {visibility="uncounted"}
 
-:::::: columns
+::::::: columns
 ::: {.column width="56%"}
 ```{r ladder-plot}
 #| fig-width: 7.0
@@ -1451,7 +1534,7 @@ ggplot(sl, aes(lab, pct, group = 1)) +
 ```
 :::
 
-:::: {.column width="44%"}
+::::: {.column width="44%"}
 ::: {style="font-size:0.86em"}
 Each step is modest: **`r st(2,"pct")-st(1,"pct")` points, then
 `r st(3,"pct")-st(2,"pct")`, then `r st(4,"pct")-st(3,"pct")`.** None
@@ -1471,10 +1554,10 @@ more**.
 Absence is this city's biggest attainment problem, and **distance is one
 of the few things policy can actually change about it.**
 :::
-::::
-::::::
+:::::
+:::::::
 
-# So what? {background-color="#361a54"}
+# So what? {background-color="#17204d"}
 
 ## One person with a model is not collective intelligence {.smaller}
 
@@ -1488,7 +1571,7 @@ That is necessary. It is nowhere near sufficient.
 
 **Three things still stand in the way:**
 
-- **Awareness.** Almost nobody affected knows it exists.
+- **Awareness.** Almost nobody (apart from you and the Council) affected knows it exists (yet).
 - **Buy-in.** It only helps if the people who decide will use it.
 - **Enough ideas.** A simulator is only as good as the range of
   scenarios people think to put through it — and I can only think of my
@@ -1509,14 +1592,13 @@ do with it.
 after.
 :::
 
-The simulator does not tell the city what to do. It makes it **much
-harder to claim a policy will do something the system cannot deliver.**
+The simulator does not tell the city what to do. It makes it ***much harder to claim a policy will do something the system cannot deliver.***
 ::::
 ::::::
 
 ## The actual point {.smaller}
 
-::::: columns
+::::::: columns
 ::: {.column width="52%"}
 Schools are just the example I happened to fall into.
 
@@ -1528,14 +1610,12 @@ The pattern is everywhere in this city:
 - where the data to do better **already exists and is published**,
 - and where nobody had the time or the tools to put it together.
 
-Red routes. Western Road. Parking. Housing allocation. Bus routes. GP
-catchments. The seafront.
+Red routes & Western Road. The King Alfred. Parking. Housing allocation. Bus routes. Bin Collections. The seafront.
 :::
 
-::: {.column width="48%"}
+::::: {.column width="48%"}
 ::: key-finding
-The cost of building a model like this has fallen by something like **an
-order of magnitude in about eighteen months**.
+The cost of building a model like this has fallen by something like **an order of magnitude in about eighteen months**.
 
 Which means the binding constraint is no longer money, or time, or
 expertise.
@@ -1547,10 +1627,10 @@ expertise.
 That is a question a room full of people is far better at than one
 person. Which is why the next bit is not me talking.
 :::
-:::
 :::::
+:::::::
 
-# Over to you {background-color="#993bff"}
+# Over to you {background-color="#1f4599"}
 
 ## The question for your table {.smaller}
 
@@ -1559,18 +1639,18 @@ person. Which is why the next bit is not me talking.
 where right now we are just arguing about one option at a time?**
 :::
 
-::::: columns
+:::::: columns
 ::: {.column width="50%"}
 Three prompts, if they help:
 
-1. **What decision** gets made badly here, and who does it land on?
-2. **What would you want to be able to test** — the "what if" that
-   nobody has ever actually run?
-3. **What data would it need**, and does it already exist somewhere,
-   published badly?
+1.  **What decision** gets made badly here, and who does it land on?
+2.  **What would you want to be able to test** — the "what if" that
+    nobody has ever actually run?
+3.  **What data would it need**, and does it already exist somewhere,
+    published badly?
 :::
 
-::: {.column width="50%"}
+:::: {.column width="50%"}
 ::: key-finding
 Do not worry about whether it is technically possible. I will tell you
 afterwards.
@@ -1579,8 +1659,8 @@ The ideas that sound **obviously impossible** are often the most useful
 ones to hear — they tend to be the ones where the data already exists
 and nobody has joined it up.
 :::
-:::
-:::::
+::::
+::::::
 
 ## Links {.smaller}
 
@@ -1592,15 +1672,13 @@ and nobody has joined it up.
 - **The national report** (*How to Pull the Right Lever*) —
   <https://adamdennett.github.io/school_attainment_tool/>
 - **AI4CI** — <https://ai4ci.ac.uk/>
-- Everything is open source on GitHub, and every slide here renders from
-  source.
+- Everything is open source on GitHub, and every slide here renders from source.
 :::
 
 ::: key-finding
-Happy to be argued with — especially by anyone who thinks the model is
-wrong.
+Happy to answer questions and take criticisms — especially by anyone who spots something that might be wrong or needs correcting!
 
-**a.dennett@ucl.ac.uk**
+**a.dennett\@ucl.ac.uk**
 :::
 
-# Thank you {background-color="#993bff"}
+# Thank you {background-color="#1f4599"}
