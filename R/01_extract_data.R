@@ -34,8 +34,13 @@ ZIP_CONFIG <- list(
   )
 )
 
-# 2022-2023 is already extracted in QM_Fork - we copy it
-EXISTING_2223_PATH <- "E:/QM_Fork/sessions/L6_data/Performancetables_130242/2022-2023"
+# 2022-2023 is already extracted in QM_Fork - we copy it.
+# QM_Fork is expected as a sibling folder of this repo (see CLAUDE.md), so
+# resolve it relatively rather than from an absolute drive path.
+EXISTING_2223_PATH <- file.path(
+  dirname(here::here()),
+  "QM_Fork", "sessions", "L6_data", "Performancetables_130242", "2022-2023"
+)
 
 raw_dir <- here::here("data-raw")
 extracted_dir <- here::here("data", "extracted")
