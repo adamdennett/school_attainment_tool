@@ -208,6 +208,11 @@ disadvantaged pupils `r pts(p_es$att8_dis)` against `r pts(NAT$att8_dis)`
   have the county's highest disadvantage and lowest attainment, and two
   of them sit at the bottom of the county's value-added table. Both of
   those moved to a new trust in 2025/26.
+- **The districts differ, but because of their schools.** Adding a
+  district level to the national model shows Hastings below expectation
+  and Lewes above it. With each school's own record in the model as
+  well, no East Sussex district has an effect of its own on attainment
+  or attendance. The differences are a handful of schools at each end.
 
 # About this analysis
 
@@ -240,8 +245,9 @@ and non-disadvantaged pupils. Each predicts a school's results from:
   sits in.
 
 They explain around 80% of the variation between schools. They are the
-published models, used as they are. Nothing in this document refits them
-(the one exception is noted in @sec-plane).
+published models, used as they are. Two sections refit copies of
+them to ask questions the published versions cannot: @sec-districts adds
+a district level, and @sec-plane separates absence from intake.
 
 **What they cannot do.** The models describe schools, not pupils. A
 school's absence rate and its results move together across England, and
@@ -592,6 +598,173 @@ county very little.
 Lever report, fitted on a common sample so that the two specifications
 can be compared. They differ slightly from the published model's ranks
 in the table above for that reason.
+
+## Do the districts differ? {#sec-districts}
+
+```{r district-setup}
+#| include: false
+DE <- readRDS(here::here("data", "district_effects.rds"))
+tst <- function(o, s) DE$tests |> filter(outcome == o, spec == s)
+vsd <- function(o, s, lvl) DE$vcs |> filter(outcome == o, spec == s, grepl(lvl, level)) |> pull(sd)
+pct <- function(x) 100 * (exp(x) - 1)
+SPEC0 <- "Published specification"; SPEC1 <- "With a school term"
+fe <- function(o, s, l) DE$focus |> filter(outcome == o, spec == s, lad == l)
+ev <- DE$every |> filter(n_lad > 1)
+n_sig <- function(o, s) sum(ev$sig[ev$outcome == o & ev$spec == s])
+n_dist <- function(o, s) sum(ev$outcome == o & ev$spec == s)
+dva <- DE$es_va |> group_by(lad) |> summarise(n = n(), va = mean(va), .groups = "drop")
+se_h <- DE$school_eff |> filter(lad == "Hastings")
+se_at <- function(o, s) pct(se_h$school_effect[se_h$outcome == o & grepl(s, se_h$SCHNAME)])
+```
+
+The published models place schools in local authorities within regions.
+In a two-tier county that skips a level. East Sussex is five districts
+and boroughs with very different towns in them, and it is fair to ask
+whether those districts carry an effect of their own.
+
+**The test.** To find out, a district level is added to the published
+model, nested inside the local authority, and the model is refitted with
+and without it on identical school-years. This is done for all three
+attainment outcomes and for the first-stage absence model. Every school
+in England was placed in its district from its postcode. In a unitary
+authority the district is the authority, so the district variance is
+estimated from the two-tier counties: `r n_dist("All pupils", SPEC0)`
+districts in all.
+
+**The catch.** The published models have no term for the individual
+school. A school that does persistently well or badly across its four
+years therefore has nowhere to go but the lowest place level in the
+model. When a district has only three schools, as Hastings does, a
+"district effect" is largely those three schools. So the test is run
+twice: once on the published specification, and once with a school term
+added, which asks whether the district matters *beyond* the schools in
+it.
+
+```{r tbl-district-tests}
+#| tbl-cap: "Does adding a district level improve the model? Likelihood-ratio tests (the p-value is halved because a variance cannot be negative), with the district standard deviation alongside the local authority's. A standard deviation of 0.02 is about 2% of Attainment 8, or of the absence rate."
+DE$tests |>
+  left_join(DE$vcs |> filter(grepl("^lad", level)) |> select(outcome, spec, sd_lad = sd), by = c("outcome", "spec")) |>
+  left_join(DE$vcs |> filter(level == "LANAME:gor_name") |> select(outcome, spec, sd_la = sd), by = c("outcome", "spec")) |>
+  transmute(Specification = spec, Outcome = outcome,
+            `LR statistic` = sprintf("%.1f", lrt),
+            p = ifelse(p < 0.001, "< 0.001", sprintf("%.3f", p)),
+            `BIC prefers` = ifelse(bic1 < bic0, "District", "No district"),
+            `District SD` = sprintf("%.3f", sd_lad), `LA SD` = sprintf("%.3f", sd_la)) |>
+  kt(align = "llrrlrr")
+```
+
+**Nationally, districts matter, but much less once schools are counted.**
+On the published specification the district level is overwhelmingly
+significant for every outcome. Districts within a county differ by more
+than counties do from each other: the district standard deviation is
+`r sprintf("%.3f", vsd("All pupils", SPEC0, "^lad"))` for all pupils,
+against `r sprintf("%.3f", vsd("All pupils", SPEC0, "^LANAME"))` for the
+local authority.
+
+With a school term most of that goes. A district effect survives for all
+pupils and, more clearly, for non-disadvantaged pupils. For
+disadvantaged pupils and for absence it is marginal (p =
+`r sprintf("%.2f", tst("Disadvantaged", SPEC1)$p)` and
+`r sprintf("%.2f", tst("Absence (stage 1)", SPEC1)$p)`), and the BIC
+prefers the model without it. Of the `r n_dist("All pupils", SPEC1)`
+county districts, `r n_sig("All pupils", SPEC1)` have an individually
+significant effect on attainment once schools are counted, and
+`r n_sig("Absence (stage 1)", SPEC1)` on absence.
+
+```{r fig-districts}
+#| fig-cap: "East Sussex's five districts: the district effect on Attainment 8 (all pupils and disadvantaged) and on absence, with 95% intervals, before and after adding a school term. Effects are percentages of the outcome over and above the county's own effect. For absence, positive means more absence than intake predicts."
+#| fig-height: 5.6
+DE$focus |>
+  mutate(spec = factor(spec, c(SPEC0, SPEC1)),
+         outcome = factor(outcome, c("All pupils", "Disadvantaged", "Non-disadvantaged", "Absence (stage 1)")),
+         lad = factor(lad, rev(sort(unique(lad))))) |>
+  filter(outcome != "Non-disadvantaged") |>
+  ggplot(aes(pct(effect), lad, colour = spec)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_errorbarh(aes(xmin = pct(ci_lo), xmax = pct(ci_hi)), height = 0,
+                 position = position_dodge(width = 0.6), linewidth = 0.8) +
+  geom_point(position = position_dodge(width = 0.6), size = 2.6) +
+  facet_wrap(~outcome, scales = "free_x") +
+  scale_colour_manual(values = c(WARM, TEAL), name = NULL) +
+  labs(x = "District effect, %", y = NULL,
+       title = "Hastings and Lewes stand out until the schools are counted") +
+  theme_note()
+```
+
+**In East Sussex the districts' differences are their schools.** On the
+published specification two districts stand out. Hastings sits
+`r pp(-pct(fe("All pupils", SPEC0, "Hastings")$effect))`% below
+expectation for all pupils and runs
+`r pp(pct(fe("Absence (stage 1)", SPEC0, "Hastings")$effect))`% more
+absence than its intake predicts. Lewes sits
+`r pp(pct(fe("All pupils", SPEC0, "Lewes")$effect))`% above. Eastbourne
+runs `r pp(-pct(fe("Absence (stage 1)", SPEC0, "Eastbourne")$effect))`%
+*less* absence than predicted.
+
+A plain comparison of the county's 26 schools says the same: value
+added differs by district (F = `r sprintf("%.1f", DE$aov_va[["F value"]][1])`,
+p = `r sprintf("%.2f", DE$aov_va[["Pr(>F)"]][1])`). That comparison runs
+from Hastings at `r pts(dva$va[dva$lad == "Hastings"])` points a pupil to
+Lewes at `r sprintf("%+.1f", dva$va[dva$lad == "Lewes"])`.
+
+With a school term, every one of those district effects is
+indistinguishable from zero. Hastings' attainment effect falls to
+`r pp(pct(fe("All pupils", SPEC1, "Hastings")$effect))`% and its absence
+effect to `r sprintf("%+.1f", pct(fe("Absence (stage 1)", SPEC1, "Hastings")$effect))`%.
+What looked like Hastings was two of its three schools:
+
+- **The St Leonards Academy**: `r pp(se_at("All pupils", "Leonards"))`%
+  on attainment and `r sprintf("%+.0f", se_at("Absence (stage 1)", "Leonards"))`%
+  on absence, beyond its intake;
+- **The Hastings Academy**: `r pp(se_at("All pupils", "Hastings Academy"))`%
+  and `r sprintf("%+.0f", se_at("Absence (stage 1)", "Hastings Academy"))`%;
+- **Ark Alexandra Academy**, the third school in the same town, is much
+  closer to expectation: `r pp(se_at("All pupils", "Alexandra"))`% and
+  `r sprintf("%+.0f", se_at("Absence (stage 1)", "Alexandra"))`%.
+
+Lewes' advantage is likewise King's Academy Ringmer, Priory School and
+Seahaven Academy, not the district's other three schools.
+
+```{r fig-school-effects}
+#| fig-cap: "Each East Sussex school's own persistent effect from the model with a school term, coloured by district: Attainment 8 (all pupils) and absence beyond what its intake predicts. Schools are in the same order in both panels, by their attainment effect."
+#| fig-height: 6.2
+# Both panels share one order - the attainment effect - so a school sits
+# on the same row in each and the two can be read across
+att_order <- DE$school_eff |> filter(outcome == "All pupils") |>
+  arrange(school_effect) |> pull(SCHNAME)
+DE$school_eff |>
+  filter(outcome %in% c("All pupils", "Absence (stage 1)")) |>
+  mutate(outcome = factor(outcome, c("All pupils", "Absence (stage 1)"),
+                          c("Attainment 8, all pupils (%)", "Absence beyond intake (%)")),
+         SCHNAME = factor(SCHNAME, att_order)) |>
+  ggplot(aes(pct(school_effect), SCHNAME)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_segment(aes(x = 0, xend = pct(school_effect), yend = SCHNAME), colour = LIGHT) +
+  geom_point(aes(colour = lad), size = 2.6) +
+  facet_wrap(~outcome, scales = "free_x") +
+  scale_colour_brewer(palette = "Dark2", name = NULL) +
+  labs(x = "School effect, %", y = NULL,
+       title = "The district pattern is a handful of schools at each end") +
+  theme_note(11)
+```
+
+**What this means for the county.**
+
+- **District is a useful way to describe where the difficulties are.**
+  Hastings has the county's most disadvantaged intakes and two of the
+  county's three lowest-performing schools.
+- **It is not, on this evidence, a separate cause.** The model finds no
+  sign that being in Hastings, Eastbourne or Lewes affects a school's
+  results or attendance beyond what its intake and its own record
+  explain. A district-wide intervention would be aimed at an effect the
+  data cannot find, where school-level support would be aimed at one it
+  can.
+- **The limit of the test.** With three to six schools per district,
+  four years of data cannot fully separate a shared place effect from
+  several schools that happen to sit together. The two Hastings
+  academies have also moved to the same trust together, so what they
+  share is governance as well as geography. A place effect smaller
+  than the school differences could exist and go undetected.
 
 # Absence in East Sussex {#sec-absence}
 
