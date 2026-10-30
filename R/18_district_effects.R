@@ -41,7 +41,8 @@ suppressPackageStartupMessages({
 
 OUT   <- here::here("data", "district_effects.rds")
 CACHE <- here::here("data", "cache", "school_lad.rds")
-FOCUS <- "East Sussex"
+FOCUS  <- "East Sussex"
+SUSSEX <- c("East Sussex", "West Sussex", "Brighton and Hove")
 ctrl  <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 50000))
 
 
@@ -154,7 +155,10 @@ fit_pair <- function(d, lhs, rhs, school = FALSE) {
                             share = vcov / sum(vcov)))
 }
 
-#' District, LA and region effects for the focus county, with intervals
+#' District, LA and region effects for the Sussex authorities, with intervals
+#'
+#' Kept for all three, not just East Sussex, because the West Sussex, Mid
+#' Sussex and all-Sussex documents read the same object.
 focus_effects <- function(m, d, outcome_label) {
   re <- ranef(m, condVar = TRUE)
   grab <- function(tab) {
@@ -164,15 +168,17 @@ focus_effects <- function(m, d, outcome_label) {
   dist_tab <- re[[grep("^lad:", names(re), value = TRUE)]]
   la_tab   <- re[["LANAME:gor_name"]]
   dl <- grab(dist_tab) |>
-    filter(grepl(paste0(":", FOCUS, ":"), key)) |>
-    mutate(lad = sub(":.*$", "", key))
-  la <- grab(la_tab) |> filter(grepl(paste0("^", FOCUS, ":"), key))
+    filter(grepl(paste0(":(", paste(SUSSEX, collapse = "|"), "):"), key)) |>
+    mutate(lad = sub(":.*$", "", key), la = sub("^[^:]*:([^:]*):.*$", "\\1", key))
+  la <- grab(la_tab) |> filter(grepl(paste0("^(", paste(SUSSEX, collapse = "|"), "):"), key)) |>
+    transmute(la = sub(":.*$", "", key), la_effect = effect)
   dl |>
-    mutate(la_effect = la$effect, outcome = outcome_label,
+    left_join(la, by = "la") |>
+    mutate(outcome = outcome_label,
            ci_lo = effect - 1.96 * se, ci_hi = effect + 1.96 * se,
            sig = ci_lo > 0 | ci_hi < 0,
            combined = effect + la_effect) |>
-    select(outcome, lad, effect, se, ci_lo, ci_hi, sig, la_effect, combined)
+    select(outcome, la, lad, effect, se, ci_lo, ci_hi, sig, la_effect, combined)
 }
 
 #' Every two-tier district's effect, for the national picture
@@ -235,14 +241,26 @@ build_district_effects <- function() {
     tibble(outcome = k, la_before = g(fits[[k]]$m0), la_after = g(fits[[k]]$m1))
   }))
 
-  # Each East Sussex school's own persistent effect, from the school-term
-  # model, so the document can show what a district effect is made of
+  # Each Sussex school's own persistent effect, from the school-term
+  # model, so the documents can show what a district effect is made of
   school_eff <- bind_rows(lapply(names(fitsS), function(k) {
     re <- ranef(fitsS[[k]]$m1)$URN
     tibble(URN = as.integer(rownames(re)), school_effect = re[["(Intercept)"]], outcome = k)
   })) |>
-    inner_join(d |> filter(LANAME == FOCUS) |> distinct(URN, SCHNAME, lad) |>
-                 mutate(URN = as.integer(URN)), by = "URN")
+    inner_join(d |> filter(LANAME %in% SUSSEX) |>
+                 distinct(URN, SCHNAME, LANAME, lad) |>
+                 mutate(URN = as.integer(URN), LANAME = as.character(LANAME)),
+               by = "URN")
+
+  # Value added by district, every Sussex school, for the within-county
+  # comparisons each document makes
+  sussex_va <- panel |>
+    filter(LANAME %in% SUSSEX, MINORGROUP %in% c("Academy", "Maintained school"),
+           !is.na(residual_ATT8SCR_imputed)) |>
+    left_join(lad |> select(URN, lad), by = "URN") |>
+    group_by(URN, SCHNAME, LANAME, lad) |>
+    summarise(va = mean(residual_ATT8SCR_imputed), absence = mean(PERCTOT, na.rm = TRUE),
+              fsm = mean(PTFSM6CLA1A, na.rm = TRUE), years = n(), .groups = "drop")
 
   print(as.data.frame(tests), digits = 4)
   print(as.data.frame(vcs |> filter(grepl("lad|LANAME|gor_name", level))), digits = 3)
@@ -262,7 +280,7 @@ build_district_effects <- function() {
   kw_va   <- kruskal.test(va ~ factor(lad), data = es_va)
 
   out <- list(tests = tests, vcs = vcs, focus = focus, every = every,
-              la_shift = la_shift, school_eff = school_eff,
+              la_shift = la_shift, school_eff = school_eff, sussex_va = sussex_va,
               es_check = es_check, es_va = es_va,
               aov_va = aov_va, kw_va = kw_va,
               n_lad = n_distinct(d$lad), n_la = n_distinct(d$LANAME),

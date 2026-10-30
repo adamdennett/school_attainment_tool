@@ -42,10 +42,51 @@ library(scales)
 library(ggrepel)
 library(knitr)
 library(kableExtra)
+suppressPackageStartupMessages(library(sf))
 
 ES <- readRDS(here::here("data", "east_sussex.rds"))
 FOCUS <- "East Sussex"
 COMP  <- "Brighton and Hove"
+TR   <- readRDS(here::here("data", "trust_effects.rds"))      # R/19_trust_effects.R
+LADS <- readRDS(here::here("data", "sussex_lads.rds"))        # R/19b_sussex_boundaries.R
+DE   <- readRDS(here::here("data", "district_effects.rds"))   # R/18_district_effects.R
+```
+
+```{r governance-setup}
+#| include: false
+S <- ES$schools
+# Who ran each school. 2024/25 is the trust named in the DfE's exclusions
+# file for that year; "now" is GIAS as at October 2026. Two schools
+# re-opened as fresh starts under new URNs, so they are joined across.
+tidy_trust <- function(x) ifelse(is.na(x), NA_character_,
+  sub(" Limited$", "", gsub("\\bOf\\b", "of", gsub("\\bAnd\\b", "and", tools::toTitleCase(tolower(x))))))
+FRESH_START <- c("136400" = 152503L, "138472" = 152097L)
+gov_now <- TR$sussex_now |> filter(la == "East Sussex")
+GOV <- TR$sussex_years |>
+  filter(LANAME == FOCUS, year_label == "2024-25") |>
+  transmute(URN, SCHNAME, route = as.character(route), trust_kind,
+            run_by = case_when(
+              trust_kind == "Maintained" ~ "Maintained by the county council",
+              trust_kind == "Single-academy trust" ~ "Single-academy trust",
+              trust_kind == "Multi-academy trust" ~ tidy_trust(trust),
+              TRUE ~ "Academy, trust not recorded for 2024/25"),
+            trust_size) |>
+  mutate(URN_now = ifelse(as.character(URN) %in% names(FRESH_START),
+                          FRESH_START[as.character(URN)], URN)) |>
+  left_join(gov_now |> transmute(URN_now = URN, name_now = name, type_now,
+                                 trust_now = tidy_trust(trust_now)), by = "URN_now") |>
+  mutate(run_by_now = ifelse(is.na(trust_now),
+                             ifelse(grepl("Community|Foundation|Voluntary", type_now),
+                                    "Maintained by the county council", "Single-academy trust"),
+                             trust_now),
+         changed = run_by_now != run_by & !(run_by == "Single-academy trust" & is.na(trust_now))) |>
+  left_join(S |> transmute(URN = as.integer(URN), district, religion, pupils, absence), by = "URN") |>
+  left_join(DE$sussex_va |> transmute(URN = as.integer(URN), va), by = "URN")
+stopifnot(nrow(GOV) == nrow(S))
+```
+
+```{r setup-rest}
+#| include: false
 
 INK    <- "#1a1a2e"
 PURPLE <- "#361a54"
@@ -213,6 +254,13 @@ disadvantaged pupils `r pts(p_es$att8_dis)` against `r pts(NAT$att8_dis)`
   and Lewes above it. With each school's own record in the model as
   well, no East Sussex district has an effect of its own on attainment
   or attendance. The differences are a handful of schools at each end.
+- **Trusts matter about as much as the local authority, and more for
+  disadvantaged pupils and attendance.** Nationally, schools in the same
+  multi-academy trust share an effect of about 2% on Attainment 8 and 7%
+  on absence. Few individual trusts can be told apart from average, but
+  two of East Sussex's stand out: United Learning (Seahaven) for
+  attainment, and Ark (Ark Alexandra) for disadvantaged pupils and
+  attendance.
 
 # About this analysis
 
@@ -245,9 +293,10 @@ and non-disadvantaged pupils. Each predicts a school's results from:
   sits in.
 
 They explain around 80% of the variation between schools. They are the
-published models, used as they are. Two sections refit copies of
+published models, used as they are. Three sections refit copies of
 them to ask questions the published versions cannot: @sec-districts adds
-a district level, and @sec-plane separates absence from intake.
+a district level, @sec-trusts a multi-academy trust level, and
+@sec-plane separates absence from intake.
 
 **What they cannot do.** The models describe schools, not pupils. A
 school's absence rate and its results move together across England, and
@@ -265,18 +314,53 @@ report's KS4 addendum does.
 # The county's schools
 
 ```{r map}
-#| fig-cap: "East Sussex's state-funded secondary schools, coloured by overall absence in 2024/25. Hover for details."
+#| fig-cap: "East Sussex's state-funded secondary schools, coloured by overall absence in 2024/25, within the county's five districts and boroughs. Hover over a school for its figures and who runs it; switch to the governance colouring with the control at top right."
 library(leaflet)
 pal <- colorNumeric(c("#2e6260", "#f2e6b6", "#b2182b"), domain = S$absence)
-leaflet(S, options = leafletOptions(scrollWheelZoom = FALSE)) |>
+lads <- LADS |> filter(la == FOCUS)
+lad_c <- suppressWarnings(sf::st_coordinates(sf::st_point_on_surface(lads)))
+m_dat <- S |>
+  mutate(URN = as.integer(URN)) |>
+  left_join(GOV |> select(URN, run_by, run_by_now, route), by = "URN") |>
+  mutate(gov = case_when(run_by == "Maintained by the county council" ~ "Maintained",
+                         run_by == "Single-academy trust" | grepl("not recorded", run_by) ~
+                           "Single-academy trust or not recorded",
+                         route == "Sponsor-led academy" ~ "Multi-academy trust, sponsored",
+                         TRUE ~ "Multi-academy trust, converter or free school"),
+         tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s",
+                       SCHNAME, district, absence, fsm, att8, run_by,
+                       ifelse(run_by_now != run_by, paste0("<br>Now: ", run_by_now), "")))
+gpal <- colorFactor(c("#2e6260", "#993bff", "#f56300", "#8a8aa3"),
+                    levels = c("Maintained", "Multi-academy trust, converter or free school",
+                               "Multi-academy trust, sponsored", "Single-academy trust or not recorded"))
+leaflet(m_dat, height = 560, options = leafletOptions(scrollWheelZoom = FALSE)) |>
   addProviderTiles("Esri.WorldGrayCanvas") |>
-  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4,
+  addPolygons(data = lads, color = PURPLE, weight = 1.5, fill = TRUE,
+              fillOpacity = 0.03, fillColor = PURPLE, label = ~lad) |>
+  addLabelOnlyMarkers(lng = lad_c[, 1], lat = lad_c[, 2], label = lads$lad,
+                      labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE,
+                        style = list(color = PURPLE, "font-weight" = "bold", "font-size" = "12px"))) |>
+  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Absence",
                    color = "white", weight = 1, fillOpacity = 0.9,
-                   fillColor = ~pal(absence),
-                   label = ~sprintf("%s (%s): absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f",
-                                    SCHNAME, district, absence, fsm, att8)) |>
-  addLegend("bottomright", pal = pal, values = ~absence,
-            title = "Absence %", opacity = 0.9)
+                   fillColor = ~pal(absence), label = ~lapply(tip, htmltools::HTML)) |>
+  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Who runs it",
+                   color = "white", weight = 1, fillOpacity = 0.9,
+                   fillColor = ~gpal(gov), label = ~lapply(tip, htmltools::HTML)) |>
+  addLegend("bottomright", pal = pal, values = ~absence, group = "Absence",
+            title = "Absence %", opacity = 0.9) |>
+  addLegend("bottomright", pal = gpal, values = ~gov, group = "Who runs it",
+            title = "Who runs it (2024/25)", opacity = 0.9) |>
+  addLayersControl(baseGroups = c("Absence", "Who runs it"),
+                   options = layersControlOptions(collapsed = FALSE)) |>
+  # Show only the legend that belongs to the chosen layer. Legends are
+  # told apart by their titles, not their order on the page.
+  htmlwidgets::onRender("function(el, x) {
+    function show(name) {
+      el.querySelectorAll('.info.legend').forEach(function(l) {
+        var isAbs = l.innerText.indexOf('Absence %') !== -1;
+        l.style.display = ((name === 'Absence') === isAbs) ? '' : 'none'; }); }
+    this.on('baselayerchange', function(e) { show(e.name); });
+    show('Absence'); }")
 ```
 
 East Sussex has `r nrow(S)` state-funded mainstream secondary schools
@@ -328,22 +412,104 @@ lower prior attainment and score
 between the two (`r pp(c_y$absence)`% against `r pp(c_n$absence)`%):
 some of the county's highest-absence schools are inland.
 
-::: {.callout-note appearance="simple"}
-## Schools that changed in 2025/26
+## Who runs the county's schools {#sec-governance}
 
-Three of the schools named in this document changed trust or URN
-during 2025/26:
+```{r gov-counts}
+#| include: false
+g_mats <- GOV |> filter(trust_kind == "Multi-academy trust") |> count(run_by, sort = TRUE)
+n_maint <- sum(GOV$trust_kind == "Maintained")
+n_mat   <- sum(GOV$trust_kind == "Multi-academy trust")
+n_sat   <- sum(GOV$trust_kind == "Single-academy trust")
+n_spons <- sum(GOV$route == "Sponsor-led academy")
+chg <- GOV |> filter(changed)
+```
 
-- **The Hastings Academy** became **Mulberry Academy Hastings** under the
-  Mulberry Schools Trust, keeping its URN.
-- **The St Leonards Academy** closed in February 2026 and reopened as a
-  fresh start, **Mulberry Academy St Leonards**.
-- **Hailsham Community College** closed in August 2025 and reopened as
-  **Hailsham Academy** (Mark Education Trust).
+In `r yr("202425")` the county's `r nrow(GOV)` schools were run by
+`r n_distinct(GOV$run_by[GOV$trust_kind == "Multi-academy trust"])`
+different multi-academy trusts, `r n_sat` single-academy trusts and the
+county council:
 
-Their figures below describe the schools as they were. Results under the
-new arrangements are not yet available.
-:::
+- **`r n_maint` maintained schools**, run by the county council.
+- **`r n_mat` schools in multi-academy trusts.** Some are large national
+  trusts: United Learning, Ark, and the University of Brighton Academies
+  Trust. Some are trusts of two or three local schools.
+- **`r n_sat` single-academy trusts.**
+- **`r nrow(GOV) - n_maint - n_mat - n_sat` academy whose trust the DfE
+  records no name for that year**: Hailsham Community College, which
+  closed in August 2025.
+
+`r n_spons` of the academies are *sponsored*. They were placed with a
+trust, usually because they were judged to be struggling, rather than
+converting by choice. They are concentrated on the coast: in Hastings,
+Eastbourne and Newhaven.
+
+```{r fig-governance}
+#| fig-cap: "Who ran each school in 2024/25, and how far its results sat above or below the national model's expectation over 2021/22 to 2024/25 (Attainment 8 points). Each row is a governing body; each dot a school, coloured by district, shaped by how it came to be run that way. Changes since are listed in the table below."
+#| fig-height: 9
+# One row per school, in a panel per governing body, so every school is
+# named on the axis and no label has to fight for space
+ord_g <- GOV |>
+  mutate(grp = case_when(trust_kind == "Maintained" ~ 1, trust_kind == "Multi-academy trust" ~ 2, TRUE ~ 3)) |>
+  group_by(run_by, grp) |> summarise(n = n(), .groups = "drop") |>
+  arrange(grp, desc(n), run_by) |> pull(run_by)
+wrap_lab <- function(x) sapply(x, function(s) paste(strwrap(s, 24), collapse = "\n"))
+GOV |>
+  mutate(run_by = factor(wrap_lab(run_by), wrap_lab(ord_g)),
+         SCHNAME = reorder(SCHNAME, va),
+         route = factor(route, c("Maintained", "Converter academy", "Sponsor-led academy",
+                                 "Free school, UTC or studio"))) |>
+  ggplot(aes(va, SCHNAME)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_segment(aes(x = 0, xend = va, yend = SCHNAME), colour = LIGHT) +
+  geom_point(aes(fill = district, shape = route), size = 3.4, colour = INK, stroke = 0.3) +
+  facet_grid(run_by ~ ., scales = "free_y", space = "free_y", switch = "y") +
+  scale_shape_manual(values = c(21, 22, 24, 23), name = NULL, drop = FALSE) +
+  scale_fill_brewer(palette = "Dark2", name = NULL) +
+  guides(fill = guide_legend(override.aes = list(shape = 21, size = 3.5), nrow = 1),
+         shape = guide_legend(override.aes = list(fill = LIGHT, size = 3.5), nrow = 1)) +
+  scale_y_discrete(position = "right") +
+  labs(x = "Value added, mean 2021/22 to 2024/25 (Attainment 8 points)", y = NULL,
+       title = "The county's schools by who ran them in 2024/25") +
+  theme_note(10.5) +
+  theme(strip.placement = "outside",
+        strip.text.y.left = element_text(angle = 0, hjust = 1, face = "bold", colour = PURPLE, size = 8.5),
+        panel.spacing.y = unit(2, "pt"), legend.box = "vertical",
+        panel.grid.major.y = element_blank())
+```
+
+```{r gov-topbottom}
+#| include: false
+gsort <- GOV |> filter(!is.na(va)) |> arrange(desc(va))
+who <- function(r) sprintf("%s (%s)", r$SCHNAME,
+  ifelse(r$run_by == "Maintained by the county council", "maintained",
+         ifelse(r$run_by == "Single-academy trust", "a single-academy trust", r$run_by)))
+top_g <- paste(sapply(1:4, function(i) who(gsort[i, ])), collapse = "; ")
+bot_g <- paste(sapply(nrow(gsort) - 0:3, function(i) who(gsort[i, ])), collapse = "; ")
+```
+
+There is no simple pattern by governance:
+
+- **The four strongest schools on value added:** `r top_g`.
+- **The four weakest:** `r bot_g`.
+
+Maintained schools and academies, large trusts and small ones, appear at
+both ends. @sec-trusts asks the question formally.
+
+```{r tbl-gov-change}
+#| tbl-cap: "Schools whose governing body has changed since 2024/25, from Get Information about Schools (October 2026)."
+chg |>
+  transmute(School = ifelse(!is.na(name_now) & name_now != SCHNAME,
+                            paste0(SCHNAME, " → ", name_now), SCHNAME),
+            District = district, `Run by, 2024/25` = run_by, `Run by now` = run_by_now,
+            `Now` = type_now) |>
+  kt(align = "lllll")
+```
+
+`r nrow(chg)` schools have changed hands since 2024/25. Two of them
+re-opened as fresh starts under new URNs: The St Leonards Academy and
+Hailsham Community College. Their figures in this document describe the
+schools as they were, and results under the new arrangements are not yet
+available.
 
 ```{r school-table}
 #| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5)."
@@ -674,7 +840,7 @@ significant effect on attainment once schools are counted, and
 ```{r fig-districts}
 #| fig-cap: "East Sussex's five districts: the district effect on Attainment 8 (all pupils and disadvantaged) and on absence, with 95% intervals, before and after adding a school term. Effects are percentages of the outcome over and above the county's own effect. For absence, positive means more absence than intake predicts."
 #| fig-height: 5.6
-DE$focus |>
+DE$focus |> filter(la == FOCUS) |>
   mutate(spec = factor(spec, c(SPEC0, SPEC1)),
          outcome = factor(outcome, c("All pupils", "Disadvantaged", "Non-disadvantaged", "Absence (stage 1)")),
          lad = factor(lad, rev(sort(unique(lad))))) |>
@@ -730,9 +896,9 @@ Seahaven Academy, not the district's other three schools.
 #| fig-height: 6.2
 # Both panels share one order - the attainment effect - so a school sits
 # on the same row in each and the two can be read across
-att_order <- DE$school_eff |> filter(outcome == "All pupils") |>
+att_order <- DE$school_eff |> filter(LANAME == FOCUS, outcome == "All pupils") |>
   arrange(school_effect) |> pull(SCHNAME)
-DE$school_eff |>
+DE$school_eff |> filter(LANAME == FOCUS) |>
   filter(outcome %in% c("All pupils", "Absence (stage 1)")) |>
   mutate(outcome = factor(outcome, c("All pupils", "Absence (stage 1)"),
                           c("Attainment 8, all pupils (%)", "Absence beyond intake (%)")),
@@ -765,6 +931,181 @@ DE$school_eff |>
   academies have also moved to the same trust together, so what they
   share is governance as well as geography. A place effect smaller
   than the school differences could exist and go undetected.
+
+## Do trusts make a difference? {#sec-trusts}
+
+```{r trust-setup}
+#| include: false
+tt  <- function(o) TR$tests |> filter(outcome == o)
+tsd <- function(o, l) TR$vcs |> filter(outcome == o, level == l) |> pull(sd)
+rte <- function(o, r) TR$routes |> filter(outcome == o, term == r)
+es_trusts <- unique(GOV$run_by[GOV$trust_kind == "Multi-academy trust"])
+TE <- TR$trusts |>
+  mutate(name = tidy_trust(trust_group)) |>
+  filter(name %in% es_trusts)
+te_at <- function(n, o) TE |> filter(name == n, outcome == o)
+nsig <- function(o, s) sum(TR$trusts$outcome == o & TR$trusts$sig & sign(TR$trusts$effect) == s)
+```
+
+Many of the county's schools are in multi-academy trusts, so it is
+natural to ask whether a trust carries an effect of its own, like a
+district might. Do schools in the same trust do better or worse together
+than their pupils and places would predict?
+
+**How it is tested.** The trust is added to the national model as
+another grouping level, crossed with the local authority, since many
+trusts span several. Three choices make the test fair to trusts:
+
+- **The trust that actually ran the school that year.** Membership comes
+  from the DfE's school-level exclusions file, which names each school's
+  trust year by year. A school's results before it joined a trust are
+  never credited to that trust.
+- **Each school's own record is in the model too**, so a trust is not
+  credited or blamed for the persistent strengths of one school.
+- **How each school came to be run enters as a fixed effect.** Its route
+  is maintained, converter academy, sponsored academy or free school.
+  This is the point about selection. Sponsored academies were usually
+  placed with a trust *because* they were struggling, so a trust that
+  takes on such schools would look worse for reasons that are not its
+  doing. Comparing like with like on route removes the crudest version of
+  that bias.
+
+The trust term applies only to school-years in a multi-academy trust.
+Maintained schools and single-academy trusts carry none.
+
+```{r tbl-trust-tests}
+#| tbl-cap: "Does adding the trust improve the national model? Likelihood-ratio test (p-value halved for the boundary), with the standard deviations of the trust, local authority and school effects. 0.02 is about 2% of Attainment 8, or of the absence rate."
+TR$tests |>
+  transmute(Outcome = outcome, `LR statistic` = sprintf("%.0f", lrt),
+            p = ifelse(p < 0.001, "< 0.001", sprintf("%.3f", p)),
+            `BIC prefers` = ifelse(bic1 < bic0, "Trust", "No trust"),
+            `Trust SD` = sapply(outcome, function(o) sprintf("%.3f", tsd(o, "trust_group"))),
+            `LA SD` = sapply(outcome, function(o) sprintf("%.3f", tsd(o, "LANAME:gor_name"))),
+            `School SD` = sapply(outcome, function(o) sprintf("%.3f", tsd(o, "URN")))) |>
+  kt(align = "lrrlrrr")
+```
+
+**Schools in the same trust do share something.** The trust level is
+strongly significant for every outcome, and the model is better with it
+on every criterion. Its size is the useful number:
+
+- **All pupils.** A trust moves Attainment 8 by about
+  `r pp(100 * tsd("All pupils", "trust_group"))`% either way, the same as
+  the local authority does
+  (`r pp(100 * tsd("All pupils", "LANAME:gor_name"))`%). The individual
+  school moves it by
+  `r pp(100 * tsd("All pupils", "URN"))`%, about three times as much.
+- **Disadvantaged pupils.** The trust matters more,
+  `r pp(100 * tsd("Disadvantaged", "trust_group"))`% against
+  `r pp(100 * tsd("Disadvantaged", "LANAME:gor_name"))`% for the local
+  authority.
+- **Absence.** The trust matters most:
+  `r pp(100 * tsd("Absence (stage 1)", "trust_group"))`% of the absence
+  rate, beyond intake, against
+  `r pp(100 * tsd("Absence (stage 1)", "LANAME:gor_name"))`% for the local
+  authority.
+
+**But few individual trusts can be told apart from average.** Of
+`r TR$n_mats` trusts in England:
+
+- **All pupils:** `r nsig("All pupils", 1)` are significantly above
+  average and `r nsig("All pupils", -1)` below.
+- **Disadvantaged pupils:** `r nsig("Disadvantaged", 1)` above and
+  `r nsig("Disadvantaged", -1)` below.
+- **Absence:** `r nsig("Absence (stage 1)", 1)` run significantly more
+  absence than their schools' intakes predict, and
+  `r nsig("Absence (stage 1)", -1)` less.
+
+Most trusts are small, and a trust of two or three schools cannot be
+separated from the schools themselves.
+
+```{r tbl-route}
+#| tbl-cap: "How a school came to be run, compared with maintained schools of the same intake, place and Ofsted rating: percentage difference in Attainment 8, and in absence beyond what the intake predicts."
+TR$routes |>
+  filter(outcome %in% c("All pupils", "Disadvantaged", "Absence (stage 1)")) |>
+  mutate(v = sprintf("%+.1f%% (t = %.1f)", 100 * (exp(estimate) - 1), t)) |>
+  select(term, outcome, v) |>
+  pivot_wider(names_from = outcome, values_from = v) |>
+  rename(Route = term) |>
+  kt(align = "lrrr")
+```
+
+The route shows the selection problem directly. Compared with maintained
+schools with the same intake, sponsored academies have
+`r sprintf("%+.1f", 100 * (exp(rte("Absence (stage 1)", "Sponsor-led academy")$estimate) - 1))`%
+more absence than predicted and
+`r sprintf("%+.1f", 100 * (exp(rte("All pupils", "Sponsor-led academy")$estimate) - 1))`%
+lower attainment. These schools were sponsored because they were in
+difficulty. Their histories cannot be separated from what their trusts
+have done since. The data do not say that sponsorship causes absence.
+They say that the schools trusts are given are harder, in ways the
+intake measures do not fully capture.
+
+```{r fig-trusts}
+#| fig-cap: "The national effect of each trust that ran an East Sussex school in 2024/25, with 95% intervals: Attainment 8 for all pupils and for disadvantaged pupils, and absence beyond intake (positive means more absence). Each trust's effect is estimated across all its secondary schools in England, not only its East Sussex ones; the number in brackets is how many it has in the data."
+#| fig-height: 6
+TE |>
+  filter(outcome %in% c("All pupils", "Disadvantaged", "Absence (stage 1)")) |>
+  mutate(label = sprintf("%s (%d)", name, schools_in_data),
+         outcome = factor(outcome, c("All pupils", "Disadvantaged", "Absence (stage 1)")),
+         sigc = ifelse(sig, "Distinguishable from average", "Not distinguishable")) |>
+  group_by(label) |> mutate(o = effect[outcome == "All pupils"][1]) |> ungroup() |>
+  ggplot(aes(100 * (exp(effect) - 1), reorder(label, o), colour = sigc)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_errorbarh(aes(xmin = 100 * (exp(ci_lo) - 1), xmax = 100 * (exp(ci_hi) - 1)), height = 0) +
+  geom_point(size = 2.4) +
+  facet_wrap(~outcome, scales = "free_x") +
+  scale_colour_manual(values = c("Distinguishable from average" = WARM,
+                                 "Not distinguishable" = TEAL), name = NULL) +
+  labs(x = "Trust effect, %", y = NULL,
+       title = "Two of the county's trusts stand out nationally; most are close to average") +
+  theme_note(11)
+```
+
+```{r trust-names}
+#| include: false
+ul <- function(o) te_at("United Learning Trust", o)
+ark <- function(o) te_at("Ark Schools", o)
+ub <- function(o) te_at("University of Brighton Academies Trust", o)
+pc <- function(x) sprintf("%+.1f", 100 * (exp(x$effect) - 1))
+```
+
+The trusts that ran East Sussex schools in 2024/25 span the range, and
+two stand out nationally.
+
+- **United Learning**, which runs Seahaven Academy, is among the
+  strongest trusts in England. Across its `r ul("All pupils")$schools_in_data`
+  secondary schools in the data, results are `r pc(ul("All pupils"))`%
+  above what their intakes predict, and `r pc(ul("Disadvantaged"))`% for
+  disadvantaged pupils. Seahaven's own record matches this
+  (@fig-governance).
+- **Ark Schools**, which runs Ark Alexandra Academy in Hastings, is
+  significantly better than average for disadvantaged pupils
+  (`r pc(ark("Disadvantaged"))`%). Its schools run
+  `r sub("^-", "", pc(ark("Absence (stage 1)")))`% *less* absence than
+  their intakes predict, among the strongest attendance records of any
+  trust.
+- **The University of Brighton Academies Trust** ran The Hastings and St
+  Leonards academies until 2025/26. Its national effect is
+  `r pc(ub("All pupils"))`% on attainment and `r pc(ub("Absence (stage 1)"))`%
+  on absence, neither distinguishable from average. With so few schools
+  in the data, it cannot be separated from the two Hastings schools
+  themselves (@sec-districts).
+- **The county's small local trusts** (Seaford, South Downs, Cavendish
+  and Mark) sit at about zero. With one or two schools each, that is
+  what the model must report. Their trust and their school are the same
+  thing, and the school's own effect carries the difference.
+
+**What this means for the county.** Trusts are a real level in the
+system, about as consequential as the local authority itself. They
+matter more for disadvantaged pupils and attendance than for results
+overall. Ark's attendance record and United Learning's attainment are
+national strengths with a school in the county, and both are worth
+learning from. But for most trusts the evidence cannot say whether they
+are better or worse than average. It cannot say whether the county's
+academies would do better under the council, or the council's schools
+under a trust. The strongest effect in the model remains the individual
+school.
 
 # Absence in East Sussex {#sec-absence}
 
