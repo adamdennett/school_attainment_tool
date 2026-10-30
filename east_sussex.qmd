@@ -44,7 +44,7 @@ library(knitr)
 library(kableExtra)
 suppressPackageStartupMessages(library(sf))
 
-ES <- readRDS(here::here("data", "east_sussex.rds"))
+ES <- readRDS(here::here("data", "area_east_sussex.rds"))   # R/17_area_analysis.R
 FOCUS <- "East Sussex"
 COMP  <- "Brighton and Hove"
 TR   <- readRDS(here::here("data", "trust_effects.rds"))      # R/19_trust_effects.R
@@ -1673,4 +1673,4 @@ Suspensions and permanent exclusions in England; School workforce in
 England; Get Information about Schools. All are published under the Open
 Government Licence v3.0. The models and code are at
 <https://github.com/adamdennett/school_attainment_tool>; this document
-is built by `R/17_east_sussex.R` and `east_sussex.qmd`.
+is built by `R/17_area_analysis.R` and `east_sussex.qmd`.

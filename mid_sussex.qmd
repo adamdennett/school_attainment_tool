@@ -1,0 +1,507 @@
+---
+title: "Attainment and Attendance in Mid Sussex"
+subtitle: "What the national model behind *How to Pull the Right Lever* says about the district's secondary schools, within West Sussex and alongside Brighton and Hove. **Draft for discussion.**"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: mid_sussex
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    fig-dpi: 108
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+---
+
+```{r setup}
+#| include: false
+source(here::here("R", "area_report_helpers.R"))
+X    <- readRDS(here::here("data", "area_mid_sussex.rds"))        # R/17_area_analysis.R
+TR   <- readRDS(here::here("data", "trust_effects.rds"))          # R/19_trust_effects.R
+DE   <- readRDS(here::here("data", "district_effects.rds"))       # R/18_district_effects.R
+LADS <- readRDS(here::here("data", "sussex_lads.rds"))            # R/19b_sussex_boundaries.R
+P    <- readRDS(here::here("data", "panel_data.rds"))
+FOCUS <- "Mid Sussex"; WS <- "West Sussex"; BH <- "Brighton and Hove"
+AREAS <- c(FOCUS, WS, BH)
+
+S   <- X$schools
+NAT <- X$national
+latest <- X$latest_panel
+abs_last <- tail(X$abs_years, 1)
+GOV <- gov_table(X, TR, DE)
+
+ap <- X$area_profile |> filter(year_label == latest)
+prof <- X$profiles |> filter(year_label == latest)
+p_ws <- prof |> filter(LANAME == WS); p_bh <- prof |> filter(LANAME == BH)
+
+# Every district in England with at least five schools, to rank against
+lp <- X$lad_profiles |> filter(year_label == latest, schools >= 5) |>
+  mutate(r_att8 = rank(-att8), r_dis = rank(-att8_dis), r_gap = rank(-gap),
+         r_fsm = rank(fsm), n = n())
+lp_ms <- lp |> filter(lad == FOCUS)
+lp_ws <- X$lad_profiles |> filter(year_label == latest, LANAME == WS)
+
+dec   <- X$decomp
+d_get <- function(la, g, comp) dec$points[dec$la == la & dec$group == g & dec$component == comp]
+d_tot <- function(la, g) { x <- dec |> filter(la == !!la, group == g) |> slice(1); x$la_att8 - x$nat_att8 }
+place <- function(la, g) d_get(la, g, "Region") + d_get(la, g, "Local authority effect")
+
+ser  <- X$abs_series
+s_at <- function(area, tp, col = "abs_rate") ser[[col]][ser$area == area & ser$time_period == tp]
+rs <- X$reasons |> filter(time_period == abs_last)
+rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_from = pp)
+r_at <- function(area, r) rs_w[[area]][rs_w$reason == r]
+exa <- X$excl$area; ex_last <- max(exa$time_period)
+ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
+
+se <- DE$school_eff |> filter(URN %in% X$urns) |>
+  select(SCHNAME, outcome, school_effect) |>
+  pivot_wider(names_from = outcome, values_from = school_effect)
+se_at <- function(s, o) pct(se[[o]][grepl(s, se$SCHNAME)])
+fe <- function(o, s) DE$focus |> filter(lad == FOCUS, outcome == o, spec == s)
+S1 <- "With a school term"
+
+js <- X$joint$schools |> filter(URN %in% X$urns)
+sc <- X$scenarios
+
+# Disadvantaged cohort sizes, the reason every disadvantaged figure here is noisy
+coh <- P |> filter(as.integer(URN) %in% X$urns, year_label == latest) |>
+  transmute(SCHNAME, cohort = TPUP, dis = TFSM6CLA1A)
+va_s <- X$va |> group_by(school) |>
+  summarise(all = mean(va_ATT8SCR), dis = mean(va_ATT8SCR_FSM6CLA1A),
+            non = mean(va_ATT8SCR_NFSM6CLA1A), years = n(), .groups = "drop")
+```
+
+::: {.callout-warning appearance="simple"}
+## Draft for discussion
+
+A first draft, written alongside the [East Sussex](east_sussex.html) and
+[West Sussex](west_sussex.html) documents. Every figure comes from
+published Department for Education data and the national models of
+[How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html).
+Nothing uses pupil-level records.
+:::
+
+# Summary {.unnumbered}
+
+**Mid Sussex is one of the most advantaged school districts in England,
+and its disadvantaged pupils do not share in that advantage.** Its
+`r nrow(S)` state secondary schools in Burgess Hill, Haywards Heath,
+East Grinstead and Hassocks are mostly high-performing:
+
+- **Overall results are high:** `r pts(ap$att8)` in Attainment 8 in
+  `r latest`, `r ord(lp_ms$r_att8)` of `r lp_ms$n` districts in England
+  with five or more schools.
+- **Few pupils are disadvantaged:** `r pp(ap$fsm)`%, against
+  `r pp(NAT$fsm)`% nationally.
+- **Disadvantaged pupils average `r pts(ap$att8_dis)`**, below the
+  national `r pts(NAT$att8_dis)` (`r ord(lp_ms$r_dis)` of `r lp_ms$n`).
+- **The gap between the two groups is `r pts(ap$gap)` points**, the
+  `r ord(lp_ms$r_gap)` widest of any district.
+
+The other findings:
+
+- **The model explains most of the overall advantage.** Low
+  disadvantage, high prior attainment and good attendance lift
+  Mid Sussex well above England. Its schools add a little more on top.
+- **For disadvantaged pupils the picture reverses.** West Sussex's
+  county-wide effect and the South East's regional effect cost them
+  `r pts(-place(FOCUS, "Disadvantaged"))` points. Mid Sussex's schools
+  then fall a further `r pts(-d_get(FOCUS, "Disadvantaged", "Unexplained (school residual)"))`
+  points below expectation for these pupils, while sitting above
+  expectation overall.
+- **It is a school-level pattern, not a district one.** No Mid Sussex
+  district effect can be found. Oathall and Warden Park are above
+  expectation overall and well below for their disadvantaged pupils.
+  Downlands is strong for both.
+- **Attendance is good, but three schools run more absence than their
+  intakes predict:** Imberhorne, Sackville and The Burgess Hill Academy.
+  As in the rest of West Sussex, reduced timetables run at nearly twice
+  the national rate.
+- **Disadvantaged groups are small,** `r min(coh$dis)` to
+  `r max(coh$dis)` pupils a year per school. Every school-level figure for
+  them moves by several points from year to year and should be read over
+  several years.
+
+# About this analysis
+
+Mid Sussex is a district of West Sussex, not a local authority, and that
+shapes what can be said:
+
+- **The national models place schools in local authorities.** The
+  "local authority effect" in this document is West Sussex's, shared
+  with every school in the county.
+- **What is particular to Mid Sussex** shows up in its schools' own
+  residuals, and in the district test of @sec-ms-effect.
+- **Absence and exclusions** are summed over the district's seven
+  schools, followed through any change of URN.
+
+Everything else is as in the [East Sussex](east_sussex.html) and
+[West Sussex](west_sussex.html) documents, which describe the methods in
+full.
+
+# The district's schools
+
+```{r map}
+#| fig-cap: "Mid Sussex's state-funded secondary schools, coloured by overall absence in 2024/25. Hover for figures and who runs each school; switch to the governance colouring at top right."
+map_area(X, GOV, LADS, height = 460)
+```
+
+```{r school-table}
+#| tbl-cap: "Every state-funded secondary school in Mid Sussex, 2024/25, with the size of its disadvantaged Year 11 group."
+S |>
+  left_join(coh |> select(SCHNAME, dis), by = "SCHNAME") |>
+  arrange(TOWN, SCHNAME) |>
+  transmute(School = SCHNAME, Town = TOWN,
+            Type = ifelse(type == "Academy", "Academy", "Maintained"),
+            Pupils = pupils, `FSM %` = round(fsm, 1),
+            `Disadvantaged in Year 11` = dis,
+            `Absence %` = round(absence, 1), `KS2` = round(ks2_c, 1),
+            `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
+            Ofsted = ofsted) |>
+  kt(align = "llllrrrrrrl")
+```
+
+```{r gov-counts}
+#| include: false
+chg <- GOV |> filter(changed)
+```
+
+`r sum(GOV$trust_kind == "Maintained")` of the seven schools are
+maintained by West Sussex County Council. The other three are academies:
+
+- **Warden Park**, in the Sussex Learning Trust;
+- **St Paul's Catholic College**, in the Bosco Catholic Education Trust;
+- **The Burgess Hill Academy**, a sponsored academy that moved from the
+  University of Brighton Academies Trust to the Sussex Learning Trust
+  after 2024/25.
+
+```{r fig-governance}
+#| fig-cap: "Who ran each Mid Sussex school in 2024/25, and how far its results sat above or below the national model's expectation over 2021/22 to 2024/25."
+#| fig-height: 4.5
+fig_governance(GOV, "Mid Sussex's schools by who ran them in 2024/25")
+```
+
+# How Mid Sussex compares
+
+```{r profile-table}
+#| tbl-cap: "Mid Sussex against West Sussex, Brighton and Hove and England, 2024/25. Means of school-level figures."
+row <- function(lab, col, d = 1) {
+  f <- function(x) sprintf(paste0("%.", d, "f"), x)
+  tibble(Measure = lab, `Mid Sussex` = f(ap[[col]]), `West Sussex` = f(p_ws[[col]]),
+         `Brighton and Hove` = f(p_bh[[col]]),
+         England = f(sum(prof[[col]] * prof$schools, na.rm = TRUE) /
+                       sum(prof$schools[!is.na(prof[[col]])])))
+}
+bind_rows(
+  row("Attainment 8, all pupils", "att8"),
+  row("Attainment 8, disadvantaged", "att8_dis"),
+  row("Attainment 8, non-disadvantaged", "att8_non"),
+  row("Disadvantage gap (points)", "gap"),
+  row("Disadvantaged (FSM6) %", "fsm"),
+  row("Overall absence %", "absence"),
+  row("Persistent absence %", "persistent"),
+  row("Mean KS2 (centred)", "ks2_c", 2),
+  row("EAL %", "eal")) |>
+  kt(align = "lrrrr")
+```
+
+```{r fig-districts-ws}
+#| fig-cap: "Attainment 8 for disadvantaged and non-disadvantaged pupils in West Sussex's seven districts, 2024/25, school means. The gap between the two is printed on each district's line."
+#| fig-height: 4.6
+lp_ws |>
+  select(lad, att8_dis, att8_non, gap) |>
+  mutate(lad = reorder(lad, att8_non)) |>
+  ggplot(aes(y = lad)) +
+  geom_segment(aes(x = att8_dis, xend = att8_non, yend = lad), colour = LIGHT, linewidth = 2) +
+  geom_point(aes(x = att8_dis, colour = "Disadvantaged"), size = 3.4) +
+  geom_point(aes(x = att8_non, colour = "Non-disadvantaged"), size = 3.4) +
+  geom_text(aes(x = (att8_dis + att8_non) / 2, label = sprintf("%.1f", gap)),
+            vjust = -0.9, size = 3, colour = GREY) +
+  geom_vline(xintercept = NAT$att8_dis, linetype = "dotted", colour = PURPLE) +
+  annotate("text", x = NAT$att8_dis, y = 0.6, label = "England, disadvantaged", hjust = -0.05,
+           size = 3, colour = PURPLE) +
+  scale_colour_manual(values = c(Disadvantaged = WARM, `Non-disadvantaged` = TEAL), name = NULL) +
+  labs(x = "Attainment 8", y = NULL,
+       title = "Mid Sussex has the county's best results and one of its widest gaps") +
+  theme_note()
+```
+
+The gap is not one year's accident. It was
+`r pts(X$area_profile$gap[X$area_profile$year_label == "2021-22"])` points
+in 2021/22 and `r pts(max(X$area_profile$gap))` at its widest
+(`r X$area_profile$year_label[which.max(X$area_profile$gap)]`). Mid
+Sussex's non-disadvantaged pupils do better than England's every year,
+and its disadvantaged pupils worse.
+
+# What explains attainment in Mid Sussex
+
+```{r fig-decomp}
+#| fig-cap: "Why average Attainment 8 differs from England's, by factor, all school-years 2021/22 to 2024/25, for Mid Sussex, West Sussex and Brighton and Hove. Approximate Attainment 8 points; the pieces sum to the total in each panel."
+#| fig-height: 9
+fig_decomp(dec, AREAS, c("All pupils", "Disadvantaged"))
+```
+
+```{r decomp-table}
+#| tbl-cap: "The decomposition for Mid Sussex, in Attainment 8 points. 'Place' is West Sussex's effect plus the South East's; 'unexplained' is what Mid Sussex's own schools add beyond everything the model accounts for."
+decomp_table(dec, FOCUS)
+```
+
+**For all pupils**, Mid Sussex is `r pts(d_tot(FOCUS, "All pupils"))`
+points above England. Almost all of that is intake, and the model
+expects it:
+
+- low disadvantage (+`r pts(d_get(FOCUS, "All pupils", "Disadvantage (% FSM)"), 2)`);
+- high prior attainment (+`r pts(d_get(FOCUS, "All pupils", "Prior attainment (KS2)"), 2)`);
+- good attendance (+`r pts(d_get(FOCUS, "All pupils", "Absence"), 2)`).
+
+The district's schools add `r sgn(d_get(FOCUS, "All pupils", "Unexplained (school residual)"), 2)`
+on top, more than enough to offset West Sussex's county-wide effect.
+
+**For disadvantaged pupils** the picture reverses: Mid Sussex is
+`r pts(-d_tot(FOCUS, "Disadvantaged"))` points *below* England.
+
+- **Place** takes `r pts(-place(FOCUS, "Disadvantaged"), 2)`: West
+  Sussex's own effect and the South East's.
+- **The schools themselves** take a further
+  `r pts(-d_get(FOCUS, "Disadvantaged", "Unexplained (school residual)"), 2)`.
+  They are above expectation for their other pupils and below it for
+  these.
+- **Low disadvantage counts against them** too
+  (`r pts(d_get(FOCUS, "Disadvantaged", "Disadvantage (% FSM)"), 2)`).
+
+That last point is the Lever report's most contested finding showing up
+locally. Across England, disadvantaged pupils do slightly better in
+schools with more disadvantaged pupils, once everything else is
+accounted for. The likely reason is that such schools organise around
+them, and spend pupil premium on provision that a handful of pupils
+cannot sustain. In Mid Sussex, where a school may have twenty
+disadvantaged pupils in a year group, that does not happen at scale.
+
+# The disadvantaged gap, school by school {#sec-ms-gap}
+
+```{r fig-va-split}
+#| fig-cap: "Each Mid Sussex school's value added for its disadvantaged and non-disadvantaged pupils, mean over the years available (2021/22 to provisional 2025/26). Above zero means better than the national model expects for similar pupils."
+#| fig-height: 4.6
+va_s |>
+  pivot_longer(c(dis, non), names_to = "grp", values_to = "v") |>
+  mutate(grp = recode(grp, dis = "Disadvantaged", non = "Non-disadvantaged"),
+         school = reorder(school, v * (grp == "Non-disadvantaged"))) |>
+  ggplot(aes(v, school, colour = grp)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_line(aes(group = school), colour = LIGHT, linewidth = 1.5) +
+  geom_point(size = 3.4) +
+  scale_colour_manual(values = c(Disadvantaged = WARM, `Non-disadvantaged` = TEAL), name = NULL) +
+  labs(x = "Value added (Attainment 8 points)", y = NULL,
+       title = "Several schools do well by most pupils and less well by their disadvantaged ones") +
+  theme_note()
+```
+
+```{r va-split-notes}
+#| include: false
+gap_schools <- va_s |> filter(non > 0, dis < -1) |> arrange(dis)
+```
+
+`r nrow(gap_schools)` schools are above expectation for their
+non-disadvantaged pupils and more than a point below it for their
+disadvantaged ones: `r paste(gap_schools$school, collapse = ", ")`. With
+each school's own record in the model:
+
+- **Oathall Community College** is `r sgn(se_at("Oathall", "All pupils"))`%
+  overall and `r sgn(se_at("Oathall", "Disadvantaged"))`% for
+  disadvantaged pupils.
+- **Warden Park** is `r sgn(se_at("Warden", "All pupils"))`% overall and
+  `r sgn(se_at("Warden", "Disadvantaged"))`% for disadvantaged pupils.
+- **Downlands Community School** is the exception, above expectation for
+  both groups (`r sgn(se_at("Downlands", "All pupils"))`% and
+  `r sgn(se_at("Downlands", "Disadvantaged"))`%). It has one of the
+  district's smallest disadvantaged groups.
+
+```{r tbl-dis-years}
+#| tbl-cap: "Attainment 8 of each school's disadvantaged pupils, year by year (2025/26 provisional), with the size of the group in 2024/25. Small groups make single years unreliable."
+X$va |>
+  select(school, year_label, ATT8SCR_FSM6CLA1A) |>
+  mutate(year_label = sub("-", "/", year_label)) |>
+  pivot_wider(names_from = year_label, values_from = ATT8SCR_FSM6CLA1A) |>
+  left_join(coh |> transmute(school = SCHNAME, `Disadvantaged pupils, 2024/25` = as.character(dis)),
+            by = "school") |>
+  mutate(across(where(is.double), ~ifelse(is.na(.x), "", sprintf("%.1f", .x)))) |>
+  rename(School = school) |>
+  kt(align = "lrrrrrr")
+```
+
+With groups this small, any one school-year can move by ten points.
+Imberhorne and Sackville's disadvantaged results fell sharply in 2023/24
+and recovered after. The pattern that matters is the one across years and
+schools, and it is consistent: the district's disadvantaged pupils do
+less well than its other pupils, by more than they do in similar schools
+elsewhere.
+
+# Is there a Mid Sussex effect? {#sec-ms-effect}
+
+The district test of the [East Sussex document](east_sussex.html#sec-districts)
+adds a district level to the national model, with and without each
+school's own record.
+
+```{r tbl-ms-effect}
+#| tbl-cap: "The Mid Sussex district effect, over and above West Sussex's, with 95% intervals."
+DE$focus |> filter(lad == FOCUS) |>
+  transmute(Specification = spec, Outcome = outcome,
+            `Effect (%)` = sprintf("%+.1f", pct(effect)),
+            `95% interval` = sprintf("%+.1f to %+.1f", pct(ci_lo), pct(ci_hi)),
+            Significant = ifelse(sig, "Yes", "No")) |>
+  kt(align = "llrrl")
+```
+
+None of Mid Sussex's district effects can be told apart from zero on
+either specification. The district's results are explained by its
+intake, West Sussex's county effect and its individual schools, which
+differ a good deal. Unlike Crawley, the
+[West Sussex](west_sussex.html#sec-districts) district where every school
+is below expectation, there is nothing that all Mid Sussex schools share.
+
+```{r fig-school-effects}
+#| fig-cap: "Each Mid Sussex school's own persistent effect, from the model with a school term: Attainment 8 for all pupils, and absence beyond what its intake predicts."
+#| fig-height: 4
+fig_school_effects(DE, X$urns, "Mid Sussex's schools differ more from each other than the district does from the county")
+```
+
+# Absence
+
+```{r fig-abs-series}
+#| fig-cap: "Overall absence, autumn and spring terms, 2016/17 to 2025/26. Sessions-weighted; 2019/20 not collected."
+#| fig-height: 4.8
+fig_abs_series(ser, AREAS, "Mid Sussex runs below England and West Sussex")
+```
+
+Attendance in Mid Sussex is good:
+
+- **`r pp(s_at(FOCUS, abs_last))`% absence** in autumn and spring
+  `r yr(abs_last)`, against `r pp(s_at("England", abs_last))`% for England
+  and `r pp(s_at(WS, abs_last))`% for West Sussex.
+- **Persistent absence** is `r pp(s_at(FOCUS, abs_last, "pa_rate"))`%.
+
+The district's intake predicts lower absence still. Its schools run
+`r sgn(X$area_excess$excess, 2)` points above what their pupils'
+profiles predict, but the excess is concentrated in three schools:
+
+```{r tbl-ms-absence}
+#| tbl-cap: "Each school's absence against what its intake predicts, mean 2021/22 to 2024/25, and its reasons in the latest year (percentage of sessions)."
+js |>
+  select(URN, SCHNAME, obs_abs, exp_intake, excess_intake_pp) |>
+  left_join(X$sch_reasons |> transmute(URN = as.integer(urn), illness, unauth_other, reduced, excluded),
+            by = "URN") |>
+  arrange(desc(excess_intake_pp)) |>
+  transmute(School = SCHNAME, `Absence %` = round(obs_abs, 1),
+            `Predicted by intake %` = round(exp_intake, 1),
+            `Above prediction` = sprintf("%+.1f", excess_intake_pp),
+            Illness = round(illness, 1), Unauthorised = round(unauth_other, 1),
+            `Reduced timetable` = round(reduced, 2), Suspended = round(excluded, 2)) |>
+  kt(align = "lrrrrrrr")
+```
+
+- **The Burgess Hill Academy, Imberhorne and Sackville** each run more
+  than a point above their predicted absence.
+- **Oathall and St Paul's** run below theirs.
+
+As across West Sussex, reduced timetables are used at about twice the
+national rate: `r pp(r_at(FOCUS, "Reduced timetable"), 2)`% of sessions
+against `r pp(r_at("England", "Reduced timetable"), 2)`%. Oathall's rate
+is the highest in the district.
+
+```{r tbl-scenario}
+#| tbl-cap: "Predicted Attainment 8 gain if each school's absence fell to the national school average (2024/25). Indicative only."
+scenario_table(sc)
+```
+
+Only three schools are above the national average absence, and the
+gains from bringing them to it are modest: up to
+`r pts(max(sc$gain_all))` points. Attendance is not Mid Sussex's lever.
+
+**Suspensions** are well below the national rate:
+`r pp(ex_at(FOCUS))` per 100 pupils in `r yr(ex_last)`, against
+`r pp(ex_at("England"))` for England and `r pp(ex_at(WS))` for West
+Sussex. The rate varies widely between schools:
+
+```{r tbl-susp}
+#| tbl-cap: "Suspensions per 100 pupils and permanent exclusions, by school, latest year."
+X$excl_schools |> arrange(desc(susp_rate)) |>
+  transmute(School = school_name, Pupils = headcount,
+            `Suspensions per 100` = round(susp_rate, 1), `Permanent exclusions` = perm_excl) |>
+  kt(align = "lrrr")
+```
+
+# Contextual league tables
+
+::: {.panel-tabset}
+
+## All pupils
+
+```{r va-all}
+#| tbl-cap: "Value added, all pupils: observed Attainment 8 minus the national model's expectation. 2025/26 is provisional."
+fmt_va(va_tab(X$va, "va_ATT8SCR")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Disadvantaged pupils
+
+```{r va-dis}
+#| tbl-cap: "Value added, disadvantaged pupils. Small groups; read across years."
+fmt_va(va_tab(X$va, "va_ATT8SCR_FSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Non-disadvantaged pupils
+
+```{r va-non}
+#| tbl-cap: "Value added, non-disadvantaged pupils."
+fmt_va(va_tab(X$va, "va_ATT8SCR_NFSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+:::
+
+# Implications and questions for discussion
+
+1. **The district's issue is its disadvantaged pupils, not its schools
+   overall.** Mid Sussex's results are among the best of any district,
+   and its disadvantaged pupils' results are below the national average.
+   That combination is the question worth putting to its schools.
+2. **Small numbers need a different approach.** With `r min(coh$dis)` to
+   `r max(coh$dis)` disadvantaged pupils in a year group, the provision that serves them
+   well in high-disadvantage schools cannot be built school by school.
+   Seven schools within a few miles of each other might build it
+   together.
+3. **Learn from Downlands**, which does well by both groups, and ask
+   what Oathall and Warden Park do differently for their disadvantaged
+   pupils.
+4. **The county effect still applies.** Mid Sussex's disadvantaged
+   pupils carry West Sussex's below-expectation effect too. The county
+   question in the [West Sussex document](west_sussex.html) applies here
+   as well.
+5. **Attendance and suspensions** are not the district's problem, with
+   three schools' absence the exception. Reduced timetables, as across
+   West Sussex, are worth a look.
+
+# Notes on method {.unnumbered}
+
+Methods and sources are those of the [East Sussex](east_sussex.html)
+document. District membership comes from each school's postcode (ONS
+postcode directory, via postcodes.io). Absence and exclusions for the
+district are summed over its schools, including any predecessor URNs.
+This document is built by `R/17_area_analysis.R`,
+`R/18_district_effects.R`, `R/19_trust_effects.R` and `mid_sussex.qmd`.
