@@ -1,0 +1,1162 @@
+---
+title: "Attainment and Attendance in East Sussex"
+subtitle: "What the national model behind *How to Pull the Right Lever* says about the county's secondary schools, with comparisons to Brighton and Hove. **Draft for discussion.**"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: east_sussex
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    # Kept at the companion notes' setting: 150 dpi put enough base64 PNG
+    # into a self-contained page to blank it on mobile Chrome. See
+    # R/16_mobile_safe_html.R.
+    fig-dpi: 108
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+---
+
+```{r setup}
+#| include: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(ggrepel)
+library(knitr)
+library(kableExtra)
+
+ES <- readRDS(here::here("data", "east_sussex.rds"))
+FOCUS <- "East Sussex"
+COMP  <- "Brighton and Hove"
+
+INK    <- "#1a1a2e"
+PURPLE <- "#361a54"
+TEAL   <- "#2e6260"     # East Sussex throughout
+PINK   <- "#e16fca"     # Brighton and Hove, as in the Lever report
+WARM   <- "#f56300"
+BAD    <- "#b2182b"
+GREY   <- "#666688"
+LIGHT  <- "#c9c9d6"
+AREA_COL <- c("East Sussex" = TEAL, "Brighton and Hove" = PINK,
+              "South East" = "#8a8aa3", "England" = INK)
+
+theme_note <- function(base = 12) {
+  theme_minimal(base_size = base) +
+    theme(plot.title = element_text(face = "bold", colour = PURPLE),
+          plot.subtitle = element_text(colour = GREY, size = rel(0.9)),
+          plot.title.position = "plot",
+          axis.title = element_text(colour = GREY, size = rel(0.9)),
+          panel.grid.minor = element_blank(),
+          legend.position = "bottom")
+}
+
+kt <- function(df, ...) knitr::kable(df, format = "html", ...) |>
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                            full_width = FALSE, font_size = 12)
+
+# "202526" -> "2025/26"
+yr  <- function(x) paste0(substr(x, 1, 4), "/", substr(x, 5, 6))
+ord <- function(n) { n <- round(n); s <- ifelse(n %% 100 %in% 11:13, "th",
+  c("th", "st", "nd", "rd", rep("th", 6))[n %% 10 + 1]); paste0(n, s) }
+pts <- function(x, d = 1) sprintf(paste0("%.", d, "f"), x)
+pp  <- function(x, d = 1) sprintf(paste0("%.", d, "f"), x)
+
+S   <- ES$schools
+NAT <- ES$national
+latest <- ES$latest_panel                       # last full panel year
+abs_last <- tail(ES$abs_years, 1)               # last absence year (autumn+spring)
+
+prof <- ES$profiles |> filter(year_label == latest)
+p_es <- prof |> filter(LANAME == FOCUS)
+p_bh <- prof |> filter(LANAME == COMP)
+n_las <- p_es$n_las
+
+eff <- ES$effects
+e_es <- function(g) eff |> filter(la == FOCUS, group == g)
+e_bh <- function(g) eff |> filter(la == COMP, group == g)
+
+r27 <- function(out, la, spec) ES$r27[[out]] |> filter(la == !!la, spec == !!spec) |> pull(rank)
+
+ser <- ES$abs_series
+s_at <- function(area, tp, col = "abs_rate") ser[[col]][ser$area == area & ser$time_period == tp]
+rk <- ES$abs_ranks
+rk_at <- function(la, tp, col = "rank_abs") rk[[col]][rk$la_name == la & rk$time_period == tp]
+n_la_abs <- rk$n_la[rk$time_period == abs_last][1]
+
+ctx <- ES$abs_context
+c_es <- ctx |> filter(LANAME == FOCUS)
+c_bh <- ctx |> filter(LANAME == COMP)
+
+dec <- ES$decomp
+d_get <- function(la, g, comp) dec$points[dec$la == la & dec$group == g & dec$component == comp]
+d_tot <- function(la, g) { x <- dec |> filter(la == !!la, group == g) |> slice(1); x$la_att8 - x$nat_att8 }
+
+js <- ES$joint$schools
+js_es <- js |> filter(LANAME == FOCUS)
+
+sc <- ES$scenarios
+sc_above <- sc |> filter(absence > NAT$absence)
+
+ex_la <- ES$excl$la
+ex_last <- max(ex_la$time_period)
+ex_at <- function(la, tp, col = "susp_rate") ex_la[[col]][ex_la$la_name == la & ex_la$time_period == tp]
+ex_eng <- function(tp, col = "susp_rate") ES$excl$england[[col]][ES$excl$england$time_period == tp]
+
+rs <- ES$reasons |> filter(time_period == abs_last)
+rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_from = pp)
+rs_gap <- rs_w |> mutate(gap = .data[[FOCUS]] - England) |> arrange(desc(abs(gap)))
+gap_tot <- s_at(FOCUS, abs_last) - s_at("England", abs_last)
+gap_of  <- function(r) rs_gap$gap[rs_gap$reason == r]
+```
+
+::: {.callout-warning appearance="simple"}
+## Draft for discussion
+
+This is a first draft, prepared for conversation with East Sussex County
+Council. Every figure is computed from published Department for
+Education data and from the national models documented in
+[How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html).
+Nothing here uses pupil-level records. The interpretation is the author's
+and is offered as a starting point, not a conclusion.
+:::
+
+# Summary {.unnumbered}
+
+**East Sussex's secondary attainment sits below the national average, and
+the national model can say why.** In `r latest` the county's
+`r nrow(S)` state-funded secondary schools averaged
+`r pts(p_es$att8)` in Attainment 8 against `r pts(NAT$att8)` across
+England (`r ord(p_es$rank_att8)` of `r n_las` authorities), and its
+disadvantaged pupils `r pts(p_es$att8_dis)` against `r pts(NAT$att8_dis)`
+(`r ord(p_es$rank_att8_dis)`).
+
+- **Three things account for nearly all of the gap: absence, prior
+  attainment and place.** Taking the county's school-years over
+  2021/22–2024/25 together, higher absence costs about
+  `r pts(-d_get(FOCUS, "All pupils", "Absence"))` points a pupil and lower
+  Key Stage 2 attainment on entry about
+  `r pts(-d_get(FOCUS, "All pupils", "Prior attainment (KS2)"))`. For
+  disadvantaged pupils the gap is wider,
+  `r pts(-d_tot(FOCUS, "Disadvantaged"))` points. There, absence costs
+  `r pts(-d_get(FOCUS, "Disadvantaged", "Absence"))` points and being in the
+  South East costs
+  `r pts(-(d_get(FOCUS, "Disadvantaged", "Region") + d_get(FOCUS, "Disadvantaged", "Local authority effect")))`,
+  once the county's own small positive effect is netted off.
+- **Concentrations of disadvantage are not part of the explanation.** The
+  county's schools are slightly *less* disadvantaged than the national
+  average, so that term works marginally in its favour.
+- **The county's schools are doing about what the national model
+  expects of them.** East Sussex ranks `r ord(e_es("All pupils")$rank)` of
+  `r e_es("All pupils")$n_las` authorities once intake and context are
+  accounted for. That is above the middle, but not distinguishable from
+  average. Brighton and Hove is `r ord(e_bh("All pupils")$rank)`.
+- **Absence is high, long-standing and improving.** In autumn and spring
+  `r yr(abs_last)` the county's secondary absence was
+  `r pp(s_at(FOCUS, abs_last))`% against `r pp(s_at("England", abs_last))`%
+  in England, the `r ord(rk_at(FOCUS, abs_last))` highest of
+  `r n_la_abs` authorities. It was 9th highest before the pandemic. Since
+  `r yr("202223")` it has fallen by
+  `r pp(s_at(FOCUS, "202223") - s_at(FOCUS, abs_last))` points, twice as
+  fast as England.
+- **Unlike Brighton and Hove's, East Sussex's absence is largely what its
+  intake predicts.** The county runs
+  `r pp(c_es$excess, 2)` points above the absence its pupils' profile
+  would predict (`r ord(c_es$rank_excess)` of `r c_es$n_las`). Brighton and
+  Hove runs `r pp(c_bh$excess, 1)` above (`r ord(c_bh$rank_excess)`). That
+  does not make East Sussex's absence unaddressable. It does mean the
+  county's problem is the national problem, concentrated, rather than a
+  local anomaly.
+- **Illness drives most of the excess, then unauthorised absence.**
+  Illness accounts for `r pp(gap_of("Illness"), 2)` of the
+  `r pp(gap_tot, 2)`-point gap to England, and unauthorised absence for
+  `r pp(gap_of("Unauthorised, other"), 2)`. Reduced timetables are used
+  more than nationally.
+- **Suspensions are a distinct issue, and a large one.** In
+  `r yr(ex_last)` the county suspended at `r pp(ex_at(FOCUS, ex_last))` per
+  100 secondary pupils against `r pp(ex_eng(ex_last))` in England, more than
+  twice Brighton and Hove's `r pp(ex_at(COMP, ex_last))`. But sessions lost
+  to suspension are about
+  `r pp(100 * rs_w[[FOCUS]][rs_w$reason == "Suspended (code E)"] / s_at(FOCUS, abs_last), 0)`%
+  of all absence. Suspensions matter for the pupils concerned. They are
+  not what makes the county's absence high.
+- **The gains from attendance are concentrated.** If the
+  `r nrow(sc_above)` schools above the national average absence rate
+  reached it, the model predicts gains of up to
+  `r pts(max(sc$gain_all))` Attainment 8 points at the hardest-hit
+  schools, and more for their disadvantaged pupils. Moving every school's
+  disadvantage to the county average would buy at most
+  `r pts(max(sc$gain_fsm))`.
+- **Hastings is where the problems coincide.** Its three secondary schools
+  have the county's highest disadvantage and lowest attainment, and two
+  of them sit at the bottom of the county's value-added table. Both of
+  those moved to a new trust in 2025/26.
+
+# About this analysis
+
+East Sussex County Council asked what its secondary school system looks
+like through the lens of
+[How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html)
+(the *Lever* report from here on). In particular, it asked what is
+affecting attainment in the county and what part attendance plays. This
+document applies the same national models to the county. It adds a small
+number of analyses the Lever report did not need for Brighton and Hove:
+
+- **A decomposition of the gap to England** (@sec-decomp). This is new
+  here. It splits the difference between the county's average Attainment
+  8 and England's into one piece per factor in the model.
+- **Absence by register reason, over ten years** (@sec-absence), using
+  the DfE's school-level absence release to `r yr(abs_last)`.
+- **Suspensions** (@sec-suspensions), because the county's rate is among
+  the highest in England.
+
+**What the models are.** Multilevel models of school-level Attainment 8
+for every state-funded mainstream secondary school in England, 2021/22 to
+2024/25. They are fitted separately for all pupils, disadvantaged pupils
+and non-disadvantaged pupils. Each predicts a school's results from:
+
+- its pupils' disadvantage, absence, English as an additional language
+  and Key Stage 2 prior attainment;
+- its admissions policy and the local authority's segregation index;
+- three teacher workforce measures;
+- the school's Ofsted rating, and the region, local authority and year it
+  sits in.
+
+They explain around 80% of the variation between schools. They are the
+published models, used as they are. Nothing in this document refits them
+(the one exception is noted in @sec-plane).
+
+**What they cannot do.** The models describe schools, not pupils. A
+school's absence rate and its results move together across England, and
+the model measures how strongly. It cannot show that one causes the
+other for any individual child, and the scenarios below are indications
+of scale, not forecasts. The Lever report discusses this at length
+([Section 4.3](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html#sec-inference)).
+
+**Years.** The model covers the four complete years 2021/22 to 2024/25.
+Absence is published a year ahead of results, so the absence sections run
+to autumn and spring `r yr(abs_last)`. The value-added tables add
+provisional 2025/26 results, predicted from the same models as the Lever
+report's KS4 addendum does.
+
+# The county's schools
+
+```{r map}
+#| fig-cap: "East Sussex's state-funded secondary schools, coloured by overall absence in 2024/25. Hover for details."
+library(leaflet)
+pal <- colorNumeric(c("#2e6260", "#f2e6b6", "#b2182b"), domain = S$absence)
+leaflet(S, options = leafletOptions(scrollWheelZoom = FALSE)) |>
+  addProviderTiles("Esri.WorldGrayCanvas") |>
+  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4,
+                   color = "white", weight = 1, fillOpacity = 0.9,
+                   fillColor = ~pal(absence),
+                   label = ~sprintf("%s (%s): absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f",
+                                    SCHNAME, district, absence, fsm, att8)) |>
+  addLegend("bottomright", pal = pal, values = ~absence,
+            title = "Absence %", opacity = 0.9)
+```
+
+East Sussex has `r nrow(S)` state-funded mainstream secondary schools
+teaching `r format(sum(S$pupils), big.mark = ",")` pupils. All are
+non-selective. `r sum(S$type == "Academy")` are academies and
+`r sum(S$type != "Academy")` are maintained. One is Catholic (St
+Richard's in Bexhill) and two are Church of England. The county also has
+a large independent sector, which is outside these models. The schools
+fall into two quite different settings:
+
+- the coastal towns of Hastings and St Leonards, Bexhill, Eastbourne,
+  Seaford, Newhaven, Peacehaven and Rye;
+- the market towns and villages of the Weald and the Lewes and Rother
+  hinterlands.
+
+```{r districts}
+#| tbl-cap: "Schools by district and borough, 2024/25. Unweighted school means."
+S |>
+  group_by(District = district) |>
+  summarise(Schools = n(), Pupils = sum(pupils),
+            `FSM %` = mean(fsm), `Absence %` = mean(absence),
+            `Persistent absence %` = mean(persistent),
+            `KS2 (centred)` = mean(ks2_c, na.rm = TRUE),
+            `Attainment 8` = mean(att8),
+            `Attainment 8, disadvantaged` = mean(att8_dis, na.rm = TRUE),
+            .groups = "drop") |>
+  arrange(desc(`FSM %`)) |>
+  mutate(across(where(is.double), ~round(.x, 1)),
+         Pupils = format(Pupils, big.mark = ",")) |>
+  kt(align = "lrrrrrrrr")
+```
+
+```{r coastal}
+#| include: false
+cst <- S |> group_by(coastal) |>
+  summarise(n = n(), fsm = mean(fsm), absence = mean(absence),
+            att8 = mean(att8), ks2 = mean(ks2_c, na.rm = TRUE))
+c_y <- cst |> filter(coastal); c_n <- cst |> filter(!coastal)
+h <- S |> filter(district == "Hastings")
+```
+
+Hastings stands apart. Its `r nrow(h)` schools average
+`r pp(mean(h$fsm), 0)`% disadvantaged, `r pp(mean(h$absence))`% absence
+and `r pts(mean(h$att8))` in Attainment 8. The `r c_y$n` coastal schools
+together are more disadvantaged than the `r c_n$n` inland ones
+(`r pp(c_y$fsm, 0)`% against `r pp(c_n$fsm, 0)`%). They also arrive with
+lower prior attainment and score
+`r pts(c_n$att8 - c_y$att8)` points lower. Absence differs much less
+between the two (`r pp(c_y$absence)`% against `r pp(c_n$absence)`%):
+some of the county's highest-absence schools are inland.
+
+::: {.callout-note appearance="simple"}
+## Schools that changed in 2025/26
+
+Three of the schools named in this document changed trust or URN
+during 2025/26:
+
+- **The Hastings Academy** became **Mulberry Academy Hastings** under the
+  Mulberry Schools Trust, keeping its URN.
+- **The St Leonards Academy** closed in February 2026 and reopened as a
+  fresh start, **Mulberry Academy St Leonards**.
+- **Hailsham Community College** closed in August 2025 and reopened as
+  **Hailsham Academy** (Mark Education Trust).
+
+Their figures below describe the schools as they were. Results under the
+new arrangements are not yet available.
+:::
+
+```{r school-table}
+#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5)."
+S |>
+  arrange(district, SCHNAME) |>
+  transmute(School = SCHNAME, District = district,
+            Type = ifelse(type == "Academy", "Academy", "Maintained"),
+            Pupils = pupils, `FSM %` = round(fsm, 1),
+            `Absence %` = round(absence, 1), `Persistent %` = round(persistent, 1),
+            `KS2` = round(ks2_c, 1), `EHCP %` = round(sen_ehcp, 1),
+            `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
+            Ofsted = ofsted) |>
+  kt(align = "llllrrrrrrrl")
+```
+
+# How East Sussex compares
+
+```{r profile-table}
+#| tbl-cap: "East Sussex, Brighton and Hove and England, 2024/25. Means of school-level figures, as in the Lever report; ranks are among all local authorities (1 = highest)."
+row <- function(lab, col, d = 1) {
+  f <- function(x) sprintf(paste0("%.", d, "f"), x)
+  rnk <- function(p) sprintf("%s (%s)", f(p[[col]]), ord(rank(-prof[[col]])[prof$LANAME == p$LANAME]))
+  tibble(Measure = lab, `East Sussex` = rnk(p_es), `Brighton and Hove` = rnk(p_bh),
+         England = f(mean(prof[[col]] * prof$schools, na.rm = TRUE) /
+                       mean(prof$schools[!is.na(prof[[col]])])))
+}
+bind_rows(
+  row("Attainment 8, all pupils", "att8"),
+  row("Attainment 8, disadvantaged", "att8_dis"),
+  row("Attainment 8, non-disadvantaged", "att8_non"),
+  row("Disadvantage gap (points)", "gap"),
+  row("Disadvantaged (FSM6) %", "fsm"),
+  row("Overall absence %", "absence"),
+  row("Persistent absence %", "persistent"),
+  row("Mean KS2 (centred)", "ks2_c", 2),
+  row("EAL %", "eal"),
+  row("EHC plan %", "sen_ehcp")) |>
+  kt(align = "lrrr")
+```
+
+Three features stand out against England:
+
+- **Lower attainment for every group.** The shortfall is widest for
+  disadvantaged pupils, so the county's disadvantage gap is among the
+  widest fifth in England.
+- **Lower prior attainment.** Pupils arrive from primary school with
+  lower Key Stage 2 scores than the national average. The national model
+  treats this as one of the two strongest predictors of results at 16.
+- **Higher absence, but not higher disadvantage.** The county's schools
+  are less disadvantaged than the national average and less than
+  Brighton and Hove's. Its absence is high.
+
+```{r trend}
+#| fig-cap: "Attainment 8 for disadvantaged and non-disadvantaged pupils, school means, 2021/22 to 2024/25. England is the mean over all schools."
+#| fig-height: 4.8
+nat_y <- ES$profiles |>
+  group_by(year_label) |>
+  summarise(att8_dis = weighted.mean(att8_dis, schools, na.rm = TRUE),
+            att8_non = weighted.mean(att8_non, schools, na.rm = TRUE), .groups = "drop") |>
+  mutate(LANAME = "England")
+ES$profiles |>
+  filter(LANAME %in% c(FOCUS, COMP)) |>
+  select(year_label, LANAME, att8_dis, att8_non) |>
+  bind_rows(nat_y) |>
+  pivot_longer(c(att8_dis, att8_non), names_to = "grp", values_to = "att8") |>
+  mutate(grp = recode(grp, att8_dis = "Disadvantaged pupils", att8_non = "Non-disadvantaged pupils"),
+         LANAME = factor(LANAME, c(FOCUS, COMP, "England"))) |>
+  ggplot(aes(year_label, att8, colour = LANAME, group = LANAME)) +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  facet_wrap(~grp, scales = "free_y") +
+  scale_colour_manual(values = AREA_COL, name = NULL) +
+  labs(x = NULL, y = "Attainment 8",
+       title = "The county trails England for both groups, every year") +
+  theme_note()
+```
+
+# What explains attainment in East Sussex {#sec-decomp}
+
+The national model predicts a school's Attainment 8 from its intake and
+circumstances. Averaged over a local authority's schools, those
+predictions add up exactly to the authority's average result, piece by
+piece. That makes it possible to ask how much of the gap between East
+Sussex and England each factor accounts for:
+
+- the county's absence against England's;
+- its prior attainment against England's;
+- and so on through every other term.
+
+The pieces add up to the whole gap. Anything the model's factors do not
+cover lands in the last bar, labelled "unexplained", and for East Sussex
+it is small.
+
+```{r fig-decomp}
+#| fig-cap: "Why average Attainment 8 differs from England's, by factor, all school-years 2021/22 to 2024/25. Bars to the left pull the area below England; bars to the right lift it. The pieces sum to the total gap printed in each panel. Approximate Attainment 8 points."
+#| fig-height: 7.5
+comp_order <- c("Absence", "Prior attainment (KS2)", "Disadvantage (% FSM)",
+                "English as an additional language", "Admissions (selection)",
+                "Segregation (LA)", "Teacher workforce", "Ofsted rating",
+                "Region", "Local authority effect", "Year mix",
+                "Unexplained (school residual)")
+lab <- dec |> distinct(la, group, la_att8, nat_att8) |>
+  mutate(la = factor(la, c(FOCUS, COMP)),
+         txt = sprintf("%.1f vs England %.1f\ntotal %+.1f", la_att8, nat_att8, la_att8 - nat_att8))
+dec |>
+  mutate(component = factor(component, rev(comp_order)),
+         la = factor(la, c(FOCUS, COMP)),
+         dir = ifelse(points < 0, "Pulls below England", "Lifts above England")) |>
+  ggplot(aes(points, component, fill = dir)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  # Rows 6 to 8 (workforce, segregation, admissions) are short in every
+  # panel, so the total sits there without covering a bar
+  geom_label(data = lab, aes(x = Inf, y = 7, label = txt), inherit.aes = FALSE,
+             hjust = 1.02, size = 2.9, colour = INK, fill = "white", label.size = 0) +
+  facet_grid(la ~ group) +
+  scale_fill_manual(values = c("Pulls below England" = BAD, "Lifts above England" = TEAL), name = NULL) +
+  labs(x = "Approximate Attainment 8 points", y = NULL,
+       title = "What separates each area's results from England's",
+       subtitle = "Each bar is one factor's contribution to the difference") +
+  theme_note(11) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r decomp-table}
+#| tbl-cap: "The same decomposition for East Sussex, in Attainment 8 points. Region and local authority are shown together as 'place'."
+dec |>
+  filter(la == FOCUS) |>
+  mutate(component = case_when(component %in% c("Region", "Local authority effect") ~ "Place (region and local authority)",
+                               component %in% c("Segregation (LA)", "Year mix", "Admissions (selection)") ~ "Other model terms",
+                               TRUE ~ component)) |>
+  group_by(group, component) |> summarise(points = sum(points), .groups = "drop") |>
+  pivot_wider(names_from = group, values_from = points) |>
+  arrange(`All pupils`) |>
+  mutate(across(where(is.numeric), ~sprintf("%+.2f", .x))) |>
+  rename(Factor = component) |>
+  kt(align = "lrrr")
+```
+
+**For all pupils**, East Sussex is
+`r pts(-d_tot(FOCUS, "All pupils"))` points below England. Almost all of
+that is two factors of roughly equal size:
+
+- **absence** (`r pts(d_get(FOCUS, "All pupils", "Absence"), 2)`);
+- **prior attainment** (`r pts(d_get(FOCUS, "All pupils", "Prior attainment (KS2)"), 2)`).
+
+Lower Ofsted ratings and a low share of pupils with English as an
+additional language take a little more. Place nets out at about zero:
+the South East's negative regional effect is offset by the county's own
+small positive one.
+
+**For disadvantaged pupils** the gap is
+`r pts(-d_tot(FOCUS, "Disadvantaged"))` points, and the picture
+changes in two ways:
+
+- **Place matters much more.** Across England, disadvantaged pupils
+  outside London do worse than the model's other factors predict, and the
+  South East is one of the regions where that is most marked. Place takes
+  `r pts(-(d_get(FOCUS, "Disadvantaged", "Region") + d_get(FOCUS, "Disadvantaged", "Local authority effect")), 2)`
+  points, nearly as much as absence
+  (`r pts(-d_get(FOCUS, "Disadvantaged", "Absence"), 2)`).
+- **English as an additional language takes more.** East Sussex's
+  disadvantaged pupils are rarely from the multilingual families whose
+  children do well nationally
+  (`r pts(-d_get(FOCUS, "Disadvantaged", "English as an additional language"), 2)`).
+
+Neither is something the county can change. Absence and prior
+attainment are the two pieces it can.
+
+**What does not appear** is just as informative. Concentrations of
+disadvantage contribute almost nothing, and if anything work in the
+county's favour, because its schools are less disadvantaged than
+England's. The segregation index contributes nothing. Teacher workforce
+measures contribute little. Nothing here suggests that the mix of pupils
+between schools is what holds East Sussex back.
+
+**The contrast with Brighton and Hove is the clearest thing in the
+chart.** Absence costs Brighton and Hove *more* than it costs East
+Sussex (`r pts(-d_get(COMP, "All pupils", "Absence"), 2)` points against
+`r pts(-d_get(FOCUS, "All pupils", "Absence"), 2)`), and its pupils arrive
+with *higher* prior attainment. What lifts the city above England is
+its local authority effect: its schools get more out of their pupils
+than the model predicts (+`r pts(d_get(COMP, "All pupils", "Local authority effect"), 2)`
+points). East Sussex has neither the city's prior-attainment advantage
+nor its school effect. That leaves absence as the largest single
+addressable factor.
+
+# The county's own effect
+
+Once intake and circumstances are accounted for, each local authority's
+schools sit somewhere above or below the national expectation. This is
+the local authority random effect in the model, plotted for every
+authority in @fig-caterpillar.
+
+```{r fig-caterpillar}
+#| fig-cap: "Local authority effects from the published national models, disadvantaged pupils. Each dot is an authority, ordered by estimate, with a 95% interval. East Sussex is teal; Brighton and Hove pink."
+#| fig-height: 5.5
+cd <- eff |> filter(group == "Disadvantaged") |>
+  mutate(hl = case_when(la == FOCUS ~ FOCUS, la == COMP ~ COMP, TRUE ~ "Other"),
+         la_o = reorder(la, effect))
+ggplot(cd, aes(la_o, effect)) +
+  geom_errorbar(aes(ymin = ci_lo, ymax = ci_hi, colour = hl == "Other"), width = 0, linewidth = 0.3) +
+  geom_point(aes(colour = hl == "Other"), size = 1.2) +
+  geom_point(data = filter(cd, hl != "Other"), aes(fill = hl), shape = 21, size = 3.5, colour = "white") +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = GREY) +
+  geom_text_repel(data = filter(cd, hl != "Other"), aes(label = la), size = 3.4, nudge_y = 0.06,
+                  segment.colour = GREY) +
+  scale_colour_manual(values = c(`TRUE` = LIGHT, `FALSE` = LIGHT), guide = "none") +
+  scale_fill_manual(values = AREA_COL, guide = "none") +
+  labs(x = "Local authorities, ordered", y = "Effect (log scale; 0.01 is about 1%)",
+       title = "East Sussex's schools perform close to the national expectation") +
+  theme_note() +
+  theme(axis.text.x = element_blank(), panel.grid.major.x = element_blank())
+```
+
+```{r tbl-effects}
+#| tbl-cap: "Local authority effects and ranks (1 = best). 'Significant' means the 95% interval excludes zero."
+eff |> filter(la %in% c(FOCUS, COMP)) |>
+  transmute(Group = group, `Local authority` = la,
+            `Effect (%)` = sprintf("%+.1f", 100 * (exp(effect) - 1)),
+            Rank = sprintf("%s of %d", ord(rank), n_las),
+            Significant = ifelse(sig, "Yes", "No")) |>
+  arrange(Group, `Local authority`) |>
+  kt(align = "llrrl")
+```
+
+East Sussex ranks `r ord(e_es("All pupils")$rank)` for all pupils,
+`r ord(e_es("Disadvantaged")$rank)` for disadvantaged pupils and
+`r ord(e_es("Non-disadvantaged")$rank)` for non-disadvantaged pupils. In
+each case it is slightly above the middle, worth about
+`r pp(100 * (exp(e_es("All pupils")$effect) - 1))`% on Attainment 8, and
+in none is it distinguishable from average. **The county's schools,
+taken together, get about the results the national model expects for
+pupils like theirs, in a place like theirs.**
+
+**Does that depend on controlling for absence?** For Brighton and Hove it
+depends on it entirely, and this was one of the central findings of the
+Lever report:
+
+- with the absence control, the city ranks
+  `r ord(r27("dis", COMP, "A-raw"))` for disadvantaged pupils;
+- without it, `r ord(r27("dis", COMP, "A-none"))`.
+
+The city's schools are effective for the pupils who attend, and the
+city's absence erases the advantage. For East Sussex the control makes
+almost no difference: `r ord(r27("dis", FOCUS, "A-raw"))` with it,
+`r ord(r27("dis", FOCUS, "A-none"))` without.[^r27] The county's absence
+is not hiding unusually effective schools. It is at about the level its
+intake predicts (@sec-intake), so taking it out of the model moves the
+county very little.
+
+[^r27]: These two ranks come from the peer-review re-estimation in the
+Lever report, fitted on a common sample so that the two specifications
+can be compared. They differ slightly from the published model's ranks
+in the table above for that reason.
+
+# Absence in East Sussex {#sec-absence}
+
+## Ten years of secondary absence
+
+```{r fig-abs-series}
+#| fig-cap: "Overall absence in state-funded secondary schools, autumn and spring terms, 2016/17 to 2025/26. Sessions-weighted. 2019/20 was not collected."
+#| fig-height: 5
+ser |>
+  mutate(year = yr(time_period), area = factor(area, names(AREA_COL))) |>
+  ggplot(aes(year, abs_rate, colour = area, group = area)) +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  scale_colour_manual(values = AREA_COL, name = NULL) +
+  labs(x = NULL, y = "Overall absence, % of sessions",
+       title = "East Sussex has run above England for a decade, and is now closing the gap") +
+  theme_note() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r tbl-abs-ranks}
+#| tbl-cap: "Secondary absence and persistent absence (10% or more of sessions missed), autumn and spring terms, with rank among local authorities (1 = highest absence)."
+rk |> filter(la_name %in% c(FOCUS, COMP)) |>
+  transmute(Year = yr(time_period), la_name,
+            v = sprintf("%.1f%% (%s) / %.1f%% (%s)", abs_rate, ord(rank_abs), pa_rate, ord(rank_pa))) |>
+  pivot_wider(names_from = la_name, values_from = v) |>
+  left_join(ser |> filter(area == "England") |>
+              transmute(Year = yr(time_period),
+                        England = sprintf("%.1f%% / %.1f%%", abs_rate, pa_rate)), by = "Year") |>
+  rename(`East Sussex: absence / persistent` = all_of(FOCUS),
+         `Brighton and Hove` = all_of(COMP)) |>
+  kt(align = "lrrr")
+```
+
+Absence in East Sussex was high long before the pandemic. In 2016/17
+and 2017/18 the county was the 9th highest of over 150 authorities,
+alongside Brighton and Hove. Like everywhere, absence roughly doubled
+after the pandemic. The county peaked at `r pp(s_at(FOCUS, "202223"))`%
+in `r yr("202223")` (`r ord(rk_at(FOCUS, "202223"))` highest), and has
+improved every year since, to `r pp(s_at(FOCUS, abs_last))`% in
+`r yr(abs_last)` (`r ord(rk_at(FOCUS, abs_last))`). Over the same years
+England fell by
+`r pp(s_at("England", "202223") - s_at("England", abs_last))` points and
+Brighton and Hove by
+`r pp(s_at(COMP, "202223") - s_at(COMP, abs_last))`. East Sussex's
+improvement is real and faster than average, but the county is still
+`r pp(gap_tot)` points above England.
+
+## Is it the intake? {#sec-intake}
+
+Absence is partly a property of the pupils a school serves. Lower prior
+attainment, disadvantage and a lack of English as an additional language
+all predict higher absence across England. The first stage of the Lever
+report's absence decomposition fits that relationship nationally, using
+intake and region but not the local authority. It then asks how far each
+authority's absence is above or below what its intake predicts.
+
+```{r fig-intake}
+#| fig-cap: "Each local authority's mean school absence (2021/22 to 2024/25) against the absence its intake predicts. Authorities above the line have more absence than their intake explains."
+#| fig-height: 5.5
+ctx2 <- ctx |> mutate(hl = case_when(LANAME == FOCUS ~ FOCUS, LANAME == COMP ~ COMP, TRUE ~ "Other"))
+ggplot(ctx2, aes(mean_exp_abs_NoL, mean_abs)) +
+  geom_abline(slope = 1, intercept = 0, colour = GREY, linetype = "dashed") +
+  geom_point(data = filter(ctx2, hl == "Other"), colour = LIGHT, size = 1.8) +
+  geom_point(data = filter(ctx2, hl != "Other"), aes(fill = hl), shape = 21, size = 4, colour = "white") +
+  geom_text_repel(data = filter(ctx2, hl != "Other"), aes(label = LANAME), size = 3.6, nudge_x = -0.4) +
+  scale_fill_manual(values = AREA_COL, guide = "none") +
+  labs(x = "Absence predicted by intake, %", y = "Actual absence, %",
+       title = "Brighton and Hove's absence is far above its intake; East Sussex's is close to it") +
+  theme_note()
+```
+
+East Sussex's intake predicts high absence: `r pp(c_es$mean_exp_abs_NoL)`%,
+against `r pp(c_bh$mean_exp_abs_NoL)`% for Brighton and Hove's. Actual
+absence is `r pp(c_es$mean_abs)`%, only `r pp(c_es$excess, 2)` points
+above that (`r ord(c_es$rank_excess)` of `r c_es$n_las`). Brighton and
+Hove's intake predicts low absence, and its actual absence is
+`r pp(c_bh$excess)` points above that, the `r ord(c_bh$rank_excess)` largest
+excess in England.
+
+This is the sharpest difference between the two authorities.
+
+- **Brighton and Hove's absence is a local anomaly.** It has the absence
+  of a much more deprived place without the deprivation. That points to
+  local causes, which is why the Lever report recommended a dedicated
+  study.
+- **East Sussex's absence is the national pattern, at the level its
+  intake produces everywhere.** It has the pupils who are absent most
+  across England: lower prior attainment, little English as an
+  additional language, and coastal deprivation.
+
+That is not a reason for fatalism. "Predicted by intake" means "typical
+of schools with intakes like this", and typical is still a lot of
+absence. Schools with similar intakes vary widely (@sec-plane). The
+county's improvement since 2022/23 shows the rate can move. But the
+levers are likely to be the ones that work nationally for these pupils,
+rather than a search for something unusual about East Sussex.
+
+## What the absence is {#sec-reasons}
+
+Every absent session is recorded against a reason.
+@fig-reasons compares East Sussex's profile with England's and Brighton
+and Hove's, as a share of all possible sessions.
+
+```{r fig-reasons}
+#| fig-cap: "Absence by register reason, autumn and spring terms, state-funded secondary schools, percentage of possible sessions. The ten largest reasons nationally."
+#| fig-height: 5.2
+top <- rs_w |> arrange(desc(England)) |> slice_head(n = 10) |> pull(reason)
+rs |> filter(reason %in% top) |>
+  mutate(reason = factor(reason, rev(top)), area = factor(area, c(FOCUS, COMP, "England"))) |>
+  ggplot(aes(pp, reason, fill = area)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+  scale_fill_manual(values = AREA_COL, name = NULL) +
+  labs(x = "% of possible sessions", y = NULL,
+       title = paste("Illness and unauthorised absence account for most of it,", yr(abs_last))) +
+  theme_note()
+```
+
+```{r tbl-reason-gap}
+#| tbl-cap: "Where East Sussex's excess over England comes from, by reason, in percentage points of possible sessions. The rows sum to the total gap."
+rs_gap |>
+  filter(abs(gap) >= 0.01) |>
+  transmute(Reason = reason, `East Sussex` = sprintf("%.2f", .data[[FOCUS]]),
+            England = sprintf("%.2f", England), Gap = sprintf("%+.2f", gap),
+            `Share of gap` = sprintf("%.0f%%", 100 * gap / gap_tot)) |>
+  kt(align = "lrrrr")
+```
+
+East Sussex is `r pp(gap_tot, 2)` points above England in
+`r yr(abs_last)`, and three reasons make up the excess:
+
+- **Illness**, `r pp(gap_of("Illness"), 2)` points: about
+  `r pp(100 * gap_of("Illness") / gap_tot, 0)`% of the gap.
+- **Unauthorised absence**, `r pp(gap_of("Unauthorised, other"), 2)`
+  points. This is the category that covers truancy and absence the
+  school does not accept.
+- **Reduced timetables**, `r pp(gap_of("Reduced timetable"), 2)` points.
+  These are pupils formally attending part-time, often while a placement
+  or support is arranged. The figure is small but notable, because it
+  reflects decisions made within the system rather than by families.
+
+Unauthorised holidays are at the national rate and late arrival is
+below it. Suspension adds only `r pp(gap_of("Suspended (code E)"), 2)`.
+
+The same is true of Brighton and Hove, more strongly. The Lever
+report's companion note on exclusions found that illness was 95% of the
+city's excess. Neither authority's problem is mainly holidays, lateness
+or exclusion. Both are mainly pupils recorded as ill, and in East Sussex
+also pupils absent without permission.
+
+## Within the county
+
+```{r fig-within}
+#| fig-cap: "School absence against disadvantage, East Sussex, 2024/25, coloured by district. The dotted line is England's school average absence."
+#| fig-height: 6.5
+ggplot() +
+  geom_point(data = S, aes(fsm, absence, fill = district), shape = 21, size = 3.5, colour = "white") +
+  geom_text_repel(data = S, aes(fsm, absence, label = SCHNAME), size = 2.8,
+                  max.overlaps = 30, segment.colour = LIGHT) +
+  geom_hline(yintercept = NAT$absence, linetype = "dotted", colour = GREY) +
+  annotate("text", x = max(S$fsm), y = NAT$absence, vjust = -0.5, hjust = 1,
+           label = sprintf("England school average %.1f%%", NAT$absence), size = 3, colour = GREY) +
+  scale_fill_brewer(palette = "Dark2", name = NULL) +
+  labs(x = "Disadvantaged pupils (FSM6), %", y = "Overall absence, %",
+       title = "Absence rises with disadvantage, but schools with similar intakes differ by several points") +
+  theme_note()
+```
+
+Disadvantage and absence go together within the county, as they do
+nationally. But at any level of disadvantage there is a spread of three
+or four points between schools. Two examples:
+
+- The Cavendish School and Ark Alexandra Academy are both a quarter to a
+  third disadvantaged. They differ by more than two points of absence.
+- Priory School in Lewes, one of the county's less disadvantaged
+  schools, has higher absence than five of the six Eastbourne schools.
+
+That spread is where school practice shows. @sec-plane separates it from
+intake more formally.
+
+## Suspensions {#sec-suspensions}
+
+```{r fig-susp}
+#| fig-cap: "Suspensions per 100 pupils, state-funded secondary schools, full academic years."
+#| fig-height: 4.6
+bind_rows(ex_la |> filter(la_name %in% c(FOCUS, COMP)) |> select(time_period, la_name, susp_rate),
+          ES$excl$england |> select(time_period, la_name, susp_rate)) |>
+  filter(time_period >= "201617") |>
+  mutate(year = yr(time_period), la_name = factor(la_name, c(FOCUS, COMP, "England"))) |>
+  ggplot(aes(year, susp_rate, colour = la_name, group = la_name)) +
+  geom_line(linewidth = 1) + geom_point(size = 2) +
+  scale_colour_manual(values = AREA_COL, name = NULL) +
+  labs(x = NULL, y = "Suspensions per 100 pupils",
+       title = "East Sussex suspends at well above the national rate") +
+  theme_note() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Suspensions rose sharply everywhere after the pandemic, and further in
+East Sussex. The county's rate peaked at
+`r pp(ex_at(FOCUS, "202324"))` per 100 pupils in `r yr("202324")`
+(`r ord(ex_at(FOCUS, "202324", "rank_susp"))` highest of
+`r ex_at(FOCUS, "202324", "n_la")`). In `r yr(ex_last)` it was
+`r pp(ex_at(FOCUS, ex_last))`, against `r pp(ex_eng(ex_last))` for England
+and `r pp(ex_at(COMP, ex_last))` for Brighton and Hove. Permanent
+exclusion, by contrast, is *below* the national rate:
+`r pp(ex_at(FOCUS, ex_last, "perm_rate"), 2)` per 100 against
+`r pp(ex_eng(ex_last, "perm_rate"), 2)`.
+
+```{r tbl-susp-schools}
+#| tbl-cap: "Suspensions and permanent exclusions by school, latest year. A rate is suspensions per 100 pupils on roll; one pupil can be suspended more than once."
+ES$excl_schools |>
+  filter(!is.na(susp_rate)) |>
+  arrange(desc(susp_rate)) |>
+  transmute(School = school_name, Pupils = headcount,
+            `Suspensions per 100` = round(susp_rate, 1),
+            `Permanent exclusions` = perm_excl) |>
+  kt(align = "lrrr")
+```
+
+The rate varies enormously between schools, and that variation is the
+real policy question about suspensions in the county. For absence they
+are a small part of the story. Sessions lost to suspension are
+`r pp(rs_w[[FOCUS]][rs_w$reason == "Suspended (code E)"], 2)`% of possible
+sessions in `r yr(abs_last)`, about
+`r pp(100 * rs_w[[FOCUS]][rs_w$reason == "Suspended (code E)"] / s_at(FOCUS, abs_last), 0)`%
+of all absence. A county with England's suspension rate would have
+almost exactly the absence East Sussex has. Suspension is worth
+attention for what it does to the pupils suspended, who are
+disproportionately disadvantaged and have special educational needs. It
+is not the reason the county's absence is high.
+
+# What absence costs, school by school
+
+## Two signals: what a school adds, and how it manages attendance {#sec-plane}
+
+The Lever report separates each school's absence into two parts:
+
+- the part its intake predicts;
+- the residual, which is broadly what the school's own attendance
+  practice adds or removes.
+
+It sets the residual against a value-added measure that does *not*
+control for absence. That measure gives schools credit for attendance
+they have improved, and charges them for attendance they have not.
+@fig-plane places every East Sussex school on those two axes, against
+the national cloud. These are the two models refitted for this document,
+both exact copies of the Lever report's.
+
+```{r fig-plane}
+#| fig-cap: "East Sussex schools on the joint-signal plane, mean over 2021/22 to 2024/25. Horizontal: absence above (right) or below (left) what the intake predicts. Vertical: Attainment 8 above or below what the intake predicts, with attendance counted as part of the school's contribution. Grey: every school in England."
+#| fig-height: 7
+xl <- quantile(js$resid_abs_pp, c(0.005, 0.995)); yl <- quantile(js$vadd_M2, c(0.005, 0.995))
+xl <- c(min(xl[1], -4), max(xl[2], 4.5)); yl <- c(min(yl[1], -8), max(yl[2], 9))
+ggplot(js, aes(resid_abs_pp, vadd_M2)) +
+  geom_point(colour = LIGHT, size = 0.8, alpha = 0.6) +
+  geom_hline(yintercept = 0, colour = GREY) + geom_vline(xintercept = 0, colour = GREY) +
+  geom_point(data = js_es, fill = TEAL, shape = 21, colour = "white", size = 3.6) +
+  geom_text_repel(data = js_es, aes(label = SCHNAME), size = 2.8, max.overlaps = 40,
+                  segment.colour = GREY, colour = INK) +
+  annotate("text", x = xl[1], y = yl[2], hjust = 0, vjust = 1, size = 3, colour = TEAL,
+           label = "Adds value, attendance\nbetter than intake predicts") +
+  annotate("text", x = xl[2], y = yl[2], hjust = 1, vjust = 1, size = 3, colour = WARM,
+           label = "Adds value despite\nworse attendance") +
+  annotate("text", x = xl[2], y = yl[1], hjust = 1, vjust = 0, size = 3, colour = BAD,
+           label = "Below expectation,\nattendance worse") +
+  annotate("text", x = xl[1], y = yl[1], hjust = 0, vjust = 0, size = 3, colour = PURPLE,
+           label = "Below expectation despite\nbetter attendance") +
+  coord_cartesian(xlim = xl, ylim = yl) +
+  labs(x = "Absence above what the intake predicts (percentage points)",
+       y = "Value added, attendance counted in (Attainment 8 points)",
+       title = "Attendance and attainment go together school by school") +
+  theme_note()
+```
+
+```{r plane-q}
+#| include: false
+q <- js_es |> mutate(q = case_when(vadd_M2 >= 0 & resid_abs_pp < 0 ~ 1, vadd_M2 >= 0 ~ 2,
+                                   resid_abs_pp >= 0 ~ 3, TRUE ~ 4))
+qn <- function(k) paste(q$SCHNAME[q$q == k], collapse = ", ")
+r_cor <- cor(js_es$resid_abs_pp, js_es$vadd_M2)
+```
+
+Across the county's schools the two signals are strongly related
+(correlation `r sprintf("%.2f", r_cor)`). Schools that hold attendance
+better than their intake predicts also tend to add more to results.
+
+- **Better attendance and value added.** `r qn(1)`.
+- **Value added despite worse attendance.** `r qn(2)`. In these schools
+  attendance is the obvious next lever.
+- **Below expectation, with worse attendance.** `r qn(3)`. Here both
+  signals point the same way. The Hastings and St Leonards academies,
+  Rye College and the Turing School are furthest out.
+- **Below expectation despite better attendance.**
+  `r if (nzchar(qn(4))) paste0(qn(4), ". These are the hardest cases for any authority, because the gap is not attendance.") else "No East Sussex school is in this quadrant. Every school below expectation also has worse attendance than its intake predicts, which makes attendance the common thread."`
+
+Two cautions apply.
+
+- **Some of the residual is not the school's doing.** About half of
+  national absence is explained by intake. The rest includes local
+  health, transport and family circumstances that a school can influence
+  only partly.
+- **These are four-year averages.** Several of the schools furthest from
+  the centre have changed leadership or trust since.
+
+## What closing the gap would be worth
+
+The Lever report's scenario asks what each school would gain if its
+absence fell to the national school average of
+`r pp(NAT$absence)`%. The model's absence coefficient converts the fall
+into Attainment 8 points. The Lever report also works through the
+alternative lever: bringing each school's disadvantage down to the
+county average.
+
+```{r tbl-scenario}
+#| tbl-cap: "Predicted Attainment 8 gain if each school's absence fell to the national school average (2024/25), and, for comparison, if its disadvantage fell to the county average. Schools already at or below either target gain nothing from it. Indicative only: see the cautions in the Lever report."
+sc |>
+  filter(gain_all > 0 | gain_fsm > 0) |>
+  arrange(desc(gain_all)) |>
+  transmute(School = SCHNAME, District = district,
+            `Absence %` = round(absence, 1), `FSM %` = round(fsm, 1),
+            `Gain, all pupils` = sprintf("%+.1f", gain_all),
+            `Gain, disadvantaged` = sprintf("%+.1f", gain_dis),
+            `Gain from FSM to county average` = sprintf("%+.1f", gain_fsm)) |>
+  kt(align = "llrrrrr")
+```
+
+`r nrow(sc_above)` of the county's `r nrow(sc)` schools are above the
+national average. At the highest-absence schools the predicted gain is
+three to four Attainment 8 points: The Turing School, Seahaven Academy,
+Priory School, Rye College and Robertsbridge Community College. Across
+all `r nrow(sc_above)`, the average is
+`r pts(mean(sc_above$gain_all))` points for all pupils and
+`r pts(mean(sc_above$gain_dis, na.rm = TRUE))` for disadvantaged pupils,
+whose results respond more to attendance.
+
+The disadvantage lever buys very little by comparison: at most
+`r pts(max(sc$gain_fsm))` points, at the schools with the highest
+concentrations. The county's schools do not have extreme concentrations
+of disadvantage, and the model gives concentration a small coefficient.
+In East Sussex, as the Lever report found for Brighton and Hove,
+attendance is the lever with the mechanical advantage.
+
+```{r fig-returns}
+#| fig-cap: "Predicted Attainment 8 gain from a one-point reduction, at each starting level: absence (solid) and disadvantage (dashed). Returns grow as each falls, reading right to left. East Sussex schools marked on each curve."
+#| fig-height: 5.3
+b_fsm <- ES$coefs$all[["log(PTFSM6CLA1A)"]]; b_abs <- ES$coefs$all[["log(PERCTOT)"]]
+base <- mean(S$att8)
+curve <- bind_rows(
+  tibble(x = seq(5, 55, 0.5), Variable = "% FSM (disadvantaged)", b = b_fsm),
+  tibble(x = seq(4, 16, 0.1), Variable = "% absence", b = b_abs)) |>
+  mutate(gain = base * (exp(b * (log(x - 1) - log(x))) - 1))
+dots <- bind_rows(
+  S |> transmute(SCHNAME, x = fsm, Variable = "% FSM (disadvantaged)", b = b_fsm),
+  S |> transmute(SCHNAME, x = absence, Variable = "% absence", b = b_abs)) |>
+  mutate(gain = base * (exp(b * (log(x - 1) - log(x))) - 1))
+ggplot(curve, aes(x, gain, colour = Variable, linetype = Variable)) +
+  geom_line(linewidth = 1) +
+  geom_point(data = dots, size = 2.4, alpha = 0.85) +
+  scale_colour_manual(values = c("% FSM (disadvantaged)" = PURPLE, "% absence" = TEAL), name = NULL) +
+  scale_linetype_manual(values = c("% FSM (disadvantaged)" = "dashed", "% absence" = "solid"), name = NULL) +
+  labs(x = "Current level (%)", y = "Attainment 8 gain from a 1-point reduction",
+       title = "A point of absence is worth several points of disadvantage") +
+  theme_note()
+```
+
+# School by school: contextual league tables
+
+A raw league table mostly ranks intakes. The contextual tables below
+rank schools on how far their results sit above or below what the
+national model expects, given their pupils' disadvantage, prior
+attainment, absence and the rest. This is the measure the Lever report
+uses for Brighton and Hove. The 2025/26 column is provisional, from the
+first release of that year's results.
+
+```{r va-tables}
+#| include: false
+va_tab <- function(col) {
+  ES$va |> filter(LANAME == FOCUS) |>
+    select(school, year_label, v = all_of(col)) |>
+    filter(!is.na(v)) |>
+    group_by(school) |> mutate(Mean = mean(v), Years = n()) |> ungroup() |>
+    mutate(year_label = sub("-", "/", year_label)) |>
+    pivot_wider(names_from = year_label, values_from = v) |>
+    arrange(desc(Mean)) |>
+    relocate(Mean, Years, .after = last_col())
+}
+fmt_va <- function(t) {
+  num <- names(t)[sapply(t, is.numeric) & names(t) != "Years"]
+  t |> mutate(across(all_of(num), ~ifelse(is.na(.x), "", sprintf("%+.1f", .x)))) |>
+    rename(School = school)
+}
+```
+
+::: {.panel-tabset}
+
+## All pupils
+
+```{r va-all}
+#| tbl-cap: "Value added, all pupils: observed Attainment 8 minus the national model's expectation, in points. Schools ordered by their mean."
+fmt_va(va_tab("va_ATT8SCR")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Disadvantaged pupils
+
+```{r va-dis}
+#| tbl-cap: "Value added, disadvantaged pupils. These are smaller groups, and a school's figure can move by several points from year to year."
+fmt_va(va_tab("va_ATT8SCR_FSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Non-disadvantaged pupils
+
+```{r va-non}
+#| tbl-cap: "Value added, non-disadvantaged pupils."
+fmt_va(va_tab("va_ATT8SCR_NFSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+:::
+
+```{r va-notes}
+#| include: false
+vt <- va_tab("va_ATT8SCR")
+vt_d <- va_tab("va_ATT8SCR_FSM6CLA1A")
+top3 <- head(vt$school, 3)
+bot3 <- tail(vt$school, 3)
+```
+
+The county has schools at both ends of the national distribution:
+
+- **At the top on all pupils:** `r paste(top3, collapse = ", ")`. These
+  schools consistently get more from their pupils than the model
+  expects.
+- **At the bottom:** `r paste(bot3, collapse = ", ")`. These are
+  consistently below expectation, and are the schools where trust and
+  leadership have since changed.
+
+The disadvantaged table re-orders the middle considerably.
+`r vt_d$school[1]` is first for disadvantaged pupils, and some schools
+with solid overall figures are well below expectation for their
+disadvantaged pupils. Two examples are Chailey School and Gildredge
+House. Priory School is strongly positive overall and negative for its
+disadvantaged pupils. Differences like these are where a conversation
+with the schools themselves would add most.
+
+# East Sussex and Brighton and Hove
+
+The two authorities are neighbours on the same coast, and some pupils
+cross the boundary between them each day. On the headline measures they
+look alike: absence well above England's, near-average disadvantage, and
+a disadvantage gap of about fifteen points. The model says they are
+quite different.
+
+```{r tbl-contrast}
+#| tbl-cap: "The two authorities side by side. Absence and suspension figures are the latest DfE releases; model figures are from the national models over 2021/22 to 2024/25."
+tibble::tribble(
+  ~Measure, ~`East Sussex`, ~`Brighton and Hove`,
+  "Attainment 8, all pupils (2024/25)", pts(p_es$att8), pts(p_bh$att8),
+  "Attainment 8, disadvantaged (2024/25)", pts(p_es$att8_dis), pts(p_bh$att8_dis),
+  "Disadvantaged %", pp(p_es$fsm), pp(p_bh$fsm),
+  "Prior attainment (KS2, centred)", pp(p_es$ks2_c, 2), pp(p_bh$ks2_c, 2),
+  paste("Absence,", yr(abs_last), "(rank)"),
+    sprintf("%.1f%% (%s)", s_at(FOCUS, abs_last), ord(rk_at(FOCUS, abs_last))),
+    sprintf("%.1f%% (%s)", s_at(COMP, abs_last), ord(rk_at(COMP, abs_last))),
+  "Absence above intake-predicted (rank)",
+    sprintf("%+.2f (%s)", c_es$excess, ord(c_es$rank_excess)),
+    sprintf("%+.2f (%s)", c_bh$excess, ord(c_bh$rank_excess)),
+  "Illness, % of possible sessions",
+    pp(rs_w[[FOCUS]][rs_w$reason == "Illness"], 2), pp(rs_w[[COMP]][rs_w$reason == "Illness"], 2),
+  paste("Suspensions per 100,", yr(ex_last)),
+    pp(ex_at(FOCUS, ex_last)), pp(ex_at(COMP, ex_last)),
+  "LA effect, all pupils (rank)", ord(e_es("All pupils")$rank), ord(e_bh("All pupils")$rank),
+  "LA effect, disadvantaged (rank)", ord(e_es("Disadvantaged")$rank), ord(e_bh("Disadvantaged")$rank),
+  "Disadvantaged rank: with / without absence control",
+    paste(ord(r27("dis", FOCUS, "A-raw")), "/", ord(r27("dis", FOCUS, "A-none"))),
+    paste(ord(r27("dis", COMP, "A-raw")), "/", ord(r27("dis", COMP, "A-none"))),
+  "Absence's cost to the gap with England (points, all pupils)",
+    pts(d_get(FOCUS, "All pupils", "Absence"), 2), pts(d_get(COMP, "All pupils", "Absence"), 2)) |>
+  kt(align = "lrr")
+```
+
+- **Brighton and Hove** has effective schools, an advantaged intake and
+  a local absence problem out of all proportion to its intake. Absence is
+  the one thing standing between the city and the top of the national
+  table. The policy question there is diagnostic: *why* is attendance so
+  much worse than the city's pupils would predict?
+- **East Sussex** has schools that perform about as the model expects,
+  pupils who arrive with lower prior attainment, and absence that is high
+  but roughly what its intake predicts. Absence is still the largest
+  factor the county can act on, but it is not an anomaly. The policy
+  question is about delivery: how to move a typical, intake-driven
+  attendance problem in places where it is concentrated, chiefly the
+  coastal towns and a handful of schools.
+- **What they share** is the composition of the problem. In both, most of
+  the excess is pupils recorded as ill, not holidays, lateness or
+  exclusion. In neither does the mix of pupils between schools explain
+  attainment. Both would get more from attendance than from any
+  redistribution of disadvantage.
+- **Where they differ most sharply apart from that** is suspension. East
+  Sussex suspends at more than twice Brighton and Hove's rate. That is
+  not a large part of either authority's absence, but it is a large
+  difference in practice between two neighbours.
+
+# Implications and questions for discussion
+
+These are offered as starting points for the conversation with the
+county. They are not recommendations made with knowledge of what the
+county already does.
+
+1. **Attendance is the largest factor the county can act on.** It
+   accounts for as much of the attainment gap with England as prior
+   attainment does. The gain per point is largest in the
+   highest-absence schools, and largest for disadvantaged pupils.
+2. **The county's absence is the national problem, concentrated.**
+   Approaches that work for pupils with lower prior attainment, in
+   coastal and rural areas with poor transport, are likely to transfer.
+   The improvement since 2022/23 suggests something is already working.
+   It would be worth knowing what, and in which schools.
+3. **Illness is most of the excess.** Illness absence above the
+   national rate, here and in Brighton and Hove, is beyond what schools
+   alone can address, and points to joint work with health and
+   children's services. The published data cannot say what lies behind
+   it; the county's own attendance records could.
+4. **Reduced timetables and suspensions are system decisions.** Both run
+   above national rates. Neither is large in absence terms, but both fall
+   on the pupils least able to absorb lost time, and both are within the
+   system's control.
+5. **Prior attainment is the other half of the gap.** Pupils arriving
+   with lower Key Stage 2 scores account for as much of the county's
+   shortfall as absence does. The primary phase is part of the secondary
+   story.
+6. **Hastings.** The Hastings and St Leonards academies have the
+   lowest value added in the county, with absence well above what their
+   intakes predict, and both have just changed trust. The
+   value-added and attendance measures in this document give a baseline
+   against which the new arrangements could be followed.
+
+**What would sharpen this.** All of the following are published or
+routinely collected by the county:
+
+- attendance by year group and pupil characteristic for each school;
+- persistent and severe absence by reason;
+- the use of reduced timetables and alternative provision;
+- the primary schools that feed each secondary.
+
+Any of these would allow the school-level picture here to be taken
+further.
+
+# Notes on method {.unnumbered}
+
+**The decomposition.** For a model fitted on log Attainment 8, a
+school-year's outcome is the sum of its fixed-effect terms (coefficient
+times predictor), its random effects (year, Ofsted rating, region, local
+authority) and a residual. Averaging over an authority's school-years
+and subtracting England's average gives the gap in log points as an
+exact sum of one term per factor. Each term is converted to approximate
+Attainment 8 points by multiplying by England's geometric mean Attainment
+8. The pieces are computed on the school-years each model was fitted on,
+so the three groups cover slightly different sets.
+
+**Absence.** Absence rates in @sec-absence are sessions-weighted across
+pupils, from the DfE's school-level release for autumn and spring terms.
+They differ slightly from the school-mean rates in the model tables,
+which weight every school equally.
+
+**Sources.** DfE school performance tables 2021/22–2024/25 and Key stage 4
+performance 2025/26 (provisional); Pupil absence in schools in England;
+Suspensions and permanent exclusions in England; School workforce in
+England; Get Information about Schools. All are published under the Open
+Government Licence v3.0. The models and code are at
+<https://github.com/adamdennett/school_attainment_tool>; this document
+is built by `R/17_east_sussex.R` and `east_sussex.qmd`.
