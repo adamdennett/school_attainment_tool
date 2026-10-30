@@ -168,7 +168,7 @@ The methods are described in full in the [East Sussex document](east_sussex.html
 # Sussex's schools
 
 ```{r map}
-#| fig-cap: "Sussex's 76 state-funded secondary schools, coloured by overall absence in 2024/25, within its thirteen districts. Hover for figures and who runs each school; switch to the governance colouring at top right."
+#| fig-cap: "Sussex's 76 state-funded secondary schools, coloured by overall absence in 2024/25, within its thirteen districts. Choose another measure from the menu above the map; circle size is the school's roll. Hover for figures and who runs each school."
 map_area(X, GOV, LADS, height = 640)
 ```
 

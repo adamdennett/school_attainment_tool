@@ -160,7 +160,7 @@ full.
 # The district's schools
 
 ```{r map}
-#| fig-cap: "Mid Sussex's state-funded secondary schools, coloured by overall absence in 2024/25. Hover for figures and who runs each school; switch to the governance colouring at top right."
+#| fig-cap: "Mid Sussex's state-funded secondary schools, coloured by overall absence in 2024/25. Choose another measure from the menu above the map; circle size is the school's roll. Hover for figures and who runs each school."
 map_area(X, GOV, LADS, height = 460)
 ```
 

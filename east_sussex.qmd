@@ -314,53 +314,11 @@ report's KS4 addendum does.
 # The county's schools
 
 ```{r map}
-#| fig-cap: "East Sussex's state-funded secondary schools, coloured by overall absence in 2024/25, within the county's five districts and boroughs. Hover over a school for its figures and who runs it; switch to the governance colouring with the control at top right."
-library(leaflet)
-pal <- colorNumeric(c("#2e6260", "#f2e6b6", "#b2182b"), domain = S$absence)
-lads <- LADS |> filter(la == FOCUS)
-lad_c <- suppressWarnings(sf::st_coordinates(sf::st_point_on_surface(lads)))
-m_dat <- S |>
-  mutate(URN = as.integer(URN)) |>
-  left_join(GOV |> select(URN, run_by, run_by_now, route), by = "URN") |>
-  mutate(gov = case_when(run_by == "Maintained by the county council" ~ "Maintained",
-                         run_by == "Single-academy trust" | grepl("not recorded", run_by) ~
-                           "Single-academy trust or not recorded",
-                         route == "Sponsor-led academy" ~ "Multi-academy trust, sponsored",
-                         TRUE ~ "Multi-academy trust, converter or free school"),
-         tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s",
-                       SCHNAME, district, absence, fsm, att8, run_by,
-                       ifelse(run_by_now != run_by, paste0("<br>Now: ", run_by_now), "")))
-gpal <- colorFactor(c("#2e6260", "#993bff", "#f56300", "#8a8aa3"),
-                    levels = c("Maintained", "Multi-academy trust, converter or free school",
-                               "Multi-academy trust, sponsored", "Single-academy trust or not recorded"))
-leaflet(m_dat, height = 560, options = leafletOptions(scrollWheelZoom = FALSE)) |>
-  addProviderTiles("Esri.WorldGrayCanvas") |>
-  addPolygons(data = lads, color = PURPLE, weight = 1.5, fill = TRUE,
-              fillOpacity = 0.03, fillColor = PURPLE, label = ~lad) |>
-  addLabelOnlyMarkers(lng = lad_c[, 1], lat = lad_c[, 2], label = lads$lad,
-                      labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE,
-                        style = list(color = PURPLE, "font-weight" = "bold", "font-size" = "12px"))) |>
-  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Absence",
-                   color = "white", weight = 1, fillOpacity = 0.9,
-                   fillColor = ~pal(absence), label = ~lapply(tip, htmltools::HTML)) |>
-  addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Who runs it",
-                   color = "white", weight = 1, fillOpacity = 0.9,
-                   fillColor = ~gpal(gov), label = ~lapply(tip, htmltools::HTML)) |>
-  addLegend("bottomright", pal = pal, values = ~absence, group = "Absence",
-            title = "Absence %", opacity = 0.9) |>
-  addLegend("bottomright", pal = gpal, values = ~gov, group = "Who runs it",
-            title = "Who runs it (2024/25)", opacity = 0.9) |>
-  addLayersControl(baseGroups = c("Absence", "Who runs it"),
-                   options = layersControlOptions(collapsed = FALSE)) |>
-  # Show only the legend that belongs to the chosen layer. Legends are
-  # told apart by their titles, not their order on the page.
-  htmlwidgets::onRender("function(el, x) {
-    function show(name) {
-      el.querySelectorAll('.info.legend').forEach(function(l) {
-        var isAbs = l.innerText.indexOf('Absence %') !== -1;
-        l.style.display = ((name === 'Absence') === isAbs) ? '' : 'none'; }); }
-    this.on('baselayerchange', function(e) { show(e.name); });
-    show('Absence'); }")
+#| fig-cap: "East Sussex's state-funded secondary schools within the county's five districts and boroughs, coloured by overall absence in 2024/25. Choose another measure from the menu above the map; circle size is the school's roll. Hover over a school for its figures and who runs it."
+# The map is shared with the other Sussex documents
+H <- new.env()
+sys.source(here::here("R", "area_report_helpers.R"), envir = H)
+H$map_area(ES, GOV, LADS, height = 560)
 ```
 
 East Sussex has `r nrow(S)` state-funded mainstream secondary schools

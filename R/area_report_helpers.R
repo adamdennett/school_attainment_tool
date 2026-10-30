@@ -123,54 +123,215 @@ fig_governance <- function(GOV, title = "Schools by who ran them in 2024/25") {
 
 
 # ---- The map ------------------------------------------------------------
-map_area <- function(X, GOV, LADS, height = 560) {
-  S <- X$schools
-  pal <- leaflet::colorNumeric(c("#2e6260", "#f2e6b6", "#b2182b"), domain = S$absence)
-  lads <- LADS |> filter(if (is.null(X$area$lads)) la %in% X$area$las else lad %in% X$area$lads)
-  lad_c <- suppressWarnings(sf::st_coordinates(sf::st_point_on_surface(lads)))
-  m_dat <- S |>
+# The variables the map's dropdown offers. `var` names a column of the
+# table map_area() builds; `scale` is seq (magnitude), div (centred on
+# zero; `good` says which end is good) or cat (categories, coloured from
+# MAP_CATS). Absence comes first and is the default.
+map_vars <- function(abs_last) {
+  rs <- paste0(", autumn and spring ", yr(abs_last))
+  tribble(
+    ~var,          ~label,                                                  ~group,       ~scale, ~good,  ~dp, ~unit,
+    "absence",     "Overall absence, 2024/25",                              "Attendance", "seq",  "",     1,   "%",
+    "persistent",  "Persistent absence, 2024/25",                           "Attendance", "seq",  "",     1,   "%",
+    "abs_excess",  "Absence beyond what the intake predicts, 2021/22 to 2024/25", "Attendance", "div", "low", 1, " pp",
+    "illness",     paste0("Illness absence", rs),                           "Attendance", "seq",  "",     1,   "%",
+    "unauth",      paste0("Unauthorised absence", rs),                      "Attendance", "seq",  "",     1,   "%",
+    "reduced",     paste0("Reduced timetables", rs),                        "Attendance", "seq",  "",     2,   "%",
+    "susp_rate",   "Suspensions per 100 pupils, 2024/25",                   "Attendance", "seq",  "",     1,   "",
+    "att8",        "Attainment 8, all pupils, 2024/25",                     "Results",    "seq",  "",     1,   "",
+    "att8_dis",    "Attainment 8, disadvantaged pupils, 2024/25",           "Results",    "seq",  "",     1,   "",
+    "att8_non",    "Attainment 8, other pupils, 2024/25",                   "Results",    "seq",  "",     1,   "",
+    "va_all",      "Value added, all pupils, 2021/22 to 2024/25",           "Results",    "div",  "high", 1,   " pts",
+    "va_dis",      "Value added, disadvantaged pupils, 2021/22 to 2024/25", "Results",    "div",  "high", 1,   " pts",
+    "va_non",      "Value added, other pupils, 2021/22 to 2024/25",         "Results",    "div",  "high", 1,   " pts",
+    "fsm",         "Disadvantaged pupils (FSM in last six years), 2024/25", "Intake",     "seq",  "",     1,   "%",
+    "ks2_c",       "Prior attainment at KS2 (centred), 2024/25",            "Intake",     "seq",  "",     1,   "",
+    "eal",         "English as an additional language, 2024/25",            "Intake",     "seq",  "",     1,   "%",
+    "sen_ehcp",    "Education, health and care plans, 2024/25",             "Intake",     "seq",  "",     1,   "%",
+    "sen_support", "SEN support, 2024/25",                                  "Intake",     "seq",  "",     1,   "%",
+    "pupils",      "Pupils on roll, 2024/25",                               "Intake",     "seq",  "",     0,   "",
+    "gov",         "Who runs it, 2024/25",                                  "The school", "cat",  "",     0,   "",
+    "ofsted",      "Ofsted rating",                                         "The school", "cat",  "",     0,   "",
+    "religion",    "Religious character",                                   "The school", "cat",  "",     0,   "")
+}
+
+MAP_CATS <- list(
+  gov = c("Maintained" = TEAL, "Multi-academy trust, converter or free school" = "#993bff",
+          "Multi-academy trust, sponsored" = WARM, "Single-academy trust or not recorded" = "#8a8aa3"),
+  ofsted = c("Outstanding" = TEAL, "Good" = "#8fc1b5", "Requires Improvement" = WARM,
+             "Inadequate" = BAD),
+  religion = c("None" = "#8a8aa3", "Church of England" = "#993bff", "Roman Catholic" = WARM,
+               "Christian" = "#2196f3"))
+
+#' Every school in the area on one table, with each variable the
+#' dropdown offers
+map_data <- function(X, GOV) {
+  mean_va <- X$va |>
+    filter(year_label %in% c("2021-22", "2022-23", "2023-24", "2024-25")) |>
+    group_by(URN) |>
+    summarise(va_all = mean(va_ATT8SCR, na.rm = TRUE),
+              va_dis = mean(va_ATT8SCR_FSM6CLA1A, na.rm = TRUE),
+              va_non = mean(va_ATT8SCR_NFSM6CLA1A, na.rm = TRUE), .groups = "drop") |>
+    mutate(across(-URN, ~ifelse(is.finite(.x), .x, NA_real_)))
+  X$schools |>
     mutate(URN = as.integer(URN)) |>
     left_join(GOV |> select(URN, run_by, run_by_now, route), by = "URN") |>
+    left_join(mean_va, by = "URN") |>
+    left_join(X$joint$schools |> transmute(URN, abs_excess = resid_abs_pp), by = "URN") |>
+    left_join(X$sch_reasons |> transmute(URN = as.integer(urn), illness,
+                                         unauth = unauth_other, reduced), by = "URN") |>
+    left_join(X$excl_schools |> transmute(URN = urn, susp_rate), by = "URN") |>
     mutate(gov = case_when(grepl("^Maintained", run_by) ~ "Maintained",
                            run_by == "Single-academy trust" | grepl("not recorded", run_by) ~
                              "Single-academy trust or not recorded",
                            route == "Sponsor-led academy" ~ "Multi-academy trust, sponsored",
                            TRUE ~ "Multi-academy trust, converter or free school"),
+           religion = ifelse(religion %in% c("Does not apply", "None"), "None", religion),
            tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s",
                          SCHNAME, district, absence, fsm, att8, run_by,
                          ifelse(!is.na(run_by_now) & run_by_now != run_by,
                                 paste0("<br>Now: ", run_by_now), "")))
-  gpal <- leaflet::colorFactor(c("#2e6260", "#993bff", "#f56300", "#8a8aa3"),
-    levels = c("Maintained", "Multi-academy trust, converter or free school",
-               "Multi-academy trust, sponsored", "Single-academy trust or not recorded"))
-  leaflet::leaflet(m_dat, height = height, options = leaflet::leafletOptions(scrollWheelZoom = FALSE)) |>
+}
+
+#' The area's schools within its district boundaries, coloured by the
+#' variable chosen from a dropdown above the map (absence by default).
+#' Circle size is the school's roll throughout, so the size of a school
+#' never reads as a value. Built on the Brighton & Hove case study's
+#' school characteristics map: the markers are drawn in the browser.
+map_area <- function(X, GOV, LADS, height = 560) {
+  lads <- LADS |> filter(if (is.null(X$area$lads)) la %in% X$area$las else lad %in% X$area$lads)
+  lad_c <- suppressWarnings(sf::st_coordinates(sf::st_point_on_surface(lads)))
+  bb <- sf::st_bbox(lads)
+  vars <- map_vars(max(X$abs_years))
+  dat <- map_data(X, GOV) |>
+    select(SCHNAME, lon, lat, pupils, tip, any_of(vars$var))
+  payload <- list(
+    schools = jsonlite::toJSON(dat, dataframe = "rows", na = "null", digits = 4),
+    vars = jsonlite::toJSON(vars, dataframe = "rows"),
+    cats = jsonlite::toJSON(lapply(MAP_CATS, as.list), auto_unbox = TRUE))
+  leaflet::leaflet(height = height, options = leaflet::leafletOptions(scrollWheelZoom = FALSE)) |>
     leaflet::addProviderTiles("Esri.WorldGrayCanvas") |>
     leaflet::addPolygons(data = lads, color = PURPLE, weight = 1.5, fill = TRUE,
                          fillOpacity = 0.03, fillColor = PURPLE, label = ~lad) |>
     leaflet::addLabelOnlyMarkers(lng = lad_c[, 1], lat = lad_c[, 2], label = lads$lad,
       labelOptions = leaflet::labelOptions(noHide = TRUE, textOnly = TRUE,
         style = list(color = PURPLE, "font-weight" = "bold", "font-size" = "12px"))) |>
-    leaflet::addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Absence",
-                              color = "white", weight = 1, fillOpacity = 0.9,
-                              fillColor = ~pal(absence), label = ~lapply(tip, htmltools::HTML)) |>
-    leaflet::addCircleMarkers(~lon, ~lat, radius = ~sqrt(pupils) / 4, group = "Who runs it",
-                              color = "white", weight = 1, fillOpacity = 0.9,
-                              fillColor = ~gpal(gov), label = ~lapply(tip, htmltools::HTML)) |>
-    leaflet::addLegend("bottomright", pal = pal, values = ~absence, group = "Absence",
-                       title = "Absence %", opacity = 0.9) |>
-    leaflet::addLegend("bottomright", pal = gpal, values = ~gov, group = "Who runs it",
-                       title = "Who runs it (2024/25)", opacity = 0.9) |>
-    leaflet::addLayersControl(baseGroups = c("Absence", "Who runs it"),
-                              options = leaflet::layersControlOptions(collapsed = FALSE)) |>
-    # Show only the legend for the chosen layer, told apart by title
-    htmlwidgets::onRender("function(el, x) {
-      function show(name) {
-        el.querySelectorAll('.info.legend').forEach(function(l) {
-          var isAbs = l.innerText.indexOf('Absence %') !== -1;
-          l.style.display = ((name === 'Absence') === isAbs) ? '' : 'none'; }); }
-      this.on('baselayerchange', function(e) { show(e.name); });
-      show('Absence'); }")
+    leaflet::fitBounds(bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]]) |>
+    htmlwidgets::onRender(MAP_JS, data = payload)
 }
+
+MAP_JS <- '
+function(el, x, data) {
+  var map = this;
+  // htmlwidgets writes the "json" strings into the page as objects
+  var schools = data.schools, vars = data.vars, cats = data.cats;
+  var defaultVar = "absence";
+
+  // Sequential: light blue -> teal -> deep purple. Diverging: red -> grey -> teal.
+  var SEQ = [[187,210,240],[46,98,96],[78,60,86]];
+  var DIV = [[178,24,43],[232,232,238],[46,98,96]];
+  function ramp(C, t) {
+    t = Math.max(0, Math.min(1, t));
+    var i = Math.min(Math.floor(t * 2), 1), f = t * 2 - i;
+    return "rgb(" + [0,1,2].map(function(k) {
+      return Math.round(C[i][k] + f * (C[i+1][k] - C[i][k])); }).join(",") + ")";
+  }
+  function css(C) { return "linear-gradient(to right," + C.map(function(c) {
+    return "rgb(" + c.join(",") + ")"; }).join(",") + ")"; }
+
+  var markers = L.layerGroup().addTo(map);
+  var legDiv;
+  var leg = L.control({position: "bottomright"});
+  leg.onAdd = function() {
+    legDiv = L.DomUtil.create("div");
+    legDiv.style.cssText = "background:white;padding:8px 12px;border-radius:5px;" +
+      "box-shadow:0 1px 5px rgba(0,0,0,.25);font-size:12px;line-height:1.5;max-width:200px;";
+    return legDiv;
+  };
+  leg.addTo(map);
+
+  function fmt(v, m) { return v == null ? "no data" :
+    (m.scale === "div" && v > 0 ? "+" : "") + (+v).toFixed(m.dp) + m.unit; }
+
+  function draw(name) {
+    markers.clearLayers();
+    var m = vars.find(function(v) { return v["var"] === name; });
+    var vals = schools.map(function(d) { return d[name]; })
+                      .filter(function(v) { return v != null && (m.scale === "cat" || !isNaN(v)); });
+    var lo = 0, hi = 1, colour;
+    if (m.scale === "cat") {
+      colour = function(v) { return cats[name][v] || "#c9c9d6"; };
+    } else if (m.scale === "div") {
+      hi = Math.max.apply(null, vals.map(Math.abs)) || 1; lo = -hi;
+      colour = function(v) { var t = (v - lo) / (hi - lo);
+        return ramp(DIV, m.good === "high" ? t : 1 - t); };
+    } else {
+      lo = Math.min.apply(null, vals); hi = Math.max.apply(null, vals);
+      colour = function(v) { return ramp(SEQ, (v - lo) / ((hi - lo) || 1)); };
+    }
+    var missing = 0, counts = {};
+    schools.forEach(function(d) {
+      var v = d[name], none = v == null;
+      if (none) missing++; else if (m.scale === "cat") counts[v] = (counts[v] || 0) + 1;
+      L.circleMarker([d.lat, d.lon], {
+        radius: Math.sqrt(d.pupils) / 4,
+        fillColor: none ? "#ffffff" : colour(v), fillOpacity: none ? 0.6 : 0.9,
+        color: none ? "#8a8aa3" : "white", weight: none ? 1.5 : 1
+      }).bindTooltip(d.tip + "<br><b>" + m.label + ": " +
+          (m.scale === "cat" ? (v || "not known") : fmt(v, m)) + "</b>")
+        .addTo(markers);
+    });
+
+    var h = "<strong>" + m.label + "</strong><br>";
+    if (m.scale === "cat") {
+      Object.keys(cats[name]).forEach(function(k) {
+        if (!counts[k]) return;
+        h += "<div><span style=\\"display:inline-block;width:11px;height:11px;border-radius:50%;" +
+          "margin-right:6px;vertical-align:-1px;background:" + cats[name][k] + "\\"></span>" +
+          k + " (" + counts[k] + ")</div>";
+      });
+    } else {
+      var C = m.scale === "div" ? (m.good === "high" ? DIV : DIV.slice().reverse()) : SEQ;
+      h += "<div style=\\"height:12px;border-radius:2px;margin:4px 0;background:" + css(C) + "\\"></div>" +
+        "<span>" + fmt(lo, m) + "</span>" +
+        (m.scale === "div" ? "<span style=\\"position:absolute;left:50%;transform:translateX(-50%)\\">0</span>" : "") +
+        "<span style=\\"float:right\\">" + fmt(hi, m) + "</span>";
+      if (m.scale === "div") h += "<div style=\\"font-size:11px;color:#666\\">" +
+        (m.good === "high" ? "red below expectation, teal above" : "teal below expectation, red above") + "</div>";
+    }
+    if (missing) h += "<div style=\\"font-size:11px;color:#666;margin-top:2px\\">" +
+      "<span style=\\"display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;" +
+      "border:1.5px solid #8a8aa3\\"></span>no data (" + missing + ")</div>";
+    h += "<div style=\\"font-size:11px;color:#666\\">Circle size: pupils on roll</div>";
+    legDiv.style.position = "relative";
+    legDiv.innerHTML = h;
+  }
+
+  // Dropdown above the map
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "margin:0 0 8px;font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;";
+  var lbl = document.createElement("label");
+  lbl.textContent = "Colour schools by:";
+  lbl.style.fontWeight = "bold";
+  var sel = document.createElement("select");
+  sel.setAttribute("aria-label", "Variable to colour the schools by");
+  sel.style.cssText = "padding:4px 8px;font-size:13px;max-width:100%;border:1px solid #ccc;border-radius:4px;";
+  var og = null;
+  vars.forEach(function(v) {
+    if (!og || og.label !== v.group) {
+      og = document.createElement("optgroup"); og.label = v.group; sel.appendChild(og);
+    }
+    var o = document.createElement("option");
+    o.value = v["var"]; o.textContent = v.label;
+    if (v["var"] === defaultVar) o.selected = true;
+    og.appendChild(o);
+  });
+  wrap.appendChild(lbl); wrap.appendChild(sel);
+  el.parentNode.insertBefore(wrap, el);
+  sel.addEventListener("change", function() { draw(sel.value); });
+  draw(defaultVar);
+}
+'
 
 
 # ---- Tables and charts --------------------------------------------------
