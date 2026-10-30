@@ -63,6 +63,7 @@ AREAS <- list(
   sussex = list(
     area = area("Sussex", c("East Sussex", "West Sussex", "Brighton and Hove")),
     comps = list(area("East Sussex", "East Sussex"), area("West Sussex", "West Sussex"),
+                 area("Mid Sussex", "West Sussex", "Mid Sussex"),
                  area("Brighton and Hove", "Brighton and Hove")),
     coastal_towns = c("Hastings", "St Leonards-on-Sea", "Bexhill-on-Sea", "Eastbourne",
                       "Seaford", "Newhaven", "Peacehaven", "Rye", "Worthing", "Littlehampton",
@@ -139,21 +140,34 @@ area_urns <- function(panel, a, lad_map) {
   u$URN
 }
 
-urn_family <- function(urns) {
+#' Every URN each school has filed returns under: its own, its
+#' predecessors and its successors (a fresh start or re-conversion after
+#' the last results year), a few generations each way. One row per
+#' (URN = the area's school, urn = a URN it filed under). A URN that is
+#' itself one of the area's schools stays with that school, so no return
+#' is counted twice.
+urn_links <- function(urns) {
+  self <- tibble(URN = urns, urn = urns)
   f <- list.files(here::here("data-raw", "gias"), "^links_edubasealldata.*csv$", full.names = TRUE)
-  if (!length(f)) return(urns)
+  if (!length(f)) return(self)
   l <- read_csv(tail(sort(f), 1), locale = locale(encoding = "latin1"),
                 col_types = cols(.default = col_character()), progress = FALSE) |>
-    transmute(URN = as.integer(URN), link = as.integer(LinkURN), type = LinkType)
-  out <- urns
-  for (i in 1:4) {   # predecessors of predecessors, a few generations back
-    pre <- l |> filter(URN %in% out, grepl("Predecessor", type)) |> pull(link)
-    new <- setdiff(pre, out)
-    if (!length(new)) break
-    out <- c(out, new)
+    transmute(from = as.integer(URN), link = as.integer(LinkURN), type = LinkType) |>
+    filter(grepl("Predecessor|Successor", type))
+  out <- self
+  for (i in 1:4) {
+    nxt <- out |> inner_join(l, by = c("urn" = "from"), relationship = "many-to-many") |>
+      transmute(URN, urn = link) |>
+      anti_join(out, by = c("URN", "urn"))
+    if (!nrow(nxt)) break
+    out <- bind_rows(out, nxt)
   }
-  unique(out)
+  out |>
+    filter(!(urn %in% urns & URN != urn)) |>
+    distinct(urn, .keep_all = TRUE)
 }
+
+urn_family <- function(urns) unique(urn_links(urns)$urn)
 
 school_table <- function(panel, a, coastal_towns, lad_map) {
   s <- panel |>
@@ -422,10 +436,19 @@ reason_one <- function(d, area, year) {
            time_period = year)
 }
 
-school_reasons <- function(ab, urns, year) {
+#' Each school's absence by reason in one year, keyed by the school's URN
+#' in the area even when that year's return is under a successor's
+school_reasons <- function(ab, links, year) {
   ab |>
-    filter(time_period == year, urn %in% urns) |>
-    transmute(urn = as.character(urn), school_name, enrolments,
+    filter(time_period == year) |>
+    inner_join(links, by = "urn") |>
+    group_by(URN) |>
+    summarise(school_name = dplyr::last(school_name, order_by = urn),
+              across(c(enrolments, pa, poss, overall, sess_auth_illness, sess_unauth_other,
+                       sess_unauth_holiday, sess_auth_holiday, sess_auth_excluded,
+                       sess_auth_temp_reduced_timetable), ~sum(.x, na.rm = TRUE)),
+              .groups = "drop") |>
+    transmute(urn = as.character(URN), school_name, enrolments,
               abs_rate = 100 * overall / poss,
               illness = 100 * sess_auth_illness / poss,
               unauth_other = 100 * sess_unauth_other / poss,
@@ -597,7 +620,8 @@ build_area <- function(slug, sh) {
 
   schools <- school_table(sh$panel, a, spec$coastal_towns, sh$lad_map)
   urns  <- area_urns(sh$panel, a, sh$lad_map)
-  fam   <- urn_family(urns)
+  links <- urn_links(urns)
+  fam   <- unique(links$urn)
   message(sprintf("  %d state secondaries, %s", nrow(schools), sh$latest))
 
   # The area's own profile when it is not a whole LA, from the same school
@@ -643,7 +667,7 @@ build_area <- function(slug, sh) {
       fx <- urn_family(area_urns(sh$panel, x, sh$lad_map))
       reason_one(sh$ab[in_area(sh$ab, x, fx), ], x$name, y)
     })))))
-  sch_reasons <- school_reasons(sh$ab, fam, tail(years, 1)) |>
+  sch_reasons <- school_reasons(sh$ab, links, tail(years, 1)) |>
     left_join(schools |> transmute(urn = URN, district, coastal), by = "urn")
 
   ex_area <- bind_rows(
@@ -652,10 +676,17 @@ build_area <- function(slug, sh) {
       fx <- urn_family(area_urns(sh$panel, x, sh$lad_map))
       excl_agg(sh$ex[in_area(sh$ex, x, fx), ], x$name)
     })))
+  # Keyed by the area's URN, as for the absence reasons
   excl_schools <- sh$ex |>
-    filter(urn %in% fam, time_period == max(time_period),
-           !is.na(headcount), headcount > 0) |>
-    mutate(susp_rate = 100 * suspension / headcount, perm_rate = 100 * perm_excl / headcount)
+    filter(time_period == max(time_period), !is.na(headcount), headcount > 0) |>
+    inner_join(links, by = "urn") |>
+    group_by(time_period, URN) |>
+    summarise(la_name = first(la_name), school_name = dplyr::last(school_name, order_by = urn),
+              across(c(headcount, perm_excl, suspension, one_plus), ~sum(.x, na.rm = TRUE)),
+              .groups = "drop") |>
+    transmute(time_period, urn = URN, la_name, school_name, headcount, perm_excl,
+              suspension, one_plus,
+              susp_rate = 100 * suspension / headcount, perm_rate = 100 * perm_excl / headcount)
 
   scen <- absence_scenarios(schools, sh$mods, sh$national$absence)
 
