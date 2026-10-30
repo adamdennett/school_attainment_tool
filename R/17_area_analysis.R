@@ -60,6 +60,13 @@ AREAS <- list(
     area = area("Mid Sussex", "West Sussex", "Mid Sussex"),
     comps = list(area("West Sussex", "West Sussex"), area("Brighton and Hove", "Brighton and Hove")),
     coastal_towns = character(0)),
+  sussex = list(
+    area = area("Sussex", c("East Sussex", "West Sussex", "Brighton and Hove")),
+    comps = list(area("East Sussex", "East Sussex"), area("West Sussex", "West Sussex"),
+                 area("Brighton and Hove", "Brighton and Hove")),
+    coastal_towns = c("Hastings", "St Leonards-on-Sea", "Bexhill-on-Sea", "Eastbourne",
+                      "Seaford", "Newhaven", "Peacehaven", "Rye", "Worthing", "Littlehampton",
+                      "Bognor Regis", "Shoreham-by-Sea", "Lancing", "Selsey", "Brighton", "Hove")),
   brighton_and_hove = list(
     area = area("Brighton and Hove", "Brighton and Hove"),
     comps = list(area("East Sussex", "East Sussex"), area("West Sussex", "West Sussex")),

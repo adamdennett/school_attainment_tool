@@ -1,0 +1,544 @@
+---
+title: "Attainment and Attendance across Sussex"
+subtitle: "East Sussex, West Sussex and Brighton and Hove through the national model behind *How to Pull the Right Lever*: one region, three different school systems. **Draft for discussion.**"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: sussex_review
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    fig-dpi: 108
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+---
+
+```{r setup}
+#| include: false
+source(here::here("R", "area_report_helpers.R"))
+X    <- readRDS(here::here("data", "area_sussex.rds"))            # R/17_area_analysis.R
+TR   <- readRDS(here::here("data", "trust_effects.rds"))          # R/19_trust_effects.R
+DE   <- readRDS(here::here("data", "district_effects.rds"))       # R/18_district_effects.R
+LADS <- readRDS(here::here("data", "sussex_lads.rds"))            # R/19b_sussex_boundaries.R
+LAS <- c("East Sussex", "West Sussex", "Brighton and Hove")
+ALL <- c("Sussex", LAS)
+
+S <- X$schools
+NAT <- X$national
+latest <- X$latest_panel
+abs_last <- tail(X$abs_years, 1)
+GOV <- gov_table(X, TR, DE, council = "the council") |>
+  left_join(S |> transmute(URN = as.integer(URN), LANAME), by = "URN")
+
+ap <- X$area_profile |> filter(year_label == latest)
+prof <- X$profiles |> filter(year_label == latest)
+p_at <- function(la) if (la == "Sussex") ap else prof |> filter(LANAME == la)
+
+eff <- X$effects
+e_at <- function(la, g) eff |> filter(la == !!la, group == g)
+r27 <- function(out, la, spec) X$r27[[out]] |> filter(la == !!la, spec == !!spec) |> pull(rank)
+
+dec <- X$decomp
+d_get <- function(la, g, comp) dec$points[dec$la == la & dec$group == g & dec$component == comp]
+d_tot <- function(la, g) { x <- dec |> filter(la == !!la, group == g) |> slice(1); x$la_att8 - x$nat_att8 }
+
+ser <- X$abs_series
+s_at <- function(area, tp, col = "abs_rate") ser[[col]][ser$area == area & ser$time_period == tp]
+rk <- X$abs_ranks
+rk_at <- function(la, tp) rk$rank_abs[rk$la_name == la & rk$time_period == tp]
+ctx <- X$abs_context
+c_at <- function(la) ctx |> filter(LANAME == la)
+
+rs <- X$reasons |> filter(time_period == abs_last)
+rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_from = pp)
+r_at <- function(area, r) rs_w[[area]][rs_w$reason == r]
+
+exa <- X$excl$area; ex_last <- max(exa$time_period)
+ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
+
+js <- X$joint$schools
+js_sx <- js |> filter(URN %in% X$urns)
+
+# District summary: profile, four-year value added, and the district test
+lp <- X$lad_profiles |> filter(year_label == latest, LANAME %in% LAS)
+dva <- DE$sussex_va |> group_by(lad) |>
+  summarise(va = mean(va), schools = n(), below = sum(va < 0), .groups = "drop")
+dfe <- DE$focus |> filter(outcome == "All pupils") |>
+  select(spec, lad, effect, sig) |>
+  pivot_wider(names_from = spec, values_from = c(effect, sig))
+DIST <- lp |> select(lad, la = LANAME, att8, att8_dis, fsm, absence, ks2_c) |>
+  left_join(dva, by = "lad") |> left_join(dfe, by = "lad")
+```
+
+::: {.callout-warning appearance="simple"}
+## Draft for discussion
+
+This review draws together the [East Sussex](east_sussex.html),
+[West Sussex](west_sussex.html) and [Mid Sussex](mid_sussex.html)
+documents, and the Brighton and Hove findings of
+[How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html).
+Every figure comes from published Department for Education data and the
+national models documented there. Nothing uses pupil-level records.
+:::
+
+# Summary {.unnumbered}
+
+Sussex has `r nrow(S)` state-funded secondary schools across three local
+authorities and thirteen districts. Taken together in `r latest`:
+
+- **Results:** `r pts(ap$att8)` in Attainment 8, against
+  `r pts(NAT$att8)` for England.
+- **Disadvantaged pupils:** `r pts(ap$att8_dis)` against
+  `r pts(NAT$att8_dis)`.
+- **Disadvantage:** `r pp(ap$fsm)`% of pupils are disadvantaged, against
+  `r pp(NAT$fsm)`% nationally.
+
+Sussex is less disadvantaged than England, does a little less well
+overall, and does markedly less well by its disadvantaged pupils. The
+findings:
+
+- **The disadvantaged shortfall is the region's shared problem.** Every
+  one of the three authorities is below England for its disadvantaged
+  pupils. The largest single cause is being in the South East
+  (`r pts(-d_get("Sussex", "Disadvantaged", "Region"))` points). Of
+  England's nine regions, the South East has the most negative regional
+  effect for disadvantaged pupils. Absence and prior attainment add to
+  it.
+- **Beneath that, three different systems.**
+  - *Brighton and Hove* has effective schools held back by absence far
+    beyond what its intake predicts.
+  - *East Sussex* has schools that do about what is expected, pupils with
+    lower prior attainment, and the absence its intake predicts.
+  - *West Sussex* has an advantaged intake, ordinary attendance, and
+    schools below expectation, most of all for disadvantaged pupils.
+- **Illness drives Sussex's excess absence everywhere.** All three
+  authorities record more illness absence than England, Brighton and
+  Hove most of all. Reduced timetables run above the national
+  rate in East and West Sussex.
+- **The practice gaps are large and specific.** East Sussex suspends at
+  twice Brighton and Hove's rate, and West Sussex uses reduced
+  timetables at about twice the national rate.
+- **Place matters within the region, but mostly as schools.** Average
+  value added runs from
+  `r sgn(max(DIST$va))` points in `r DIST$lad[which.max(DIST$va)]` to
+  `r sgn(min(DIST$va))` in `r DIST$lad[which.min(DIST$va)]`. But only
+  Crawley has a district effect that survives once each school's own
+  record is counted.
+- **Trusts matter about as much as local authorities,** more for
+  disadvantaged pupils and attendance. United Learning runs schools in
+  both counties and stands out for results. Ark (Hastings) stands out for
+  disadvantaged pupils and attendance. Kemnal (West Sussex) and Aldridge
+  (Brighton and Hove) run significantly more absence than their intakes
+  predict.
+- **In none of the three does the mix of pupils between schools explain
+  results.** Attendance, prior attainment, and what happens inside
+  particular schools do.
+
+# About this review
+
+The three authority-level documents each apply the published national
+models to one authority. This review sets them side by side and adds
+the view of Sussex as one system. Two things should be borne in mind:
+
+- **Sussex is not an administrative unit** for schools. Its three
+  authorities have their own admissions, school improvement and
+  attendance services. "Sussex" here is a lens, not a governing body.
+- **Brighton and Hove** is the subject of the Lever report itself. Its
+  figures here come from the same models and data.
+
+The methods are described in full in the [East Sussex document](east_sussex.html).
+
+# Sussex's schools
+
+```{r map}
+#| fig-cap: "Sussex's 76 state-funded secondary schools, coloured by overall absence in 2024/25, within its thirteen districts. Hover for figures and who runs each school; switch to the governance colouring at top right."
+map_area(X, GOV, LADS, height = 640)
+```
+
+```{r tbl-gov}
+#| tbl-cap: "Who ran Sussex's secondary schools in 2024/25."
+GOV |>
+  mutate(kind = case_when(trust_kind == "Maintained" ~ "Maintained",
+                          trust_kind == "Multi-academy trust" ~ "Multi-academy trust",
+                          TRUE ~ "Single-academy trust or not recorded")) |>
+  count(LANAME, kind) |>
+  pivot_wider(names_from = kind, values_from = n, values_fill = 0) |>
+  left_join(GOV |> group_by(LANAME) |>
+              summarise(Sponsored = sum(route == "Sponsor-led academy"),
+                        Trusts = n_distinct(run_by[trust_kind == "Multi-academy trust"]),
+                        Schools = n(), .groups = "drop"), by = "LANAME") |>
+  rename(`Local authority` = LANAME) |>
+  kt(align = "lrrrrrr")
+```
+
+The three authorities run their schools very differently:
+
+- **Brighton and Hove** maintains seven of its ten.
+- **West Sussex** maintains nearly half.
+- **East Sussex** has most of its schools in
+  `r n_distinct(GOV$run_by[GOV$LANAME == "East Sussex" & GOV$trust_kind == "Multi-academy trust"])`
+  different multi-academy trusts.
+
+Two trusts, United Learning and the University of Brighton Academies
+Trust, ran schools in both counties in 2024/25.
+
+# Three systems in one region
+
+```{r profile-table}
+#| tbl-cap: "Sussex and its three authorities against England, 2024/25. Means of school-level figures; ranks among all local authorities (1 = highest)."
+row <- function(lab, col, d = 1) {
+  f <- function(x) sprintf(paste0("%.", d, "f"), x)
+  rnk <- function(la) { p <- p_at(la)
+    if (la == "Sussex") f(p[[col]]) else
+      sprintf("%s (%s)", f(p[[col]]), ord(rank(-prof[[col]])[prof$LANAME == la])) }
+  tibble(Measure = lab, Sussex = rnk("Sussex"), `East Sussex` = rnk("East Sussex"),
+         `West Sussex` = rnk("West Sussex"), `Brighton and Hove` = rnk("Brighton and Hove"),
+         England = f(sum(prof[[col]] * prof$schools, na.rm = TRUE) /
+                       sum(prof$schools[!is.na(prof[[col]])])))
+}
+bind_rows(
+  row("Attainment 8, all pupils", "att8"),
+  row("Attainment 8, disadvantaged", "att8_dis"),
+  row("Attainment 8, non-disadvantaged", "att8_non"),
+  row("Disadvantage gap (points)", "gap"),
+  row("Disadvantaged (FSM6) %", "fsm"),
+  row("Overall absence %", "absence"),
+  row("Persistent absence %", "persistent"),
+  row("Mean KS2 (centred)", "ks2_c", 2),
+  row("EAL %", "eal")) |>
+  kt(align = "lrrrrr")
+```
+
+```{r tbl-model}
+#| tbl-cap: "What the national model says about each authority: its own effect once intake and circumstances are accounted for (rank, 1 = best), and whether its standing depends on controlling for absence."
+tibble(`Local authority` = LAS) |>
+  mutate(`All pupils` = sapply(LAS, function(l) { e <- e_at(l, "All pupils")
+           sprintf("%+.1f%% (%s)%s", pct(e$effect), ord(e$rank), ifelse(e$sig, "*", "")) }),
+         Disadvantaged = sapply(LAS, function(l) { e <- e_at(l, "Disadvantaged")
+           sprintf("%+.1f%% (%s)%s", pct(e$effect), ord(e$rank), ifelse(e$sig, "*", "")) }),
+         `Disadvantaged rank: with / without absence control` =
+           sapply(LAS, function(l) paste(ord(r27("dis", l, "A-raw")), "/", ord(r27("dis", l, "A-none")))),
+         `Absence above intake-predicted` =
+           sapply(LAS, function(l) sprintf("%+.2f (%s)", c_at(l)$excess, ord(c_at(l)$rank_excess)))) |>
+  kt(align = "lrrrr")
+```
+
+`*` marks an effect distinguishable from zero.
+
+Read across the two tables, the three authorities are three distinct
+cases:
+
+- **Brighton and Hove** is the strongest on the model: its schools are
+  `r ord(e_at("Brighton and Hove", "All pupils")$rank)` in England once
+  intake is accounted for. It is also the most dependent on absence: it
+  falls from `r ord(r27("dis", "Brighton and Hove", "A-raw"))` to
+  `r ord(r27("dis", "Brighton and Hove", "A-none"))` for disadvantaged
+  pupils without the absence control, because its absence is the
+  `r ord(c_at("Brighton and Hove")$rank_excess)` furthest above its intake
+  in England.
+- **East Sussex** is in the middle on every measure. Its schools do what
+  is expected, and its absence is what its intake predicts.
+- **West Sussex** is the reverse of Brighton and Hove: absence is
+  ordinary, and its schools sit significantly below expectation for
+  disadvantaged pupils
+  (`r ord(e_at("West Sussex", "Disadvantaged")$rank)` of
+  `r e_at("West Sussex", "Disadvantaged")$n_las`).
+
+# What explains attainment across Sussex {#sec-decomp}
+
+```{r fig-decomp}
+#| fig-cap: "Why average Attainment 8 differs from England's, by factor, all school-years 2021/22 to 2024/25, for Sussex as a whole and its three authorities. Approximate Attainment 8 points; the pieces sum to the total printed in each panel."
+#| fig-height: 11
+fig_decomp(dec, ALL, c("All pupils", "Disadvantaged"))
+```
+
+```{r decomp-table}
+#| tbl-cap: "The decomposition for Sussex as a whole, in Attainment 8 points."
+decomp_table(dec, "Sussex")
+```
+
+**Sussex as a whole** is `r pts(-d_tot("Sussex", "All pupils"))` points
+below England for all pupils. Its low disadvantage lifts it
+(`r sgn(d_get("Sussex", "All pupils", "Disadvantage (% FSM)"), 2)`), and
+three things pull it down:
+
+- absence (`r pts(d_get("Sussex", "All pupils", "Absence"), 2)`);
+- prior attainment (`r pts(d_get("Sussex", "All pupils", "Prior attainment (KS2)"), 2)`);
+- being in the South East (`r pts(d_get("Sussex", "All pupils", "Region"), 2)`).
+
+The three authorities' own effects roughly cancel. Brighton and Hove's
+positive effect offsets West Sussex's negative one.
+
+**For disadvantaged pupils** Sussex is
+`r pts(-d_tot("Sussex", "Disadvantaged"))` points below England. The
+largest single piece is the region
+(`r pts(d_get("Sussex", "Disadvantaged", "Region"), 2)`), followed by
+absence (`r pts(d_get("Sussex", "Disadvantaged", "Absence"), 2)`) and the
+authorities' own effects
+(`r pts(d_get("Sussex", "Disadvantaged", "Local authority effect"), 2)`,
+mostly West Sussex's).
+
+The regional effect is not something any one authority can change, but
+it is real and it is shared. Of England's nine regions, the South East
+has the most negative effect for disadvantaged pupils: they do less well
+there than equally disadvantaged pupils elsewhere with the same prior
+attainment and attendance. That is a regional question as much as a
+local one.
+
+# Place: authorities and districts {#sec-place}
+
+```{r fig-caterpillar}
+#| fig-cap: "Local authority effects from the published national models, disadvantaged pupils, every authority in England with a 95% interval."
+#| fig-height: 5.5
+fig_caterpillar(eff, LAS, "Disadvantaged",
+                "Brighton and Hove near the top, East Sussex in the middle, West Sussex near the bottom")
+```
+
+```{r fig-districts}
+#| fig-cap: "Sussex's thirteen districts: each school's value added (mean 2021/22 to 2024/25, small dots) and the district mean (large dots), coloured by authority. Districts marked † have a significant district effect on the published model; only Crawley's (‡) survives once each school's own record is counted, and then only for non-disadvantaged pupils."
+#| fig-height: 6
+crawley_ns <- DE$focus |> filter(spec == "With a school term", sig) |> pull(lad)
+# Brighton and Hove is unitary: its "district" term duplicates its LA
+# term, so a district mark would be an artefact
+lab_d <- DIST |>
+  mutate(mark = paste0(lad, ifelse(`sig_Published specification` & la != "Brighton and Hove", " †", ""),
+                       ifelse(lad %in% crawley_ns, "‡", "")))
+DE$sussex_va |>
+  left_join(lab_d |> select(lad, mark, dmean = va), by = "lad") |>
+  mutate(mark = reorder(mark, dmean)) |>
+  ggplot(aes(va, mark, colour = LANAME)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_point(size = 1.8, alpha = 0.6, position = position_jitter(height = 0.12, seed = 1)) +
+  geom_point(aes(x = dmean), size = 4.5, shape = 18) +
+  scale_colour_manual(values = AREA_COL, name = NULL) +
+  labs(x = "Value added (Attainment 8 points)", y = NULL,
+       title = "Worthing and Lewes at the top, Crawley and Hastings at the bottom") +
+  theme_note()
+```
+
+```{r tbl-districts}
+#| tbl-cap: "Sussex's districts, 2024/25 profile and mean value added over 2021/22 to 2024/25."
+DIST |>
+  arrange(desc(va)) |>
+  transmute(District = lad, Authority = la, Schools = schools,
+            `FSM %` = round(fsm, 1), `Absence %` = round(absence, 1), KS2 = round(ks2_c, 1),
+            `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
+            `Value added` = sprintf("%+.1f", va),
+            `Schools below expectation` = paste(below, "of", schools)) |>
+  kt(align = "llrrrrrrrl")
+```
+
+Value added differs widely between districts, and the two ends tell
+different stories:
+
+- **Hastings and Crawley** have the lowest value added, and very
+  different intakes. Hastings is Sussex's most disadvantaged district;
+  Crawley's disadvantage is near the county average.
+- **In Hastings**, the low figure is two schools. With each school's own
+  record in the model, no district effect remains.
+- **In Crawley**, every school is below expectation, and for
+  non-disadvantaged pupils the district effect survives the school term.
+  It is the closest thing in Sussex to a genuine place effect.
+- **Worthing and Lewes** are at the top. Both have some of the region's
+  strongest individual schools, and neither has a district effect once
+  those schools are counted.
+
+The lesson is consistent across the region. A district is a useful way
+to see where difficulties gather, but in all but one case the
+difficulty belongs to particular schools, not to the place.
+
+# Trusts across Sussex {#sec-trusts}
+
+```{r trust-setup}
+#| include: false
+sx_trusts <- unique(GOV$run_by[GOV$trust_kind == "Multi-academy trust"])
+TE <- TR$trusts |> mutate(name = tidy_trust(trust_group)) |> filter(name %in% sx_trusts)
+tsd <- function(o, l) TR$vcs |> filter(outcome == o, level == l) |> pull(sd)
+sig_names <- function(o, s) TE |> filter(outcome == o, sig, sign(effect) == s) |> pull(name)
+```
+
+In 2024/25, `r length(sx_trusts)` multi-academy trusts ran Sussex
+secondary schools, most of them one or two schools each. The trust
+analysis in the [East Sussex document](east_sussex.html#sec-trusts)
+estimates every trust's effect across all its secondary schools in
+England. It allows for each school's own record and for whether it was
+sponsored. Nationally, a trust moves results by about
+`r pp(100 * tsd("All pupils", "trust_group"))`%, about as much as a local
+authority, and absence by about
+`r pp(100 * tsd("Absence (stage 1)", "trust_group"))`%.
+
+```{r fig-trusts}
+#| fig-cap: "The national effect of each trust that ran a Sussex secondary school in 2024/25, with 95% intervals; the number of its schools in the national data is in brackets."
+#| fig-height: 8.5
+fig_trusts(TE, "A few Sussex trusts stand out nationally; most cannot be told from average")
+```
+
+Four of the trusts running Sussex schools stand out nationally:
+
+- **Above average:**
+  - for all pupils: `r paste(sig_names("All pupils", 1), collapse = ", ")`;
+  - for disadvantaged pupils: `r paste(sig_names("Disadvantaged", 1), collapse = ", ")`.
+- **Absence below what their intakes predict:**
+  `r paste(sig_names("Absence (stage 1)", -1), collapse = ", ")`.
+- **Absence above what their intakes predict:**
+  `r paste(sig_names("Absence (stage 1)", 1), collapse = ", ")`.
+
+Most of the rest are small trusts that cannot be separated from their
+one or two schools.
+
+Nothing here suggests that academies as a group do better or worse than
+maintained schools in Sussex. Nationally, the differences by route are a
+percent or two once intake is allowed for. The region's strongest
+schools on value added are a mix of maintained schools (St Oscar Romero,
+St Richard's, Downlands) and academies (King's Academy Ringmer,
+Durrington, Steyning).
+
+# Absence across Sussex {#sec-absence}
+
+```{r fig-abs-series}
+#| fig-cap: "Overall absence in state-funded secondary schools, autumn and spring terms, 2016/17 to 2025/26. Sessions-weighted; 2019/20 not collected."
+#| fig-height: 5
+fig_abs_series(ser, LAS, "Brighton and Hove and East Sussex run well above England; West Sussex tracks it")
+```
+
+In autumn and spring `r yr(abs_last)`:
+
+- **Brighton and Hove**: `r pp(s_at("Brighton and Hove", abs_last))`%,
+  `r ord(rk_at("Brighton and Hove", abs_last))` highest in England.
+- **East Sussex**: `r pp(s_at("East Sussex", abs_last))`%,
+  `r ord(rk_at("East Sussex", abs_last))`, falling fast.
+- **West Sussex**: `r pp(s_at("West Sussex", abs_last))`%,
+  `r ord(rk_at("West Sussex", abs_last))`, close to England's
+  `r pp(s_at("England", abs_last))`%.
+
+Only Brighton and Hove's is much above what its intake predicts.
+
+```{r fig-reasons}
+#| fig-cap: "Absence by register reason, autumn and spring terms, percentage of possible sessions. The ten largest reasons nationally."
+#| fig-height: 5.4
+fig_reasons(rs, LAS, paste("Illness is above England's rate in all three authorities,", yr(abs_last)))
+```
+
+```{r tbl-practice}
+#| tbl-cap: "Three measures of practice: illness absence, reduced timetables and sessions lost to suspension (percentage of possible sessions, latest absence year), and suspensions per 100 pupils (latest exclusions year)."
+tibble(Area = c(LAS, "Sussex", "England")) |>
+  mutate(Illness = sapply(Area, function(a) pp(r_at(a, "Illness"), 2)),
+         `Reduced timetable` = sapply(Area, function(a) pp(r_at(a, "Reduced timetable"), 2)),
+         `Suspended (code E)` = sapply(Area, function(a) pp(r_at(a, "Suspended (code E)"), 2)),
+         `Suspensions per 100` = sapply(Area, function(a) pp(ex_at(a)))) |>
+  kt(align = "lrrrr")
+```
+
+The table shows three things:
+
+- **Illness is the shared problem.** It is above England's rate
+  everywhere, and in Brighton and Hove by a margin
+  (`r pp(r_at("Brighton and Hove", "Illness"), 2)`% against
+  `r pp(r_at("England", "Illness"), 2)`%). The published data cannot say
+  what lies behind it. All three authorities' own records could, and
+  comparing them is the obvious first step.
+- **Reduced timetables are West Sussex's outlier**, at
+  `r sprintf("%.1f", r_at("West Sussex", "Reduced timetable") / r_at("England", "Reduced timetable"))`
+  times England's rate.
+- **Suspension is East Sussex's outlier**, at
+  `r pp(ex_at("East Sussex"))` per 100 pupils against
+  `r pp(ex_at("Brighton and Hove"))` in Brighton and Hove. Neighbouring
+  authorities with similar pupils make very different decisions about
+  exclusion, which suggests these are choices that can be changed.
+
+# School by school {#sec-schools}
+
+```{r fig-plane}
+#| fig-cap: "All 76 Sussex schools on the joint-signal plane, mean over 2021/22 to 2024/25: absence above or below what the intake predicts, against value added with attendance counted in. Grey: every school in England."
+#| fig-height: 8
+xl <- quantile(js$resid_abs_pp, c(0.005, 0.995)); yl <- quantile(js$vadd_M2, c(0.005, 0.995))
+xl <- c(min(xl[1], -4), max(xl[2], 4.5)); yl <- c(min(yl[1], -8), max(yl[2], 9))
+ext <- js_sx |> filter(abs(vadd_M2) > 3.5 | abs(resid_abs_pp) > 2.5)
+ggplot(js, aes(resid_abs_pp, vadd_M2)) +
+  geom_point(colour = LIGHT, size = 0.7, alpha = 0.5) +
+  geom_hline(yintercept = 0, colour = GREY) + geom_vline(xintercept = 0, colour = GREY) +
+  geom_point(data = js_sx, aes(fill = LANAME), shape = 21, colour = "white", size = 3.2) +
+  geom_text_repel(data = ext, aes(label = SCHNAME), size = 2.6, max.overlaps = 40,
+                  segment.colour = GREY, colour = INK) +
+  scale_fill_manual(values = AREA_COL, name = NULL) +
+  coord_cartesian(xlim = xl, ylim = yl) +
+  labs(x = "Absence above what the intake predicts (percentage points)",
+       y = "Value added, attendance counted in (Attainment 8 points)",
+       title = "Across Sussex, schools that hold attendance tend to add value") +
+  theme_note()
+```
+
+Across Sussex's schools the two signals move together (correlation
+`r sprintf("%.2f", cor(js_sx$resid_abs_pp, js_sx$vadd_M2))`). The
+schools furthest out are named.
+
+- **Strongest:** St Oscar Romero (Worthing), St Richard's (Bexhill) and
+  King's Academy Ringmer.
+- **Weakest:** Thomas Bennett (Crawley), the two Hastings academies, and
+  The Littlehampton Academy.
+
+Both Hastings academies have since moved to a new trust.
+
+```{r tbl-top-bottom}
+#| tbl-cap: "The ten Sussex schools furthest above and below the national model's expectation, mean value added 2021/22 to 2024/25 (Attainment 8 points), with absence above or below intake."
+tb <- js_sx |>
+  left_join(GOV |> select(URN, run_by), by = "URN") |>
+  arrange(desc(vadd_M2))
+bind_rows(head(tb, 10) |> mutate(Group = "Above"), tail(tb, 10) |> mutate(Group = "Below")) |>
+  transmute(Group, School = SCHNAME, Authority = LANAME, `Run by (2024/25)` = run_by,
+            `Value added` = sprintf("%+.1f", vadd_M2),
+            `Absence vs intake` = sprintf("%+.1f", resid_abs_pp)) |>
+  kt(align = "llllrr")
+```
+
+# Implications for Sussex
+
+1. **Disadvantaged pupils are the regional priority.** All three
+   authorities are below England for them. A part of the shortfall is
+   regional and shared, and so is the case for working on it together.
+2. **Each authority has a different first lever.**
+   - *Brighton and Hove:* attendance, and finding out why its absence is
+     so far above its intake.
+   - *East Sussex:* attendance, prior attainment, and its high suspension
+     rate.
+   - *West Sussex:* what happens inside its schools for disadvantaged
+     pupils, starting with Crawley.
+
+   A single Sussex-wide prescription would fit none of them.
+3. **Illness absence is common to all three,** and their combined
+   records could show what lies behind it in a way no one authority's
+   could.
+4. **Practice varies more than intake does.** Suspension in East Sussex
+   and reduced timetables in West Sussex are choices made within the
+   system, and neighbouring authorities make them differently.
+5. **Schools, not structures, carry most of the variation.** Districts
+   and trusts matter at the margin. The strongest effects in every
+   analysis here belong to individual schools. Learning from the region's
+   best schools is the most direct lever available, and those schools
+   include maintained schools and academies alike.
+
+# Notes on method {.unnumbered}
+
+Methods and sources are those of the [East Sussex document](east_sussex.html).
+"Sussex" figures are means over all 76 schools (for school-level
+measures) or sums over their sessions and pupils (for absence and
+suspensions). This review is built by `R/17_area_analysis.R`,
+`R/18_district_effects.R`, `R/19_trust_effects.R`,
+`R/19b_sussex_boundaries.R` and `sussex_review.qmd`.

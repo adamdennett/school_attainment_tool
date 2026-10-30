@@ -664,9 +664,10 @@ small positive one.
 `r pts(-d_tot(FOCUS, "Disadvantaged"))` points, and the picture
 changes in two ways:
 
-- **Place matters much more.** Across England, disadvantaged pupils
-  outside London do worse than the model's other factors predict, and the
-  South East is one of the regions where that is most marked. Place takes
+- **Place matters much more.** Of England's nine regions, the South East
+  has the most negative regional effect for disadvantaged pupils: they do
+  less well there than pupils with the same intake, attendance and prior
+  attainment elsewhere. Place takes
   `r pts(-(d_get(FOCUS, "Disadvantaged", "Region") + d_get(FOCUS, "Disadvantaged", "Local authority effect")), 2)`
   points, nearly as much as absence
   (`r pts(-d_get(FOCUS, "Disadvantaged", "Absence"), 2)`).
