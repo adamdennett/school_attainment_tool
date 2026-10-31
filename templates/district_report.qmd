@@ -1,0 +1,576 @@
+---
+title: "Attainment and Attendance in @@DISTRICT@@"
+subtitle: "What the national model behind *How to Pull the Right Lever* says about the district's secondary schools, within @@COUNTY@@ and alongside Brighton and Hove. **Draft for discussion.**"
+author:
+  - name: Adam Dennett
+    affiliations:
+      - name: Bartlett Centre for Advanced Spatial Analysis, University College London
+date: today
+format:
+  html:
+    output-file: district_@@SLUG@@
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: ucl-theme.scss
+    fig-cap-location: bottom
+    fig-width: 9
+    fig-height: 5.5
+    fig-dpi: 108
+    link-external-newwindow: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!--
+  GENERATED FILE. The source is templates/district_report.qmd; edit that
+  and run R/20_district_reports.R, which writes and renders one copy per
+  district. The format is described in AREA_REPORTS.md (lower tier).
+-->
+
+```{r setup}
+#| include: false
+source(here::here("R", "area_report_helpers.R"))
+X    <- readRDS(here::here("data", "area_@@SLUG@@.rds"))         # R/17_area_analysis.R
+TR   <- readRDS(here::here("data", "trust_effects.rds"))          # R/19_trust_effects.R
+DE   <- readRDS(here::here("data", "district_effects.rds"))       # R/18_district_effects.R
+LADS <- readRDS(here::here("data", "sussex_lads.rds"))            # R/19b_sussex_boundaries.R
+P    <- readRDS(here::here("data", "panel_data.rds"))
+FOCUS <- X$area$name; LA <- X$area$las; BH <- "Brighton and Hove"
+AREAS <- c(FOCUS, LA, BH)
+la_doc <- paste0(slugify_doc(LA), ".html")
+
+S   <- X$schools
+NAT <- X$national
+latest <- X$latest_panel
+abs_last <- tail(X$abs_years, 1)
+GOV <- gov_table(X, TR, DE)
+n_s <- nrow(S)
+
+ap <- X$area_profile |> filter(year_label == latest)
+prof <- X$profiles |> filter(year_label == latest)
+p_la <- prof |> filter(LANAME == LA)
+
+# Ranks are among every district in England with five or more schools; a
+# smaller district is placed among them
+rnk <- function(col, dir = -1) district_rank(X$lad_profiles, latest, FOCUS, col, dir)$r
+n_rank <- district_rank(X$lad_profiles, latest, FOCUS, "att8")$n
+latest_lab <- sub("-", "/", latest)
+abs_prev <- tail(X$abs_years, 2)[1]
+# "None of the 3 schools is", "1 of the 3 schools is", "All 3 schools are"
+n_of <- function(k, n, sing, plur) {
+  if (k == 0) paste("None of the", n, "schools", sing)
+  else if (k == n) paste(ifelse(n == 2, "Both", "All"), ifelse(n == 2, "", n), "schools", plur) |> gsub("  ", " ", x = _)
+  else paste(k, "of the", n, "schools", ifelse(k == 1, sing, plur))
+}
+quart <- function(r) c("among the strongest", "above the middle", "below the middle",
+                       "among the weakest")[min(4, ceiling(4 * r / n_rank))]
+lp_la <- X$lad_profiles |> filter(year_label == latest, LANAME == LA)
+
+# England by year, to say in how many years the district was above it
+nat_y <- X$profiles |> group_by(year_label) |>
+  summarise(dis = weighted.mean(att8_dis, schools, na.rm = TRUE),
+            non = weighted.mean(att8_non, schools, na.rm = TRUE), .groups = "drop")
+yrs <- X$area_profile |> inner_join(nat_y, by = "year_label")
+
+dec   <- X$decomp
+d_get <- function(la, g, comp) dec$points[dec$la == la & dec$group == g & dec$component == comp]
+d_tot <- function(la, g) { x <- dec |> filter(la == !!la, group == g) |> slice(1); x$la_att8 - x$nat_att8 }
+place <- function(la, g) d_get(la, g, "Region") + d_get(la, g, "Local authority effect")
+COMP_WORDS <- c("Absence" = "absence", "Prior attainment (KS2)" = "prior attainment",
+                "Disadvantage (% FSM)" = "the level of disadvantage",
+                "English as an additional language" = "English as an additional language",
+                "Admissions (selection)" = "admissions", "Segregation (LA)" = "segregation",
+                "Teacher workforce" = "the teacher workforce", "Ofsted rating" = "Ofsted ratings",
+                "Region" = "being in the South East",
+                "Local authority effect" = paste0(LA, "'s county-wide effect"),
+                "Year mix" = "the mix of years")
+# The model's pieces for one group, largest first, school residual apart
+pieces <- function(g, min_abs = 0.25) dec |>
+  filter(la == FOCUS, group == g, component != "Unexplained (school residual)",
+         abs(points) >= min_abs) |>
+  arrange(desc(abs(points))) |>
+  mutate(word = COMP_WORDS[component])
+
+# "0.4 points above", "1.2 points below", or "in line with" near zero
+vs_intake <- function(x, d = 1) if (abs(x) < 0.5 * 10^-d) "in line with" else
+  paste(pts(abs(x), d), "points", ifelse(x > 0, "above", "below"))
+
+ser  <- X$abs_series
+s_at <- function(area, tp, col = "abs_rate") ser[[col]][ser$area == area & ser$time_period == tp]
+rs <- X$reasons |> filter(time_period == abs_last)
+rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_from = pp)
+r_at <- function(area, r) rs_w[[area]][rs_w$reason == r]
+exa <- X$excl$area; ex_last <- max(exa$time_period)
+ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
+rt_ratio <- r_at(FOCUS, "Reduced timetable") / r_at("England", "Reduced timetable")
+sus_ratio <- ex_at(FOCUS) / ex_at("England")
+
+se <- DE$school_eff |> filter(URN %in% X$urns)
+fe <- DE$focus |> filter(lad == FOCUS)
+sig_list <- function(s) fe |> filter(spec == s, sig) |>
+  mutate(t = sprintf("%s (%s%%)", effect_word(outcome), sgn(pct(effect)))) |> pull(t)
+la_eff <- X$effects |> filter(la == LA)
+
+js <- X$joint$schools |> filter(URN %in% X$urns)
+sc <- X$scenarios
+
+# Disadvantaged cohort sizes, the reason every disadvantaged figure here is noisy
+coh <- P |> filter(as.integer(URN) %in% X$urns, year_label == latest) |>
+  transmute(URN = as.integer(URN), cohort = TPUP, dis = TFSM6CLA1A)
+va_s <- X$va |> group_by(URN, school) |>
+  summarise(all = mean(va_ATT8SCR, na.rm = TRUE), dis = mean(va_ATT8SCR_FSM6CLA1A, na.rm = TRUE),
+            non = mean(va_ATT8SCR_NFSM6CLA1A, na.rm = TRUE), years = n(), .groups = "drop")
+va4 <- DE$sussex_va |> filter(as.integer(URN) %in% X$urns) |> arrange(desc(va))
+towns <- and_list(sort(unique(tools::toTitleCase(tolower(S$TOWN)))))
+```
+
+::: {.callout-warning appearance="simple"}
+## Draft for discussion
+
+One of the district documents for Sussex. It sits beneath the
+[`r LA`](`r la_doc`) document, and the
+[district summary](sussex_districts.html) compares all of the districts.
+Every figure comes from published Department for Education data and the
+national models of
+[How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html).
+Nothing uses pupil-level records. The commentary is written to a common
+pattern from the figures; read it as a starting point for discussion.
+:::
+
+# Summary {.unnumbered}
+
+**`r FOCUS`'s results are `r quart(rnk("att8"))` of England's districts,
+on an intake `r ifelse(ap$fsm < NAT$fsm, "less", "more")` disadvantaged
+than England's.** Its `r n_s` state secondary schools are in `r towns`.
+
+- **Overall results:** `r pts(ap$att8)` in Attainment 8 in `r latest_lab`, `r ord(rnk("att8"))` of `r n_rank` districts in England.
+- **Disadvantage:** `r pp(ap$fsm)`% of pupils are disadvantaged, against `r pp(NAT$fsm)`% nationally.
+- **Disadvantaged pupils average `r pts(ap$att8_dis)`**, `r ifelse(ap$att8_dis < NAT$att8_dis, "below", "above")` the national `r pts(NAT$att8_dis)` (`r ord(rnk("att8_dis"))` of `r n_rank`).
+- **The gap between disadvantaged pupils and the rest is `r pts(ap$gap)` points**, the `r ord(rnk("gap"))` widest of `r n_rank`.
+
+```{r summary-points}
+#| include: false
+pa <- pieces("All pupils"); pd <- pieces("Disadvantaged")
+u_all <- d_get(FOCUS, "All pupils", "Unexplained (school residual)")
+u_dis <- d_get(FOCUS, "Disadvantaged", "Unexplained (school residual)")
+two <- function(p) and_list(sprintf("%s (%s)", head(p$word, 2), sgn(head(p$points, 2))))
+pub <- sig_list("Published specification"); sch <- sig_list("With a school term")
+above <- sum(va4$va > 0)
+over <- js |> filter(excess_intake_pp > 1) |> arrange(desc(excess_intake_pp))
+```
+
+The other findings:
+
+- **For all pupils, `r FOCUS` is `r pts(abs(d_tot(FOCUS, "All pupils")))`
+  points `r ifelse(d_tot(FOCUS, "All pupils") >= 0, "above", "below")`
+  England.** The largest pieces in the national model are `r two(pa)`.
+  The district's schools `r add_take(u_all)`.
+- **For disadvantaged pupils it is
+  `r pts(abs(d_tot(FOCUS, "Disadvantaged")))` points
+  `r ifelse(d_tot(FOCUS, "Disadvantaged") >= 0, "above", "below")`
+  England.** The largest pieces are `r two(pd)`, and the schools
+  `r add_take(u_dis)`.
+- **`r if (!length(pub)) "No district effect can be found." else if (!length(sch)) "A district effect on the published model disappears once each school's own record is counted." else "Part of the district effect survives each school's own record."`**
+  `r if (!length(pub)) paste0("Once intake, ", LA, "'s county effect and the schools themselves are accounted for, nothing is left that all ", FOCUS, " schools share.") else if (!length(sch)) paste0("On the published model ", FOCUS, " differs from the rest of ", LA, " for ", and_list(pub), ", but that difference belongs to particular schools, not to the place.") else paste0("For ", and_list(sch), " it remains with each school's own record in the model: the nearest thing to a genuine place effect.")`
+- **`r n_of(above, nrow(va4), "is above expectation", "are above expectation")`**
+  over 2021/22 to 2024/25. `r if (nrow(va4)) paste0("The strongest is ", va4$SCHNAME[1], " (", sgn(va4$va[1]), "); the weakest ", va4$SCHNAME[nrow(va4)], " (", sgn(va4$va[nrow(va4)]), ").") else ""`
+- **Absence was `r pp(s_at(FOCUS, abs_last))`%** in autumn and spring
+  `r yr(abs_last)` (`r pp(s_at(FOCUS, abs_prev))`% a year earlier),
+  against `r pp(s_at("England", abs_last))`% for England
+  and `r pp(s_at(LA, abs_last))`% for `r LA`. Over 2021/22 to 2024/25 its schools ran
+  `r vs_intake(X$area_excess$excess)` what their intakes predict`r if (nrow(over)) paste0(", and ", and_list(over$SCHNAME), " more than a point above") else ""`.
+- **Reduced timetables run at `r sprintf("%.1f", rt_ratio)` times the
+  national rate, and suspensions at `r sprintf("%.1f", sus_ratio)` times**
+  (`r pp(ex_at(FOCUS))` per 100 pupils, against `r pp(ex_at("England"))`).
+- **Disadvantaged groups are small,** `r min(coh$dis, na.rm = TRUE)` to
+  `r max(coh$dis, na.rm = TRUE)` pupils a year per school. Every
+  school-level figure for them moves from year to year and should be read
+  over several years.
+
+# About this analysis
+
+`r FOCUS` is a district of `r LA`, not a local authority, and that shapes
+what can be said:
+
+- **The national models place schools in local authorities.** The
+  "local authority effect" in this document is `r LA`'s, shared with
+  every school in the county.
+- **What is particular to `r FOCUS`** shows up in its schools' own
+  residuals, and in the district test of @sec-district-effect.
+- **Absence and exclusions** are summed over the district's
+  `r n_s` schools, followed through any change of URN.
+`r if (n_s < 5) paste0("- **Ranks.** With ", n_s, " schools, ", FOCUS, " is placed among the ", n_rank - 1, " districts in England with five or more schools. A district this small moves a long way with one school's results.") else ""`
+
+The methods are described in full in the [East Sussex](east_sussex.html)
+document.
+
+# The district's schools
+
+```{r map}
+#| fig-cap: !expr paste0(FOCUS, "'s state-funded secondary schools, coloured by overall absence in 2024/25. Choose another measure from the menu above the map; circle size is the school's roll. Hover for figures and who runs each school.")
+map_area(X, GOV, LADS, height = 460)
+```
+
+```{r school-table}
+#| tbl-cap: "Every state-funded secondary school in the district, 2024/25, with the size of its disadvantaged Year 11 group."
+S |>
+  mutate(URN = as.integer(URN)) |>
+  left_join(coh |> select(URN, dis), by = "URN") |>
+  arrange(TOWN, SCHNAME) |>
+  transmute(School = SCHNAME, Town = tools::toTitleCase(tolower(TOWN)),
+            Type = ifelse(type == "Academy", "Academy", "Maintained"),
+            Pupils = pupils, `FSM %` = round(fsm, 1),
+            `Disadvantaged in Year 11` = dis,
+            `Absence %` = round(absence, 1), `KS2` = round(ks2_c, 1),
+            `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
+            Ofsted = ofsted) |>
+  kt(align = "llllrrrrrrl")
+```
+
+`r n_of(sum(GOV$trust_kind == "Maintained"), n_s, "is", "are")`
+maintained by `r LA` County Council.
+`r if (any(GOV$trust_kind != "Maintained")) "The academies are run as follows:" else ""`
+
+```{r gov-list}
+#| results: asis
+acad <- GOV |> filter(trust_kind != "Maintained") |> arrange(SCHNAME)
+if (nrow(acad)) cat(paste0(
+  "- **", acad$SCHNAME, "**, ",
+  ifelse(acad$trust_kind == "Multi-academy trust", paste("in", acad$run_by),
+         ifelse(acad$trust_kind == "Single-academy trust", "a single-academy trust",
+                "an academy whose trust is not recorded for 2024/25")),
+  ifelse(acad$route == "Sponsor-led academy", " (sponsored)", ""),
+  ifelse(acad$changed, paste0("; it moved to ", acad$run_by_now, " after 2024/25"), ""),
+  ";", collapse = "\n"), "\n")
+```
+
+```{r fig-governance}
+#| fig-cap: "Who ran each school in 2024/25, and how far its results sat above or below the national model's expectation over 2021/22 to 2024/25."
+#| fig-height: 4.5
+fig_governance(GOV, paste0(FOCUS, "'s schools by who ran them in 2024/25"))
+```
+
+# How `r FOCUS` compares
+
+```{r profile-table}
+#| tbl-cap: !expr paste0(FOCUS, " against ", LA, ", Brighton and Hove and England, 2024/25. Means of school-level figures.")
+row <- function(lab, col, d = 1) {
+  f <- function(x) sprintf(paste0("%.", d, "f"), x)
+  p_bh <- prof |> filter(LANAME == BH)
+  tibble(Measure = lab, !!FOCUS := f(ap[[col]]), !!LA := f(p_la[[col]]),
+         `Brighton and Hove` = f(p_bh[[col]]),
+         England = f(sum(prof[[col]] * prof$schools, na.rm = TRUE) /
+                       sum(prof$schools[!is.na(prof[[col]])])))
+}
+bind_rows(
+  row("Attainment 8, all pupils", "att8"),
+  row("Attainment 8, disadvantaged", "att8_dis"),
+  row("Attainment 8, non-disadvantaged", "att8_non"),
+  row("Disadvantage gap (points)", "gap"),
+  row("Disadvantaged (FSM6) %", "fsm"),
+  row("Overall absence %", "absence"),
+  row("Persistent absence %", "persistent"),
+  row("Mean KS2 (centred)", "ks2_c", 2),
+  row("EAL %", "eal")) |>
+  kt(align = "lrrrr")
+```
+
+```{r fig-districts-la}
+#| fig-cap: !expr paste0("Attainment 8 for disadvantaged and non-disadvantaged pupils in ", LA, "'s districts, 2024/25, school means. The gap between the two is printed on each district's line; ", FOCUS, " is in bold.")
+#| fig-height: 4.6
+lp_la |>
+  select(lad, att8_dis, att8_non, gap) |>
+  mutate(lad = reorder(lad, att8_non), me = lad == FOCUS) |>
+  ggplot(aes(y = lad)) +
+  geom_segment(aes(x = att8_dis, xend = att8_non, yend = lad, alpha = me), colour = LIGHT,
+               linewidth = 2) +
+  geom_point(aes(x = att8_dis, colour = "Disadvantaged", alpha = me), size = 3.4) +
+  geom_point(aes(x = att8_non, colour = "Non-disadvantaged", alpha = me), size = 3.4) +
+  geom_text(aes(x = (att8_dis + att8_non) / 2, label = sprintf("%.1f", gap),
+                fontface = ifelse(me, "bold", "plain")),
+            vjust = -0.9, size = 3, colour = GREY) +
+  geom_vline(xintercept = NAT$att8_dis, linetype = "dotted", colour = PURPLE) +
+  annotate("text", x = NAT$att8_dis, y = 0.6, label = "England, disadvantaged", hjust = -0.05,
+           size = 3, colour = PURPLE) +
+  scale_alpha_manual(values = c(`TRUE` = 1, `FALSE` = 0.45), guide = "none") +
+  scale_colour_manual(values = c(Disadvantaged = WARM, `Non-disadvantaged` = TEAL), name = NULL) +
+  labs(x = "Attainment 8", y = NULL, title = paste0(FOCUS, " among ", LA, "'s districts")) +
+  theme_note() +
+  theme(axis.text.y = element_text(face = ifelse(levels(reorder(lp_la$lad, lp_la$att8_non)) == FOCUS,
+                                                 "bold", "plain")))
+```
+
+Across the years the model covers, the gap was
+`r pts(yrs$gap[yrs$year_label == "2021-22"])` points in 2021/22 and
+`r pts(yrs$gap[yrs$year_label == latest])` in `r latest_lab`.
+`r FOCUS`'s non-disadvantaged pupils were above England's average in
+`r sum(yrs$att8_non > yrs$non)` of `r nrow(yrs)` years, and its
+disadvantaged pupils in `r sum(yrs$att8_dis > yrs$dis)`.
+
+# What explains attainment in `r FOCUS`
+
+```{r fig-decomp}
+#| fig-cap: !expr paste0("Why average Attainment 8 differs from England's, by factor, all school-years 2021/22 to 2024/25, for ", FOCUS, ", ", LA, " and Brighton and Hove. Approximate Attainment 8 points; the pieces sum to the total in each panel.")
+#| fig-height: 9
+fig_decomp(dec, AREAS, c("All pupils", "Disadvantaged"))
+```
+
+```{r decomp-table}
+#| tbl-cap: !expr paste0("The decomposition for ", FOCUS, ", in Attainment 8 points. 'Place' is ", LA, "'s effect plus the South East's; 'unexplained' is what the district's own schools add beyond everything the model accounts for.")
+decomp_table(dec, FOCUS)
+```
+
+```{r decomp-text}
+#| results: asis
+say <- function(g) {
+  p <- pieces(g); u <- d_get(FOCUS, g, "Unexplained (school residual)"); t <- d_tot(FOCUS, g)
+  cat(sprintf("**For %s**, %s is %s points %s England. The pieces of at least a quarter of a point:\n\n",
+              ifelse(g == "All pupils", "all pupils", "disadvantaged pupils"), FOCUS,
+              pts(abs(t)), ifelse(t >= 0, "above", "below")))
+  cat(paste0("- ", p$word, " (", sgn(p$points, 2), ");", collapse = "\n"), "\n")
+  cat(sprintf("- and the district's schools themselves (%s), beyond what the model expects.\n\n",
+              sgn(u, 2)))
+}
+say("All pupils"); say("Disadvantaged")
+```
+
+`r if (d_get(FOCUS, "Disadvantaged", "Disadvantage (% FSM)") < -0.25 && ap$fsm < NAT$fsm) paste0("The level of disadvantage counting *against* disadvantaged pupils is the Lever report's most contested finding showing up locally. Across England, disadvantaged pupils do slightly better in schools with more disadvantaged pupils, once everything else is accounted for. The likely reason is that such schools organise around them, and spend pupil premium on provision that a handful of pupils cannot sustain. In ", FOCUS, ", with ", min(coh$dis, na.rm = TRUE), " to ", max(coh$dis, na.rm = TRUE), " disadvantaged pupils in a year group, that is harder to do.") else ""`
+
+# The disadvantaged gap, school by school {#sec-gap}
+
+```{r fig-va-split}
+#| fig-cap: "Each school's value added for its disadvantaged and non-disadvantaged pupils, mean over the years available (2021/22 to provisional 2025/26). Above zero means better than the national model expects for similar pupils."
+#| fig-height: !expr max(3, 0.5 * nrow(va_s) + 1.6)
+va_s |>
+  pivot_longer(c(dis, non), names_to = "grp", values_to = "v") |>
+  mutate(grp = recode(grp, dis = "Disadvantaged", non = "Non-disadvantaged"),
+         school = reorder(school, v * (grp == "Non-disadvantaged"))) |>
+  ggplot(aes(v, school, colour = grp)) +
+  geom_vline(xintercept = 0, colour = GREY) +
+  geom_line(aes(group = school), colour = LIGHT, linewidth = 1.5) +
+  geom_point(size = 3.4) +
+  scale_colour_manual(values = c(Disadvantaged = WARM, `Non-disadvantaged` = TEAL), name = NULL) +
+  labs(x = "Value added (Attainment 8 points)", y = NULL,
+       title = "Value added for each school's two groups of pupils") +
+  theme_note()
+```
+
+```{r va-split-notes}
+#| include: false
+gap_schools <- va_s |> filter(non > 0, dis < -1) |> arrange(dis)
+both <- va_s |> filter(non > 0, dis > 0)
+```
+
+`r if (nrow(gap_schools)) paste0(nrow(gap_schools), " of the ", nrow(va_s), " schools ", ifelse(nrow(gap_schools) == 1, "is", "are"), " above expectation for non-disadvantaged pupils and more than a point below it for disadvantaged ones: ", and_list(gap_schools$school), ".") else paste0("No ", FOCUS, " school is above expectation for its non-disadvantaged pupils while more than a point below it for its disadvantaged ones.")`
+`r if (nrow(both)) paste0(and_list(both$school), ifelse(nrow(both) == 1, " is", " are"), " above expectation for both groups.") else ""`
+The table below gives each school's own persistent effect, from the
+model with a school term, which is the steadier measure.
+
+```{r tbl-school-effects}
+#| tbl-cap: "Each school's own persistent effect on the national model with a school term (%), for each group of pupils and for absence beyond what its intake predicts. Positive absence is worse."
+se |>
+  mutate(v = sprintf("%+.1f", pct(school_effect))) |>
+  select(School = SCHNAME, outcome, v) |>
+  pivot_wider(names_from = outcome, values_from = v) |>
+  kt(align = "lrrrr")
+```
+
+```{r tbl-dis-years}
+#| tbl-cap: "Attainment 8 of each school's disadvantaged pupils, year by year (2025/26 provisional), with the size of the group in 2024/25. Small groups make single years unreliable."
+X$va |>
+  select(URN, school, year_label, ATT8SCR_FSM6CLA1A) |>
+  mutate(year_label = sub("-", "/", year_label)) |>
+  pivot_wider(names_from = year_label, values_from = ATT8SCR_FSM6CLA1A) |>
+  left_join(coh |> transmute(URN, `Disadvantaged pupils, 2024/25` = as.character(dis)),
+            by = "URN") |>
+  select(-URN) |>
+  mutate(across(where(is.double), ~ifelse(is.na(.x), "", sprintf("%.1f", .x)))) |>
+  rename(School = school) |>
+  kt(align = "lrrrrrr")
+```
+
+# Is there `r ifelse(grepl("^[AEIOU]", FOCUS), "an", "a")` `r FOCUS` effect? {#sec-district-effect}
+
+The district test of the [East Sussex document](east_sussex.html#sec-districts)
+adds a district level to the national model, with and without each
+school's own record.
+
+```{r tbl-district-effect}
+#| tbl-cap: !expr paste0("The ", FOCUS, " district effect, over and above ", LA, "'s, with 95% intervals.")
+fe |>
+  transmute(Specification = spec, Outcome = outcome,
+            `Effect (%)` = sprintf("%+.1f", pct(effect)),
+            `95% interval` = sprintf("%+.1f to %+.1f", pct(ci_lo), pct(ci_hi)),
+            Significant = ifelse(sig, "Yes", "No")) |>
+  kt(align = "llrrl")
+```
+
+`r if (!length(pub)) paste0("None of ", FOCUS, "'s district effects can be told apart from zero on either specification. The district's results are explained by its intake, ", LA, "'s county effect and its individual schools.") else if (!length(sch)) paste0("On the published model, ", FOCUS, " differs from the rest of ", LA, " for ", and_list(pub), ". With each school's own record in the model, none of that remains: the difference belongs to particular schools, not to the district as a place.") else paste0("On the published model, ", FOCUS, " differs from the rest of ", LA, " for ", and_list(pub), ". With each school's own record in the model, the effect for ", and_list(sch), " remains. That is the nearest thing in the data to a genuine place effect: something all the district's schools share.")`
+
+```{r fig-school-effects}
+#| fig-cap: "Each school's own persistent effect, from the model with a school term: Attainment 8 for all pupils, and absence beyond what its intake predicts."
+#| fig-height: !expr max(2.6, 0.45 * n_s + 1.5)
+fig_school_effects(DE, X$urns, paste0(FOCUS, "'s schools, one by one"))
+```
+
+# Absence
+
+```{r fig-abs-series}
+#| fig-cap: "Overall absence, autumn and spring terms, 2016/17 to 2025/26. Sessions-weighted; 2019/20 not collected."
+#| fig-height: 4.8
+fig_abs_series(ser, AREAS, paste0(FOCUS, " against ", LA, ", Brighton and Hove and England"))
+```
+
+- **`r pp(s_at(FOCUS, abs_last))`% absence** in autumn and spring
+  `r yr(abs_last)`, against `r pp(s_at("England", abs_last))`% for England
+  and `r pp(s_at(LA, abs_last))`% for `r LA`. A year earlier it was
+  `r pp(s_at(FOCUS, abs_prev))`%.
+- **Persistent absence** is `r pp(s_at(FOCUS, abs_last, "pa_rate"))`%,
+  against `r pp(s_at("England", abs_last, "pa_rate"))`% for England.
+- **Against its intake**, the district's schools run
+  `r vs_intake(X$area_excess$excess, 2)` what their pupils' profiles
+  predict, on average over 2021/22 to 2024/25.
+
+```{r tbl-absence}
+#| tbl-cap: "Each school's absence against what its intake predicts, mean 2021/22 to 2024/25, and its reasons in the latest year (percentage of sessions)."
+js |>
+  select(URN, SCHNAME, obs_abs, exp_intake, excess_intake_pp) |>
+  left_join(X$sch_reasons |> transmute(URN = as.integer(urn), illness, unauth_other, reduced, excluded),
+            by = "URN") |>
+  arrange(desc(excess_intake_pp)) |>
+  transmute(School = SCHNAME, `Absence %` = round(obs_abs, 1),
+            `Predicted by intake %` = round(exp_intake, 1),
+            `Above prediction` = sprintf("%+.1f", excess_intake_pp),
+            Illness = round(illness, 1), Unauthorised = round(unauth_other, 1),
+            `Reduced timetable` = round(reduced, 2), Suspended = round(excluded, 2)) |>
+  kt(align = "lrrrrrrr")
+```
+
+```{r absence-notes}
+#| include: false
+under <- js |> filter(excess_intake_pp < -1) |> arrange(excess_intake_pp)
+rt_top <- X$sch_reasons |> arrange(desc(reduced)) |> slice(1)
+gain_n <- sum(sc$gain_all > 0)
+```
+
+`r if (nrow(over)) paste0("- **", and_list(over$SCHNAME), "** ", ifelse(nrow(over) == 1, "runs", "each run"), " more than a point above ", ifelse(nrow(over) == 1, "its", "their"), " predicted absence.") else "- **No school** runs more than a point above its predicted absence."`
+`r if (nrow(under)) paste0("- **", and_list(under$SCHNAME), "** ", ifelse(nrow(under) == 1, "runs", "run"), " more than a point below ", ifelse(nrow(under) == 1, "its prediction", "their predictions"), ".") else ""`
+
+Reduced timetables account for `r pp(r_at(FOCUS, "Reduced timetable"), 2)`%
+of sessions, against `r pp(r_at("England", "Reduced timetable"), 2)`% in
+England, `r sprintf("%.1f", rt_ratio)` times the national rate.
+`r rt_top$school_name`'s rate is the highest in the district.
+
+```{r tbl-scenario}
+#| tbl-cap: "Predicted Attainment 8 gain if each school's absence fell to the national school average (2024/25). Indicative only."
+scenario_table(sc)
+```
+
+`r if (gain_n) paste0(n_of(gain_n, n_s, "is", "are"), " above the national average absence in 2024/25. Bringing ", ifelse(gain_n == 1, "it", "them"), " to it would add up to ", pts(max(sc$gain_all)), " points for all pupils, as an indication of scale.") else paste0("No ", FOCUS, " school was above the national average absence in 2024/25.")`
+
+**Suspensions** were `r pp(ex_at(FOCUS))` per 100 pupils in
+`r yr(ex_last)`, against `r pp(ex_at("England"))` for England and
+`r pp(ex_at(LA))` for `r LA`.
+
+```{r tbl-susp}
+#| tbl-cap: "Suspensions per 100 pupils and permanent exclusions, by school, latest year."
+X$excl_schools |> arrange(desc(susp_rate)) |>
+  transmute(School = school_name, Pupils = headcount,
+            `Suspensions per 100` = round(susp_rate, 1), `Permanent exclusions` = perm_excl) |>
+  kt(align = "lrrr")
+```
+
+# Contextual league tables
+
+::: {.panel-tabset}
+
+## All pupils
+
+```{r va-all}
+#| tbl-cap: "Value added, all pupils: observed Attainment 8 minus the national model's expectation. 2025/26 is provisional."
+fmt_va(va_tab(X$va, "va_ATT8SCR")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Disadvantaged pupils
+
+```{r va-dis}
+#| tbl-cap: "Value added, disadvantaged pupils. Small groups; read across years."
+fmt_va(va_tab(X$va, "va_ATT8SCR_FSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+## Non-disadvantaged pupils
+
+```{r va-non}
+#| tbl-cap: "Value added, non-disadvantaged pupils."
+fmt_va(va_tab(X$va, "va_ATT8SCR_NFSM6CLA1A")) |> kt(align = paste0("l", strrep("r", 7)))
+```
+
+:::
+
+# Questions for discussion
+
+```{r questions}
+#| results: asis
+q <- character()
+best_dis <- va_s |> filter(dis > 0) |> arrange(desc(dis))
+q <- c(q, paste0(
+  "**Disadvantaged pupils.** They average ", pts(ap$att8_dis), " in ", FOCUS, " against ",
+  pts(NAT$att8_dis), " in England, and the district's schools ", add_take(u_dis, " for them"), ". ",
+  if (nrow(best_dis) == nrow(va_s)) paste0(
+    ifelse(nrow(va_s) == 2, "Both", "All"), " of its schools are above expectation for these pupils; what they do is worth sharing across ", LA, ".")
+  else if (nrow(best_dis)) paste0(ifelse(nrow(best_dis) == 1, "What does ", "What do "), and_list(head(best_dis$school, 2)),
+                            ", above expectation for these pupils, do that the district's other schools could share?")
+  else "No school here is above expectation for them over the period; the question is what schools elsewhere with similar intakes do differently."))
+abs_piece <- d_get(FOCUS, "All pupils", "Absence")
+abs_tail <- if (nrow(over)) paste0(", and ", and_list(over$SCHNAME), " run more than a point above what their intakes predict") else ""
+q <- c(q, if (abs_piece < -1 || X$area_excess$excess > 1) paste0(
+  "**Attendance is a lever here.** Absence costs the district ", pts(abs(abs_piece)),
+  " points against England for all pupils", abs_tail, ".")
+  else if (abs_piece < -0.3 || X$area_excess$excess > 0.5) paste0(
+  "**Attendance is a modest lever.** Absence costs the district ", pts(abs(abs_piece)),
+  " points against England for all pupils", abs_tail, ".") else paste0(
+  "**Attendance is not the district's main lever.** ",
+  if (abs(abs_piece) < 0.05) "Absence makes almost no difference to its results against England"
+  else paste0("Absence ", ifelse(abs_piece > 0, "adds ", "costs "), pts(abs(abs_piece)), " points against England"),
+  if (nrow(over)) paste0(", though ", and_list(over$SCHNAME), ifelse(nrow(over) == 1, " runs", " run"),
+                         " more absence than ", ifelse(nrow(over) == 1, "its intake predicts", "their intakes predict")) else "",
+  "."))
+q <- c(q, if (!length(pub)) paste0(
+  "**Schools, not the place.** There is no ", FOCUS, " district effect: the differences that matter are between its schools.")
+  else if (!length(sch)) paste0(
+  "**Schools, not the place.** The district's apparent effect belongs to particular schools; the question is what is happening in them.")
+  else paste0(
+  "**Something the district's schools share.** The effect for ", and_list(sch),
+  " survives each school's own record. What do all ", FOCUS, " schools have in common that its neighbours do not?"))
+prac <- c(if (rt_ratio > 1.5) paste0("reduced timetables run at ", sprintf("%.1f", rt_ratio), " times"),
+          if (sus_ratio > 1.3) paste0("suspensions run at ", sprintf("%.1f", sus_ratio), " times"))
+q <- c(q, if (length(prac)) paste0("**Practice.** In ", FOCUS, ", ", and_list(prac),
+                                   " the national rate. These are choices made within schools, and neighbouring districts make them differently.")
+          else "**Practice.** Reduced timetables and suspensions are close to or below the national rate.")
+le <- la_eff |> filter(group == "Disadvantaged")
+q <- c(q, paste0("**The county.** ", LA, "'s own effect for disadvantaged pupils is ",
+                 sgn(pct(le$effect)), "% (", ord(le$rank), " of ", le$n_las, ")",
+                 ifelse(le$sig, ", distinguishable from zero, and it applies to every school here. ",
+                        ", not distinguishable from zero. "),
+                 "The county questions in the [", LA, " document](", la_doc, ") apply here as well."))
+cat(paste0(seq_along(q), ". ", q, collapse = "\n"), "\n")
+```
+
+# Notes on method {.unnumbered}
+
+Methods and sources are those of the [East Sussex](east_sussex.html)
+document. District membership comes from each school's postcode (ONS
+postcode directory, via postcodes.io). Absence and exclusions for the
+district are summed over its schools, including any predecessor or
+successor URNs. This document is generated from
+`templates/district_report.qmd` by `R/20_district_reports.R`, from data
+built by `R/17_area_analysis.R`, `R/18_district_effects.R` and
+`R/19_trust_effects.R`. Its format is described in `AREA_REPORTS.md`.

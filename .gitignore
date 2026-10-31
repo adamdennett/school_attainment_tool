@@ -149,3 +149,6 @@ data/panel_data_5yr.rds
 # Quarto freeze/cache for the KS4 update note
 ks4_2025_26_update_cache/
 ks4_2025_26_update_files/
+
+# Generated from templates/district_report.qmd by R/20_district_reports.R
+/district_*.qmd

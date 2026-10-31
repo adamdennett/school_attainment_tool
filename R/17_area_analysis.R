@@ -63,7 +63,6 @@ AREAS <- list(
   sussex = list(
     area = area("Sussex", c("East Sussex", "West Sussex", "Brighton and Hove")),
     comps = list(area("East Sussex", "East Sussex"), area("West Sussex", "West Sussex"),
-                 area("Mid Sussex", "West Sussex", "Mid Sussex"),
                  area("Brighton and Hove", "Brighton and Hove")),
     coastal_towns = c("Hastings", "St Leonards-on-Sea", "Bexhill-on-Sea", "Eastbourne",
                       "Seaford", "Newhaven", "Peacehaven", "Rye", "Worthing", "Littlehampton",
@@ -72,6 +71,18 @@ AREAS <- list(
     area = area("Brighton and Hove", "Brighton and Hove"),
     comps = list(area("East Sussex", "East Sussex"), area("West Sussex", "West Sussex")),
     coastal_towns = character(0)))
+
+# The lower tier: every district of the two counties (R/area_tiers.R),
+# each set against its county and Brighton and Hove. Mid Sussex is
+# defined above and keeps its own entry.
+source(here::here("R", "area_tiers.R"))
+for (la in names(DISTRICTS)) for (d in DISTRICTS[[la]]) {
+  if (slugify(d) %in% names(AREAS)) next
+  AREAS[[slugify(d)]] <- list(
+    area = area(d, la, d),
+    comps = list(area(la, la), area("Brighton and Hove", "Brighton and Hove")),
+    coastal_towns = AREAS[[slugify(la)]]$coastal_towns)
+}
 
 
 # ---- 1. The model dataset, exactly as the published report builds it ----

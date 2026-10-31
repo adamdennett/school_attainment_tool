@@ -39,6 +39,43 @@ pp  <- pts
 pct <- function(x) 100 * (exp(x) - 1)
 sgn <- function(x, d = 1) sprintf(paste0("%+.", d, "f"), x)
 
+#' "a", "a and b", "a, b and c"
+and_list <- function(x) {
+  x <- as.character(x)
+  if (length(x) <= 1) return(paste(x, collapse = ""))
+  paste(paste(head(x, -1), collapse = ", "), "and", tail(x, 1))
+}
+
+#' A district's rank among every district in England with five or more
+#' schools (1 = highest; lowest with dir = 1). A smaller district is
+#' placed among them. list(r = rank, n = number ranked)
+district_rank <- function(lad_profiles, year, lad, col, dir = -1) {
+  lp <- lad_profiles[lad_profiles$year_label == year, ]
+  v <- lp[[col]][lp$lad == lad]
+  others <- lp[lp$schools >= 5 & lp$lad != lad, ]
+  list(r = 1 + sum(dir * others[[col]] < dir * v, na.rm = TRUE), n = nrow(others) + 1)
+}
+
+#' What a set of schools adds beyond the model's expectation, as a phrase:
+#' "add 1.4 points beyond what the model expects", or "do about what the
+#' model expects" when it rounds to zero
+add_take <- function(u, who = "") {
+  if (abs(u) < 0.05) return(paste0("do about what the model expects", who))
+  sprintf("%s %.1f points%s beyond what the model expects", ifelse(u > 0, "add", "take"), abs(u), who)
+}
+
+#' An outcome as it reads in a sentence: "Absence (stage 1)" -> "absence"
+effect_word <- function(outcome) c("All pupils" = "all pupils", "Disadvantaged" = "disadvantaged pupils",
+  "Non-disadvantaged" = "non-disadvantaged pupils", "Absence (stage 1)" = "absence")[outcome]
+
+#' A district's document: the template's, or a hand-written one
+district_doc <- function(lad, hand_written = "Mid Sussex")
+  ifelse(lad %in% hand_written, paste0(slugify_doc(lad), ".html"),
+         paste0("district_", slugify_doc(lad), ".html"))
+
+#' A document's file name from an area's name: "East Sussex" -> "east_sussex"
+slugify_doc <- function(x) gsub("[^a-z]+", "_", tolower(x))
+
 tidy_trust <- function(x) ifelse(is.na(x), NA_character_,
   sub(" Limited$", "", gsub("\\bOf\\b", "of", gsub("\\bAnd\\b", "and",
     tools::toTitleCase(tolower(x))))))

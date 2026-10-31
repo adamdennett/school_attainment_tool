@@ -92,8 +92,9 @@ va_s <- X$va |> group_by(school) |>
 ::: {.callout-warning appearance="simple"}
 ## Draft for discussion
 
-A first draft, written alongside the [East Sussex](east_sussex.html) and
-[West Sussex](west_sussex.html) documents. Every figure comes from
+One of the district documents for Sussex. It sits beneath the
+[West Sussex](west_sussex.html) document, and the
+[district summary](sussex_districts.html) compares all of the districts. Every figure comes from
 published Department for Education data and the national models of
 [How to Pull the Right Lever](https://adamdennett.github.io/school_attainment_tool/pulling_the_right_lever_v2.html).
 Nothing uses pupil-level records.

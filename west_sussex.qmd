@@ -472,6 +472,12 @@ to a genuine place effect, and it is worth the county's attention.
 fig_school_effects(DE, X$urns, "Crawley's schools cluster at the bottom")
 ```
 
+Each district has a document of its own: [Adur](district_adur.html),
+[Arun](district_arun.html), [Chichester](district_chichester.html),
+[Crawley](district_crawley.html), [Horsham](district_horsham.html),
+[Mid Sussex](mid_sussex.html) and [Worthing](district_worthing.html). The
+[district summary](sussex_districts.html) sets them beside East Sussex's.
+
 ## Do trusts make a difference? {#sec-trusts}
 
 ```{r trust-setup}

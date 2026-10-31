@@ -891,6 +891,12 @@ DE$school_eff |> filter(LANAME == FOCUS) |>
   share is governance as well as geography. A place effect smaller
   than the school differences could exist and go undetected.
 
+Each district has a document of its own:
+[Eastbourne](district_eastbourne.html), [Hastings](district_hastings.html),
+[Lewes](district_lewes.html), [Rother](district_rother.html) and
+[Wealden](district_wealden.html). The
+[district summary](sussex_districts.html) sets them beside West Sussex's.
+
 ## Do trusts make a difference? {#sec-trusts}
 
 ```{r trust-setup}
