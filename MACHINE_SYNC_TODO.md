@@ -10,7 +10,7 @@ steps 2, 5 and 6 are done.
 | Step | State |
 |---|---|
 | 1. Sibling-repo layout | Works. `bh-school-system`, `QM_Fork` and `BH_Schools_Consultation` are all present as siblings. |
-| 2. Missing data | **Partly done (2026-11-02, main machine).** `school_effect_decomp.rds`, the one unrebuildable file, is now committed; the rebuildable files still need `R/00_fetch_data.R` (not written). |
+| 2. Missing data | **Partly done (2026-11-02, main machine).** `school_effect_decomp.rds`, the one unrebuildable file, is now committed, and `R/00_fetch_data.R` rebuilds the rest; it still needs its first real run on the laptop. |
 | 3. Hard-coded `E:` paths | Done. |
 | 3b. Cross-repo reads | Done: `optionZ_Mar25.geojson` is tracked; `cluster_data_explorer.qmd` now falls back to `data/cache/la_boundaries.rds`. |
 | 4. Render check | Not run — the decks' blocker is gone, but the laptop still lacks the rebuildable data. |
@@ -59,10 +59,15 @@ fix, for two reasons:
 | `data/cache/oa_pwc_2021.rds` | `R/13_census_context.R` (`fetch_oa_centroids()`, paged ArcGIS REST) |
 | `data/cache/analysis_f_results.rds` | `output/model_experiments.qmd`, Analysis F (~line 5526) |
 
-These hit the EES/DfE APIs, so they need network access and take a while. The
-natural next step is a thin `R/00_fetch_data.R` that runs whichever of these
-have missing outputs — deliberately **not** written yet, because it cannot be
-tested from this machine without running the full fetch.
+These hit the EES/DfE APIs, so they need network access and take a while.
+**`R/00_fetch_data.R` now exists (2026-11-02).** It runs whichever of these
+have missing outputs, each in its own `Rscript` process, in dependency order
+(GIAS before KS2, KS2 before census), and reports what failed or was
+skipped. `--dry-run`, `--all`, named steps and `--analysis-f` (which renders
+`model_experiments.qmd`) are documented in its header. Tested on the main
+machine, where it correctly finds nothing to do, and with stubbed steps for
+the fresh-clone paths. It has **not yet run for real on a fresh clone**:
+do that on the laptop with `Rscript R/00_fetch_data.R --dry-run` first.
 
 ### Not rebuildable — the one actual blocker
 
@@ -219,6 +224,28 @@ which gave sub-judgements on the old four-point scale with no overall
 grade, sit between the two schemes. The questions below stand; the model
 term can stay on the dated legacy grade for 2021/22 to 2024/25 whatever
 is chosen for the map and text.
+
+**The source question is answered (checked 2026-11-02).** The monthly
+"latest inspections" management information CSV (one row a school, URN,
+~16 MB, published mid-month) holds every scheme side by side:
+
+- report-card grades for up to eight areas (inclusion, curriculum and
+  teaching, achievement, attendance and behaviour, personal development
+  and wellbeing, leadership and governance, early years, post-16), plus
+  safeguarding met / not met, with the inspection date;
+- the latest graded inspection under the old framework: overall
+  effectiveness 1 to 4, or "Not judged" for September 2024 to November
+  2025, with its four sub-judgements and date;
+- the latest ungraded inspection and its outcome ("School remains Good").
+
+The twice-yearly official statistics (latest as at 31 March 2026) have the
+same layout plus a date for each report-card area. As at 30 September
+2026, 685 of 3,423 secondary schools had a report card and 579 had a "Not
+judged" inspection. It confirms Adam's examples: BACA was inspected on
+23 April 2025, "Not judged" overall with quality of education Good;
+Longhill has a June 2026 report card, "Needs attention" for achievement,
+curriculum and attendance. 70 of the 76 Sussex schools match on URN; the
+other six will need the GIAS successor links, as the absence files did.
 
 Raised 2026-11-02 by Adam, from the Sussex map. Two problems, one small and
 one that needs a decision.
