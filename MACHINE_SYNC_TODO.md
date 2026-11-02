@@ -2,8 +2,8 @@
 
 Originally written 2026-09-28 from the laptop; revised 2026-10-29 on the
 laptop (`C:\GitHubRepos`) after auditing the actual state, and 2026-11-02 to
-add step 5. Delete this file (and the pointer in `CLAUDE.md`) once steps 2
-and 5 are done.
+add steps 5 and 6. Delete this file (and the pointer in `CLAUDE.md`) once
+steps 2, 5 and 6 are done.
 
 ## Status
 
@@ -15,6 +15,7 @@ and 5 are done.
 | 3b. Cross-repo reads | Partly done; `optionZ_Mar25.geojson` is present but still git-ignored. |
 | 4. Render check | Not run — blocked on step 2. |
 | 5. Suspension pupil fields | **Outstanding — written but never run; needs a rebuild on the main machine, see below.** |
+| 6. Ofsted ratings | **Outstanding — stale, undated, and still single-word; needs a design decision, see below.** |
 
 ## Step 3 — done
 
@@ -165,3 +166,80 @@ On the main machine:
 
 The rebuild also settles whether anything else in the area files moved, since
 they were last built before the URN and district work.
+
+## Step 6 — Ofsted: date the ratings, and handle the end of single grades
+
+Raised 2026-11-02 by Adam, from the Sussex map. Two problems, one small and
+one that needs a decision.
+
+### The ratings are stale and nothing says when they are from
+
+The map's "Ofsted rating" (`map_vars()` in `R/area_report_helpers.R`) carries
+no date, and the ratings behind it are out of date. Brighton Aldridge
+Community Academy (URN 136164) shows **Requires Improvement**; Adam reports
+it was inspected in April 2025 and came out Good across the areas it was
+graded on. Longhill High School (URN 114581) also shows Requires Improvement
+and has been inspected recently, with a mixed picture across areas.
+
+The rating comes from `OFSTEDRATING_1`, derived in `R/01_extract_data.R` from
+the DfE performance tables' school information file, so it is a snapshot as
+at that file's cut-off, not as at today. `OFSTEDLASTINSP` is parsed there
+(and in `R/20_extract_ks2.R`) but **dropped before `panel_data.rds`**, which
+has only `OFSTEDRATING` and `OFSTEDRATING_1`. Carrying the inspection date
+through the panel is the cheapest fix and is what lets the map and the
+documents say when a rating is from, per school rather than in general.
+
+Smallest useful change, whatever is decided below: keep `OFSTEDLASTINSP` in
+the panel, put the inspection date in the map hover beside the rating, and
+date the dropdown label the way every other map variable is dated.
+
+### Single-word grades have gone, and the data model assumes them
+
+Ofsted no longer gives state schools a single overall grade; a school is
+graded separately across several areas (quality of education, behaviour and
+attitudes, personal development, leadership and management, plus sixth form
+and early years where they apply), and the framework has moved again since.
+**Check the current framework, the evaluation areas and the band names
+before building anything** — this note is written from memory and the
+details matter.
+
+The repo assumes one grade on four bands in several places:
+
+- `MAP_CATS$ofsted` in `R/area_report_helpers.R`: Outstanding / Good /
+  Requires Improvement / Inadequate, with a colour each.
+- `OFSTEDRATING_1` is a four-level factor with treatment contrasts
+  (`R/17_area_analysis.R`, around lines 99–107 and 537).
+- It is a **model term**, not just a label: `(1 | OFSTEDRATING_1)` in the
+  area models, and "Ofsted" is one of the decomposition components every
+  area document reports. So this is not only a map question — changing the
+  representation moves the decomposition, and `AREA_REPORTS.md` records that
+  component.
+
+Sussex today, on the stale snapshot: 53 Good, 12 Outstanding, 9 Requires
+Improvement, 2 Inadequate.
+
+### What needs deciding
+
+1. **Source.** The performance tables' school information file is a lagging
+   snapshot and carries one grade. Ofsted's own inspections and outcomes
+   management information is the live source and should carry inspection
+   dates and the area judgements. Check what it actually publishes now, and
+   whether it is joinable on URN.
+2. **Representation.** With no overall grade, the options are roughly: keep
+   a legacy grade for schools last inspected under the old framework and
+   mark the rest "not graded overall"; take one area (quality of education)
+   as the headline; or build a composite. Each is defensible and each
+   changes the model term. A school like BACA, graded the same across all
+   its areas, is easy; one graded unevenly across areas is the case that
+   decides the design.
+3. **Mixed vintages.** Schools inspected before and after the change cannot
+   share a scale. The models cover 2021/22 to 2024/25, so for the model
+   years a legacy grade is mostly still the right variable; it is the map
+   and the current-state text where the new judgements belong. Dating every
+   rating may be most of the fix for the documents, with the model term left
+   on the legacy grade and the limitation stated.
+4. Whether to show the areas at all in the map hover, or only in the school
+   tables.
+
+Start with the date — it is small, it is right whatever else is decided, and
+it is what makes the staleness visible rather than silent.
