@@ -1,8 +1,9 @@
 # TODO: make the repo runnable on a fresh clone
 
 Originally written 2026-09-28 from the laptop; revised 2026-10-29 on the
-laptop (`C:\GitHubRepos`) after auditing the actual state. Delete this file
-(and the pointer in `CLAUDE.md`) once step 2 is done.
+laptop (`C:\GitHubRepos`) after auditing the actual state, and 2026-11-02 to
+add step 5. Delete this file (and the pointer in `CLAUDE.md`) once steps 2
+and 5 are done.
 
 ## Status
 
@@ -13,6 +14,7 @@ laptop (`C:\GitHubRepos`) after auditing the actual state. Delete this file
 | 3. Hard-coded `E:` paths | Done. |
 | 3b. Cross-repo reads | Partly done; `optionZ_Mar25.geojson` is present but still git-ignored. |
 | 4. Render check | Not run — blocked on step 2. |
+| 5. Suspension pupil fields | **Outstanding — written but never run; needs a rebuild on the main machine, see below.** |
 
 ## Step 3 — done
 
@@ -114,3 +116,52 @@ Once step 2 is resolved, pull on a fresh clone and run:
 ```
 quarto render bh_schools_talk_2026_v2.qmd --to revealjs
 ```
+
+## Step 5 — finish the suspension change on the main machine
+
+Added 2026-11-02 from the laptop, after a question about the Sussex review:
+is 28 suspensions per 100 pupils in East Sussex 28% of children? It is not.
+The DfE file counts suspension *episodes*, and one pupil can be suspended
+several times in a year — East Sussex's 28.0 episodes per 100 in 2024/25 are
+2,541 pupils, 8.8 per 100, suspended about 3.2 times each.
+
+Commit `70d13df` reports it that way throughout: every column, axis and
+caption says "suspension episodes per 100 pupils", and wherever a document
+quotes a rate it also gives the pupils suspended at least once per 100 and
+the mean episodes each. `AREA_REPORTS.md` records the convention. The
+documents are done, rendered and published.
+
+**The pipeline half of that commit has never run.** `excl_agg()` and
+`excl_la_ranks()` in `R/17_area_analysis.R` now carry `pupils`, `pupil_rate`
+and `susp_per_pupil`, so England and every authority would get the pupil
+measure across all years. Nothing has exercised that code: `data-raw/ees/`
+does not exist on the laptop, so `area_*.rds` cannot be rebuilt here, and
+every file in `data/` predates the change. Until a rebuild the documents take
+their pupil figures from each area file's `excl_schools` table, which holds
+`one_plus` and reproduces the area totals exactly — but only for the area's
+own schools, which is why **no England pupil-level comparator appears in the
+prose yet**.
+
+On the main machine:
+
+1. `ees_download("exclusions_school")` from `R/00b_download_ees_api.R` if
+   `data-raw/ees/` is stale.
+2. `Rscript R/17_area_analysis.R` — rebuilds every `data/area_<slug>.rds`.
+3. Check `X$excl$area` has `pupil_rate`. England should come out near 7.3
+   pupils per 100 suspended at least once in 2024/25 (the figure from
+   `data/exclusions_absence.rds`, which covers slightly fewer schools), with
+   East Sussex at 8.8, against 21.2 and 28.0 on episodes.
+4. Put the England comparator into the prose that already quotes the area's
+   own pupil rate: the suspensions sections of `east_sussex.qmd`,
+   `west_sussex.qmd` and `templates/district_report.qmd`, the practice bullet
+   of `sussex_review.qmd`, and the England cell of the "Pupils suspended per
+   100" column in `sussex_districts.qmd`, which is blank today for want of
+   the figure.
+5. Re-render and publish: the four hand-written documents
+   (`east_sussex`, `west_sussex`, `sussex_review`, `mid_sussex`), each
+   through `mobile_safe()` and into `docs/`, then
+   `Rscript R/20_district_reports.R` for the eleven templated districts and
+   the summary.
+
+The rebuild also settles whether anything else in the area files moved, since
+they were last built before the URN and district work.
