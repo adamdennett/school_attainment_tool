@@ -493,6 +493,28 @@ reason_gap_table <- function(rs, area) {
     kt(align = "lrrrr")
 }
 
+#' Suspensions counted both ways, for a set of schools
+#'
+#' The DfE school-level file counts suspension *episodes*, and separately
+#' the pupils suspended at least once (`one_plus`). One pupil can be
+#' suspended several times in a year, so a rate per 100 pupils is not a
+#' percentage of pupils: in East Sussex in 2024/25 the two were 28.0 and
+#' 8.8. Wherever a document quotes the rate it should quote both.
+#'
+#' @param es An area object's `excl_schools`: latest year, one row a school
+#' @param la Keep only this authority's schools, for the documents that
+#'   hold more than one. A district's `excl_schools` is already its own.
+susp_both <- function(es, la = NULL) {
+  if (!is.null(la)) es <- es[es$la_name == la, ]
+  es <- es[!is.na(es$headcount) & es$headcount > 0, ]
+  hc <- sum(es$headcount)
+  su <- sum(es$suspension, na.rm = TRUE)
+  pu <- sum(es$one_plus, na.rm = TRUE)
+  list(schools = nrow(es), headcount = hc, susp = su, pupils = pu,
+       susp_rate = 100 * su / hc, pupil_rate = 100 * pu / hc,
+       per_pupil = if (pu > 0) su / pu else NA_real_)
+}
+
 fig_plane <- function(js, focus_urns, title = "Attendance and attainment go together school by school") {
   sel <- js |> filter(URN %in% focus_urns)
   xl <- quantile(js$resid_abs_pp, c(0.005, 0.995)); yl <- quantile(js$vadd_M2, c(0.005, 0.995))

@@ -112,6 +112,12 @@ exa <- X$excl$area; ex_last <- max(exa$time_period)
 ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
 rt_ratio <- r_at(FOCUS, "Reduced timetable") / r_at("England", "Reduced timetable")
 sus_ratio <- ex_at(FOCUS) / ex_at("England")
+# Episodes and pupils: a rate per 100 pupils counts suspensions, not pupils,
+# and one pupil can be suspended several times in a year
+ep <- susp_both(X$excl_schools)
+ep_txt <- if (!ep$pupils) "no pupil in the district was suspended" else
+  paste0(pp(ep$pupil_rate), " pupils per 100 were suspended at least once, ",
+         "about ", pp(ep$per_pupil), " times each")
 
 se <- DE$school_eff |> filter(URN %in% X$urns)
 fe <- DE$focus |> filter(lad == FOCUS)
@@ -189,7 +195,9 @@ The other findings:
   `r vs_intake(X$area_excess$excess)` what their intakes predict`r if (nrow(over)) paste0(", and ", and_list(over$SCHNAME), " more than a point above") else ""`.
 - **Reduced timetables run at `r sprintf("%.1f", rt_ratio)` times the
   national rate, and suspensions at `r sprintf("%.1f", sus_ratio)` times**
-  (`r pp(ex_at(FOCUS))` per 100 pupils, against `r pp(ex_at("England"))`).
+  (`r pp(ex_at(FOCUS))` episodes per 100 pupils, against
+  `r pp(ex_at("England"))`). That counts episodes, not pupils:
+  `r ep_txt`.
 - **Disadvantaged groups are small,** `r min(coh$dis, na.rm = TRUE)` to
   `r max(coh$dis, na.rm = TRUE)` pupils a year per school. Every
   school-level figure for them moves from year to year and should be read
@@ -476,16 +484,20 @@ scenario_table(sc)
 
 `r if (gain_n) paste0(n_of(gain_n, n_s, "is", "are"), " above the national average absence in 2024/25. Bringing ", ifelse(gain_n == 1, "it", "them"), " to it would add up to ", pts(max(sc$gain_all)), " points for all pupils, as an indication of scale.") else paste0("No ", FOCUS, " school was above the national average absence in 2024/25.")`
 
-**Suspensions** were `r pp(ex_at(FOCUS))` per 100 pupils in
+**Suspensions** were `r pp(ex_at(FOCUS))` episodes per 100 pupils in
 `r yr(ex_last)`, against `r pp(ex_at("England"))` for England and
-`r pp(ex_at(LA))` for `r LA`.
+`r pp(ex_at(LA))` for `r LA`. A rate per 100 pupils counts suspension
+episodes rather than pupils, and one pupil can be suspended several
+times in a year, so it is not a percentage of children: `r ep_txt`.
 
 ```{r tbl-susp}
-#| tbl-cap: "Suspensions per 100 pupils and permanent exclusions, by school, latest year."
+#| tbl-cap: "Suspension episodes per 100 pupils, pupils suspended at least once per 100, and permanent exclusions, by school, latest year. One pupil can be suspended more than once, so the first rate runs well above the second."
 X$excl_schools |> arrange(desc(susp_rate)) |>
   transmute(School = school_name, Pupils = headcount,
-            `Suspensions per 100` = round(susp_rate, 1), `Permanent exclusions` = perm_excl) |>
-  kt(align = "lrrr")
+            `Episodes per 100` = round(susp_rate, 1),
+            `Pupils suspended per 100` = round(100 * one_plus / headcount, 1),
+            `Permanent exclusions` = perm_excl) |>
+  kt(align = "lrrrr")
 ```
 
 # Contextual league tables

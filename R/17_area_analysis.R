@@ -484,20 +484,30 @@ read_exclusions_all <- function() {
               one_plus   = suppressWarnings(as.numeric(one_plus_susp)))
 }
 
+# susp counts suspension episodes and one_plus counts pupils, so susp_rate is
+# episodes per 100 pupils and pupil_rate the share of pupils suspended at
+# least once. One pupil can be suspended several times: the documents quote
+# both, and susp_per_pupil is the ratio between them.
 excl_agg <- function(d, area) d |>
   filter(!is.na(headcount), headcount > 0) |>
   group_by(time_period) |>
   summarise(headcount = sum(headcount), susp = sum(suspension, na.rm = TRUE),
+            pupils = sum(one_plus, na.rm = TRUE),
             perm = sum(perm_excl, na.rm = TRUE), .groups = "drop") |>
-  mutate(la_name = area, susp_rate = 100 * susp / headcount, perm_rate = 100 * perm / headcount)
+  mutate(la_name = area, susp_rate = 100 * susp / headcount,
+         pupil_rate = 100 * pupils / headcount, susp_per_pupil = susp / pupils,
+         perm_rate = 100 * perm / headcount)
 
 excl_la_ranks <- function(ex) {
   ex |>
     filter(!is.na(headcount), headcount > 0) |>
     group_by(time_period, la_name) |>
     summarise(headcount = sum(headcount), susp = sum(suspension, na.rm = TRUE),
+              pupils = sum(one_plus, na.rm = TRUE),
               perm = sum(perm_excl, na.rm = TRUE), .groups = "drop") |>
-    mutate(susp_rate = 100 * susp / headcount, perm_rate = 100 * perm / headcount) |>
+    mutate(susp_rate = 100 * susp / headcount,
+           pupil_rate = 100 * pupils / headcount, susp_per_pupil = susp / pupils,
+           perm_rate = 100 * perm / headcount) |>
     group_by(time_period) |>
     mutate(rank_susp = rank(-susp_rate), rank_perm = rank(-perm_rate), n_la = n()) |>
     ungroup()

@@ -79,6 +79,15 @@ document. A change there reaches every document on the next render.
 - **Units.** Attainment 8 points for results and decompositions;
   percentages for model effects (`pct()`); percentage points for absence
   against intake.
+- **Suspensions.** The DfE file counts suspension *episodes*, not pupils,
+  and one pupil can be suspended several times in a year. So a rate per
+  100 pupils is never written as a percentage of children: columns and
+  axes read "suspension episodes per 100 pupils", and wherever a document
+  quotes one it also gives the pupils suspended at least once per 100 and
+  the mean episodes each (`susp_both()`, held as `ep` in each document's
+  setup). School and district tables carry both rates side
+  by side. Permanent exclusion is reported separately: a different and
+  much rarer thing, and in East Sussex below the national rate.
 - **Comparators.** A county is set against its neighbour county,
   Brighton and Hove and England. A district is set against its county,
   Brighton and Hove and England.
@@ -133,7 +142,8 @@ comparisons.
 6. The county's own effect: LA effect and rank; do the districts differ
    (district test); do trusts make a difference (trust level)
 7. Absence: ten-year series; is it the intake; what the absence is
-   (reasons); within the county; suspensions
+   (reasons); within the county; suspensions on both rates, episodes and
+   pupils
 8. What absence costs, school by school: joint-signal plane; scenarios
 9. Contextual league tables (all, disadvantaged, non-disadvantaged)
 10. The county against its comparators
@@ -158,7 +168,8 @@ filled by `R/20_district_reports.R`; everything else is computed from
    - how many schools are above expectation, the strongest and weakest;
    - absence now and a year earlier, against England and the county, and
      against intake, naming schools more than a point above;
-   - reduced timetables and suspensions as multiples of the national rate;
+   - reduced timetables and suspensions as multiples of the national
+     rate, with the share of pupils suspended at least once;
    - the size of disadvantaged groups.
 2. **About this analysis.** District, not authority; the LA effect is the
    county's; adds a note on ranks if the district has fewer than five
@@ -182,7 +193,8 @@ filled by `R/20_district_reports.R`; everything else is computed from
    three cases; school effects chart.
 8. **Absence.** Series; bullets; table against intake with reasons;
    schools more than a point above or below prediction; reduced
-   timetables and the highest school; scenario table; suspensions.
+   timetables and the highest school; scenario table; suspensions, with
+   episodes and pupils per 100 in the text and both rates by school.
 9. **Contextual league tables.**
 10. **Questions for discussion**, chosen by rule:
     - disadvantaged pupils (always), naming the schools above
@@ -205,7 +217,7 @@ together.
 
 1. Summary: range of results; disadvantaged pupils below England; the
    widest gaps; which district effects survive; absence change; range of
-   practice.
+   practice, including both suspension rates.
 2. The tiers of this analysis, with a link to every district document.
 3. The districts side by side: profile table with ranks and value added;
    gap chart faceted by county.
@@ -214,7 +226,9 @@ together.
    intake, Ofsted, place, other, schools).
 5. Is there a district effect: effects chart, and a line per district
    with an effect.
-6. Absence and practice: table and series by county.
+6. Absence and practice: table and series by county. The table carries
+   suspension episodes per 100 and pupils suspended per 100, England on
+   the episode rate only.
 7. District by district: a short computed paragraph and a link for each.
 
 ## Applying the format elsewhere in England

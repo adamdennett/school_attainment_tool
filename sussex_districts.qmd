@@ -64,6 +64,10 @@ exa <- bind_rows(lapply(D$lad, function(d) XD[[d]]$excl$area |> filter(la_name =
                  SX$excl$area |> filter(la_name == "England"))
 ex_last <- max(exa$time_period)
 ex_at <- function(a) sapply(a, function(x) exa$susp_rate[exa$la_name == x & exa$time_period == ex_last])
+# A rate per 100 pupils counts suspension episodes, not pupils, so each
+# district's share of pupils suspended at least once goes beside it
+ep <- lapply(setNames(D$lad, D$lad), function(d) susp_both(XD[[d]]$excl_schools))
+ep_rate <- sapply(ep, function(e) e$pupil_rate)
 excess <- sapply(D$lad, function(d) XD[[d]]$area_excess$excess)
 
 fe <- DE$focus |> filter(lad %in% D$lad)
@@ -80,7 +84,8 @@ TAB <- D |>
          u_dis = sapply(lad, d_get, g = "Disadvantaged", comp = "Unexplained (school residual)"),
          abs_now = s_at(lad, abs_last), abs_before = s_at(lad, abs_prev),
          excess = excess[lad], reduced = r_at(lad, "Reduced timetable"),
-         illness = r_at(lad, "Illness"), susp = ex_at(lad))
+         illness = r_at(lad, "Illness"), susp = ex_at(lad),
+         susp_pup = ep_rate[lad])
 ```
 
 ::: {.callout-warning appearance="simple"}
@@ -132,10 +137,14 @@ sch <- fe |> filter(spec == "With a school term", sig) |> distinct(lad) |> pull(
   2024/25, the schools of `r and_list(TAB$lad[TAB$excess > 1])` ran more
   than a point above what their intakes predict.
 - **Practice differs more than intake.** Suspensions run from
-  `r pp(min(TAB$susp))` to `r pp(max(TAB$susp))` per 100 pupils
+  `r pp(min(TAB$susp))` to `r pp(max(TAB$susp))` episodes per 100 pupils
   (England `r pp(ex_at("England"))`), and reduced timetables from
   `r pp(min(TAB$reduced), 2)`% to `r pp(max(TAB$reduced), 2)`% of
   sessions (England `r pp(r_at("England", "Reduced timetable"), 2)`%).
+  The suspension figures count episodes, not pupils: one pupil can be
+  suspended several times in a year, and the share of pupils suspended at
+  least once runs from `r pp(min(TAB$susp_pup))` to
+  `r pp(max(TAB$susp_pup))` per 100.
 
 # The tiers of this analysis
 
@@ -297,22 +306,24 @@ specification.
 # Absence and practice
 
 ```{r tbl-absence}
-#| tbl-cap: !expr paste0("Absence and practice by district. Overall absence, autumn and spring ", yr(abs_prev), " and ", yr(abs_last), "; absence above or below what the schools' intakes predict, mean 2021/22 to 2024/25; illness and reduced timetables as a percentage of sessions, ", yr(abs_last), "; suspensions per 100 pupils, ", yr(ex_last), ".")
+#| tbl-cap: !expr paste0("Absence and practice by district. Overall absence, autumn and spring ", yr(abs_prev), " and ", yr(abs_last), "; absence above or below what the schools' intakes predict, mean 2021/22 to 2024/25; illness and reduced timetables as a percentage of sessions, ", yr(abs_last), "; suspension episodes per 100 pupils and pupils suspended at least once per 100, ", yr(ex_last), ". One pupil can be suspended more than once, which is why the two suspension columns differ so widely.")
 bind_rows(
   TAB |> arrange(la, desc(abs_now)) |>
     transmute(District = link, County = la,
-              a1 = abs_before, a2 = abs_now, ex = excess, ill = illness, red = reduced, sus = susp),
+              a1 = abs_before, a2 = abs_now, ex = excess, ill = illness, red = reduced,
+              sus = susp, pup = susp_pup),
   tibble(District = "England", County = "",
          a1 = s_at("England", abs_prev), a2 = s_at("England", abs_last), ex = NA,
          ill = r_at("England", "Illness"), red = r_at("England", "Reduced timetable"),
-         sus = ex_at("England"))) |>
+         sus = ex_at("England"), pup = NA)) |>
   transmute(District, County,
             !!paste("Absence", yr(abs_prev)) := sprintf("%.1f", a1),
             !!paste("Absence", yr(abs_last)) := sprintf("%.1f", a2),
             `Above intake` = ifelse(is.na(ex), "", sprintf("%+.1f", ex)),
             Illness = sprintf("%.2f", ill), `Reduced timetable` = sprintf("%.2f", red),
-            `Suspensions per 100` = sprintf("%.1f", sus)) |>
-  kt(align = "llrrrrrr", escape = FALSE)
+            `Suspension episodes per 100` = sprintf("%.1f", sus),
+            `Pupils suspended per 100` = ifelse(is.na(pup), "", sprintf("%.1f", pup))) |>
+  kt(align = "llrrrrrrr", escape = FALSE)
 ```
 
 ```{r fig-abs-series}
@@ -356,7 +367,8 @@ for (la in names(DISTRICTS)) {
     cat(sprintf(paste0(
       "**%s** (%d schools). Attainment 8 %.1f, %s of %d districts; disadvantaged pupils %.1f ",
       "(%s) on %.0f%% disadvantage. Its schools %s and %s beyond what the model expects. ",
-      "Absence %.1f%% in %s, %s; suspensions %.1f per 100. %s [Read the %s document](%s).\n\n"),
+      "Absence %.1f%% in %s, %s; suspensions %.1f episodes per 100 pupils, ",
+      "%.1f pupils per 100 suspended at least once. %s [Read the %s document](%s).\n\n"),
       l, t$schools, t$att8, ord(t$r_att8), district_rank(SX$lad_profiles, latest, l, "att8")$n,
       t$att8_dis, ord(t$r_dis), t$fsm,
       at(t$u_all, "all pupils"), at(t$u_dis, "disadvantaged pupils"),
@@ -364,7 +376,7 @@ for (la in names(DISTRICTS)) {
       if (abs(t$excess) < 0.05) "in line with what the intake predicts over 2021/22 to 2024/25"
       else sprintf("%s what the intake predicts over 2021/22 to 2024/25 by %.1f points",
                    ifelse(t$excess > 0, "above", "below"), abs(t$excess)),
-      t$susp,
+      t$susp, t$susp_pup,
       if (length(s)) paste0("A district effect survives each school's own record for ", and_list(s), ".")
       else if (length(p)) "A district effect on the published model disappears once each school's record is counted."
       else "No district effect.",

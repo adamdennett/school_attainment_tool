@@ -70,6 +70,8 @@ rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_
 r_at <- function(area, r) rs_w[[area]][rs_w$reason == r]
 exa <- X$excl$area; ex_last <- max(exa$time_period)
 ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
+# Episodes and pupils: a rate per 100 pupils counts suspensions, not pupils
+ep <- susp_both(X$excl_schools)
 
 se <- DE$school_eff |> filter(URN %in% X$urns) |>
   select(SCHNAME, outcome, school_effect) |>
@@ -437,16 +439,21 @@ gains from bringing them to it are modest: up to
 `r pts(max(sc$gain_all))` points. Attendance is not Mid Sussex's lever.
 
 **Suspensions** are well below the national rate:
-`r pp(ex_at(FOCUS))` per 100 pupils in `r yr(ex_last)`, against
+`r pp(ex_at(FOCUS))` episodes per 100 pupils in `r yr(ex_last)`, against
 `r pp(ex_at("England"))` for England and `r pp(ex_at(WS))` for West
-Sussex. The rate varies widely between schools:
+Sussex. The rate counts suspension episodes, not pupils, and one pupil
+can be suspended several times in a year:
+`r if (ep$pupils) paste0(pp(ep$pupil_rate), " ", FOCUS, " pupils per 100 were suspended at least once, about ", pp(ep$per_pupil), " times each") else paste0("no ", FOCUS, " pupil was suspended")`.
+The rate varies widely between schools:
 
 ```{r tbl-susp}
-#| tbl-cap: "Suspensions per 100 pupils and permanent exclusions, by school, latest year."
+#| tbl-cap: "Suspension episodes per 100 pupils, pupils suspended at least once per 100, and permanent exclusions, by school, latest year. One pupil can be suspended more than once, so the first rate can exceed the second several times over."
 X$excl_schools |> arrange(desc(susp_rate)) |>
   transmute(School = school_name, Pupils = headcount,
-            `Suspensions per 100` = round(susp_rate, 1), `Permanent exclusions` = perm_excl) |>
-  kt(align = "lrrr")
+            `Episodes per 100` = round(susp_rate, 1),
+            `Pupils suspended per 100` = round(100 * one_plus / headcount, 1),
+            `Permanent exclusions` = perm_excl) |>
+  kt(align = "lrrrr")
 ```
 
 # Contextual league tables

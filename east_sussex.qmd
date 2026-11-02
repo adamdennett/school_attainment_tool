@@ -160,6 +160,12 @@ ex_la <- ES$excl$la
 ex_last <- max(ex_la$time_period)
 ex_at <- function(la, tp, col = "susp_rate") ex_la[[col]][ex_la$la_name == la & ex_la$time_period == tp]
 ex_eng <- function(tp, col = "susp_rate") ES$excl$england[[col]][ES$excl$england$time_period == tp]
+# The shared helpers, in an environment of their own so that nothing in
+# them displaces the definitions above. The map borrows from it too.
+H <- new.env()
+sys.source(here::here("R", "area_report_helpers.R"), envir = H)
+# Episodes and pupils: a rate per 100 pupils counts suspensions, not pupils
+ep <- H$susp_both(ES$excl_schools)
 
 rs <- ES$reasons |> filter(time_period == abs_last)
 rs_w <- rs |> select(area, reason, pp) |> pivot_wider(names_from = area, values_from = pp)
@@ -231,9 +237,13 @@ disadvantaged pupils `r pts(p_es$att8_dis)` against `r pts(NAT$att8_dis)`
   `r pp(gap_of("Unauthorised, other"), 2)`. Reduced timetables are used
   more than nationally.
 - **Suspensions are a distinct issue, and a large one.** In
-  `r yr(ex_last)` the county suspended at `r pp(ex_at(FOCUS, ex_last))` per
-  100 secondary pupils against `r pp(ex_eng(ex_last))` in England, more than
-  twice Brighton and Hove's `r pp(ex_at(COMP, ex_last))`. But sessions lost
+  `r yr(ex_last)` the county suspended at `r pp(ex_at(FOCUS, ex_last))`
+  episodes per 100 secondary pupils against `r pp(ex_eng(ex_last))` in
+  England, more than twice Brighton and Hove's
+  `r pp(ex_at(COMP, ex_last))`. Those are episodes rather than pupils, and
+  one pupil can be suspended several times: `r pp(ep$pupil_rate)` pupils
+  per 100 were suspended at least once, about `r pp(ep$per_pupil)` times
+  each. But sessions lost
   to suspension are about
   `r pp(100 * rs_w[[FOCUS]][rs_w$reason == "Suspended (code E)"] / s_at(FOCUS, abs_last), 0)`%
   of all absence. Suspensions matter for the pupils concerned. They are
@@ -315,9 +325,7 @@ report's KS4 addendum does.
 
 ```{r map}
 #| fig-cap: "East Sussex's state-funded secondary schools within the county's five districts and boroughs, coloured by overall absence in 2024/25. Choose another measure from the menu above the map; circle size is the school's roll. Hover over a school for its figures and who runs it."
-# The map is shared with the other Sussex documents
-H <- new.env()
-sys.source(here::here("R", "area_report_helpers.R"), envir = H)
+# The map is shared with the other Sussex documents (H is made in setup-rest)
 H$map_area(ES, GOV, LADS, height = 560)
 ```
 
@@ -1252,7 +1260,7 @@ intake more formally.
 ## Suspensions {#sec-suspensions}
 
 ```{r fig-susp}
-#| fig-cap: "Suspensions per 100 pupils, state-funded secondary schools, full academic years."
+#| fig-cap: "Suspension episodes per 100 pupils, state-funded secondary schools, full academic years. Episodes, not pupils: one pupil can be suspended more than once."
 #| fig-height: 4.6
 bind_rows(ex_la |> filter(la_name %in% c(FOCUS, COMP)) |> select(time_period, la_name, susp_rate),
           ES$excl$england |> select(time_period, la_name, susp_rate)) |>
@@ -1261,7 +1269,7 @@ bind_rows(ex_la |> filter(la_name %in% c(FOCUS, COMP)) |> select(time_period, la
   ggplot(aes(year, susp_rate, colour = la_name, group = la_name)) +
   geom_line(linewidth = 1) + geom_point(size = 2) +
   scale_colour_manual(values = AREA_COL, name = NULL) +
-  labs(x = NULL, y = "Suspensions per 100 pupils",
+  labs(x = NULL, y = "Suspension episodes per 100 pupils",
        title = "East Sussex suspends at well above the national rate") +
   theme_note() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
@@ -1277,15 +1285,29 @@ exclusion, by contrast, is *below* the national rate:
 `r pp(ex_at(FOCUS, ex_last, "perm_rate"), 2)` per 100 against
 `r pp(ex_eng(ex_last, "perm_rate"), 2)`.
 
+A rate per 100 pupils counts suspension *episodes*, not pupils, and at
+this level the distinction matters: `r pp(ex_at(FOCUS, ex_last))` per 100
+is not `r pp(ex_at(FOCUS, ex_last))`% of children. One pupil can be
+suspended several times in a year, and in `r yr(ex_last)`
+`r format(ep$pupils, big.mark = ",")` East Sussex pupils were suspended at
+least once — `r pp(ep$pupil_rate)`
+per 100, or about one pupil in `r round(100 / ep$pupil_rate)` — for an
+average of `r pp(ep$per_pupil)` episodes each. Repeat suspension of the
+same pupils therefore accounts for as much of the county's rate as the
+number of pupils involved. Length is a third question, and a shorter
+one: sessions lost to suspension are the small share of absence set out
+below.
+
 ```{r tbl-susp-schools}
-#| tbl-cap: "Suspensions and permanent exclusions by school, latest year. A rate is suspensions per 100 pupils on roll; one pupil can be suspended more than once."
+#| tbl-cap: "Suspensions and permanent exclusions by school, latest year. The first rate counts episodes per 100 pupils on roll, the second the pupils suspended at least once; one pupil can be suspended more than once, so the first can approach or pass 100."
 ES$excl_schools |>
   filter(!is.na(susp_rate)) |>
   arrange(desc(susp_rate)) |>
   transmute(School = school_name, Pupils = headcount,
-            `Suspensions per 100` = round(susp_rate, 1),
+            `Episodes per 100` = round(susp_rate, 1),
+            `Pupils suspended per 100` = round(100 * one_plus / headcount, 1),
             `Permanent exclusions` = perm_excl) |>
-  kt(align = "lrrr")
+  kt(align = "lrrrr")
 ```
 
 The rate varies enormously between schools, and that variation is the
@@ -1536,7 +1558,7 @@ tibble::tribble(
     sprintf("%+.2f (%s)", c_bh$excess, ord(c_bh$rank_excess)),
   "Illness, % of possible sessions",
     pp(rs_w[[FOCUS]][rs_w$reason == "Illness"], 2), pp(rs_w[[COMP]][rs_w$reason == "Illness"], 2),
-  paste("Suspensions per 100,", yr(ex_last)),
+  paste("Suspension episodes per 100,", yr(ex_last)),
     pp(ex_at(FOCUS, ex_last)), pp(ex_at(COMP, ex_last)),
   "LA effect, all pupils (rank)", ord(e_es("All pupils")$rank), ord(e_bh("All pupils")$rank),
   "LA effect, disadvantaged (rank)", ord(e_es("Disadvantaged")$rank), ord(e_bh("Disadvantaged")$rank),

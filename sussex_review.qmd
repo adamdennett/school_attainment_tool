@@ -72,6 +72,11 @@ r_at <- function(area, r) rs_w[[area]][rs_w$reason == r]
 
 exa <- X$excl$area; ex_last <- max(exa$time_period)
 ex_at <- function(a, col = "susp_rate") exa[[col]][exa$la_name == a & exa$time_period == ex_last]
+# Episodes and pupils, from the school-level file: a rate per 100 pupils
+# counts suspensions, not pupils, and one pupil can be suspended repeatedly
+ep <- lapply(setNames(ALL, ALL),
+             function(a) if (a == "Sussex") susp_both(X$excl_schools) else
+                         susp_both(X$excl_schools, a))
 
 js <- X$joint$schools
 js_sx <- js |> filter(URN %in% X$urns)
@@ -441,12 +446,12 @@ fig_reasons(rs, LAS, paste("Illness is above England's rate in all three authori
 ```
 
 ```{r tbl-practice}
-#| tbl-cap: "Three measures of practice: illness absence, reduced timetables and sessions lost to suspension (percentage of possible sessions, latest absence year), and suspensions per 100 pupils (latest exclusions year)."
+#| tbl-cap: "Three measures of practice: illness absence, reduced timetables and sessions lost to suspension (percentage of possible sessions, latest absence year), and suspension episodes per 100 pupils (latest exclusions year). The last column counts episodes, not pupils: one pupil can be suspended more than once."
 tibble(Area = c(LAS, "Sussex", "England")) |>
   mutate(Illness = sapply(Area, function(a) pp(r_at(a, "Illness"), 2)),
          `Reduced timetable` = sapply(Area, function(a) pp(r_at(a, "Reduced timetable"), 2)),
          `Suspended (code E)` = sapply(Area, function(a) pp(r_at(a, "Suspended (code E)"), 2)),
-         `Suspensions per 100` = sapply(Area, function(a) pp(ex_at(a)))) |>
+         `Suspension episodes per 100` = sapply(Area, function(a) pp(ex_at(a)))) |>
   kt(align = "lrrrr")
 ```
 
@@ -462,10 +467,18 @@ The table shows three things:
   `r sprintf("%.1f", r_at("West Sussex", "Reduced timetable") / r_at("England", "Reduced timetable"))`
   times England's rate.
 - **Suspension is East Sussex's outlier**, at
-  `r pp(ex_at("East Sussex"))` per 100 pupils against
-  `r pp(ex_at("Brighton and Hove"))` in Brighton and Hove. Neighbouring
-  authorities with similar pupils make very different decisions about
-  exclusion, which suggests these are choices that can be changed.
+  `r pp(ex_at("East Sussex"))` episodes per 100 pupils against
+  `r pp(ex_at("Brighton and Hove"))` in Brighton and Hove. That rate
+  counts episodes, not pupils, and one pupil can be suspended several
+  times in a year: `r pp(ep[["East Sussex"]]$pupil_rate)` East Sussex
+  pupils per 100 were suspended at least once, about
+  `r pp(ep[["East Sussex"]]$per_pupil)` times each, against
+  `r pp(ep[["Brighton and Hove"]]$pupil_rate)` per 100 and
+  `r pp(ep[["Brighton and Hove"]]$per_pupil)` times in Brighton and Hove.
+  So East Sussex suspends both more pupils and each of them more often.
+  Neighbouring authorities with similar pupils make very different
+  decisions about exclusion, which suggests these are choices that can be
+  changed.
 
 # School by school {#sec-schools}
 

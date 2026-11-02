@@ -77,6 +77,8 @@ gap_tot <- s_at(FOCUS, abs_last) - s_at("England", abs_last)
 ex_la <- X$excl$la; ex_last <- max(ex_la$time_period)
 ex_at <- function(la, tp, col = "susp_rate") ex_la[[col]][ex_la$la_name == la & ex_la$time_period == tp]
 ex_eng <- function(tp, col = "susp_rate") X$excl$england[[col]][X$excl$england$time_period == tp]
+# Episodes and pupils: a rate per 100 pupils counts suspensions, not pupils
+ep <- susp_both(X$excl_schools)
 
 js <- X$joint$schools
 js_ws <- js |> filter(URN %in% X$urns)
@@ -586,10 +588,14 @@ long they stay on them.
 ```
 
 Suspensions, in contrast, are below the national rate:
-`r pp(ex_at(FOCUS, ex_last))` per 100 pupils in `r yr(ex_last)`, against
-`r pp(ex_eng(ex_last))` for England and `r pp(ex_at(ES_, ex_last))` for
-East Sussex (`r ord(ex_at(FOCUS, ex_last, "rank_susp"))` of
-`r ex_at(FOCUS, ex_last, "n_la")`).
+`r pp(ex_at(FOCUS, ex_last))` episodes per 100 pupils in `r yr(ex_last)`,
+against `r pp(ex_eng(ex_last))` for England and
+`r pp(ex_at(ES_, ex_last))` for East Sussex
+(`r ord(ex_at(FOCUS, ex_last, "rank_susp"))` of
+`r ex_at(FOCUS, ex_last, "n_la")`). That rate counts episodes, not
+pupils, and one pupil can be suspended several times in a year:
+`r pp(ep$pupil_rate)` West Sussex pupils per 100 were suspended at least
+once, about `r pp(ep$per_pupil)` times each.
 
 # What absence costs, school by school
 
@@ -682,7 +688,8 @@ tibble::tibble(
   Measure = c("Attainment 8, all (2024/25)", "Attainment 8, disadvantaged",
               "Disadvantaged %", "Prior attainment (KS2, centred)",
               paste("Absence,", yr(abs_last), "(rank)"), "Absence above intake-predicted",
-              "Reduced timetables, % of sessions", paste("Suspensions per 100,", yr(ex_last)),
+              "Reduced timetables, % of sessions",
+              paste("Suspension episodes per 100,", yr(ex_last)),
               "LA effect, all pupils (rank)", "LA effect, disadvantaged (rank)",
               "Absence's cost to the gap with England (points)",
               "Place's cost to disadvantaged pupils (points)"),
