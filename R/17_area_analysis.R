@@ -211,6 +211,9 @@ school_table <- function(panel, a, coastal_towns, lad_map) {
     transmute(URN = as.character(URN), SCHNAME, TOWN, LANAME = as.character(LANAME),
               district, coastal, lon, lat,
               type = MINORGROUP, religion = RELCHAR, ofsted = as.character(OFSTEDRATING_1),
+              # when that rating's inspection was (R/02c_ofsted_dates.R); the
+              # rating is the panel's, so it can be well out of date
+              ofsted_date = if ("OFSTEDLASTINSP" %in% names(s)) OFSTEDLASTINSP else as.Date(NA),
               admissions = ADMPOL_PT,
               pupils = TOTPUPS, ks4_cohort = TPUP,
               att8 = ATT8SCR, att8_dis = ATT8SCR_FSM6CLA1A, att8_non = ATT8SCR_NFSM6CLA1A,

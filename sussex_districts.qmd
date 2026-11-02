@@ -315,7 +315,8 @@ bind_rows(
   tibble(District = "England", County = "",
          a1 = s_at("England", abs_prev), a2 = s_at("England", abs_last), ex = NA,
          ill = r_at("England", "Illness"), red = r_at("England", "Reduced timetable"),
-         sus = ex_at("England"), pup = NA)) |>
+         sus = ex_at("England"),
+         pup = exa$pupil_rate[exa$la_name == "England" & exa$time_period == ex_last])) |>
   transmute(District, County,
             !!paste("Absence", yr(abs_prev)) := sprintf("%.1f", a1),
             !!paste("Absence", yr(abs_last)) := sprintf("%.1f", a2),

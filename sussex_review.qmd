@@ -474,7 +474,9 @@ The table shows three things:
   pupils per 100 were suspended at least once, about
   `r pp(ep[["East Sussex"]]$per_pupil)` times each, against
   `r pp(ep[["Brighton and Hove"]]$pupil_rate)` per 100 and
-  `r pp(ep[["Brighton and Hove"]]$per_pupil)` times in Brighton and Hove.
+  `r pp(ep[["Brighton and Hove"]]$per_pupil)` times in Brighton and Hove
+  and `r pp(ex_at("England", "pupil_rate"))` per 100 and
+  `r pp(ex_at("England", "susp_per_pupil"))` times in England.
   So East Sussex suspends both more pupils and each of them more often.
   Neighbouring authorities with similar pupils make very different
   decisions about exclusion, which suggests these are choices that can be

@@ -446,9 +446,10 @@ LA indicators dataset to colour a choropleth map and view its distribution.
 # ---- Load LA boundaries (same approach as Shiny app global.R) ----
 la_boundary_cache <- here("app", "data", "la_boundaries.rds")
 
-# Fall back to data/ if app/data/ doesn't exist
+# Fall back to data/cache/, where R/08_la_cluster_map.R writes it, if
+# app/data/ doesn't exist
 if (!file.exists(la_boundary_cache)) {
-  la_boundary_cache <- here("data", "la_boundaries.rds")
+  la_boundary_cache <- here("data", "cache", "la_boundaries.rds")
 }
 
 la_sf <- NULL

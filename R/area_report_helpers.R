@@ -188,7 +188,7 @@ map_vars <- function(abs_last) {
     "sen_support", "SEN support, 2024/25",                                  "Intake",     "seq",  "",     1,   "%",
     "pupils",      "Pupils on roll, 2024/25",                               "Intake",     "seq",  "",     0,   "",
     "gov",         "Who runs it, 2024/25",                                  "The school", "cat",  "",     0,   "",
-    "ofsted",      "Ofsted rating",                                         "The school", "cat",  "",     0,   "",
+    "ofsted",      "Ofsted rating, last graded inspection before September 2024", "The school", "cat", "", 0, "",
     "religion",    "Religious character",                                   "The school", "cat",  "",     0,   "")
 }
 
@@ -224,10 +224,24 @@ map_data <- function(X, GOV) {
                            route == "Sponsor-led academy" ~ "Multi-academy trust, sponsored",
                            TRUE ~ "Multi-academy trust, converter or free school"),
            religion = ifelse(religion %in% c("Does not apply", "None"), "None", religion),
-           tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s",
+           tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s<br>Ofsted: %s",
                          SCHNAME, district, absence, fsm, att8, run_by,
                          ifelse(!is.na(run_by_now) & run_by_now != run_by,
-                                paste0("<br>Now: ", run_by_now), "")))
+                                paste0("<br>Now: ", run_by_now), ""),
+                         ofsted_txt(ofsted, ofsted_date, long = TRUE)))
+}
+
+#' An Ofsted rating with the date of the inspection it came from:
+#' "Good (Mar 2023)", or with long = TRUE "Good, inspected March 2023".
+#' The ratings are the panel's (R/02c_ofsted_dates.R): the last graded
+#' inspection before September 2024, so a school inspected since shows its
+#' earlier grade, and the date is what makes that visible.
+ofsted_txt <- function(rating, date, long = FALSE) {
+  d <- if (is.null(date)) rep(NA, length(rating)) else date
+  ifelse(is.na(rating), "not known",
+         ifelse(is.na(d), rating,
+                if (long) paste0(rating, ", inspected ", format(d, "%B %Y"))
+                else paste0(rating, " (", format(d, "%b %Y"), ")")))
 }
 
 #' The area's schools within its district boundaries, coloured by the
@@ -397,7 +411,7 @@ school_table <- function(S) {
               `Absence %` = round(absence, 1), `Persistent %` = round(persistent, 1),
               `KS2` = round(ks2_c, 1), `EHCP %` = round(sen_ehcp, 1),
               `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-              Ofsted = ofsted) |>
+              Ofsted = ofsted_txt(ofsted, ofsted_date)) |>
     kt(align = "llllrrrrrrrl")
 }
 

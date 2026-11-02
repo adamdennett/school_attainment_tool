@@ -168,7 +168,7 @@ map_area(X, GOV, LADS, height = 460)
 ```
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school in Mid Sussex, 2024/25, with the size of its disadvantaged Year 11 group."
+#| tbl-cap: "Every state-funded secondary school in Mid Sussex, 2024/25, with the size of its disadvantaged Year 11 group. Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
 S |>
   left_join(coh |> select(SCHNAME, dis), by = "SCHNAME") |>
   arrange(TOWN, SCHNAME) |>
@@ -178,7 +178,7 @@ S |>
             `Disadvantaged in Year 11` = dis,
             `Absence %` = round(absence, 1), `KS2` = round(ks2_c, 1),
             `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-            Ofsted = ofsted) |>
+            Ofsted = ofsted_txt(ofsted, ofsted_date)) |>
   kt(align = "llllrrrrrrl")
 ```
 
@@ -443,7 +443,9 @@ gains from bringing them to it are modest: up to
 `r pp(ex_at("England"))` for England and `r pp(ex_at(WS))` for West
 Sussex. The rate counts suspension episodes, not pupils, and one pupil
 can be suspended several times in a year:
-`r if (ep$pupils) paste0(pp(ep$pupil_rate), " ", FOCUS, " pupils per 100 were suspended at least once, about ", pp(ep$per_pupil), " times each") else paste0("no ", FOCUS, " pupil was suspended")`.
+`r if (ep$pupils) paste0(pp(ep$pupil_rate), " ", FOCUS, " pupils per 100 were suspended at least once, about ", pp(ep$per_pupil), " times each") else paste0("no ", FOCUS, " pupil was suspended")`,
+against `r pp(ex_at("England", "pupil_rate"))` per 100 and
+`r pp(ex_at("England", "susp_per_pupil"))` times in England.
 The rate varies widely between schools:
 
 ```{r tbl-susp}

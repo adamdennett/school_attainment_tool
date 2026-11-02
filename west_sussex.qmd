@@ -212,7 +212,7 @@ between, with results almost as low as Crawley's on a less disadvantaged
 intake.
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5)."
+#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5). Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
 school_table(S)
 ```
 
@@ -595,7 +595,9 @@ against `r pp(ex_eng(ex_last))` for England and
 `r ex_at(FOCUS, ex_last, "n_la")`). That rate counts episodes, not
 pupils, and one pupil can be suspended several times in a year:
 `r pp(ep$pupil_rate)` West Sussex pupils per 100 were suspended at least
-once, about `r pp(ep$per_pupil)` times each.
+once, about `r pp(ep$per_pupil)` times each, against
+`r pp(ex_eng(ex_last, "pupil_rate"))` per 100 and
+`r pp(ex_eng(ex_last, "susp_per_pupil"))` times in England.
 
 # What absence costs, school by school
 

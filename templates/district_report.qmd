@@ -115,9 +115,11 @@ sus_ratio <- ex_at(FOCUS) / ex_at("England")
 # Episodes and pupils: a rate per 100 pupils counts suspensions, not pupils,
 # and one pupil can be suspended several times in a year
 ep <- susp_both(X$excl_schools)
-ep_txt <- if (!ep$pupils) "no pupil in the district was suspended" else
+ep_eng <- paste0(pp(ex_at("England", "pupil_rate")), " per 100 and ",
+                 pp(ex_at("England", "susp_per_pupil")), " times in England")
+ep_txt <- if (!ep$pupils) paste0("no pupil in the district was suspended, against ", ep_eng) else
   paste0(pp(ep$pupil_rate), " pupils per 100 were suspended at least once, ",
-         "about ", pp(ep$per_pupil), " times each")
+         "about ", pp(ep$per_pupil), " times each, against ", ep_eng)
 
 se <- DE$school_eff |> filter(URN %in% X$urns)
 fe <- DE$focus |> filter(lad == FOCUS)
@@ -228,7 +230,7 @@ map_area(X, GOV, LADS, height = 460)
 ```
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school in the district, 2024/25, with the size of its disadvantaged Year 11 group."
+#| tbl-cap: "Every state-funded secondary school in the district, 2024/25, with the size of its disadvantaged Year 11 group. Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
 S |>
   mutate(URN = as.integer(URN)) |>
   left_join(coh |> select(URN, dis), by = "URN") |>
@@ -239,7 +241,7 @@ S |>
             `Disadvantaged in Year 11` = dis,
             `Absence %` = round(absence, 1), `KS2` = round(ks2_c, 1),
             `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-            Ofsted = ofsted) |>
+            Ofsted = ofsted_txt(ofsted, ofsted_date)) |>
   kt(align = "llllrrrrrrl")
 ```
 

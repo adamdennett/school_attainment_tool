@@ -243,7 +243,8 @@ disadvantaged pupils `r pts(p_es$att8_dis)` against `r pts(NAT$att8_dis)`
   `r pp(ex_at(COMP, ex_last))`. Those are episodes rather than pupils, and
   one pupil can be suspended several times: `r pp(ep$pupil_rate)` pupils
   per 100 were suspended at least once, about `r pp(ep$per_pupil)` times
-  each. But sessions lost
+  each, against `r pp(ex_eng(ex_last, "pupil_rate"))` per 100 and
+  `r pp(ex_eng(ex_last, "susp_per_pupil"))` times in England. But sessions lost
   to suspension are about
   `r pp(100 * rs_w[[FOCUS]][rs_w$reason == "Suspended (code E)"] / s_at(FOCUS, abs_last), 0)`%
   of all absence. Suspensions matter for the pupils concerned. They are
@@ -478,7 +479,7 @@ schools as they were, and results under the new arrangements are not yet
 available.
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5)."
+#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5). Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
 S |>
   arrange(district, SCHNAME) |>
   transmute(School = SCHNAME, District = district,
@@ -487,7 +488,7 @@ S |>
             `Absence %` = round(absence, 1), `Persistent %` = round(persistent, 1),
             `KS2` = round(ks2_c, 1), `EHCP %` = round(sen_ehcp, 1),
             `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-            Ofsted = ofsted) |>
+            Ofsted = H$ofsted_txt(ofsted, ofsted_date)) |>
   kt(align = "llllrrrrrrrl")
 ```
 
@@ -1292,7 +1293,10 @@ suspended several times in a year, and in `r yr(ex_last)`
 `r format(ep$pupils, big.mark = ",")` East Sussex pupils were suspended at
 least once — `r pp(ep$pupil_rate)`
 per 100, or about one pupil in `r round(100 / ep$pupil_rate)` — for an
-average of `r pp(ep$per_pupil)` episodes each. Repeat suspension of the
+average of `r pp(ep$per_pupil)` episodes each. In England the figures
+were `r pp(ex_eng(ex_last, "pupil_rate"))` pupils per 100 and
+`r pp(ex_eng(ex_last, "susp_per_pupil"))` episodes each, so East Sussex
+suspends more pupils than England and each of them more often. Repeat suspension of the
 same pupils therefore accounts for as much of the county's rate as the
 number of pupils involved. Length is a third question, and a shorter
 one: sessions lost to suspension are the small share of absence set out

@@ -10,12 +10,12 @@ steps 2, 5 and 6 are done.
 | Step | State |
 |---|---|
 | 1. Sibling-repo layout | Works. `bh-school-system`, `QM_Fork` and `BH_Schools_Consultation` are all present as siblings. |
-| 2. Missing data | **Outstanding — needs a decision, see below.** |
+| 2. Missing data | **Partly done (2026-11-02, main machine).** `school_effect_decomp.rds`, the one unrebuildable file, is now committed; the rebuildable files still need `R/00_fetch_data.R` (not written). |
 | 3. Hard-coded `E:` paths | Done. |
-| 3b. Cross-repo reads | Partly done; `optionZ_Mar25.geojson` is present but still git-ignored. |
-| 4. Render check | Not run — blocked on step 2. |
-| 5. Suspension pupil fields | **Outstanding — written but never run; needs a rebuild on the main machine, see below.** |
-| 6. Ofsted ratings | **Outstanding — stale, undated, and still single-word; needs a design decision, see below.** |
+| 3b. Cross-repo reads | Done: `optionZ_Mar25.geojson` is tracked; `cluster_data_explorer.qmd` now falls back to `data/cache/la_boundaries.rds`. |
+| 4. Render check | Not run — the decks' blocker is gone, but the laptop still lacks the rebuildable data. |
+| 5. Suspension pupil fields | **Done (2026-11-02, main machine).** |
+| 6. Ofsted ratings | **Dates done (2026-11-02, main machine); the representation of report-card judgements still needs a decision, see below.** |
 
 ## Step 3 — done
 
@@ -76,6 +76,11 @@ creates. Every reference to it is a `readRDS`:
   recreate one from nothing
 
 So it exists only on the main machine, and four decks fail without it.
+**Resolved 2026-11-02 by committing it**: it is 975 bytes of national
+variance shares, the same figures the published decks show, so neither
+size nor embargo stood in the way. `.gitignore` now ignores
+`data/cache/*` with a `!` rule for this one file. Promoting the Analysis F
+decomposition into a script remains the durable fix. The original note:
 **Top priority.** Options: commit it (if small and not embargoed), ship it as
 a GitHub Release asset via `piggyback::pb_upload()`, or promote the Analysis F
 decomposition that produced it into a proper script alongside
@@ -119,6 +124,16 @@ quarto render bh_schools_talk_2026_v2.qmd --to revealjs
 ```
 
 ## Step 5 — finish the suspension change on the main machine
+
+**Done 2026-11-02 on the main machine.** `data-raw/ees/` already held the
+2024/25 exclusions file (the latest published), so no download was needed.
+The rebuild of all sixteen area files changed nothing but the new `excl`
+columns. England came out at 7.30 pupils per 100 suspended at least once,
+2.90 times each (21.2 episodes); East Sussex 8.82, 3.17 times (28.0). The
+England comparator is now in the suspensions prose of `east_sussex`,
+`west_sussex`, `mid_sussex`, the district template and the review's
+practice bullet, and in the England row of the district summary's table.
+All documents re-rendered and published. The original note follows.
 
 Added 2026-11-02 from the laptop, after a question about the Sussex review:
 is 28 suspensions per 100 pupils in East Sussex 28% of children? It is not.
@@ -168,6 +183,42 @@ The rebuild also settles whether anything else in the area files moved, since
 they were last built before the URN and district work.
 
 ## Step 6 — Ofsted: date the ratings, and handle the end of single grades
+
+**The dating is done (2026-11-02, main machine).** What the audit found:
+
+- The performance tables' school information file carries Ofsted only up
+  to 2022/23. For 2023/24 and 2024/25 the panel's rating comes from
+  Ofsted's statistics *as at 31 August 2024* (`OFSTED_URL`, via
+  `02_build_panel.R`), which is why BACA still shows its March 2023
+  Requires Improvement, and why no rating in the panel is later than
+  July 2024.
+- `R/02c_ofsted_dates.R` (new) adds `OFSTEDLASTINSP` and `OFSTED_SOURCE`
+  to `panel_data.rds` and `panel_data_5yr.rds` without rebuilding them,
+  attaching a date only where the source's rating matches the panel's.
+  Every rated school-year in 2021/22 to 2024/25 is dated; no rating
+  changed, so no model moves.
+- `R/17_area_analysis.R` carries it as `ofsted_date` in each area's
+  school table. The map's dropdown now reads "Ofsted rating, last graded
+  inspection before September 2024"; the hover gives the rating and its
+  inspection month; the school tables show "Good (Mar 2023)" with a
+  caption saying schools inspected since may have newer judgements.
+- Several ratings are very old: Blatchington Mill's and Hove Park's
+  Good come from graded inspections in 2013, the last graded inspection
+  each had on record at August 2024.
+
+**Still to decide: representation.** Checked 2026-11-02 (not from
+memory): since November 2025 Ofsted grades each evaluation area on a
+five-point scale (Exceptional, Strong standard, Expected standard, Needs
+attention, Urgent improvement), with safeguarding met / not met, on a
+report card. Only about one school in nine had a report card by
+September 2026. The live source is Ofsted's monthly management
+information, "State-funded school inspections and outcomes", which has
+one row per school with URN (latest file as at 30 September 2026; next
+due 11 November 2026). The September 2024 to November 2025 inspections,
+which gave sub-judgements on the old four-point scale with no overall
+grade, sit between the two schemes. The questions below stand; the model
+term can stay on the dated legacy grade for 2021/22 to 2024/25 whatever
+is chosen for the map and text.
 
 Raised 2026-11-02 by Adam, from the Sussex map. Two problems, one small and
 one that needs a decision.

@@ -87,7 +87,19 @@ document. A change there reaches every document on the next render.
   the mean episodes each (`susp_both()`, held as `ep` in each document's
   setup). School and district tables carry both rates side
   by side. Permanent exclusion is reported separately: a different and
-  much rarer thing, and in East Sussex below the national rate.
+  much rarer thing, and in East Sussex below the national rate. The
+  England comparator comes from the area file's `excl$area` (England row,
+  `pupil_rate` and `susp_per_pupil`): 7.3 pupils per 100, 2.9 times each,
+  in 2024/25.
+- **Ofsted ratings are dated.** The rating is the one the model uses: the
+  last graded inspection before September 2024 (`R/02c_ofsted_dates.R`
+  explains the two sources). It is always shown with the date of that
+  inspection (`ofsted_txt()`): "Good (Mar 2023)" in tables, "Good,
+  inspected March 2023" in the map hover, and school-table captions say
+  that schools inspected since may have a newer judgement. Since September
+  2024 Ofsted has given no single overall grade, so these ratings will
+  only age; how to represent report-card judgements is an open decision
+  (`MACHINE_SYNC_TODO.md`, step 6).
 - **Comparators.** A county is set against its neighbour county,
   Brighton and Hove and England. A district is set against its county,
   Brighton and Hove and England.
@@ -95,7 +107,8 @@ document. A change there reaches every document on the next render.
   scales; orange for disadvantaged and teal for non-disadvantaged pupils.
 - **The map** (`map_area()`): schools within district boundaries, a menu
   of 22 measures above it (absence first and default), circle size =
-  roll, hover for figures and who runs the school.
+  roll, hover for figures, who runs the school and its dated Ofsted
+  rating.
 - **Naming schools.** Schools are named, including those below
   expectation. (Open question: whether to soften this before documents
   go to councils.)
