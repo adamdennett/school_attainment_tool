@@ -28,6 +28,11 @@
 STEPS <- list(
   gias = list(script = "R/10_gias_closures.R",
               outputs = c("data/gias/gias_establishments.rds", "data/gias/school_closures.rds")),
+  # Ofsted's newest monthly release. Only fetched when missing: to move to a
+  # newer month, run it by name (Rscript R/00_fetch_data.R ofsted_latest)
+  # or R/15b_ofsted_latest.R --force, then rebuild the area files
+  ofsted_latest = list(script = "R/15b_ofsted_latest.R",
+              outputs = "data/ofsted/ofsted_latest.rds"),
   ks4_destinations = list(script = "R/09_ks4_destinations.R",
               outputs = "data/ks4_destinations.rds"),
   engagement = list(script = "R/11_ees_engagement.R",

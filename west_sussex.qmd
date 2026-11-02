@@ -212,7 +212,7 @@ between, with results almost as low as Crawley's on a less disadvantaged
 intake.
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5). Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
+#| tbl-cap: !expr paste("Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5).", ofsted_note(X$ofsted_as_at))
 school_table(S)
 ```
 

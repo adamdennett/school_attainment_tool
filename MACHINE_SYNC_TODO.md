@@ -15,7 +15,7 @@ steps 2, 5 and 6 are done.
 | 3b. Cross-repo reads | Done: `optionZ_Mar25.geojson` is tracked; `cluster_data_explorer.qmd` now falls back to `data/cache/la_boundaries.rds`. |
 | 4. Render check | Not run — the decks' blocker is gone, but the laptop still lacks the rebuildable data. |
 | 5. Suspension pupil fields | **Done (2026-11-02, main machine).** |
-| 6. Ofsted ratings | **Dates done (2026-11-02, main machine); the representation of report-card judgements still needs a decision, see below.** |
+| 6. Ofsted ratings | Done (2026-11-02, main machine): ratings dated, and a "latest Ofsted" field from Ofsted's monthly data beside the model's rating. |
 
 ## Step 3 — done
 
@@ -211,7 +211,20 @@ they were last built before the URN and district work.
   Good come from graded inspections in 2013, the last graded inspection
   each had on record at August 2024.
 
-**Still to decide: representation.** Checked 2026-11-02 (not from
+**Representation, decided and built 2026-11-02.** Adam chose: keep the
+dated old grade as the model term, and add a "latest Ofsted" field for
+the map and tables, taken from the monthly management information in this
+order: report card (achievement and curriculum grades), else an
+inspection with no overall grade (quality of education), else the last
+graded inspection (plus any later ungraded outcome), else the latest
+ungraded outcome for schools last graded before 2019.
+`R/15b_ofsted_latest.R` builds it (also a step in `R/00_fetch_data.R`);
+`add_ofsted_latest()` in `R/17_area_analysis.R` joins it, following URN
+changes, and all 76 Sussex schools have one. `AREA_REPORTS.md` records
+the convention. Refresh monthly with `Rscript R/15b_ofsted_latest.R`, then
+rebuild the area files. The findings that led there:
+
+**Background.** Checked 2026-11-02 (not from
 memory): since November 2025 Ofsted grades each evaluation area on a
 five-point scale (Exceptional, Strong standard, Expected standard, Needs
 attention, Urgent improvement), with safeguarding met / not met, on a

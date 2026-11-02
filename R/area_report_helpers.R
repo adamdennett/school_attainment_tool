@@ -189,6 +189,7 @@ map_vars <- function(abs_last) {
     "pupils",      "Pupils on roll, 2024/25",                               "Intake",     "seq",  "",     0,   "",
     "gov",         "Who runs it, 2024/25",                                  "The school", "cat",  "",     0,   "",
     "ofsted",      "Ofsted rating, last graded inspection before September 2024", "The school", "cat", "", 0, "",
+    "ofsted_rc",   "Ofsted report card, achievement (inspected since November 2025)", "The school", "cat", "", 0, "",
     "religion",    "Religious character",                                   "The school", "cat",  "",     0,   "")
 }
 
@@ -197,8 +198,15 @@ MAP_CATS <- list(
           "Multi-academy trust, sponsored" = WARM, "Single-academy trust or not recorded" = "#8a8aa3"),
   ofsted = c("Outstanding" = TEAL, "Good" = "#8fc1b5", "Requires Improvement" = WARM,
              "Inadequate" = BAD),
+  ofsted_rc = c("Exceptional" = TEAL, "Strong standard" = "#8fc1b5",
+                "Expected standard" = "#c9c9d6", "Needs attention" = WARM,
+                "Urgent improvement" = BAD),
   religion = c("None" = "#8a8aa3", "Church of England" = "#993bff", "Roman Catholic" = WARM,
                "Christian" = "#2196f3"))
+
+# What the legend and hover call a school with no value, where "no data"
+# would mislead
+MAP_NONE <- c(ofsted_rc = "no report card yet")
 
 #' Every school in the area on one table, with each variable the
 #' dropdown offers
@@ -224,12 +232,22 @@ map_data <- function(X, GOV) {
                            route == "Sponsor-led academy" ~ "Multi-academy trust, sponsored",
                            TRUE ~ "Multi-academy trust, converter or free school"),
            religion = ifelse(religion %in% c("Does not apply", "None"), "None", religion),
-           tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s<br>Ofsted: %s",
+           tip = sprintf("<b>%s</b> (%s)<br>Absence %.1f%%, FSM %.0f%%, Attainment 8 %.1f<br>Run by (2024/25): %s%s<br>Ofsted in the model: %s<br>Ofsted latest: %s",
                          SCHNAME, district, absence, fsm, att8, run_by,
                          ifelse(!is.na(run_by_now) & run_by_now != run_by,
                                 paste0("<br>Now: ", run_by_now), ""),
-                         ofsted_txt(ofsted, ofsted_date, long = TRUE)))
+                         ofsted_txt(ofsted, ofsted_date, long = TRUE),
+                         coalesce(ofsted_latest, "not known")))
 }
+
+#' The sentence every school table's caption carries about its two Ofsted
+#' columns. as_at is the area object's ofsted_as_at.
+ofsted_note <- function(as_at) paste0(
+  "Ofsted (model) is the rating the model uses, from the last graded inspection before ",
+  "September 2024. Ofsted, latest is the most recent judgement in Ofsted's data as at ",
+  format(as_at, "%d %B %Y"), ", which is a report card's achievement and curriculum grades, ",
+  "the quality of education grade for an inspection between September 2024 and November ",
+  "2025 that gave no overall grade, or otherwise the last graded inspection.")
 
 #' An Ofsted rating with the date of the inspection it came from:
 #' "Good (Mar 2023)", or with long = TRUE "Good, inspected March 2023".
@@ -259,7 +277,8 @@ map_area <- function(X, GOV, LADS, height = 560) {
   payload <- list(
     schools = jsonlite::toJSON(dat, dataframe = "rows", na = "null", digits = 4),
     vars = jsonlite::toJSON(vars, dataframe = "rows"),
-    cats = jsonlite::toJSON(lapply(MAP_CATS, as.list), auto_unbox = TRUE))
+    cats = jsonlite::toJSON(lapply(MAP_CATS, as.list), auto_unbox = TRUE),
+    none = jsonlite::toJSON(as.list(MAP_NONE), auto_unbox = TRUE))
   leaflet::leaflet(height = height, options = leaflet::leafletOptions(scrollWheelZoom = FALSE)) |>
     leaflet::addProviderTiles("Esri.WorldGrayCanvas") |>
     leaflet::addPolygons(data = lads, color = PURPLE, weight = 1.5, fill = TRUE,
@@ -275,7 +294,7 @@ MAP_JS <- '
 function(el, x, data) {
   var map = this;
   // htmlwidgets writes the "json" strings into the page as objects
-  var schools = data.schools, vars = data.vars, cats = data.cats;
+  var schools = data.schools, vars = data.vars, cats = data.cats, none = data.none;
   var defaultVar = "absence";
 
   // Sequential: light blue -> teal -> deep purple. Diverging: red -> grey -> teal.
@@ -329,7 +348,7 @@ function(el, x, data) {
         fillColor: none ? "#ffffff" : colour(v), fillOpacity: none ? 0.6 : 0.9,
         color: none ? "#8a8aa3" : "white", weight: none ? 1.5 : 1
       }).bindTooltip(d.tip + "<br><b>" + m.label + ": " +
-          (m.scale === "cat" ? (v || "not known") : fmt(v, m)) + "</b>")
+          (m.scale === "cat" ? (v || none[name] || "not known") : fmt(v, m)) + "</b>")
         .addTo(markers);
     });
 
@@ -352,7 +371,7 @@ function(el, x, data) {
     }
     if (missing) h += "<div style=\\"font-size:11px;color:#666;margin-top:2px\\">" +
       "<span style=\\"display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;" +
-      "border:1.5px solid #8a8aa3\\"></span>no data (" + missing + ")</div>";
+      "border:1.5px solid #8a8aa3\\"></span>" + (none[name] || "no data") + " (" + missing + ")</div>";
     h += "<div style=\\"font-size:11px;color:#666\\">Circle size: pupils on roll</div>";
     legDiv.style.position = "relative";
     legDiv.innerHTML = h;
@@ -411,8 +430,9 @@ school_table <- function(S) {
               `Absence %` = round(absence, 1), `Persistent %` = round(persistent, 1),
               `KS2` = round(ks2_c, 1), `EHCP %` = round(sen_ehcp, 1),
               `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-              Ofsted = ofsted_txt(ofsted, ofsted_date)) |>
-    kt(align = "llllrrrrrrrl")
+              `Ofsted (model)` = ofsted_txt(ofsted, ofsted_date),
+              `Ofsted, latest` = coalesce(ofsted_latest, "not known")) |>
+    kt(align = "llllrrrrrrrll")
 }
 
 COMP_ORDER <- c("Absence", "Prior attainment (KS2)", "Disadvantage (% FSM)",

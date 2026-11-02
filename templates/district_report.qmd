@@ -230,7 +230,7 @@ map_area(X, GOV, LADS, height = 460)
 ```
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school in the district, 2024/25, with the size of its disadvantaged Year 11 group. Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
+#| tbl-cap: !expr paste("Every state-funded secondary school in the district, 2024/25, with the size of its disadvantaged Year 11 group.", ofsted_note(X$ofsted_as_at))
 S |>
   mutate(URN = as.integer(URN)) |>
   left_join(coh |> select(URN, dis), by = "URN") |>
@@ -241,8 +241,9 @@ S |>
             `Disadvantaged in Year 11` = dis,
             `Absence %` = round(absence, 1), `KS2` = round(ks2_c, 1),
             `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-            Ofsted = ofsted_txt(ofsted, ofsted_date)) |>
-  kt(align = "llllrrrrrrl")
+            `Ofsted (model)` = ofsted_txt(ofsted, ofsted_date),
+            `Ofsted, latest` = coalesce(ofsted_latest, "not known")) |>
+  kt(align = "llllrrrrrrll")
 ```
 
 `r n_of(sum(GOV$trust_kind == "Maintained"), n_s, "is", "are")`

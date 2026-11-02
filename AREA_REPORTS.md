@@ -98,17 +98,31 @@ document. A change there reaches every document on the next render.
   inspected March 2023" in the map hover, and school-table captions say
   that schools inspected since may have a newer judgement. Since September
   2024 Ofsted has given no single overall grade, so these ratings will
-  only age; how to represent report-card judgements is an open decision
-  (`MACHINE_SYNC_TODO.md`, step 6).
+  only age.
+- **Latest Ofsted, beside the model's.** Every school table has two
+  columns, "Ofsted (model)" and "Ofsted, latest", and the map hover gives
+  both. "Latest" comes from Ofsted's newest monthly management
+  information (`R/15b_ofsted_latest.R`, `ofsted_latest` in each area's
+  school table), chosen in this order: a report card's achievement and
+  curriculum grades; for an inspection from September 2024 to November
+  2025 that gave no overall grade, its quality of education; otherwise the
+  last graded inspection, with any later ungraded outcome; and for a
+  school last graded before 2019, its latest ungraded outcome. Each is
+  dated, and the table captions name the release (`ofsted_note()`). The
+  map adds "Ofsted report card, achievement" as a colouring, with schools
+  not yet on a report card left hollow. The model term itself stays on the
+  old grade, which is the right variable for 2021/22 to 2024/25. To move to
+  a newer month: `Rscript R/15b_ofsted_latest.R`, then rebuild the area
+  files and re-render.
 - **Comparators.** A county is set against its neighbour county,
   Brighton and Hove and England. A district is set against its county,
   Brighton and Hove and England.
 - **Colours.** `AREA_COL` for areas; teal good / red bad on diverging
   scales; orange for disadvantaged and teal for non-disadvantaged pupils.
 - **The map** (`map_area()`): schools within district boundaries, a menu
-  of 22 measures above it (absence first and default), circle size =
-  roll, hover for figures, who runs the school and its dated Ofsted
-  rating.
+  of 23 measures above it (absence first and default), circle size =
+  roll, hover for figures, who runs the school, and its Ofsted rating in
+  the model and latest, both dated.
 - **Naming schools.** Schools are named, including those below
   expectation. (Open question: whether to soften this before documents
   go to councils.)

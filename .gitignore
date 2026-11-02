@@ -24,6 +24,7 @@ data-raw/*.docx
 # Data - intermediate pipeline outputs
 data/extracted/
 data/cache/*
+data/ofsted/
 # Small, published, and nothing in the repo can rebuild it (MACHINE_SYNC_TODO.md)
 !data/cache/school_effect_decomp.rds
 data/meta/

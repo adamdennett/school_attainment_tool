@@ -180,6 +180,30 @@ urn_links <- function(urns) {
 
 urn_family <- function(urns) unique(urn_links(urns)$urn)
 
+#' Each school's latest Ofsted judgement (R/15b_ofsted_latest.R), whatever
+#' the framework, followed through any change of URN: a school that
+#' re-opened as a fresh start is inspected under its new URN. The newest
+#' judgement among a school's URNs wins.
+add_ofsted_latest <- function(schools) {
+  f <- here::here("data", "ofsted", "ofsted_latest.rds")
+  if (!file.exists(f)) {
+    warning("No ", f, ": run R/15b_ofsted_latest.R. Latest Ofsted left blank.")
+    return(schools |> mutate(ofsted_latest = NA_character_, ofsted_latest_date = as.Date(NA),
+                             ofsted_kind = NA_character_, ofsted_rc = NA_character_))
+  }
+  o <- readRDS(f)
+  best <- urn_links(as.integer(schools$URN)) |>
+    inner_join(o, by = c("urn" = "URN")) |>
+    filter(!is.na(ofsted_latest)) |>
+    arrange(URN, desc(ofsted_latest_date)) |>
+    distinct(URN, .keep_all = TRUE) |>
+    transmute(URN = as.character(URN), ofsted_latest, ofsted_latest_date, ofsted_kind,
+              ofsted_rc = rc_achievement)
+  out <- schools |> left_join(best, by = "URN")
+  attr(out, "ofsted_as_at") <- attr(o, "as_at")
+  out
+}
+
 school_table <- function(panel, a, coastal_towns, lad_map) {
   s <- panel |>
     filter(LANAME %in% a$las, MINORGROUP %in% c("Academy", "Maintained school"),
@@ -642,7 +666,8 @@ build_area <- function(slug, sh) {
   all_areas <- c(list(a), spec$comps)
   message("\n== ", a$name, " ==")
 
-  schools <- school_table(sh$panel, a, spec$coastal_towns, sh$lad_map)
+  schools <- add_ofsted_latest(school_table(sh$panel, a, spec$coastal_towns, sh$lad_map))
+  ofsted_as_at <- attr(schools, "ofsted_as_at")
   urns  <- area_urns(sh$panel, a, sh$lad_map)
   links <- urn_links(urns)
   fam   <- unique(links$urn)
@@ -750,7 +775,7 @@ build_area <- function(slug, sh) {
     scenarios = scen,
     coefs = lapply(sh$mods, fixef),
     typology = readRDS(here::here("data", "la_typology.rds")),
-    abs_years = years, latest_panel = sh$latest,
+    abs_years = years, latest_panel = sh$latest, ofsted_as_at = ofsted_as_at,
     built_at = Sys.time())
 }
 

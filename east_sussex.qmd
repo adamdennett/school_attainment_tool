@@ -479,7 +479,7 @@ schools as they were, and results under the new arrangements are not yet
 available.
 
 ```{r school-table}
-#| tbl-cap: "Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5). Ofsted is the rating the model uses, from the last graded inspection before September 2024, with its date; schools inspected since may have a newer judgement."
+#| tbl-cap: !expr paste("Every state-funded secondary school, 2024/25. KS2 is the cohort's mean Key Stage 2 score, centred as in the national model (England's school average is about 4.5).", H$ofsted_note(ES$ofsted_as_at))
 S |>
   arrange(district, SCHNAME) |>
   transmute(School = SCHNAME, District = district,
@@ -488,8 +488,9 @@ S |>
             `Absence %` = round(absence, 1), `Persistent %` = round(persistent, 1),
             `KS2` = round(ks2_c, 1), `EHCP %` = round(sen_ehcp, 1),
             `Att 8` = round(att8, 1), `Att 8 disadv.` = round(att8_dis, 1),
-            Ofsted = H$ofsted_txt(ofsted, ofsted_date)) |>
-  kt(align = "llllrrrrrrrl")
+            `Ofsted (model)` = H$ofsted_txt(ofsted, ofsted_date),
+            `Ofsted, latest` = coalesce(ofsted_latest, "not known")) |>
+  kt(align = "llllrrrrrrrll")
 ```
 
 # How East Sussex compares
