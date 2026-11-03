@@ -1048,8 +1048,8 @@ p_g <- ggplot(lev, aes(case, gorard, fill = hi)) +
 ```
 
 ::: {style="font-size:0.7em"}
-Cutting places displaces about six more children. Opening 20% of places
-displaces about twelve more. Doing both displaces **twenty-eight** more — the
+Cutting places displaces about `r sprintf("%.0f", lev$displaced[2] - lev$displaced[1])` more children. Opening 20% of places
+displaces about `r sprintf("%.0f", lev$displaced[3] - lev$displaced[1])` more. Doing both displaces **`r sprintf("%.0f", lev$displaced[4] - lev$displaced[1])`** more — the
 two levers multiply rather than add. And the segregation the whole exercise was
 meant to reduce goes **up**.
 :::
