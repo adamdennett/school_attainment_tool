@@ -4,7 +4,7 @@ subtitle: "A twenty-minute cut: five months, one city's school system, and what 
 author:
   - name: Prof Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
-date: today
+date: "2026-10-16"
 date-format: "dddd D MMMM YYYY"
 title-slide-attributes:
   data-background-color: "#993bff"
@@ -633,8 +633,13 @@ somewhere else, and the model says where.
 ```{r fsm-oos}
 #| fig-width: 11.5
 #| fig-height: 3.5
-o_fsm <- outcomes(inp, run_sim(inp, year = 2026,
-  rules = list(rule = "priorities", p6_share = 0.05, fsm = TRUE)))
+FSM_RULES <- list(rule = "priorities", p6_share = 0.05, fsm = TRUE)
+o_fsm <- outcomes(inp, run_sim(inp, year = 2026, rules = FSM_RULES))
+# The same test against the bundle as it was calibrated BEFORE priority 3 --
+# what this slide showed when the FOI first came back. Both are computed, so
+# the contrast in the prose moves with the model instead of being typed in.
+inp_ns   <- without_siblings(inp)
+o_fsm_ns <- outcomes(inp_ns, run_sim(inp_ns, year = 2026, rules = FSM_RULES))
 # FOI 26367489: the confirmed September 2026 position by priority. The
 # model was never fitted to these.
 foi_fsm <- tibble::tribble(
@@ -652,19 +657,28 @@ fsm_d <- o_fsm$tiers |>
   dplyr::mutate(school = short_sch(name), odd = school == "Varndean")
 
 r2 <- function(a, b) cor(a, b)^2
-# Varndean alone takes the out-of-catchment fit from 0.82 to 0.00, so
-# quoting the one number without the other hides the finding.
 r2_out_all  <- r2(fsm_d$m5, fsm_d$p5)
 r2_out_less <- with(dplyr::filter(fsm_d, !odd), r2(m5, p5))
 vd <- dplyr::filter(fsm_d, odd)
+
+# Before priority 3, Varndean alone took the out-of-catchment fit to 0.00
+# while the other five sat at 0.82. That is the gap the tier closed, so the
+# slide carries both fits rather than asserting the old one.
+fsm_ns <- o_fsm_ns$tiers |>
+  dplyr::transmute(name, m4 = p45_in, m5 = p45_out) |>
+  dplyr::inner_join(foi_fsm, by = "name") |>
+  dplyr::mutate(school = short_sch(name), odd = school == "Varndean")
+vd_ns     <- dplyr::filter(fsm_ns, odd)
+r2_out_ns <- r2(fsm_ns$m5, fsm_ns$p5)
+worst     <- fsm_d[which.max(abs(fsm_d$m5 - fsm_d$p5)), ]
 
 fsm_long <- dplyr::bind_rows(
   fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
     "In catchment (priority 4)      R² = %.2f", r2(m4, p4)),
     modelled = m4, actual = p4),
   fsm_d |> dplyr::transmute(school, odd, panel = sprintf(
-    "Out of catchment (priority 5)      R² = %.2f, or %.2f without Varndean",
-    r2_out_all, r2_out_less),
+    "Out of catchment (priority 5)      R² = %.2f, against %.2f before priority 3",
+    r2_out_all, r2_out_ns),
     modelled = m5, actual = p5))
 
 ggplot(fsm_long, aes(actual, modelled)) +
@@ -693,37 +707,47 @@ children each school actually admitted under each priority.
 `r sprintf("%.2f", r2(fsm_d$m4, fsm_d$p4))`, average error
 `r sprintf("%.1f", mean(abs(fsm_d$m4 - fsm_d$p4)))` children.
 
-**Out of catchment the total is right and the destinations are not**:
-`r sprintf("%.0f", sum(fsm_d$m5))` children modelled against
-`r sum(fsm_d$p5)` actual, but at the wrong schools. One does nearly all
-of it — the model places **`r sprintf("%.0f", vd$m5)` at Varndean;
-`r vd$p5` went**.
+**Out of catchment it failed, and the failure was the finding**: the total
+was right — `r sprintf("%.0f", sum(fsm_ns$m5))` children modelled against
+`r sum(fsm_ns$p5)` admitted — but one school took the fit apart. The model
+put **`r sprintf("%.0f", vd_ns$m5)` children at Varndean against
+`r vd_ns$p5` admitted**, and R² out of catchment was
+`r sprintf("%.2f", r2_out_ns)`.
+
+**Adding priority 3 closed it.** Varndean comes to
+**`r sprintf("%.0f", vd$m5)` against `r vd$p5`** and the fit to
+**`r sprintf("%.2f", r2_out_all)`**. The largest error left is
+`r worst$school`, at `r sprintf("%+.0f", worst$m5 - worst$p5)`.
 :::
 :::
 
 :::: {.column width="48%"}
 ::: key-finding
-**Why Varndean, and why no parameter fixes it.** The council admits
-siblings under priority 3, above both free-school-meal tiers — 70
-children at Varndean. The model has no priority 3: looked-after
-children, SEN and siblings cannot be told apart in zone-level flows.
+**What Varndean was telling us.** The council admits siblings under
+priority 3, above both free-school-meal tiers — 70 children at
+Varndean. The model had no priority 3: looked-after children, SEN and
+siblings could not be told apart in zone-level flows.
 
-So a disadvantaged child with a sibling there lands in the model's
-tier 5 and in the council's priority 3. The two numbers are not
-counting the same children.
+So a disadvantaged child with a sibling there landed in the model's
+tier 5 and in the council's priority 3. The two numbers were not
+counting the same children — and that is a rule the model was missing,
+not a parameter it had wrong. **Priority 3 is now part of the
+baseline**, fitted with the 2025/26 counting rule.
 :::
 ::::
 ::::::
 
 ::: {style="font-size:0.72em; margin-top:-0.2rem;"}
-I tried the obvious fixes — letting these children decay with distance
-on their own terms, then flattening how much a school's reputation
-pulls them. Steeper decay makes the fit **worse on every measure**: the
-city-wide total was already right, so suppressing travel breaks a
-number that worked. Flattening attractiveness helps slightly and leaves
-Varndean at 31 against 5. **It is a definitional gap, not a behavioural
-one** — which is a more useful thing to know, and took an FOI, a sweep
-that failed, and the project's own model guide to establish.
+First I tried the obvious fixes — letting these children decay with
+distance on their own terms, then flattening how much a school's
+reputation pulls them. Steeper decay made the fit **worse on every
+measure**: the city-wide total was already right, so suppressing travel
+breaks a number that worked. Flattening attractiveness helped slightly
+and still left Varndean far outside the others. **It was a definitional
+gap, not a behavioural one** — the more useful thing to find, because a
+definition can be written down. It took an FOI, a parameter sweep that
+failed, and the project's own model guide to establish; the tier it
+pointed to is now the model's baseline.
 :::
 
 # What the Model Says {background-color="#361a54"}

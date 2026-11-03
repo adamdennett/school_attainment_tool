@@ -4,7 +4,7 @@ subtitle: "A Complete Model of Brighton and Hove's Secondary School System in Fi
 author:
   - name: Prof Adam Dennett FRGS FAcSS
     affiliations: "Bartlett Centre for Advanced Spatial Analysis, UCL"
-date: today
+date: "2026-10-15"
 date-format: "dddd D MMMM YYYY"
 title-slide-attributes:
   data-background-color: "#993bff"
