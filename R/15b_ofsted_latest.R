@@ -26,6 +26,9 @@
 #                   school last graded before 2019, its latest ungraded
 #                   outcome alone
 #   ofsted_latest_date, and every report-card area as rc_*
+#   oeif_modal      for an inspection with no overall grade, one grade on
+#                   the old scale: the most common of its key judgements,
+#                   ties going to quality of education (modal_grade())
 #
 # Output: data/ofsted/ofsted_latest.rds (attribute "as_at": the date the
 # release covers). Raw file kept in data-raw/ofsted/.
@@ -69,6 +72,23 @@ fetch_mi <- function(force = FALSE) {
   list(path = path, as_at = m$as_at)
 }
 
+#' One grade for an inspection that gave none overall: the most common of
+#' its key judgements (1 to 4; 9, not applicable, and blanks ignored), ties
+#' going to quality of education, the judgement the old overall grade
+#' usually followed. Quality of education is the first argument.
+modal_grade <- function(...) {
+  g <- do.call(cbind, lapply(list(...), function(x) suppressWarnings(as.integer(x))))
+  g[!g %in% 1:4] <- NA
+  out <- apply(g, 1, function(r) {
+    qoe <- r[1]; r <- r[!is.na(r)]
+    if (!length(r)) return(NA_integer_)
+    n <- tabulate(r, 4); top <- which(n == max(n))
+    # a tie quality of education does not settle goes to the lower grade
+    if (length(top) == 1) top else if (!is.na(qoe) && qoe %in% top) qoe else max(top)
+  })
+  unname(OLD_GRADES[as.character(out)])
+}
+
 d_m_y <- function(x) suppressWarnings(lubridate::dmy(x))
 mon <- function(d) format(d, "%b %Y")
 
@@ -84,6 +104,11 @@ build_ofsted_latest <- function(force = FALSE, save = TRUE) {
       oeif_date = d_m_y(`Inspection start date of latest OEIF graded inspection`),
       oeif_overall = `Latest OEIF overall effectiveness`,
       oeif_qoe  = unname(OLD_GRADES[`Latest OEIF quality of education`]),
+      oeif_modal = modal_grade(`Latest OEIF quality of education`, `Latest OEIF behaviour and attitudes`,
+                               `Latest OEIF personal development`,
+                               `Latest OEIF effectiveness of leadership and management`,
+                               `Latest OEIF early years provision (where applicable)`,
+                               `Latest OEIF sixth form provision (where applicable)`),
       ug_date   = d_m_y(`Date of latest ungraded inspection`),
       ug_outcome = `Ungraded inspection overall outcome`),
     rc) |>
@@ -113,7 +138,7 @@ build_ofsted_latest <- function(force = FALSE, save = TRUE) {
           sub(" - S5 Next$", "", sub("^School r", "R", ug_outcome)), " (", mon(ug_date), ", ungraded visit)"))) |>
     filter(!is.na(URN)) |>
     select(URN, ofsted_kind, ofsted_latest, ofsted_latest_date, all_of(names(RC_AREAS)),
-           oeif_date, oeif_overall, oeif_qoe, ug_date, ug_outcome)
+           oeif_date, oeif_overall, oeif_qoe, oeif_modal, ug_date, ug_outcome)
   attr(out, "as_at") <- f$as_at
   message(sprintf("  %d schools, as at %s: %s", nrow(out), format(f$as_at, "%d %B %Y"),
                   paste(names(table(out$ofsted_kind)), table(out$ofsted_kind), collapse = ", ")))
