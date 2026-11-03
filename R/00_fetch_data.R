@@ -22,9 +22,11 @@
 # (R/17 onward). This is the layer the decks and destination analyses read.
 # ---------------------------------------------------------------------------
 
-# What each step writes, and which steps it needs first. Order matters:
-# R/20 uses the GIAS closures from R/10, and R/13 validates against the KS2
-# panel from R/20.
+# What each step writes, and which steps it needs first. `needs` is checked
+# but never sorted on, so a step must also be LISTED after everything it
+# needs. R/20 uses the GIAS closures from R/10; R/14 reads the KS2 panel
+# from R/20; R/13 validates against the GIAS establishments and both the
+# KS2 and KS5 panels.
 STEPS <- list(
   gias = list(script = "R/10_gias_closures.R",
               outputs = c("data/gias/gias_establishments.rds", "data/gias/school_closures.rds")),
@@ -42,14 +44,14 @@ STEPS <- list(
   place = list(script = "R/12_ees_place_demand.R",
               outputs = c("data/place/absence_residence_idaci.rds",
                           "data/place/pupil_projections.rds", "data/place/pupil_yield.rds")),
-  early_years = list(script = "R/14_early_years_baselines.R",
-              outputs = "data/early_years/la_entry_baselines.rds"),
   ks2 = list(script = "R/20_extract_ks2.R", needs = "gias",
               outputs = "data/ks2/ks2_panel.rds"),
-  census = list(script = "R/13_census_context.R", needs = "ks2",
-              outputs = c("data/census/school_census_context.rds", "data/cache/oa_pwc_2021.rds")),
   ks5 = list(script = "R/30_extract_ks5.R",
               outputs = "data/ks5/ks5_panel.rds"),
+  early_years = list(script = "R/14_early_years_baselines.R", needs = "ks2",
+              outputs = "data/early_years/la_entry_baselines.rds"),
+  census = list(script = "R/13_census_context.R", needs = c("gias", "ks2", "ks5"),
+              outputs = c("data/census/school_census_context.rds", "data/cache/oa_pwc_2021.rds")),
   # Opt-in (--analysis-f): renders the whole of model_experiments.qmd,
   # which fits many models, to produce one small cache. Analysis F is the
   # thing to promote into a script of its own.
