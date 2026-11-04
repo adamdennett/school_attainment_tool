@@ -1189,9 +1189,9 @@ Everything open and downloadable from my github
 
 ## The model underneath {.smaller}
 
-A **spatial interaction model** — the same family used for commuting,
-migration and retail catchments since the 1970s. It predicts how many
-children flow from each neighbourhood to each school.
+A **spatial interaction model** — a development of Newton's Gravity equation.
+
+Used for modelling commuting, migration and retail catchments since the 1970s. It predicts how many children flow from each neighbourhood to each school.
 
 $$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta}$$
 
@@ -1343,8 +1343,7 @@ numbers that did not exist when it was built:
 
 - A Freedom of Information request produced the confirmed September
   position by admission priority. The model had never seen it.
-- Longhill's modelled 2026 intake of **90** sits inside the FOI's actual
-  range of **91 to 99**.
+- Longhill's modelled 2026 intake of **90** sits very close to the FOI's actual range of **91 to 99**.
 :::
 
 ::::: {.column width="50%"}
@@ -1444,15 +1443,15 @@ finished eighteen days later.
 I knew what to ask for and what to examine **because I had built a smaller version of it myself**. The ***Human in the loop*** was vital in this process - asking the right questions, giving the right instructions, reviewing the outputs and forcing iteration
 :::
 
-## What AI has changed for me {.smaller}
+## What AI has changed for me
 
 :::::: columns
 ::: {.column width="50%"}
-- **It does not replace knowing things.** 
+- **It** ***does not*** **replace knowing things.** 
 - Every moment that mattered in this project turned on domain knowledge I had and it did not. 
 - Several times it produced something plausible but not quite right, and the only reason it got caught was my experience.
 
-- **It does collapse the cost of trying.** 
+- **It** ***does*** **collapse the cost of trying.** 
 - Each scenario I tested would have been a week of work. I would have tested a couple, but I tested twenty-odd.
 :::
 

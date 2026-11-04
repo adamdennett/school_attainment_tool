@@ -1190,9 +1190,9 @@ Everything open and downloadable from my github
 
 ## The model underneath {.smaller}
 
-A **spatial interaction model** — the same family used for commuting,
-migration and retail catchments since the 1970s. It predicts how many
-children flow from each neighbourhood to each school.
+A **spatial interaction model** — a development of Newton's Gravity equation.
+
+Used for modelling commuting, migration and retail catchments since the 1970s. It predicts how many children flow from each neighbourhood to each school.
 
 $$T_{ij} \;=\; A_i\,O_i\;\;W_j\;\;c_{ij}^{-\beta}\;\;e^{\gamma_h}\;\;C_j^{\delta}$$
 
@@ -1344,8 +1344,7 @@ numbers that did not exist when it was built:
 
 - A Freedom of Information request produced the confirmed September
   position by admission priority. The model had never seen it.
-- Longhill's modelled 2026 intake of **90** sits inside the FOI's actual
-  range of **91 to 99**.
+- Longhill's modelled 2026 intake of **90** sits very close to the FOI's actual range of **91 to 99**.
 :::
 
 ::::: {.column width="50%"}
@@ -1371,7 +1370,6 @@ audits every term.
 
 ::::::: columns
 :::: {.column width="52%"}
-- The model underpinning the simulator is a development of Newton's Gravity equation.
 - The Spatial Interaction Model was first popularised by Sir Alan Wilson in 1970 and used successfully to solve spatial problems in cities for decades
 - I've been building these models for 20-years. I had a hand-written prototype of this one on my computer from 2024, and a routing pipeline to go with it.
 -  What I did not have was **a month of uninterrupted time** to turn it
@@ -1445,15 +1443,15 @@ finished eighteen days later.
 I knew what to ask for and what to examine **because I had built a smaller version of it myself**. The ***Human in the loop*** was vital in this process - asking the right questions, giving the right instructions, reviewing the outputs and forcing iteration
 :::
 
-## What AI has changed for me {.smaller}
+## What AI has changed for me
 
 :::::: columns
 ::: {.column width="50%"}
-- **It does not replace knowing things.** 
+- **It** ***does not*** **replace knowing things.** 
 - Every moment that mattered in this project turned on domain knowledge I had and it did not. 
 - Several times it produced something plausible but not quite right, and the only reason it got caught was my experience.
 
-- **It does collapse the cost of trying.** 
+- **It** ***does*** **collapse the cost of trying.** 
 - Each scenario I tested would have been a week of work. I would have tested a couple, but I tested twenty-odd.
 :::
 
@@ -1635,8 +1633,8 @@ person. Which is why the next bit is not me talking.
 ## The question for your table {.smaller}
 
 ::: {style="font-size:1.1em; text-align:center; margin:1.1em 0 1.3em 0;"}
-**What is a problem in this city you would want to solve with data —
-where right now we are just arguing about one option at a time?**
+***What is a problem in this city you would want to solve with data —
+where right now we are just arguing about one option at a time?***
 :::
 
 :::::: columns
@@ -1652,8 +1650,7 @@ Three prompts, if they help:
 
 :::: {.column width="50%"}
 ::: key-finding
-Do not worry about whether it is technically possible. I will tell you
-afterwards.
+Do not worry about whether it is technically possible
 
 The ideas that sound **obviously impossible** are often the most useful
 ones to hear — they tend to be the ones where the data already exists
