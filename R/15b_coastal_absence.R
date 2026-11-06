@@ -171,6 +171,7 @@ build_coastal <- function(path = here::here("data", "coastal_absence.rds")) {
   y6_ranked <- a |> filter(tp == max(tp)) |> mutate(rank6 = rank(-y6, na.last = "keep"))
 
   out <- list(
+    school_km = y |> distinct(urn, km),
     la = ic, la_models = la_models, school_models = school_models, by_year = by_year,
     school_res = school_res, cohort_models = cohort_models,
     cohort_means = cohort |> group_by(coast) |>

@@ -940,6 +940,11 @@ reasons rather than illness, and the choice of 10 km is a judgement: it
 leaves out Southampton, whose water closes up as an estuary, and large
 counties such as Devon whose coastal schools are outnumbered.
 
+A fuller test, with many more intake measures, is on [What goes with
+school absence](https://adamdennett.github.io/school_value_added/absence_causes.html#sec-coastal).
+There, what is left of the coastal gap is small and mostly illness, and
+the Year 7 to 8 rise is in unauthorised absence rather than illness.
+
 ## What "illness" is, and what it is not
 
 This is where the data stops and the honest reading begins.
