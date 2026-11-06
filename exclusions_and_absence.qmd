@@ -43,6 +43,15 @@ library(ggplot2)
 library(scales)
 
 X <- readRDS(here::here("data", "exclusions_absence.rds"))
+# Built by R/15b_coastal_absence.R.
+CO <- readRDS(here::here("data", "coastal_absence.rds"))
+lm_ill  <- CO$la_models |> filter(label == "Illness")
+sm_full <- CO$school_models |> filter(outcome == "Illness", label == "+ region")
+bh_co   <- CO$la |> filter(bh)
+bh_sr   <- CO$school_res |> filter(grepl("Brighton and Hove", la_name))
+co_la   <- function(n) CO$la |> filter(la_name == n)
+cm      <- function(v) CO$cohort_means |> filter(coast == v)
+chm     <- function(l) CO$cohort_models |> filter(label == l)
 
 INK    <- "#1a1a2e"
 PURPLE <- "#361a54"
@@ -812,9 +821,8 @@ city posts `r fmt(X$illness_ctx$illness[ic_bh])` — **`r fmt(X$illness_ctx$resi
 points above expectation**, the `r ord(X$illness_ctx$rank_resid[ic_bh])`
 largest excess in the country.
 
-The company it keeps is striking: Isle of Wight, Torbay, South Tyneside,
-Bristol, Plymouth. Coastal and peripheral authorities, several of them
-with the same mix of visible affluence and concentrated deprivation.
+The authorities nearest to it include the Isle of Wight, South Tyneside,
+Torbay, Camden and Bristol. Several are coastal, which is tested below.
 
 ::: callout-note
 ## Why this matters for reading any school's attendance
@@ -831,6 +839,106 @@ For Brighton & Hove, with its unusually sharp split between affluent
 and deprived catchments, that is worth knowing before anyone compares
 one of its schools with another on an authorised/unauthorised basis.
 :::
+
+## Is it a coastal problem?
+
+The authorities closest to Brighton & Hove on this measure look coastal,
+and there is an outside reason to ask. [Census data from The Engagement
+Platform](https://www.tep.uk/news-updates/what-engagement-data-reveals-about-coastal-schools)
+reports weaker belonging and enjoyment among coastal secondary pupils,
+and a steeper fall in engagement between Year 7 and Year 8. That comes
+from a commercial provider, it gives no sample sizes, and it holds no
+attendance data, but it points at the same part of the system as the
+hypothesis below. The published absence data can test it.
+
+Coastal here is measured rather than listed. A school is coastal if it
+is within 10 km of the sea, and an authority if at least half its
+sessions are in such schools. That makes `r sum(CO$la$coast, na.rm = TRUE)`
+of `r nrow(CO$la)` authorities and `r CO$school_models$n_coastal[1]` of
+`r fmt(CO$school_models$n[1], 0)` schools coastal.
+
+```{r tbl-coastal}
+#| tbl-cap: "How much more illness-coded absence coastal schools record than others, in percentage points of possible sessions, under successive controls. Standard errors are clustered on local authority."
+CO$school_models |>
+  filter(outcome == "Illness") |>
+  transmute(`Allowing for` = c("Nothing", "Disadvantage",
+                               "Disadvantage, EAL and SEN",
+                               "Disadvantage, EAL, SEN and region"),
+            `Coastal excess (pp)` = sprintf("%+.2f", est),
+            `Standard error` = sprintf("%.2f", se),
+            p = ifelse(p < 0.001, "<0.001", sprintf("%.3f", p))) |>
+  knitr::kable(align = "lrrr")
+```
+
+**Coastal authorities do record more of it, but most of the gap is who
+they teach and where they are.** After disadvantage, a coastal authority
+records `r fmt(lm_ill$est)` points more illness absence than an inland
+one. Coastal schools have far fewer pupils with English as an additional
+language and rather more with special educational needs. Once those and
+region are included, the excess is `r fmt(sm_full$est)` points and can no
+longer be told apart from zero. That last step may go too far, because
+having few EAL pupils is partly what a coastal intake is, so the fair
+range is about `r fmt(sm_full$est)` to `r fmt(lm_ill$est)` points.
+
+**Nor is it specific to illness.** Coastal authorities also record
+`r fmt(CO$la_models$est[CO$la_models$label == "Unauthorised, other"])`
+points more unauthorised absence after disadvantage, and
+`r fmt(CO$la_models$est[CO$la_models$label == "All absence"])` points
+more absence of all kinds. The spread among them is wide too: illness
+absence is `r fmt(co_la("Isle of Wight")$illness)` on the Isle of Wight
+and `r fmt(co_la("Blackpool")$illness)` in Blackpool.
+
+```{r fig-coastal}
+#| fig-cap: "Illness absence above or below what disadvantage predicts, against the share of each authority's secondary sessions in schools within 10 km of the sea. Local authorities with more than a million possible secondary sessions, 2025/26."
+#| fig-height: 5
+named <- CO$la |>
+  filter(la_name %in% c("Brighton and Hove", "Isle of Wight", "South Tyneside",
+                        "Torbay", "Camden", "Blackpool"))
+ggplot(CO$la, aes(share, resid)) +
+  geom_hline(yintercept = 0, colour = "grey75") +
+  geom_vline(xintercept = 0.5, colour = "grey75", linetype = "31") +
+  geom_point(colour = GREY, alpha = 0.55, size = 2.4) +
+  geom_point(data = filter(CO$la, bh), colour = BRIGHT, size = 3.6) +
+  geom_text(data = named, aes(label = sub(" and Hove", " & Hove", la_name)),
+            hjust = ifelse(named$share > 0.9, 1.1, -0.1), vjust = -0.5,
+            size = 3.4, colour = INK) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0.03, 0.03))) +
+  labs(title = "A few coastal authorities stand out; most do not",
+       x = "Share of sessions in schools within 10 km of the sea",
+       y = "Illness absence against expectation (pp)") +
+  theme_note()
+```
+
+**And it does not explain Brighton & Hove.** Adding the coastal term
+takes the city's excess from `r fmt(bh_co$resid)` points to
+`r fmt(bh_co$resid_coast)`, still `r ord(rank(-CO$la$resid_coast)[CO$la$bh])`
+highest in England. Compared on disadvantage, EAL, SEN and region, its
+schools average `r fmt(bh_sr$r)` points above expectation, the
+`r ord(bh_sr$rank)` largest excess of any authority. Camden, which has no
+coast, is also among the highest.
+
+**The Year 7 to 8 pattern is a weak echo at most.** Absence by year
+group is published for each authority up to 2024/25, so the same children
+can be followed from one year to the next. Absence rises
+`r fmt(cm(TRUE)$step78)` points between Year 7 and Year 8 in coastal
+authorities and `r fmt(cm(FALSE)$step78)` elsewhere. After disadvantage
+that is a gap of `r fmt(chm("Year 7 to 8: disadvantage only")$est)` points,
+but with EAL, SEN and region it is
+`r fmt(chm("Year 7 to 8: + EAL, SEN and region")$est)`
+(p = `r fmt(chm("Year 7 to 8: + EAL, SEN and region")$p, 3)`), and
+without Brighton & Hove
+`r fmt(chm("Year 7 to 8: as above, without B&H")$est)`.
+The city's own rises in those two cohorts, of
+`r fmt(CO$cohort_bh$step78[1])` and `r fmt(CO$cohort_bh$step78[2])`
+points, are well above either group. Its absence is already high before
+secondary transfer, though: Year 6 is `r ord(CO$y6_bh$rank6)` highest
+among authorities in 2024/25.
+
+So being on the coast accounts for only a small part of the city's
+illness excess, and the rest needs another explanation. These are associations between areas, year-group absence covers all
+reasons rather than illness, and the choice of 10 km is a judgement: it
+leaves out Southampton, whose water closes up as an estuary, and large
+counties such as Devon whose coastal schools are outnumbered.
 
 ## What "illness" is, and what it is not
 
